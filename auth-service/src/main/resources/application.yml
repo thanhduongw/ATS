@@ -12,6 +12,22 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: levuthanhduong2004@gmail.com
+    password: qkas gspe vvdj fcqj
     properties:
-      hibernate:
-        format_sql: true
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+app:
+  jwt:
+    secret: "thay-bang-chuoi-bi-mat-it-nhat-256-bit-doi-truoc-khi-deploy"
+    access-token-expiration-ms: 900000
+    refresh-token-expiration-ms: 604800000
+  otp:
+    expiration-minutes: 10

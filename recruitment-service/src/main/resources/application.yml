@@ -1,0 +1,17 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: recruitment-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ats_recruitment
+    username: ats_user
+    password: ats_password
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true

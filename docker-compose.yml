@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: ats-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ats_user
+      POSTGRES_PASSWORD: ats_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d
+    networks:
+      - ats-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ats-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"    # AMQP port cho các service kết nối
+      - "15672:15672"  # RabbitMQ Management UI: http://localhost:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: ats_user
+      RABBITMQ_DEFAULT_PASS: ats_password
+    networks:
+      - ats-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ats-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - ats-network
+
+volumes:
+  pgdata:
+
+networks:
+  ats-network:
+    driver: bridge

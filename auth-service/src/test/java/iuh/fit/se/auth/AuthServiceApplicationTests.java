@@ -1,4 +1,4 @@
-package iuh.fit.se;
+package iuh.fit.se.auth;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

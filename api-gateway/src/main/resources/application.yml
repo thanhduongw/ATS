@@ -31,3 +31,7 @@ spring:
           uri: http://localhost:8086
           predicates:
             - Path=/api/notification/**
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:thay-bang-chuoi-bi-mat-it-nhat-256-bit-truoc-khi-deploy-thuc-te}

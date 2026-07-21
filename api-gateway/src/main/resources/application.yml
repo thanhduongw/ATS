@@ -4,29 +4,50 @@ server:
 spring:
   application:
     name: api-gateway
+
   cloud:
     gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:5173"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+
       routes:
         - id: auth-service
           uri: http://localhost:8081
           predicates:
             - Path=/api/auth/**
+
         - id: masterdata-service
           uri: http://localhost:8082
           predicates:
             - Path=/api/masterdata/**
+
         - id: recruitment-service
           uri: http://localhost:8083
           predicates:
             - Path=/api/recruitment/**
+
         - id: candidate-service
           uri: http://localhost:8084
           predicates:
             - Path=/api/candidate/**
+
         - id: interview-service
           uri: http://localhost:8085
           predicates:
             - Path=/api/interview/**
+
         - id: notification-service
           uri: http://localhost:8086
           predicates:

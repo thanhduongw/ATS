@@ -12,6 +12,14 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ats_user
+    password: ats_password
+
+services:
+  auth-service:
+    url: http://localhost:8081
+  masterdata-service:
+    url: http://localhost:8082

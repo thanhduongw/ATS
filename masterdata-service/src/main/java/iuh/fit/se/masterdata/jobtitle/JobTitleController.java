@@ -1,8 +1,8 @@
-package iuh.fit.se.masterdata.emailtemplate;
+package iuh.fit.se.masterdata.jobtitle;
 
 import iuh.fit.se.masterdata.common.AccessGuard;
-import iuh.fit.se.masterdata.emailtemplate.dto.EmailTemplateRequest;
-import iuh.fit.se.masterdata.emailtemplate.dto.EmailTemplateResponse;
+import iuh.fit.se.masterdata.jobtitle.dto.JobTitleRequest;
+import iuh.fit.se.masterdata.jobtitle.dto.JobTitleResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -11,32 +11,32 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/masterdata/email-templates")
+@RequestMapping("/api/masterdata/job-titles")
 @RequiredArgsConstructor
-public class EmailTemplateController {
+public class JobTitleController {
 
-    private final EmailTemplateService service;
+    private final JobTitleService service;
 
     @GetMapping
-    public ResponseEntity<List<EmailTemplateResponse>> getAll(@RequestHeader("X-Tenant-Id") Long tenantId) {
+    public ResponseEntity<List<JobTitleResponse>> getAll(@RequestHeader("X-Tenant-Id") Long tenantId) {
         return ResponseEntity.ok(service.getAll(tenantId));
     }
 
     @PostMapping
-    public ResponseEntity<EmailTemplateResponse> create(
+    public ResponseEntity<JobTitleResponse> create(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Role") String role,
-            @Valid @RequestBody EmailTemplateRequest req) {
+            @Valid @RequestBody JobTitleRequest req) {
         AccessGuard.requireCompanyAdmin(role);
         return ResponseEntity.ok(service.create(tenantId, req));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<EmailTemplateResponse> update(
+    public ResponseEntity<JobTitleResponse> update(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
-            @Valid @RequestBody EmailTemplateRequest req) {
+            @Valid @RequestBody JobTitleRequest req) {
         AccessGuard.requireCompanyAdmin(role);
         return ResponseEntity.ok(service.update(tenantId, id, req));
     }

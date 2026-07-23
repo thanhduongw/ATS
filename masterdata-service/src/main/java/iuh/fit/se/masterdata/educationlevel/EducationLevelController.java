@@ -1,8 +1,8 @@
-package iuh.fit.se.masterdata.emailtemplate;
+package iuh.fit.se.masterdata.educationlevel;
 
 import iuh.fit.se.masterdata.common.AccessGuard;
-import iuh.fit.se.masterdata.emailtemplate.dto.EmailTemplateRequest;
-import iuh.fit.se.masterdata.emailtemplate.dto.EmailTemplateResponse;
+import iuh.fit.se.masterdata.educationlevel.dto.EducationLevelRequest;
+import iuh.fit.se.masterdata.educationlevel.dto.EducationLevelResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -11,32 +11,32 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/masterdata/email-templates")
+@RequestMapping("/api/masterdata/education-levels")
 @RequiredArgsConstructor
-public class EmailTemplateController {
+public class EducationLevelController {
 
-    private final EmailTemplateService service;
+    private final EducationLevelService service;
 
     @GetMapping
-    public ResponseEntity<List<EmailTemplateResponse>> getAll(@RequestHeader("X-Tenant-Id") Long tenantId) {
+    public ResponseEntity<List<EducationLevelResponse>> getAll(@RequestHeader("X-Tenant-Id") Long tenantId) {
         return ResponseEntity.ok(service.getAll(tenantId));
     }
 
     @PostMapping
-    public ResponseEntity<EmailTemplateResponse> create(
+    public ResponseEntity<EducationLevelResponse> create(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Role") String role,
-            @Valid @RequestBody EmailTemplateRequest req) {
+            @Valid @RequestBody EducationLevelRequest req) {
         AccessGuard.requireCompanyAdmin(role);
         return ResponseEntity.ok(service.create(tenantId, req));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<EmailTemplateResponse> update(
+    public ResponseEntity<EducationLevelResponse> update(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
-            @Valid @RequestBody EmailTemplateRequest req) {
+            @Valid @RequestBody EducationLevelRequest req) {
         AccessGuard.requireCompanyAdmin(role);
         return ResponseEntity.ok(service.update(tenantId, id, req));
     }

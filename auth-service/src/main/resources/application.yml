@@ -30,7 +30,7 @@ spring:
     password: ats_password
 app:
   jwt:
-    secret: "thay-bang-chuoi-bi-mat-it-nhat-256-bit-doi-truoc-khi-deploy"
+    secret: ${JWT_SECRET:thay-bang-chuoi-bi-mat-it-nhat-256-bit-truoc-khi-deploy-thuc-te}
     access-token-expiration-ms: 900000
     refresh-token-expiration-ms: 604800000
   otp:

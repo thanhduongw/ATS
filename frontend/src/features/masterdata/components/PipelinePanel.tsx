@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+    App,
     Button,
     Card,
     Empty,
     Form,
     Input,
-    List,
     Modal,
     Popconfirm,
     Select,
     Space,
     Typography,
-    message,
+    Spin,
 } from "antd";
 import { DeleteOutlined, HolderOutlined, PlusOutlined } from "@ant-design/icons";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
@@ -60,6 +60,7 @@ let localKeyCounter = 0;
 const nextLocalKey = () => `new-${Date.now()}-${localKeyCounter++}`;
 
 export default function PipelinePanel() {
+    const { message } = App.useApp();
     const [pipelines, setPipelines] = useState<PipelineResponse[]>([]);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [pipelineName, setPipelineName] = useState("");
@@ -197,20 +198,32 @@ export default function PipelinePanel() {
                         Thêm
                     </Button>
                 </div>
-                <List
-                    loading={loading}
-                    bordered
-                    dataSource={pipelines}
-                    renderItem={(pipeline) => (
-                        <List.Item
-                            onClick={() => applyPipelineToState(pipeline)}
-                            style={{
-                                cursor: "pointer",
-                                background: pipeline.id === selectedId ? "#e6f4ff" : undefined,
-                            }}
-                            actions={[
+                <Spin spinning={loading}>
+                    <div style={{ border: "1px solid #f0f0f0", borderRadius: 8 }}>
+                        {pipelines.length === 0 && (
+                            <div style={{ padding: 16 }}>
+                                <Empty description="Chưa có quy trình" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                            </div>
+                        )}
+                        {pipelines.map((pipeline, index) => (
+                            <div
+                                key={pipeline.id}
+                                onClick={() => applyPipelineToState(pipeline)}
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    padding: "12px 16px",
+                                    cursor: "pointer",
+                                    borderTop: index === 0 ? "none" : "1px solid #f0f0f0",
+                                    background: pipeline.id === selectedId ? "#e6f4ff" : undefined,
+                                }}
+                            >
+                                <span>
+                                    <Text strong={pipeline.id === selectedId}>{pipeline.name}</Text>
+                                    {pipeline.isDefault && <Text type="secondary"> (mặc định)</Text>}
+                                </span>
                                 <Popconfirm
-                                    key="delete"
                                     title="Ẩn quy trình này?"
                                     onConfirm={(e) => {
                                         e?.stopPropagation();
@@ -219,14 +232,11 @@ export default function PipelinePanel() {
                                     onCancel={(e) => e?.stopPropagation()}
                                 >
                                     <DeleteOutlined onClick={(e) => e.stopPropagation()} />
-                                </Popconfirm>,
-                            ]}
-                        >
-                            <Text strong={pipeline.id === selectedId}>{pipeline.name}</Text>
-                            {pipeline.isDefault && <Text type="secondary"> (mặc định)</Text>}
-                        </List.Item>
-                    )}
-                />
+                                </Popconfirm>
+                            </div>
+                        ))}
+                    </div>
+                </Spin>
             </div>
 
             <div style={{ flex: 1 }}>
@@ -236,7 +246,7 @@ export default function PipelinePanel() {
                             <Input
                                 value={pipelineName}
                                 onChange={(e) => setPipelineName(e.target.value)}
-                                bordered={false}
+                                variant="borderless"
                                 style={{ fontSize: 16, fontWeight: 600, padding: 0 }}
                             />
                         }

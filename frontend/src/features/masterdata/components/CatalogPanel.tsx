@@ -8,8 +8,8 @@ import {
     InputNumber,
     Tag,
     Popconfirm,
-    message,
     Typography,
+    App,
 } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
@@ -33,6 +33,7 @@ export default function CatalogPanel({ config }: CatalogPanelProps) {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
     const [form] = Form.useForm();
+    const { message } = App.useApp();
 
     const loadItems = useCallback(async () => {
         setLoading(true);
@@ -163,7 +164,7 @@ export default function CatalogPanel({ config }: CatalogPanelProps) {
                 onCancel={() => setModalOpen(false)}
                 okText={editingItem ? "Cập nhật" : "Thêm mới"}
                 cancelText="Hủy"
-                destroyOnClose
+                destroyOnHidden
             >
                 <Form form={form} layout="vertical">
                     {config.fields.map((field) => (

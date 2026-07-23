@@ -21,7 +21,7 @@ export default function MasterDataPage() {
     return (
         <div style={{ padding: 24 }}>
             <Card>
-                <Tabs tabPosition="left" items={items} style={{ minHeight: 560 }} />
+                <Tabs tabPlacement="start" items={items} style={{ minHeight: 560 }} />
             </Card>
         </div>
     );

@@ -23,7 +23,11 @@ spring:
           auth: true
           starttls:
             enable: true
-
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ats_user
+    password: ats_password
 app:
   jwt:
     secret: "thay-bang-chuoi-bi-mat-it-nhat-256-bit-doi-truoc-khi-deploy"

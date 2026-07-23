@@ -6,6 +6,7 @@ import iuh.fit.se.auth.entity.*;
 import iuh.fit.se.auth.enums.RoleName;
 import iuh.fit.se.auth.enums.TenantStatus;
 import iuh.fit.se.auth.enums.UserStatus;
+import iuh.fit.se.auth.event.TenantEventPublisher;
 import iuh.fit.se.auth.exception.BusinessException;
 import iuh.fit.se.auth.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class RegisterService {
     private final EmailVerificationRepository emailVerificationRepository;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
+    private final TenantEventPublisher tenantEventPublisher;
 
     @Value("${app.otp.expiration-minutes}")
     private int otpExpirationMinutes;
@@ -96,6 +98,7 @@ public class RegisterService {
 
         tenant.setStatus(TenantStatus.ACTIVE);
         tenantRepository.save(tenant);
+        tenantEventPublisher.publishTenantActivated(tenant.getId(), tenant.getTenantCode());
 
         AppUser user = appUserRepository.findByTenantIdAndEmail(tenant.getId(), req.email())
                 .orElseThrow(() -> new BusinessException("Không tìm thấy tài khoản"));

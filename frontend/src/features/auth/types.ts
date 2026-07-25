@@ -63,3 +63,10 @@ export interface AuthUser {
     tenantId: number;
     role: UserRole;
 }
+
+export interface UserSummaryResponse {
+    id: number;
+    fullName: string;
+    email: string;
+    role: UserRole;
+}

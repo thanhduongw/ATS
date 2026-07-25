@@ -6,6 +6,7 @@ import LoginPage from "../features/auth/pages/LoginPage";
 import DashboardPage from "../pages/DashboardPage";
 import MasterDataPage from "../features/masterdata/pages/MasterDataPage";
 import ProtectedRoute from "../components/ProtectedRoute";
+import RecruitmentPage from "../features/recruitment/pages/RecruitmentPage";
 
 export default function AppRoutes() {
     return (
@@ -19,6 +20,7 @@ export default function AppRoutes() {
             <Route element={<ProtectedRoute />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/masterdata" element={<MasterDataPage />} />
+                <Route path="/recruitment" element={<RecruitmentPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/login" replace />} />

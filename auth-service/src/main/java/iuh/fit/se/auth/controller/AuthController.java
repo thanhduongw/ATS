@@ -3,6 +3,7 @@ package iuh.fit.se.auth.controller;
 import iuh.fit.se.auth.dto.request.*;
 import iuh.fit.se.auth.dto.response.ApiMessageResponse;
 import iuh.fit.se.auth.dto.response.LoginResponse;
+import iuh.fit.se.auth.dto.response.UserSummaryResponse;
 import iuh.fit.se.auth.service.LoginService;
 import iuh.fit.se.auth.service.RegisterService;
 import iuh.fit.se.auth.service.UserService;
@@ -11,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -60,5 +63,13 @@ public class AuthController {
         }
         userService.createUser(tenantId, req);
         return ResponseEntity.ok(new ApiMessageResponse("Tạo tài khoản thành công"));
+    }
+
+    // Thêm vào class AuthController đã có
+    @GetMapping("/users")
+    public ResponseEntity<List<UserSummaryResponse>> getUsers(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestParam(required = false) String role) {
+        return ResponseEntity.ok(userService.getUsers(tenantId, role));
     }
 }

@@ -5,6 +5,7 @@ import type {
     LoginRequest,
     LoginResponse,
     ApiMessageResponse,
+    UserSummaryResponse,
 } from "./types";
 
 export const registerCompany = (data: RegisterCompanyRequest) =>
@@ -21,3 +22,6 @@ export const refreshTokenRequest = (refreshToken: string) =>
 
 export const logoutRequest = (refreshToken: string) =>
     axiosClient.post<ApiMessageResponse>("/auth/logout", { refreshToken });
+
+export const getUsers = (role?: string) =>
+    axiosClient.get<UserSummaryResponse[]>("/auth/users", { params: role ? { role } : {} });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Modal, Form, Input, InputNumber, Select, DatePicker, message } from "antd";
+import { Modal, Form, Input, InputNumber, Select, DatePicker, App } from "antd";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { requisitionSchema, type RequisitionFormValues } from "../schemas/requisitionSchema";
@@ -25,6 +25,7 @@ export default function RequisitionFormModal({
     onClose,
     onSuccess,
 }: RequisitionFormModalProps) {
+    const { message } = App.useApp();
     const [departments, setDepartments] = useState<CatalogItem[]>([]);
     const [jobTitles, setJobTitles] = useState<CatalogItem[]>([]);
     const [jobLevels, setJobLevels] = useState<CatalogItem[]>([]);
@@ -113,7 +114,7 @@ export default function RequisitionFormModal({
             okText={editingItem ? "Cập nhật" : "Tạo mới"}
             cancelText="Hủy"
             width={640}
-            destroyOnClose
+            destroyOnHidden
         >
             <Form layout="vertical">
                 <Form.Item label="Tiêu đề" validateStatus={errors.title ? "error" : ""} help={errors.title?.message}>

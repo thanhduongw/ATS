@@ -100,7 +100,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
             okText={editingItem ? "Cập nhật" : "Tạo mới"}
             cancelText="Hủy"
             width={640}
-            destroyOnClose
+            destroyOnHidden
         >
             {editingItem?.pipelineLocked && (
                 <Alert

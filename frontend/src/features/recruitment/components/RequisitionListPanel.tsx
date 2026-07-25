@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Tag, Segmented, message } from "antd";
+import { Table, Button, Tag, Segmented, App } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getRequisitions } from "../recruitmentApi";
@@ -25,6 +25,7 @@ const STATUS_LABEL: Record<RequisitionStatus, string> = {
 };
 
 export default function RequisitionListPanel() {
+    const { message } = App.useApp();
     const currentUser = useAppSelector((state) => state.auth.user);
     const [requisitions, setRequisitions] = useState<JobRequisitionResponse[]>([]);
     const [departmentMap, setDepartmentMap] = useState<Record<number, string>>({});

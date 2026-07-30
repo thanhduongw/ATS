@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Modal, Form, Input, Select, message, Alert } from "antd";
+import { Modal, Form, Input, Select, Alert, App } from "antd";
 import type { AxiosError } from "axios";
 import { postingSchema, type PostingFormValues } from "../schemas/postingSchema";
 import { createPosting, updatePosting, getRequisitions } from "../recruitmentApi";
@@ -17,6 +17,7 @@ interface Props {
 }
 
 export default function PostingFormModal({ open, editingItem, onClose, onSuccess }: Props) {
+    const { message } = App.useApp();
     const [approvedRequisitions, setApprovedRequisitions] = useState<JobRequisitionResponse[]>([]);
     const [employmentTypes, setEmploymentTypes] = useState<CatalogItem[]>([]);
     const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);

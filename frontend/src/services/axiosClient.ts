@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { store } from "../app/store";
-import { setCredentials, logout } from "../features/auth/authSlice.ts";
+import { setCredentials, logout } from "../features/auth/authSlice";
 import type { LoginResponse } from "../features/auth/types";
 
 // Mở rộng config của axios để gắn thêm cờ _retry (tránh loop refresh vô hạn)
@@ -8,8 +8,10 @@ interface RetriableRequestConfig extends InternalAxiosRequestConfig {
     _retry?: boolean;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+
 const axiosClient = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL,
+    baseURL: API_BASE_URL,
     headers: { "Content-Type": "application/json" },
 });
 
@@ -31,7 +33,7 @@ axiosClient.interceptors.response.use(
             originalRequest._retry = true;
             try {
                 const res = await axios.post<LoginResponse>(
-                    `${import.meta.env.VITE_API_BASE_URL}/auth/refresh-token`,
+                    `${API_BASE_URL}/auth/refresh-token`,
                     { refreshToken }
                 );
                 store.dispatch(setCredentials(res.data));

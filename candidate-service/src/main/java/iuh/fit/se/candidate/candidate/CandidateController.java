@@ -1,0 +1,61 @@
+package iuh.fit.se.candidate.candidate;
+
+import iuh.fit.se.candidate.candidate.dto.CandidateCreateRequest;
+import iuh.fit.se.candidate.candidate.dto.CandidateResponse;
+import iuh.fit.se.candidate.candidate.dto.CandidateUpdateRequest;
+import iuh.fit.se.candidate.common.AccessGuard;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/candidate/candidates")
+@RequiredArgsConstructor
+public class CandidateController {
+
+    private final CandidateService service;
+
+    @GetMapping
+    public ResponseEntity<List<CandidateResponse>> getAll(@RequestHeader("X-Tenant-Id") Long tenantId) {
+        return ResponseEntity.ok(service.getAll(tenantId));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<CandidateResponse> getById(
+            @RequestHeader("X-Tenant-Id") Long tenantId, @PathVariable Long id) {
+        return ResponseEntity.ok(service.getById(tenantId, id));
+    }
+
+    @PostMapping
+    public ResponseEntity<CandidateResponse> create(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody CandidateCreateRequest req) {
+        AccessGuard.requireRecruiterOrAbove(role);
+        return ResponseEntity.ok(service.create(tenantId, req));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<CandidateResponse> update(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id,
+            @Valid @RequestBody CandidateUpdateRequest req) {
+        AccessGuard.requireRecruiterOrAbove(role);
+        return ResponseEntity.ok(service.update(tenantId, id, req));
+    }
+
+    @PostMapping(value = "/{id}/cv", consumes = "multipart/form-data")
+    public ResponseEntity<CandidateResponse> uploadCv(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        AccessGuard.requireRecruiterOrAbove(role);
+        return ResponseEntity.ok(service.uploadCv(tenantId, id, file));
+    }
+}

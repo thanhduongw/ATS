@@ -6,6 +6,8 @@ import iuh.fit.se.masterdata.educationlevel.EducationLevel;
 import iuh.fit.se.masterdata.educationlevel.EducationLevelRepository;
 import iuh.fit.se.masterdata.employmenttype.EmploymentType;
 import iuh.fit.se.masterdata.employmenttype.EmploymentTypeRepository;
+import iuh.fit.se.masterdata.interviewcriteria.InterviewCriteria; // MỚI
+import iuh.fit.se.masterdata.interviewcriteria.InterviewCriteriaRepository; // MỚI
 import iuh.fit.se.masterdata.pipeline.PipelineStage;
 import iuh.fit.se.masterdata.pipeline.PipelineRepository;
 import iuh.fit.se.masterdata.pipeline.RecruitmentPipeline;
@@ -33,6 +35,7 @@ public class DefaultDataSeeder {
     private final RejectionReasonRepository rejectionReasonRepository;
     private final RecruitmentStatusRepository recruitmentStatusRepository;
     private final PipelineRepository pipelineRepository;
+    private final InterviewCriteriaRepository interviewCriteriaRepository; // MỚI
 
     @Transactional
     public void seedDefaults(Long tenantId) {
@@ -64,6 +67,16 @@ public class DefaultDataSeeder {
             recruitmentStatusRepository.save(RecruitmentStatus.builder()
                     .tenantId(tenantId).name(statuses[i]).orderNo(i + 1).active(true).build());
         }
+
+        // MỚI: seed tiêu chí đánh giá phỏng vấn mặc định
+        List.of(
+                "Kiến thức chuyên môn",
+                "Kỹ năng kỹ thuật",
+                "Kỹ năng mềm & giao tiếp",
+                "Thái độ & tư duy giải quyết vấn đề",
+                "Mức độ phù hợp với vị trí"
+        ).forEach(name -> interviewCriteriaRepository.save(
+                InterviewCriteria.builder().tenantId(tenantId).name(name).active(true).build()));
 
         seedDefaultPipeline(tenantId);
     }

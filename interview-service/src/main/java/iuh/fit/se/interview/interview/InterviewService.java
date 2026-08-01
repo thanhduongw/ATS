@@ -1,0 +1,156 @@
+package iuh.fit.se.interview.interview;
+
+import iuh.fit.se.interview.client.AuthServiceClient;
+import iuh.fit.se.interview.client.CandidateServiceClient;
+import iuh.fit.se.interview.client.MasterDataServiceClient;
+import iuh.fit.se.interview.client.RecruitmentServiceClient;
+import iuh.fit.se.interview.client.dto.*;
+import iuh.fit.se.interview.evaluation.InterviewEvaluation;
+import iuh.fit.se.interview.evaluation.InterviewEvaluationRepository;
+import iuh.fit.se.interview.event.InterviewEventPublisher;
+import iuh.fit.se.interview.exception.BusinessException;
+import iuh.fit.se.interview.interview.dto.InterviewCreateRequest;
+import iuh.fit.se.interview.interview.dto.InterviewResponse;
+import iuh.fit.se.interview.interview.dto.InterviewerSummary;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class InterviewService {
+
+    private static final String CV_SCREENING = "CV_SCREENING";
+
+    private final InterviewRepository interviewRepository;
+    private final InterviewEvaluationRepository evaluationRepository;
+    private final CandidateServiceClient candidateServiceClient;
+    private final RecruitmentServiceClient recruitmentServiceClient;
+    private final MasterDataServiceClient masterDataServiceClient;
+    private final AuthServiceClient authServiceClient;
+    private final InterviewEventPublisher eventPublisher;
+
+    public List<InterviewResponse> getAll(Long tenantId, Long applicationId) {
+        List<Interview> interviews = applicationId != null
+                ? interviewRepository.findByTenantIdAndApplicationIdOrderByScheduledAtDesc(tenantId, applicationId)
+                : interviewRepository.findByTenantIdOrderByScheduledAtDesc(tenantId);
+        return interviews.stream().map(this::toResponse).toList();
+    }
+
+    public InterviewResponse getById(Long tenantId, Long id) {
+        return toResponse(findOwned(tenantId, id));
+    }
+
+    @Transactional
+    public InterviewResponse create(Long tenantId, InterviewCreateRequest req) {
+        ApplicationSummaryResponse application = fetchApplication(req.applicationId());
+
+        JobPostingResponse posting = recruitmentServiceClient.getPostingById(application.jobPostingId());
+        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(posting.pipelineId());
+
+        PipelineStageResponse cvScreeningStage = pipeline.stages().stream()
+                .filter(s -> CV_SCREENING.equals(s.stageType()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("Quy trình tuyển dụng không có giai đoạn Sàng lọc CV"));
+
+        if (application.currentStageOrder() <= cvScreeningStage.stageOrder()) {
+            throw new BusinessException("Chỉ lên lịch phỏng vấn khi hồ sơ đã vượt qua giai đoạn Sàng lọc CV");
+        }
+
+        if (req.format() == InterviewFormat.ONLINE && (req.meetingLink() == null || req.meetingLink().isBlank())) {
+            throw new BusinessException("Phỏng vấn Online cần nhập link họp");
+        }
+        if (req.format() == InterviewFormat.OFFLINE && (req.location() == null || req.location().isBlank())) {
+            throw new BusinessException("Phỏng vấn Offline cần nhập địa điểm");
+        }
+
+        List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers("INTERVIEWER");
+        Map<Long, String> interviewerNameMap = interviewerPool.stream()
+                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
+
+        boolean allValid = req.interviewerIds().stream().allMatch(interviewerNameMap::containsKey);
+        if (!allValid) {
+            throw new BusinessException("Danh sách người phỏng vấn chứa tài khoản không hợp lệ");
+        }
+
+        Interview interview = Interview.builder()
+                .tenantId(tenantId)
+                .applicationId(req.applicationId())
+                .jobPostingId(application.jobPostingId())
+                .candidateNameSnapshot(application.candidateName())
+                .scheduledAt(req.scheduledAt())
+                .durationMinutes(req.durationMinutes())
+                .format(req.format())
+                .location(req.location())
+                .meetingLink(req.meetingLink())
+                .note(req.note())
+                .status(InterviewStatus.SCHEDULED)
+                .build();
+
+        req.interviewerIds().forEach(interviewerId -> interview.getInterviewers().add(
+                InterviewInterviewer.builder()
+                        .interview(interview)
+                        .interviewerId(interviewerId)
+                        .interviewerNameSnapshot(interviewerNameMap.get(interviewerId))
+                        .build()));
+
+        Interview saved = interviewRepository.save(interview);
+
+        req.interviewerIds().forEach(interviewerId -> evaluationRepository.save(
+                InterviewEvaluation.builder()
+                        .interview(saved)
+                        .interviewerId(interviewerId)
+                        .build()));
+
+        eventPublisher.publishInterviewScheduled(saved.getId(), saved.getApplicationId(), saved.getScheduledAt());
+
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public InterviewResponse cancel(Long tenantId, Long id) {
+        Interview interview = findOwned(tenantId, id);
+        if (interview.getStatus() != InterviewStatus.SCHEDULED) {
+            throw new BusinessException("Chỉ hủy được lịch đang ở trạng thái Đã lên lịch");
+        }
+        interview.setStatus(InterviewStatus.CANCELLED);
+        return toResponse(interviewRepository.save(interview));
+    }
+
+    private ApplicationSummaryResponse fetchApplication(Long applicationId) {
+        try {
+            return candidateServiceClient.getApplicationById(applicationId);
+        } catch (Exception e) {
+            throw new BusinessException("Không tìm thấy hồ sơ ứng tuyển");
+        }
+    }
+
+    private Interview findOwned(Long tenantId, Long id) {
+        return interviewRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy buổi phỏng vấn"));
+    }
+
+    private InterviewResponse toResponse(Interview interview) {
+        Map<Long, InterviewEvaluation> evalByInterviewer = evaluationRepository.findByInterviewId(interview.getId())
+                .stream().collect(Collectors.toMap(InterviewEvaluation::getInterviewerId, e -> e));
+
+        List<InterviewerSummary> interviewerSummaries = interview.getInterviewers().stream()
+                .map(i -> new InterviewerSummary(
+                        i.getInterviewerId(),
+                        i.getInterviewerNameSnapshot(),
+                        evalByInterviewer.containsKey(i.getInterviewerId())
+                                && evalByInterviewer.get(i.getInterviewerId()).getSubmittedAt() != null))
+                .toList();
+
+        return new InterviewResponse(
+                interview.getId(), interview.getApplicationId(), interview.getCandidateNameSnapshot(),
+                interview.getScheduledAt(), interview.getDurationMinutes(), interview.getFormat(),
+                interview.getLocation(), interview.getMeetingLink(), interview.getNote(),
+                interview.getStatus(), interviewerSummaries
+        );
+    }
+}

@@ -1,6 +1,7 @@
 package iuh.fit.se.auth.service;
 
 import iuh.fit.se.auth.dto.request.RegisterCompanyRequest;
+import iuh.fit.se.auth.dto.request.ResendOtpRequest;
 import iuh.fit.se.auth.dto.request.VerifyEmailRequest;
 import iuh.fit.se.auth.entity.*;
 import iuh.fit.se.auth.enums.RoleName;
@@ -75,6 +76,30 @@ public class RegisterService {
     }
 
     @Transactional
+    public void resendOtp(ResendOtpRequest req) {
+        Tenant tenant = tenantRepository.findByTenantCode(req.tenantCode())
+                .orElseThrow(() -> new BusinessException("Không tìm thấy công ty"));
+
+        AppUser user = appUserRepository.findByTenantIdAndEmail(tenant.getId(), req.email())
+                .orElseThrow(() -> new BusinessException("Không tìm thấy tài khoản trong công ty"));
+
+        if (user.getStatus() == UserStatus.ACTIVE) {
+            throw new BusinessException("Tài khoản này đã được xác thực trước đó");
+        }
+
+        String otp = String.format("%06d", new Random().nextInt(999999));
+        emailVerificationRepository.save(EmailVerification.builder()
+                .tenantId(tenant.getId())
+                .email(req.email())
+                .otpCode(otp)
+                .expiryDate(LocalDateTime.now().plusMinutes(otpExpirationMinutes))
+                .verified(false)
+                .build());
+
+        mailService.sendOtpEmail(req.email(), otp);
+    }
+
+    @Transactional
     public void verifyEmail(VerifyEmailRequest req) {
         Tenant tenant = tenantRepository.findByTenantCode(req.tenantCode())
                 .orElseThrow(() -> new BusinessException("Không tìm thấy công ty"));
@@ -87,7 +112,7 @@ public class RegisterService {
             throw new BusinessException("Email đã được xác thực");
         }
         if (verification.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("OTP đã hết hạn, vui lòng đăng ký lại");
+            throw new BusinessException("OTP đã hết hạn, vui lòng yêu cầu gửi lại OTP");
         }
         if (!verification.getOtpCode().equals(req.otpCode())) {
             throw new BusinessException("OTP không đúng");

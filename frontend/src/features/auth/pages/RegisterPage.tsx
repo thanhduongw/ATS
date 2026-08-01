@@ -1,6 +1,6 @@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, Input, Button, Card, Typography, message } from "antd";
+import { Form, Input, Button, Card, Typography, App } from "antd";
 import { useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 import { registerSchema, type RegisterFormValues } from "../schemas/registerSchema";
@@ -10,6 +10,7 @@ import type { ApiMessageResponse } from "../types";
 const { Title } = Typography;
 
 export default function RegisterPage() {
+    const { message } = App.useApp();
     const navigate = useNavigate();
 
     const {

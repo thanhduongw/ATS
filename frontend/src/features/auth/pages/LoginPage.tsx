@@ -1,6 +1,6 @@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, Input, Button, Card, Typography, App } from "antd";
+import { Form, Input, Button, Card, Typography, App, Flex } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import type { AxiosError } from "axios";
 import { loginSchema, type LoginFormValues } from "../schemas/loginSchema";
@@ -9,7 +9,7 @@ import { setCredentials } from "../authSlice";
 import { useAppDispatch } from "../../../app/hooks";
 import type { ApiMessageResponse } from "../types";
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 interface LocationState {
     tenantCode?: string;
@@ -49,11 +49,15 @@ export default function LoginPage() {
     };
 
     return (
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 60 }}>
-            <Card style={{ width: 400 }}>
-                <Title level={3} style={{ textAlign: "center" }}>
-                    Đăng nhập
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "80vh" }}>
+            <Card style={{ width: 420, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+                <Title level={3} style={{ textAlign: "center", marginBottom: 8 }}>
+                    Đăng nhập Hệ thống ATS
                 </Title>
+                <Text type="secondary" style={{ display: "block", textAlign: "center", marginBottom: 24 }}>
+                    Quản lý Tuyển dụng Chuẩn Doanh Nghiệp (Multi-tenancy)
+                </Text>
+
                 <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
                     <Form.Item
                         label="Mã công ty"
@@ -63,19 +67,19 @@ export default function LoginPage() {
                         <Controller
                             name="tenantCode"
                             control={control}
-                            render={({ field }) => <Input {...field} />}
+                            render={({ field }) => <Input placeholder="Mã công ty" size="large" {...field} />}
                         />
                     </Form.Item>
 
                     <Form.Item
-                        label="Email"
+                        label="Email tài khoản"
                         validateStatus={errors.email ? "error" : ""}
                         help={errors.email?.message}
                     >
                         <Controller
                             name="email"
                             control={control}
-                            render={({ field }) => <Input {...field} />}
+                            render={({ field }) => <Input placeholder="email@company.com" size="large" {...field} />}
                         />
                     </Form.Item>
 
@@ -87,17 +91,23 @@ export default function LoginPage() {
                         <Controller
                             name="password"
                             control={control}
-                            render={({ field }) => <Input.Password {...field} />}
+                            render={({ field }) => <Input.Password placeholder="••••••••" size="large" {...field} />}
                         />
                     </Form.Item>
 
-                    <Button type="primary" htmlType="submit" block loading={isSubmitting}>
+                    <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
+                        <a onClick={() => navigate("/forgot-password")} style={{ fontSize: 14 }}>
+                            Quên mật khẩu?
+                        </a>
+                    </Flex>
+
+                    <Button type="primary" htmlType="submit" block size="large" loading={isSubmitting}>
                         Đăng nhập
                     </Button>
                 </Form>
 
-                <div style={{ textAlign: "center", marginTop: 12 }}>
-                    Chưa có tài khoản? <a onClick={() => navigate("/register")}>Đăng ký công ty</a>
+                <div style={{ textAlign: "center", marginTop: 20 }}>
+                    Chưa có tài khoản? <a onClick={() => navigate("/register")}>Đăng ký công ty ngay</a>
                 </div>
             </Card>
         </div>

@@ -15,6 +15,11 @@ export interface RegisterCompanyRequest {
     adminFullName: string;
 }
 
+export interface ResendOtpRequest {
+    tenantCode: string;
+    email: string;
+}
+
 export interface VerifyEmailRequest {
     tenantCode: string;
     email: string;
@@ -31,11 +36,40 @@ export interface RefreshTokenRequest {
     refreshToken: string;
 }
 
+export interface ForgotPasswordRequest {
+    tenantCode: string;
+    email: string;
+}
+
+export interface ResetPasswordRequest {
+    tenantCode: string;
+    email: string;
+    otpCode: string;
+    newPassword: string;
+}
+
+export interface ChangePasswordRequest {
+    currentPassword: string;
+    newPassword: string;
+}
+
 export interface CreateUserRequest {
     email: string;
     fullName: string;
     tempPassword: string;
     role: UserRole;
+}
+
+export interface UpdateProfileRequest {
+    fullName: string;
+}
+
+export interface UpdateCompanyRequest {
+    name: string;
+}
+
+export interface UpdateUserStatusRequest {
+    status: "ACTIVE" | "PENDING_VERIFICATION" | "LOCKED" | "DEACTIVATED";
 }
 
 // ===== Response DTO =====
@@ -48,7 +82,23 @@ export interface ApiMessageResponse {
     message: string;
 }
 
-// ===== Payload giải mã từ JWT (khớp claim JwtUtil.generateAccessToken bên Java) =====
+export interface UserProfileResponse {
+    id: number;
+    tenantId: number;
+    email: string;
+    fullName: string;
+    role: UserRole;
+    status: string;
+}
+
+export interface CompanyResponse {
+    id: number;
+    tenantId: number;
+    name: string;
+    tenantCode: string;
+}
+
+// ===== Payload giải mã từ JWT =====
 export interface JwtPayload {
     sub: string; // userId
     tenantId: number;
@@ -57,7 +107,7 @@ export interface JwtPayload {
     exp: number;
 }
 
-// ===== Thông tin user lưu trong Redux, decode sẵn từ JWT =====
+// ===== Thông tin user lưu trong Redux =====
 export interface AuthUser {
     userId: string;
     tenantId: number;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Drawer, Descriptions, Tag, Button, Space, Modal, Form, Input, message } from "antd";
+import { Drawer, Descriptions, Tag, Button, Space, Modal, Form, Input, App } from "antd";
 import type { AxiosError } from "axios";
 import { approveRequisition, rejectRequisition, submitRequisition } from "../recruitmentApi";
 import type { ApiMessageResponse, JobRequisitionResponse, RequisitionStatus } from "../types";
@@ -40,6 +40,7 @@ export default function RequisitionDetailDrawer({
     onChanged,
     onEdit,
 }: Props) {
+    const { message } = App.useApp();
     const currentUser = useAppSelector((state) => state.auth.user);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
     const [rejectForm] = Form.useForm();

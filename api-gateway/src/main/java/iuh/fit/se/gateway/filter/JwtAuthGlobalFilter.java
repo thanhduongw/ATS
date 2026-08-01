@@ -23,9 +23,12 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
 
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/auth/register-company",
+            "/api/auth/resend-otp",
             "/api/auth/verify-email",
             "/api/auth/login",
-            "/api/auth/refresh-token"
+            "/api/auth/refresh-token",
+            "/api/auth/forgot-password",
+            "/api/auth/reset-password"
     );
 
     @Value("${app.jwt.secret}")

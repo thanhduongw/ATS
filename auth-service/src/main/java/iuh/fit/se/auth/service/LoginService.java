@@ -13,6 +13,7 @@ import iuh.fit.se.auth.repository.AppUserRepository;
 import iuh.fit.se.auth.repository.RefreshTokenRepository;
 import iuh.fit.se.auth.repository.RoleRepository;
 import iuh.fit.se.auth.repository.TenantRepository;
+import iuh.fit.se.auth.security.Base64UrlTokenUtil;
 import iuh.fit.se.auth.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -46,7 +46,7 @@ public class LoginService {
                 .orElseThrow(() -> new BusinessException("Sai mã công ty hoặc thông tin đăng nhập"));
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new BusinessException("Tài khoản chưa được kích hoạt");
+            throw new BusinessException("Tài khoản chưa được kích hoạt hoặc đã bị khóa");
         }
 
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
@@ -89,9 +89,10 @@ public class LoginService {
     }
 
     private LoginResponse issueTokens(AppUser user, Long tenantId, String roleName) {
-        String accessToken = jwtUtil.generateAccessToken(user.getId(), tenantId, roleName);
+        String accessToken = jwtUtil.generateAccessToken(user.getId(), tenantId, roleName, user.getEmail());
 
-        String refreshTokenValue = UUID.randomUUID().toString();
+        // Sinh Refresh Token ngẫu nhiên chuẩn Base64URL
+        String refreshTokenValue = Base64UrlTokenUtil.generateToken();
         refreshTokenRepository.save(RefreshToken.builder()
                 .userId(user.getId())
                 .token(refreshTokenValue)

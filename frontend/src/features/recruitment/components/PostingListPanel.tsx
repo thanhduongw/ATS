@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Tag, Segmented, message } from "antd";
+import { Table, Button, Tag, Segmented, App } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getPostings, changePostingStatus } from "../recruitmentApi";
@@ -21,6 +21,7 @@ const STATUS_LABEL: Record<PostingStatus, string> = {
 };
 
 export default function PostingListPanel() {
+    const { message } = App.useApp();
     const [postings, setPostings] = useState<JobPostingResponse[]>([]);
     const [employmentTypeMap, setEmploymentTypeMap] = useState<Record<number, string>>({});
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});

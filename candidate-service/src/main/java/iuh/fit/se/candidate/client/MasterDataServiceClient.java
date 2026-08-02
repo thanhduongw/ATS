@@ -25,4 +25,7 @@ public interface MasterDataServiceClient {
 
     @GetMapping("/api/masterdata/pipelines/{id}")
     PipelineResponse getPipelineById(@PathVariable Long id);
+
+    @GetMapping("/api/masterdata/contract-types")
+    List<CatalogItemResponse> getContractTypes();
 }

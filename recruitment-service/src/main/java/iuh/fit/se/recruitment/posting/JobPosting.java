@@ -55,6 +55,9 @@ public class JobPosting {
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

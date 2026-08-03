@@ -3,6 +3,7 @@ package iuh.fit.se.recruitment.posting;
 import iuh.fit.se.recruitment.client.MasterDataServiceClient;
 import iuh.fit.se.recruitment.client.dto.CatalogItemResponse;
 import iuh.fit.se.recruitment.client.dto.PipelineResponse;
+import iuh.fit.se.recruitment.event.AuditEventPublisher;
 import iuh.fit.se.recruitment.exception.BusinessException;
 import iuh.fit.se.recruitment.posting.dto.*;
 import iuh.fit.se.recruitment.requisition.JobRequisition;
@@ -22,9 +23,11 @@ public class JobPostingService {
     private final JobPostingRepository repository;
     private final JobRequisitionRepository requisitionRepository;
     private final MasterDataServiceClient masterDataServiceClient;
+    private final AuditEventPublisher auditEventPublisher;
 
     public List<JobPostingResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByCreatedAtDesc(tenantId).stream().map(this::toResponse).toList();
+        return repository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId)
+                .stream().map(this::toResponse).toList();
     }
 
     public JobPostingResponse getById(Long tenantId, Long id) {
@@ -33,7 +36,7 @@ public class JobPostingService {
 
     @Transactional
     public JobPostingResponse create(Long tenantId, JobPostingCreateRequest req) {
-        JobRequisition requisition = requisitionRepository.findByIdAndTenantId(req.requisitionId(), tenantId)
+        JobRequisition requisition = requisitionRepository.findByIdAndTenantIdAndDeletedAtIsNull(req.requisitionId(), tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy yêu cầu tuyển dụng"));
 
         if (requisition.getStatus() != RequisitionStatus.APPROVED) {
@@ -95,6 +98,17 @@ public class JobPostingService {
         return toResponse(repository.save(posting));
     }
 
+    @Transactional
+    public void softDelete(Long tenantId, Long id, Long actorUserId) {
+        JobPosting posting = findOwned(tenantId, id);
+        if (posting.isPipelineLocked()) {
+            throw new BusinessException("Không thể xóa tin tuyển dụng đã có ứng viên nộp hồ sơ");
+        }
+        posting.setDeletedAt(LocalDateTime.now());
+        repository.save(posting);
+        auditEventPublisher.publish(tenantId, actorUserId, "JOB_POSTING_DELETED", "JOB_POSTING", id, null);
+    }
+
     private void validateEmploymentType(Long id) {
         boolean valid = masterDataServiceClient.getEmploymentTypes().stream()
                 .anyMatch(e -> e.id().equals(id) && e.active());
@@ -115,7 +129,7 @@ public class JobPostingService {
     }
 
     private JobPosting findOwned(Long tenantId, Long id) {
-        return repository.findByIdAndTenantId(id, tenantId)
+        return repository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy tin tuyển dụng"));
     }
 

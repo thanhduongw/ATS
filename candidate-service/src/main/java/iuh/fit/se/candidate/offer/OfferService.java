@@ -10,12 +10,15 @@ import iuh.fit.se.candidate.client.MasterDataServiceClient;
 import iuh.fit.se.candidate.client.dto.CatalogItemResponse;
 import iuh.fit.se.candidate.client.dto.UserSummaryResponse;
 import iuh.fit.se.candidate.common.AccessGuard;
+import iuh.fit.se.candidate.event.AuditEventPublisher;
+import iuh.fit.se.candidate.event.CandidateEventPublisher;
 import iuh.fit.se.candidate.exception.BusinessException;
 import iuh.fit.se.candidate.offer.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,11 +38,13 @@ public class OfferService {
     private final ApplicationService applicationService;
     private final AuthServiceClient authServiceClient;
     private final MasterDataServiceClient masterDataServiceClient;
+    private final CandidateEventPublisher candidateEventPublisher;
+    private final AuditEventPublisher auditEventPublisher;
 
     public List<OfferResponse> getAll(Long tenantId, Long applicationId) {
         List<Offer> offers = applicationId != null
-                ? offerRepository.findByTenantIdAndApplicationIdOrderByCreatedAtDesc(tenantId, applicationId)
-                : offerRepository.findByTenantIdOrderByCreatedAtDesc(tenantId);
+                ? offerRepository.findByTenantIdAndApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, applicationId)
+                : offerRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
 
         Map<Long, String> userNameMap = buildUserNameMap();
         Map<Long, String> contractTypeMap = buildCatalogMap(masterDataServiceClient.getContractTypes());
@@ -57,14 +62,14 @@ public class OfferService {
 
     @Transactional
     public OfferResponse create(Long tenantId, Long requesterId, OfferCreateRequest req) {
-        Application application = applicationRepository.findByIdAndTenantId(req.applicationId(), tenantId)
+        Application application = applicationRepository.findByIdAndTenantIdAndDeletedAtIsNull(req.applicationId(), tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy hồ sơ ứng tuyển"));
 
         if (!STAGE_TYPE_OFFER.equals(application.getCurrentStageType())) {
             throw new BusinessException("Chỉ tạo Offer khi hồ sơ đã đến giai đoạn Offer trong quy trình tuyển dụng");
         }
 
-        boolean hasActiveOffer = offerRepository.findByTenantIdAndApplicationIdOrderByCreatedAtDesc(tenantId, req.applicationId())
+        boolean hasActiveOffer = offerRepository.findByTenantIdAndApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, req.applicationId())
                 .stream().anyMatch(o -> NON_TERMINAL.contains(o.getStatus()) || o.getStatus() == OfferStatus.ACCEPTED);
         if (hasActiveOffer) {
             throw new BusinessException("Hồ sơ này đã có Offer đang xử lý hoặc đã được chấp nhận");
@@ -139,6 +144,10 @@ public class OfferService {
         }
         offer.setStatus(OfferStatus.APPROVED);
         offerRepository.save(offer);
+
+        candidateEventPublisher.publishOfferApproved(tenantId, offer.getId(), offer.getApplication().getId(), offer.getRequesterId());
+        auditEventPublisher.publish(tenantId, approverUserId, "OFFER_APPROVED", "OFFER", offer.getId(), null);
+
         return getById(tenantId, id);
     }
 
@@ -166,10 +175,11 @@ public class OfferService {
         offer.setStatus(OfferStatus.ACCEPTED);
         offerRepository.save(offer);
 
-        // Tự động chuyển Application sang stage kế tiếp (OFFER -> HIRED theo đúng pipeline mặc định)
         applicationService.advanceStage(
                 tenantId, offer.getApplication().getId(), actorUserId,
                 new ApplicationAdvanceStageRequest("Ứng viên đã chấp nhận Offer"));
+
+        auditEventPublisher.publish(tenantId, actorUserId, "OFFER_ACCEPTED", "OFFER", offer.getId(), null);
 
         return getById(tenantId, id);
     }
@@ -186,13 +196,25 @@ public class OfferService {
         offer.setDeclineNote(req.note());
         offerRepository.save(offer);
 
-        // Tự động chuyển Application sang stage Rejected, tái sử dụng nguyên logic reject đã có ở Phase 4
         applicationService.reject(
                 tenantId, offer.getApplication().getId(), actorUserId,
                 new ApplicationRejectRequest(req.declineReasonId(), "Ứng viên từ chối Offer: " +
                         (req.note() != null ? req.note() : "")));
 
+        auditEventPublisher.publish(tenantId, actorUserId, "OFFER_DECLINED", "OFFER", offer.getId(), req.note());
+
         return getById(tenantId, id);
+    }
+
+    @Transactional
+    public void softDelete(Long tenantId, Long id, Long actorUserId) {
+        Offer offer = findOwned(tenantId, id);
+        if (offer.getStatus() == OfferStatus.ACCEPTED) {
+            throw new BusinessException("Không thể xóa Offer đã được chấp nhận");
+        }
+        offer.setDeletedAt(LocalDateTime.now());
+        offerRepository.save(offer);
+        auditEventPublisher.publish(tenantId, actorUserId, "OFFER_DELETED", "OFFER", id, null);
     }
 
     private void validateContractType(Long id) {
@@ -221,7 +243,7 @@ public class OfferService {
     }
 
     private Offer findOwned(Long tenantId, Long id) {
-        return offerRepository.findByIdAndTenantId(id, tenantId)
+        return offerRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy Offer"));
     }
 

@@ -26,4 +26,12 @@ public class CandidateEventPublisher {
                 new ApplicationStatusChangedEvent(applicationId, jobPostingId, fromStageName, toStageName)
         );
     }
+
+    public void publishOfferApproved(Long tenantId, Long offerId, Long applicationId, Long requesterId) {
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ATS_EXCHANGE,
+                RabbitMQConfig.OFFER_APPROVED_ROUTING_KEY,
+                new OfferApprovedEvent(tenantId, offerId, applicationId, requesterId)
+        );
+    }
 }

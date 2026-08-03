@@ -12,6 +12,8 @@ public class RabbitMQConfig {
     public static final String ATS_EXCHANGE = "ats.events";
     public static final String APPLICATION_CREATED_ROUTING_KEY = "application.created";
     public static final String APPLICATION_STATUS_CHANGED_ROUTING_KEY = "application.status_changed";
+    public static final String OFFER_APPROVED_ROUTING_KEY = "offer.approved";
+    public static final String AUDIT_LOG_ROUTING_KEY = "audit.log";
 
     @Bean
     public TopicExchange atsExchange() {

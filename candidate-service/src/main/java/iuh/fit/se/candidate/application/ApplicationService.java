@@ -10,12 +10,14 @@ import iuh.fit.se.candidate.client.dto.JobPostingResponse;
 import iuh.fit.se.candidate.client.dto.PipelineResponse;
 import iuh.fit.se.candidate.client.dto.PipelineStageResponse;
 import iuh.fit.se.candidate.client.dto.UserSummaryResponse;
+import iuh.fit.se.candidate.event.AuditEventPublisher;
 import iuh.fit.se.candidate.event.CandidateEventPublisher;
 import iuh.fit.se.candidate.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -35,15 +37,16 @@ public class ApplicationService {
     private final MasterDataServiceClient masterDataServiceClient;
     private final AuthServiceClient authServiceClient;
     private final CandidateEventPublisher eventPublisher;
+    private final AuditEventPublisher auditEventPublisher;
 
     public List<ApplicationResponse> getAll(Long tenantId, Long jobPostingId, Long candidateId) {
         List<Application> applications;
         if (jobPostingId != null) {
-            applications = applicationRepository.findByTenantIdAndJobPostingIdOrderByCreatedAtDesc(tenantId, jobPostingId);
+            applications = applicationRepository.findByTenantIdAndJobPostingIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, jobPostingId);
         } else if (candidateId != null) {
-            applications = applicationRepository.findByTenantIdAndCandidateIdOrderByCreatedAtDesc(tenantId, candidateId);
+            applications = applicationRepository.findByTenantIdAndCandidateIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, candidateId);
         } else {
-            applications = applicationRepository.findByTenantIdOrderByCreatedAtDesc(tenantId);
+            applications = applicationRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
         }
 
         Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources());
@@ -65,7 +68,7 @@ public class ApplicationService {
 
     @Transactional
     public ApplicationResponse create(Long tenantId, Long actorUserId, ApplicationCreateRequest req) {
-        Candidate candidate = candidateRepository.findByIdAndTenantId(req.candidateId(), tenantId)
+        Candidate candidate = candidateRepository.findByIdAndTenantIdAndDeletedAtIsNull(req.candidateId(), tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy ứng viên"));
 
         JobPostingResponse posting = fetchPosting(req.jobPostingId());
@@ -133,6 +136,8 @@ public class ApplicationService {
 
         saveHistory(application, previousStageName, nextStage.name(), req.note(), actorUserId);
         eventPublisher.publishApplicationStatusChanged(application.getId(), application.getJobPostingId(), previousStageName, nextStage.name());
+        auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_STAGE_CHANGED", "APPLICATION", application.getId(),
+                previousStageName + " → " + nextStage.name());
 
         return getById(tenantId, id);
     }
@@ -163,8 +168,20 @@ public class ApplicationService {
 
         saveHistory(application, previousStageName, rejectedStage.name(), req.note(), actorUserId);
         eventPublisher.publishApplicationStatusChanged(application.getId(), application.getJobPostingId(), previousStageName, rejectedStage.name());
+        auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_REJECTED", "APPLICATION", application.getId(), req.note());
 
         return getById(tenantId, id);
+    }
+
+    @Transactional
+    public void softDelete(Long tenantId, Long id, Long actorUserId) {
+        Application application = findOwned(tenantId, id);
+        if (STAGE_TYPE_HIRED.equals(application.getCurrentStageType())) {
+            throw new BusinessException("Không thể xóa hồ sơ đã tuyển dụng thành công");
+        }
+        application.setDeletedAt(LocalDateTime.now());
+        applicationRepository.save(application);
+        auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_DELETED", "APPLICATION", id, null);
     }
 
     public List<ApplicationHistoryResponse> getHistory(Long tenantId, Long id) {
@@ -226,7 +243,7 @@ public class ApplicationService {
     }
 
     private Application findOwned(Long tenantId, Long id) {
-        return applicationRepository.findByIdAndTenantId(id, tenantId)
+        return applicationRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy hồ sơ ứng tuyển"));
     }
 

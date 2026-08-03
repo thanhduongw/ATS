@@ -3,15 +3,17 @@ package iuh.fit.se.recruitment.requisition;
 import iuh.fit.se.recruitment.client.AuthServiceClient;
 import iuh.fit.se.recruitment.client.dto.UserSummaryResponse;
 import iuh.fit.se.recruitment.common.AccessGuard;
+import iuh.fit.se.recruitment.event.AuditEventPublisher;
+import iuh.fit.se.recruitment.event.RequisitionEventPublisher;
 import iuh.fit.se.recruitment.exception.BusinessException;
 import iuh.fit.se.recruitment.requisition.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
@@ -19,9 +21,11 @@ public class JobRequisitionService {
 
     private final JobRequisitionRepository repository;
     private final AuthServiceClient authServiceClient;
+    private final RequisitionEventPublisher requisitionEventPublisher;
+    private final AuditEventPublisher auditEventPublisher;
 
     public List<JobRequisitionResponse> getAll(Long tenantId) {
-        List<JobRequisition> requisitions = repository.findByTenantIdOrderByCreatedAtDesc(tenantId);
+        List<JobRequisition> requisitions = repository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
         Map<Long, String> userNameMap = buildUserNameMap();
         return requisitions.stream().map(r -> toResponse(r, userNameMap)).toList();
     }
@@ -91,7 +95,11 @@ public class JobRequisitionService {
         }
 
         requisition.setStatus(RequisitionStatus.PENDING_APPROVAL);
-        return toResponse(repository.save(requisition), buildUserNameMap());
+        JobRequisition saved = repository.save(requisition);
+
+        requisitionEventPublisher.publishSubmitted(tenantId, saved.getId(), saved.getApproverId(), saved.getTitle());
+
+        return toResponse(saved, buildUserNameMap());
     }
 
     @Transactional
@@ -104,7 +112,11 @@ public class JobRequisitionService {
         }
 
         requisition.setStatus(RequisitionStatus.APPROVED);
-        return toResponse(repository.save(requisition), buildUserNameMap());
+        JobRequisition saved = repository.save(requisition);
+
+        auditEventPublisher.publish(tenantId, approverUserId, "REQUISITION_APPROVED", "REQUISITION", saved.getId(), null);
+
+        return toResponse(saved, buildUserNameMap());
     }
 
     @Transactional
@@ -118,7 +130,22 @@ public class JobRequisitionService {
 
         requisition.setStatus(RequisitionStatus.REJECTED);
         requisition.setRejectReason(req.reason());
-        return toResponse(repository.save(requisition), buildUserNameMap());
+        JobRequisition saved = repository.save(requisition);
+
+        auditEventPublisher.publish(tenantId, approverUserId, "REQUISITION_REJECTED", "REQUISITION", saved.getId(), req.reason());
+
+        return toResponse(saved, buildUserNameMap());
+    }
+
+    @Transactional
+    public void softDelete(Long tenantId, Long id, Long actorUserId) {
+        JobRequisition requisition = findOwned(tenantId, id);
+        if (requisition.getStatus() == RequisitionStatus.APPROVED) {
+            throw new BusinessException("Không thể xóa yêu cầu đã được phê duyệt (đã có thể phát sinh Job Posting)");
+        }
+        requisition.setDeletedAt(LocalDateTime.now());
+        repository.save(requisition);
+        auditEventPublisher.publish(tenantId, actorUserId, "REQUISITION_DELETED", "REQUISITION", id, null);
     }
 
     private void validateApprover(Long approverId) {
@@ -135,7 +162,7 @@ public class JobRequisitionService {
     }
 
     private JobRequisition findOwned(Long tenantId, Long id) {
-        return repository.findByIdAndTenantId(id, tenantId)
+        return repository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy yêu cầu tuyển dụng"));
     }
 

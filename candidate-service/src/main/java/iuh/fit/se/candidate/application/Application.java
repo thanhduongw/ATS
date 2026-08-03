@@ -54,6 +54,9 @@ public class Application {
     @Column(name = "applied_at")
     private LocalDateTime appliedAt;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

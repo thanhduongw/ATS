@@ -50,7 +50,7 @@ public class BusinessEventListener {
     public void onInterviewScheduled(InterviewScheduledEvent event) {
         log.info("Nhận event interview.scheduled, interviewId={}", event.interviewId());
 
-        InterviewResponse interview = interviewServiceClient.getInterviewById(event.interviewId());
+        InterviewResponse interview = interviewServiceClient.getInterviewById(event.interviewId(), event.tenantId());
         if (interview == null) return;
 
         for (InterviewerSummary interviewer : interview.interviewers()) {
@@ -78,7 +78,7 @@ public class BusinessEventListener {
     public void onInterviewReminderDue(InterviewReminderPayload payload) {
         log.info("Đến giờ nhắc phỏng vấn, interviewId={}", payload.interviewId());
 
-        InterviewResponse interview = interviewServiceClient.getInterviewById(payload.interviewId());
+        InterviewResponse interview = interviewServiceClient.getInterviewById(payload.interviewId(), payload.tenantId());
         if (interview == null || !"SCHEDULED".equals(interview.status())) {
             return; // đã hủy hoặc đã hoàn tất, không cần nhắc nữa
         }
@@ -98,13 +98,13 @@ public class BusinessEventListener {
     public void onEvaluationCheckDue(EvaluationCheckPayload payload) {
         log.info("Đến giờ kiểm tra evaluation, interviewId={}", payload.interviewId());
 
-        InterviewResponse interview = interviewServiceClient.getInterviewById(payload.interviewId());
+        InterviewResponse interview = interviewServiceClient.getInterviewById(payload.interviewId(), payload.tenantId());
         if (interview == null) return;
 
         boolean hasMissing = interview.interviewers().stream().anyMatch(i -> !i.evaluationSubmitted());
         if (!hasMissing) return;
 
-        ApplicationSummaryResponse application = candidateServiceClient.getApplicationById(interview.applicationId());
+        ApplicationSummaryResponse application = candidateServiceClient.getApplicationById(interview.applicationId(), payload.tenantId());
 
         for (InterviewerSummary interviewer : interview.interviewers()) {
             if (interviewer.evaluationSubmitted()) continue;

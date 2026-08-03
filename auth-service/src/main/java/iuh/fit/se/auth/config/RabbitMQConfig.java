@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
 
     public static final String ATS_EXCHANGE = "ats.events";
+    public static final String AUDIT_LOG_ROUTING_KEY = "audit.log";
 
     @Bean
     public TopicExchange atsExchange() {

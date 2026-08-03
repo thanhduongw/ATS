@@ -37,7 +37,7 @@ public class AuditLogService {
         List<AuditLog> logs = repository.findAll(spec,
                 org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
 
-        Map<Long, String> userNameMap = authServiceClient.getUsers(null).stream()
+        Map<Long, String> userNameMap = authServiceClient.getUsers(tenantId, null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
 
         return logs.stream().map(l -> new AuditLogResponse(

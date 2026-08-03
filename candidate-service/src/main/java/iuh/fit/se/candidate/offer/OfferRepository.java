@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface OfferRepository extends JpaRepository<Offer, Long> {
-    List<Offer> findByTenantIdOrderByCreatedAtDesc(Long tenantId);
-    List<Offer> findByTenantIdAndApplicationIdOrderByCreatedAtDesc(Long tenantId, Long applicationId);
-    Optional<Offer> findByIdAndTenantId(Long id, Long tenantId);
+    List<Offer> findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long tenantId);
+    List<Offer> findByTenantIdAndApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long tenantId, Long applicationId);
+    Optional<Offer> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
 }

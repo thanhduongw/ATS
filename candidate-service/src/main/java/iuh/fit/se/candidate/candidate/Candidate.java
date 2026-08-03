@@ -43,6 +43,9 @@ public class Candidate {
     @Column(name = "cv_file_url")
     private String cvFileUrl;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

@@ -60,6 +60,9 @@ public class JobRequisition {
     @Column(name = "reject_reason")
     private String rejectReason;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

@@ -13,11 +13,11 @@ public class InterviewEventPublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
-    public void publishInterviewScheduled(Long interviewId, Long applicationId, LocalDateTime scheduledAt) {
+    public void publishInterviewScheduled(Long tenantId, Long interviewId, Long applicationId, LocalDateTime scheduledAt) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.INTERVIEW_SCHEDULED_ROUTING_KEY,
-                new InterviewScheduledEvent(interviewId, applicationId, scheduledAt)
+                new InterviewScheduledEvent(tenantId, interviewId, applicationId, scheduledAt)
         );
     }
 }

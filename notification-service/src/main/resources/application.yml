@@ -12,6 +12,23 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ats_user
+    password: ats_password
+
+services:
+  auth-service:
+    url: http://localhost:8081
+  interview-service:
+    url: http://localhost:8085
+  candidate-service:
+    url: http://localhost:8084
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:thay-bang-chuoi-bi-mat-it-nhat-256-bit-truoc-khi-deploy-thuc-te}
+  notification:
+    interview-reminder-hours-before: 1
+    evaluation-check-hours-after: 24

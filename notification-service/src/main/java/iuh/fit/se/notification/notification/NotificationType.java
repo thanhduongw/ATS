@@ -1,0 +1,9 @@
+package iuh.fit.se.notification.notification;
+
+public enum NotificationType {
+    REQUISITION_PENDING_APPROVAL,
+    INTERVIEW_SCHEDULED,
+    INTERVIEW_REMINDER,
+    OFFER_PENDING_CONFIRMATION,
+    EVALUATION_INCOMPLETE_REMINDER
+}

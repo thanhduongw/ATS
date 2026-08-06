@@ -12,4 +12,16 @@ public class AccessGuard {
             throw new AccessDeniedException("Bạn không có quyền thực hiện thao tác này");
         }
     }
+
+    public static void requireOwner(Long ownerId, Long currentUserId) {
+        if (!ownerId.equals(currentUserId)) {
+            throw new AccessDeniedException("Chỉ người tạo mới được thực hiện thao tác này");
+        }
+    }
+
+    public static void requireApprover(Long approverId, Long currentUserId) {
+        if (!approverId.equals(currentUserId)) {
+            throw new AccessDeniedException("Chỉ người được chỉ định duyệt mới được thực hiện thao tác này");
+        }
+    }
 }

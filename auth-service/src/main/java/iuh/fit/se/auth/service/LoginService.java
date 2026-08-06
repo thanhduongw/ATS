@@ -8,12 +8,12 @@ import iuh.fit.se.auth.entity.Role;
 import iuh.fit.se.auth.entity.Tenant;
 import iuh.fit.se.auth.enums.TenantStatus;
 import iuh.fit.se.auth.enums.UserStatus;
+import iuh.fit.se.auth.event.AuditEventPublisher;
 import iuh.fit.se.auth.exception.BusinessException;
 import iuh.fit.se.auth.repository.AppUserRepository;
 import iuh.fit.se.auth.repository.RefreshTokenRepository;
 import iuh.fit.se.auth.repository.RoleRepository;
 import iuh.fit.se.auth.repository.TenantRepository;
-import iuh.fit.se.auth.security.Base64UrlTokenUtil;
 import iuh.fit.se.auth.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +33,7 @@ public class LoginService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final AuditEventPublisher auditEventPublisher;
 
     @Transactional
     public LoginResponse login(LoginRequest req) {
@@ -46,7 +48,7 @@ public class LoginService {
                 .orElseThrow(() -> new BusinessException("Sai mã công ty hoặc thông tin đăng nhập"));
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new BusinessException("Tài khoản chưa được kích hoạt hoặc đã bị khóa");
+            throw new BusinessException("Tài khoản chưa được kích hoạt");
         }
 
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
@@ -56,7 +58,11 @@ public class LoginService {
         Role role = roleRepository.findById(user.getRoleId())
                 .orElseThrow(() -> new BusinessException("Vai trò không hợp lệ"));
 
-        return issueTokens(user, tenant.getId(), role.getName().name());
+        LoginResponse response = issueTokens(user, tenant.getId(), role.getName().name());
+
+        auditEventPublisher.publish(tenant.getId(), user.getId(), "LOGIN", "USER", user.getId(), null);
+
+        return response;
     }
 
     @Transactional
@@ -73,7 +79,6 @@ public class LoginService {
         Role role = roleRepository.findById(user.getRoleId())
                 .orElseThrow(() -> new BusinessException("Vai trò không hợp lệ"));
 
-        // Rotate: thu hồi refresh token cũ trước khi cấp mới
         stored.setRevoked(true);
         refreshTokenRepository.save(stored);
 
@@ -85,14 +90,18 @@ public class LoginService {
         refreshTokenRepository.findByToken(refreshTokenValue).ifPresent(rt -> {
             rt.setRevoked(true);
             refreshTokenRepository.save(rt);
+
+            AppUser user = appUserRepository.findById(rt.getUserId()).orElse(null);
+            if (user != null) {
+                auditEventPublisher.publish(user.getTenantId(), user.getId(), "LOGOUT", "USER", user.getId(), null);
+            }
         });
     }
 
     private LoginResponse issueTokens(AppUser user, Long tenantId, String roleName) {
         String accessToken = jwtUtil.generateAccessToken(user.getId(), tenantId, roleName, user.getEmail());
 
-        // Sinh Refresh Token ngẫu nhiên chuẩn Base64URL
-        String refreshTokenValue = Base64UrlTokenUtil.generateToken();
+        String refreshTokenValue = UUID.randomUUID().toString();
         refreshTokenRepository.save(RefreshToken.builder()
                 .userId(user.getId())
                 .token(refreshTokenValue)

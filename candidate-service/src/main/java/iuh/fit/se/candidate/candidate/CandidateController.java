@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/candidate/candidates")
@@ -57,5 +58,16 @@ public class CandidateController {
             @RequestParam("file") MultipartFile file) {
         AccessGuard.requireRecruiterOrAbove(role);
         return ResponseEntity.ok(service.uploadCv(tenantId, id, file));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> delete(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        AccessGuard.requireRecruiterOrAbove(role);
+        service.softDelete(tenantId, id, actorUserId);
+        return ResponseEntity.ok(Map.of("message", "Xóa ứng viên thành công"));
     }
 }

@@ -5,6 +5,7 @@ import iuh.fit.se.candidate.candidate.dto.CandidateResponse;
 import iuh.fit.se.candidate.candidate.dto.CandidateUpdateRequest;
 import iuh.fit.se.candidate.client.MasterDataServiceClient;
 import iuh.fit.se.candidate.client.dto.CatalogItemResponse;
+import iuh.fit.se.candidate.event.AuditEventPublisher;
 import iuh.fit.se.candidate.exception.BusinessException;
 import iuh.fit.se.candidate.storage.S3Service;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -24,9 +26,10 @@ public class CandidateService {
     private final CandidateSkillRepository candidateSkillRepository;
     private final MasterDataServiceClient masterDataServiceClient;
     private final S3Service s3Service;
+    private final AuditEventPublisher auditEventPublisher;
 
     public List<CandidateResponse> getAll(Long tenantId) {
-        List<Candidate> candidates = candidateRepository.findByTenantIdOrderByCreatedAtDesc(tenantId);
+        List<Candidate> candidates = candidateRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
         Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels());
         Map<Long, String> skillMap = buildCatalogMap(masterDataServiceClient.getSkills());
         return candidates.stream().map(c -> toResponse(c, educationMap, skillMap)).toList();
@@ -41,7 +44,7 @@ public class CandidateService {
 
     @Transactional
     public CandidateResponse create(Long tenantId, CandidateCreateRequest req) {
-        if (candidateRepository.existsByTenantIdAndEmailIgnoreCase(tenantId, req.email())) {
+        if (candidateRepository.existsByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(tenantId, req.email())) {
             throw new BusinessException("Ứng viên với email này đã tồn tại trong hệ thống");
         }
         validateEducationLevel(req.educationLevelId());
@@ -95,6 +98,14 @@ public class CandidateService {
         return getById(tenantId, id);
     }
 
+    @Transactional
+    public void softDelete(Long tenantId, Long id, Long actorUserId) {
+        Candidate candidate = findOwned(tenantId, id);
+        candidate.setDeletedAt(LocalDateTime.now());
+        candidateRepository.save(candidate);
+        auditEventPublisher.publish(tenantId, actorUserId, "CANDIDATE_DELETED", "CANDIDATE", id, null);
+    }
+
     private void attachSkills(Candidate candidate, List<Long> skillIds) {
         if (skillIds == null) return;
         skillIds.forEach(skillId -> candidateSkillRepository.save(
@@ -119,7 +130,7 @@ public class CandidateService {
     }
 
     private Candidate findOwned(Long tenantId, Long id) {
-        return candidateRepository.findByIdAndTenantId(id, tenantId)
+        return candidateRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy ứng viên"));
     }
 

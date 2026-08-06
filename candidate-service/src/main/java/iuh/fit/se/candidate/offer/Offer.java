@@ -62,6 +62,9 @@ public class Offer {
     @Column(name = "decline_note")
     private String declineNote;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

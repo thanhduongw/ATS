@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CandidateRepository extends JpaRepository<Candidate, Long> {
-    List<Candidate> findByTenantIdOrderByCreatedAtDesc(Long tenantId);
-    Optional<Candidate> findByIdAndTenantId(Long id, Long tenantId);
-    boolean existsByTenantIdAndEmailIgnoreCase(Long tenantId, String email);
+    List<Candidate> findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long tenantId);
+    Optional<Candidate> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
+    boolean existsByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(Long tenantId, String email);
 }

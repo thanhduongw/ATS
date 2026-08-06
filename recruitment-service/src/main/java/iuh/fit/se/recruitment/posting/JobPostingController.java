@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/recruitment/postings")
@@ -54,5 +55,16 @@ public class JobPostingController {
             @Valid @RequestBody JobPostingStatusRequest req) {
         AccessGuard.requireRecruiterOrAbove(role);
         return ResponseEntity.ok(service.changeStatus(tenantId, id, req));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> delete(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        AccessGuard.requireRecruiterOrAbove(role);
+        service.softDelete(tenantId, id, actorUserId);
+        return ResponseEntity.ok(Map.of("message", "Xóa tin tuyển dụng thành công"));
     }
 }

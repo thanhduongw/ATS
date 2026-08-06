@@ -106,7 +106,7 @@ public class InterviewService {
                         .interviewerId(interviewerId)
                         .build()));
 
-        eventPublisher.publishInterviewScheduled(saved.getId(), saved.getApplicationId(), saved.getScheduledAt());
+        eventPublisher.publishInterviewScheduled(tenantId, saved.getId(), saved.getApplicationId(), saved.getScheduledAt());
 
         return toResponse(saved);
     }

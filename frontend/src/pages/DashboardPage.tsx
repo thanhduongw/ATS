@@ -43,6 +43,12 @@ export default function DashboardPage() {
                     <Button size="large" onClick={() => navigate("/recruitment")}>
                         Quản Lý Tuyển Dụng (`/recruitment`)
                     </Button>
+                    <Button size="large" onClick={() => navigate("/candidates")}>
+                        Ứng Viên (`/candidates`)
+                    </Button>
+                    <Button size="large" onClick={() => navigate("/applications")}>
+                        Bảng Kanban Ứng Tuyển (`/applications`)
+                    </Button>
                     <Button danger size="large" onClick={handleLogout}>
                         Đăng Xuất
                     </Button>

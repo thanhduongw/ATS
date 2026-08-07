@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.web.cors.reactive.CorsUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -31,6 +32,8 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
             "/api/auth/reset-password"
     );
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JwtAuthGlobalFilter.class);
+
     @Value("${app.jwt.secret}")
     private String secret;
 
@@ -40,18 +43,23 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        if (CorsUtils.isPreFlightRequest(exchange.getRequest())) {
+            return chain.filter(exchange);
+        }
+
         String path = exchange.getRequest().getURI().getPath();
-        if (PUBLIC_PATHS.contains(path)) {
+        if (PUBLIC_PATHS.contains(path) || path.startsWith("/api/candidate/candidates/cv-file/")) {
             return chain.filter(exchange);
         }
 
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            log.warn("Missing or invalid Authorization header for path: {}", path);
             return unauthorized(exchange);
         }
 
         try {
-            String token = authHeader.substring(7);
+            String token = authHeader.substring(7).trim();
             Claims claims = Jwts.parser()
                     .verifyWith(key())
                     .build()
@@ -65,7 +73,8 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
                     .build();
 
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
-        } catch (JwtException e) {
+        } catch (Exception e) {
+            log.error("JWT validation failed for path {}: {}", path, e.getMessage(), e);
             return unauthorized(exchange);
         }
     }

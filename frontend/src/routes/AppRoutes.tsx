@@ -10,6 +10,8 @@ import MasterDataPage from "../features/masterdata/pages/MasterDataPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import RecruitmentPage from "../features/recruitment/pages/RecruitmentPage";
 import AuthManagementPage from "../features/auth/pages/AuthManagementPage";
+import CandidatesPage from "../features/candidate/pages/CandidatesPage";
+import ApplicationsPage from "../features/candidate/pages/ApplicationsPage";
 
 export default function AppRoutes() {
     return (
@@ -27,6 +29,8 @@ export default function AppRoutes() {
                 <Route path="/auth-manage" element={<AuthManagementPage />} />
                 <Route path="/masterdata" element={<MasterDataPage />} />
                 <Route path="/recruitment" element={<RecruitmentPage />} />
+                <Route path="/candidates" element={<CandidatesPage />} />
+                <Route path="/applications" element={<ApplicationsPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/login" replace />} />

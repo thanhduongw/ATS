@@ -46,18 +46,18 @@ public class OfferService {
                 ? offerRepository.findByTenantIdAndApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, applicationId)
                 : offerRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
 
-        Map<Long, String> userNameMap = buildUserNameMap();
-        Map<Long, String> contractTypeMap = buildCatalogMap(masterDataServiceClient.getContractTypes());
-        Map<Long, String> reasonMap = buildCatalogMap(masterDataServiceClient.getRejectionReasons());
+        Map<Long, String> userNameMap = buildUserNameMap(tenantId);
+        Map<Long, String> contractTypeMap = buildCatalogMap(masterDataServiceClient.getContractTypes(tenantId));
+        Map<Long, String> reasonMap = buildCatalogMap(masterDataServiceClient.getRejectionReasons(tenantId));
 
         return offers.stream().map(o -> toResponse(o, userNameMap, contractTypeMap, reasonMap)).toList();
     }
 
     public OfferResponse getById(Long tenantId, Long id) {
         Offer offer = findOwned(tenantId, id);
-        return toResponse(offer, buildUserNameMap(),
-                buildCatalogMap(masterDataServiceClient.getContractTypes()),
-                buildCatalogMap(masterDataServiceClient.getRejectionReasons()));
+        return toResponse(offer, buildUserNameMap(tenantId),
+                buildCatalogMap(masterDataServiceClient.getContractTypes(tenantId)),
+                buildCatalogMap(masterDataServiceClient.getRejectionReasons(tenantId)));
     }
 
     @Transactional
@@ -75,8 +75,9 @@ public class OfferService {
             throw new BusinessException("Hồ sơ này đã có Offer đang xử lý hoặc đã được chấp nhận");
         }
 
-        validateContractType(req.contractTypeId());
-        validateApprover(req.approverId());
+        validateContractType(tenantId, req.contractTypeId());
+        validateApprover(tenantId, req.approverId());
+
 
         Offer saved = offerRepository.save(Offer.builder()
                 .tenantId(tenantId)
@@ -105,8 +106,9 @@ public class OfferService {
             throw new BusinessException("Chỉ chỉnh sửa được Offer ở trạng thái bản nháp");
         }
 
-        validateContractType(req.contractTypeId());
-        validateApprover(req.approverId());
+        validateContractType(tenantId, req.contractTypeId());
+        validateApprover(tenantId, req.approverId());
+
 
         offer.setSalaryOffered(req.salaryOffered());
         offer.setContractTypeId(req.contractTypeId());
@@ -217,15 +219,15 @@ public class OfferService {
         auditEventPublisher.publish(tenantId, actorUserId, "OFFER_DELETED", "OFFER", id, null);
     }
 
-    private void validateContractType(Long id) {
-        boolean valid = masterDataServiceClient.getContractTypes().stream().anyMatch(c -> c.id().equals(id));
+    private void validateContractType(Long tenantId, Long id) {
+        boolean valid = masterDataServiceClient.getContractTypes(tenantId).stream().anyMatch(c -> c.id().equals(id));
         if (!valid) throw new BusinessException("Loại hợp đồng không hợp lệ");
     }
 
-    private void validateApprover(Long approverId) {
+    private void validateApprover(Long tenantId, Long approverId) {
         List<UserSummaryResponse> eligible = Stream.concat(
-                authServiceClient.getUsers("HIRING_MANAGER").stream(),
-                authServiceClient.getUsers("COMPANY_ADMIN").stream()
+                authServiceClient.getUsers(tenantId, "HIRING_MANAGER").stream(),
+                authServiceClient.getUsers(tenantId, "COMPANY_ADMIN").stream()
         ).toList();
         boolean valid = eligible.stream().anyMatch(u -> u.id().equals(approverId));
         if (!valid) {
@@ -233,13 +235,15 @@ public class OfferService {
         }
     }
 
-    private Map<Long, String> buildUserNameMap() {
-        return authServiceClient.getUsers(null).stream()
+    private Map<Long, String> buildUserNameMap(Long tenantId) {
+        return authServiceClient.getUsers(tenantId, null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
     }
 
+
     private Map<Long, String> buildCatalogMap(List<CatalogItemResponse> items) {
-        return items.stream().collect(Collectors.toMap(CatalogItemResponse::id, CatalogItemResponse::name));
+        if (items == null) return Map.of();
+        return items.stream().collect(Collectors.toMap(CatalogItemResponse::id, CatalogItemResponse::name, (a, b) -> a));
     }
 
     private Offer findOwned(Long tenantId, Long id) {

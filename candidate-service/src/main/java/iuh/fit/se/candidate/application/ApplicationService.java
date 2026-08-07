@@ -49,9 +49,9 @@ public class ApplicationService {
             applications = applicationRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
         }
 
-        Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources());
-        Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons());
-        Map<Long, String> userMap = authServiceClient.getUsers(null).stream()
+        Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources(tenantId));
+        Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons(tenantId));
+        Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
 
         return applications.stream().map(a -> toResponse(a, sourceMap, reasonMap, userMap)).toList();
@@ -59,9 +59,9 @@ public class ApplicationService {
 
     public ApplicationResponse getById(Long tenantId, Long id) {
         Application application = findOwned(tenantId, id);
-        Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources());
-        Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons());
-        Map<Long, String> userMap = authServiceClient.getUsers(null).stream()
+        Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources(tenantId));
+        Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons(tenantId));
+        Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
         return toResponse(application, sourceMap, reasonMap, userMap);
     }
@@ -71,14 +71,14 @@ public class ApplicationService {
         Candidate candidate = candidateRepository.findByIdAndTenantIdAndDeletedAtIsNull(req.candidateId(), tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy ứng viên"));
 
-        JobPostingResponse posting = fetchPosting(req.jobPostingId());
+        JobPostingResponse posting = fetchPosting(tenantId, req.jobPostingId());
         if (!"OPEN".equals(posting.status())) {
             throw new BusinessException("Chỉ ứng tuyển được vào tin tuyển dụng đang mở");
         }
 
-        validateRecruitmentSource(req.recruitmentSourceId());
+        validateRecruitmentSource(tenantId, req.recruitmentSourceId());
         if (req.assignedRecruiterId() != null) {
-            validateAssignedRecruiter(req.assignedRecruiterId());
+            validateAssignedRecruiter(tenantId, req.assignedRecruiterId());
         }
 
         String resumeUrl = req.resumeUrl() != null ? req.resumeUrl() : candidate.getCvFileUrl();
@@ -86,7 +86,7 @@ public class ApplicationService {
             throw new BusinessException("Ứng viên chưa có CV, vui lòng tải CV lên trước khi ứng tuyển");
         }
 
-        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(posting.pipelineId());
+        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(tenantId, posting.pipelineId());
         PipelineStageResponse firstStage = pipeline.stages().stream()
                 .min(Comparator.comparing(PipelineStageResponse::stageOrder))
                 .orElseThrow(() -> new BusinessException("Quy trình tuyển dụng chưa có giai đoạn nào"));
@@ -117,8 +117,8 @@ public class ApplicationService {
         Application application = findOwned(tenantId, id);
         ensureNotTerminal(application);
 
-        JobPostingResponse posting = fetchPosting(application.getJobPostingId());
-        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(posting.pipelineId());
+        JobPostingResponse posting = fetchPosting(tenantId, application.getJobPostingId());
+        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(tenantId, posting.pipelineId());
 
         int nextOrder = application.getCurrentStageOrder() + 1;
         PipelineStageResponse nextStage = pipeline.stages().stream()
@@ -139,7 +139,7 @@ public class ApplicationService {
         auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_STAGE_CHANGED", "APPLICATION", application.getId(),
                 previousStageName + " → " + nextStage.name());
 
-        return getById(tenantId, id);
+        return getById(tenantId, application.getId());
     }
 
     @Transactional
@@ -147,15 +147,15 @@ public class ApplicationService {
         Application application = findOwned(tenantId, id);
         ensureNotTerminal(application);
 
-        validateRejectionReason(req.rejectionReasonId());
+        validateRejectionReason(tenantId, req.rejectionReasonId());
 
-        JobPostingResponse posting = fetchPosting(application.getJobPostingId());
-        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(posting.pipelineId());
+        JobPostingResponse posting = fetchPosting(tenantId, application.getJobPostingId());
+        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(tenantId, posting.pipelineId());
 
         PipelineStageResponse rejectedStage = pipeline.stages().stream()
                 .filter(s -> STAGE_TYPE_REJECTED.equals(s.stageType()))
                 .findFirst()
-                .orElseThrow(() -> new BusinessException("Quy trình tuyển dụng chưa cấu hình giai đoạn Từ chối"));
+                .orElseThrow(() -> new BusinessException("Quy trình tuyển dụng không có bước Bị loại (REJECTED)"));
 
         String previousStageName = application.getCurrentStageName();
 
@@ -164,13 +164,17 @@ public class ApplicationService {
         application.setCurrentStageOrder(rejectedStage.stageOrder());
         application.setCurrentStageType(rejectedStage.stageType());
         application.setRejectionReasonId(req.rejectionReasonId());
+        if (req.note() != null) {
+            application.setNote(req.note());
+        }
         applicationRepository.save(application);
 
         saveHistory(application, previousStageName, rejectedStage.name(), req.note(), actorUserId);
         eventPublisher.publishApplicationStatusChanged(application.getId(), application.getJobPostingId(), previousStageName, rejectedStage.name());
-        auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_REJECTED", "APPLICATION", application.getId(), req.note());
+        auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_REJECTED", "APPLICATION", application.getId(),
+                "Từ chối hồ sơ: " + req.note());
 
-        return getById(tenantId, id);
+        return getById(tenantId, application.getId());
     }
 
     @Transactional
@@ -186,7 +190,7 @@ public class ApplicationService {
 
     public List<ApplicationHistoryResponse> getHistory(Long tenantId, Long id) {
         Application application = findOwned(tenantId, id);
-        Map<Long, String> userMap = authServiceClient.getUsers(null).stream()
+        Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
 
         return historyRepository.findByApplicationIdOrderByChangedAtAsc(application.getId()).stream()
@@ -203,26 +207,26 @@ public class ApplicationService {
         }
     }
 
-    private JobPostingResponse fetchPosting(Long jobPostingId) {
+    private JobPostingResponse fetchPosting(Long tenantId, Long jobPostingId) {
         try {
-            return recruitmentServiceClient.getPostingById(jobPostingId);
+            return recruitmentServiceClient.getPostingById(tenantId, jobPostingId);
         } catch (Exception e) {
             throw new BusinessException("Không tìm thấy tin tuyển dụng");
         }
     }
 
-    private void validateRecruitmentSource(Long id) {
-        boolean valid = masterDataServiceClient.getRecruitmentSources().stream().anyMatch(s -> s.id().equals(id));
+    private void validateRecruitmentSource(Long tenantId, Long id) {
+        boolean valid = masterDataServiceClient.getRecruitmentSources(tenantId).stream().anyMatch(s -> s.id().equals(id));
         if (!valid) throw new BusinessException("Nguồn tuyển dụng không hợp lệ");
     }
 
-    private void validateRejectionReason(Long id) {
-        boolean valid = masterDataServiceClient.getRejectionReasons().stream().anyMatch(r -> r.id().equals(id));
+    private void validateRejectionReason(Long tenantId, Long id) {
+        boolean valid = masterDataServiceClient.getRejectionReasons(tenantId).stream().anyMatch(r -> r.id().equals(id));
         if (!valid) throw new BusinessException("Lý do từ chối không hợp lệ");
     }
 
-    private void validateAssignedRecruiter(Long id) {
-        boolean valid = authServiceClient.getUsers("RECRUITER").stream().anyMatch(u -> u.id().equals(id));
+    private void validateAssignedRecruiter(Long tenantId, Long id) {
+        boolean valid = authServiceClient.getUsers(tenantId, "RECRUITER").stream().anyMatch(u -> u.id().equals(id));
         if (!valid) throw new BusinessException("Người phụ trách không phải Recruiter hợp lệ");
     }
 
@@ -237,9 +241,11 @@ public class ApplicationService {
     }
 
     private Map<Long, String> buildMap(List<iuh.fit.se.candidate.client.dto.CatalogItemResponse> items) {
+        if (items == null) return Map.of();
         return items.stream().collect(Collectors.toMap(
                 iuh.fit.se.candidate.client.dto.CatalogItemResponse::id,
-                iuh.fit.se.candidate.client.dto.CatalogItemResponse::name));
+                iuh.fit.se.candidate.client.dto.CatalogItemResponse::name,
+                (a, b) -> a));
     }
 
     private Application findOwned(Long tenantId, Long id) {

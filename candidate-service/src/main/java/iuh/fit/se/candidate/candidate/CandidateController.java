@@ -70,4 +70,23 @@ public class CandidateController {
         service.softDelete(tenantId, id, actorUserId);
         return ResponseEntity.ok(Map.of("message", "Xóa ứng viên thành công"));
     }
+
+    @GetMapping("/cv-file/{fileName}")
+    public ResponseEntity<org.springframework.core.io.Resource> getCvFile(@PathVariable String fileName) {
+        try {
+            java.nio.file.Path filePath = java.nio.file.Paths.get("uploads").resolve(fileName);
+            org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(filePath.toUri());
+            if (resource.exists() && resource.isReadable()) {
+                String contentType = java.nio.file.Files.probeContentType(filePath);
+                if (contentType == null) contentType = "application/octet-stream";
+                return ResponseEntity.ok()
+                        .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, contentType)
+                        .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                        .body(resource);
+            }
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 }

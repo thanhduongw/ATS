@@ -18,9 +18,6 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Handshake WebSocket: xác thực JWT được thực hiện riêng ở StompAuthChannelInterceptor
-                        .requestMatchers("/ws/**").permitAll()
-                        // Các endpoint REST còn lại: Gateway đã chặn phía trước; service tự tin header X-User-Id/X-Tenant-Id
                         .anyRequest().permitAll()
                 );
         return http.build();

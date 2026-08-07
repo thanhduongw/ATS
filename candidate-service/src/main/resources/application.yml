@@ -24,15 +24,16 @@ spring:
 
 services:
   auth-service:
-    url: http://localhost:8081
+    url: ${SERVICES_AUTH_SERVICE_URL:http://localhost:8081}
   masterdata-service:
-    url: http://localhost:8082
+    url: ${SERVICES_MASTERDATA_SERVICE_URL:http://localhost:8082}
   recruitment-service:
-    url: http://localhost:8083
+    url: ${SERVICES_RECRUITMENT_SERVICE_URL:http://localhost:8083}
 
 aws:
   s3:
-    bucket: ${AWS_S3_BUCKET:}
-    region: ${AWS_S3_REGION:ap-southeast-1}
-  access-key-id: ${AWS_ACCESS_KEY_ID:}0='
-  secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
+    bucket: ${AWS_S3_BUCKET:ats-bucket}
+    region: ${AWS_S3_REGION:us-east-1}
+    endpoint: ${AWS_S3_ENDPOINT:}
+  access-key-id: ${AWS_ACCESS_KEY_ID:minioadmin}
+  secret-access-key: ${AWS_SECRET_ACCESS_KEY:minioadmin}

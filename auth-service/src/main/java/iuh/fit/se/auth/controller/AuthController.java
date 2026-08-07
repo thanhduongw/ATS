@@ -5,6 +5,7 @@ import iuh.fit.se.auth.dto.response.ApiMessageResponse;
 import iuh.fit.se.auth.dto.response.LoginResponse;
 import iuh.fit.se.auth.dto.response.UserSummaryResponse;
 import iuh.fit.se.auth.service.LoginService;
+import iuh.fit.se.auth.service.PasswordService;
 import iuh.fit.se.auth.service.RegisterService;
 import iuh.fit.se.auth.service.UserService;
 import jakarta.validation.Valid;
@@ -23,6 +24,7 @@ public class AuthController {
     private final RegisterService registerService;
     private final LoginService loginService;
     private final UserService userService;
+    private final PasswordService passwordService;
 
     @PostMapping("/register-company")
     public ResponseEntity<ApiMessageResponse> register(@Valid @RequestBody RegisterCompanyRequest req) {
@@ -50,6 +52,26 @@ public class AuthController {
     public ResponseEntity<ApiMessageResponse> logout(@Valid @RequestBody RefreshTokenRequest req) {
         loginService.logout(req.refreshToken());
         return ResponseEntity.ok(new ApiMessageResponse("Đăng xuất thành công"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiMessageResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
+        passwordService.forgotPassword(req);
+        return ResponseEntity.ok(new ApiMessageResponse("Mã OTP khôi phục mật khẩu đã được gửi tới email của bạn"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiMessageResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
+        passwordService.resetPassword(req);
+        return ResponseEntity.ok(new ApiMessageResponse("Khôi phục mật khẩu thành công"));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiMessageResponse> changePassword(
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @Valid @RequestBody ChangePasswordRequest req) {
+        passwordService.changePassword(actorUserId, req);
+        return ResponseEntity.ok(new ApiMessageResponse("Đổi mật khẩu thành công"));
     }
 
     @GetMapping("/users")

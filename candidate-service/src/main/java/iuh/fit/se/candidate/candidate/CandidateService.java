@@ -30,15 +30,15 @@ public class CandidateService {
 
     public List<CandidateResponse> getAll(Long tenantId) {
         List<Candidate> candidates = candidateRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
-        Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels());
-        Map<Long, String> skillMap = buildCatalogMap(masterDataServiceClient.getSkills());
+        Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels(tenantId));
+        Map<Long, String> skillMap = buildCatalogMap(masterDataServiceClient.getSkills(tenantId));
         return candidates.stream().map(c -> toResponse(c, educationMap, skillMap)).toList();
     }
 
     public CandidateResponse getById(Long tenantId, Long id) {
         Candidate candidate = findOwned(tenantId, id);
-        Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels());
-        Map<Long, String> skillMap = buildCatalogMap(masterDataServiceClient.getSkills());
+        Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels(tenantId));
+        Map<Long, String> skillMap = buildCatalogMap(masterDataServiceClient.getSkills(tenantId));
         return toResponse(candidate, educationMap, skillMap);
     }
 
@@ -47,8 +47,8 @@ public class CandidateService {
         if (candidateRepository.existsByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(tenantId, req.email())) {
             throw new BusinessException("Ứng viên với email này đã tồn tại trong hệ thống");
         }
-        validateEducationLevel(req.educationLevelId());
-        validateSkills(req.skillIds());
+        validateEducationLevel(tenantId, req.educationLevelId());
+        validateSkills(tenantId, req.skillIds());
 
         Candidate candidate = candidateRepository.save(Candidate.builder()
                 .tenantId(tenantId)
@@ -70,8 +70,8 @@ public class CandidateService {
     @Transactional
     public CandidateResponse update(Long tenantId, Long id, CandidateUpdateRequest req) {
         Candidate candidate = findOwned(tenantId, id);
-        validateEducationLevel(req.educationLevelId());
-        validateSkills(req.skillIds());
+        validateEducationLevel(tenantId, req.educationLevelId());
+        validateSkills(tenantId, req.skillIds());
 
         candidate.setFullName(req.fullName());
         candidate.setEmail(req.email());
@@ -112,21 +112,23 @@ public class CandidateService {
                 CandidateSkill.builder().candidate(candidate).skillId(skillId).build()));
     }
 
-    private void validateEducationLevel(Long id) {
+    private void validateEducationLevel(Long tenantId, Long id) {
         if (id == null) return;
-        boolean valid = masterDataServiceClient.getEducationLevels().stream().anyMatch(e -> e.id().equals(id));
+        boolean valid = masterDataServiceClient.getEducationLevels(tenantId).stream().anyMatch(e -> e.id().equals(id));
         if (!valid) throw new BusinessException("Trình độ học vấn không hợp lệ");
     }
 
-    private void validateSkills(List<Long> skillIds) {
+    private void validateSkills(Long tenantId, List<Long> skillIds) {
         if (skillIds == null || skillIds.isEmpty()) return;
-        List<Long> validIds = masterDataServiceClient.getSkills().stream().map(CatalogItemResponse::id).toList();
+        List<Long> validIds = masterDataServiceClient.getSkills(tenantId).stream().map(CatalogItemResponse::id).toList();
         boolean allValid = validIds.containsAll(skillIds);
         if (!allValid) throw new BusinessException("Danh sách kỹ năng chứa giá trị không hợp lệ");
     }
 
+
     private Map<Long, String> buildCatalogMap(List<CatalogItemResponse> items) {
-        return items.stream().collect(Collectors.toMap(CatalogItemResponse::id, CatalogItemResponse::name));
+        if (items == null) return Map.of();
+        return items.stream().collect(Collectors.toMap(CatalogItemResponse::id, CatalogItemResponse::name, (a, b) -> a));
     }
 
     private Candidate findOwned(Long tenantId, Long id) {

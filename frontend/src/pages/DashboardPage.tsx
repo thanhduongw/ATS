@@ -49,6 +49,12 @@ export default function DashboardPage() {
                     <Button size="large" onClick={() => navigate("/applications")}>
                         Bảng Kanban Ứng Tuyển (`/applications`)
                     </Button>
+                    <Button size="large" onClick={() => navigate("/interviews")}>
+                        Lịch Phỏng Vấn & Đánh Giá (`/interviews`)
+                    </Button>
+                    <Button type="primary" style={{ background: "#722ed1" }} size="large" onClick={() => navigate("/offers")}>
+                        Quản Lý Offer (`/offers`)
+                    </Button>
                     <Button danger size="large" onClick={handleLogout}>
                         Đăng Xuất
                     </Button>

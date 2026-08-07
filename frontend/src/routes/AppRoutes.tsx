@@ -12,6 +12,8 @@ import RecruitmentPage from "../features/recruitment/pages/RecruitmentPage";
 import AuthManagementPage from "../features/auth/pages/AuthManagementPage";
 import CandidatesPage from "../features/candidate/pages/CandidatesPage";
 import ApplicationsPage from "../features/candidate/pages/ApplicationsPage";
+import InterviewsPage from "../features/interview/pages/InterviewsPage";
+import OffersPage from "../features/offer/pages/OffersPage";
 
 export default function AppRoutes() {
     return (
@@ -31,6 +33,8 @@ export default function AppRoutes() {
                 <Route path="/recruitment" element={<RecruitmentPage />} />
                 <Route path="/candidates" element={<CandidatesPage />} />
                 <Route path="/applications" element={<ApplicationsPage />} />
+                <Route path="/interviews" element={<InterviewsPage />} />
+                <Route path="/offers" element={<OffersPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/login" replace />} />

@@ -47,7 +47,7 @@ public class InterviewService {
 
     @Transactional
     public InterviewResponse create(Long tenantId, InterviewCreateRequest req) {
-        ApplicationSummaryResponse application = fetchApplication(req.applicationId());
+        ApplicationSummaryResponse application = fetchApplication(tenantId, req.applicationId());
 
         JobPostingResponse posting = recruitmentServiceClient.getPostingById(application.jobPostingId());
         PipelineResponse pipeline = masterDataServiceClient.getPipelineById(posting.pipelineId());
@@ -68,9 +68,9 @@ public class InterviewService {
             throw new BusinessException("Phỏng vấn Offline cần nhập địa điểm");
         }
 
-        List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers("INTERVIEWER");
-        Map<Long, String> interviewerNameMap = interviewerPool.stream()
-                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
+        List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers(tenantId, "INTERVIEWER");
+        Map<Long, String> interviewerNameMap = interviewerPool == null ? Map.of() : interviewerPool.stream()
+                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
 
         boolean allValid = req.interviewerIds().stream().allMatch(interviewerNameMap::containsKey);
         if (!allValid) {
@@ -121,9 +121,9 @@ public class InterviewService {
         return toResponse(interviewRepository.save(interview));
     }
 
-    private ApplicationSummaryResponse fetchApplication(Long applicationId) {
+    private ApplicationSummaryResponse fetchApplication(Long tenantId, Long applicationId) {
         try {
-            return candidateServiceClient.getApplicationById(applicationId);
+            return candidateServiceClient.getApplicationById(tenantId, applicationId);
         } catch (Exception e) {
             throw new BusinessException("Không tìm thấy hồ sơ ứng tuyển");
         }
@@ -136,7 +136,7 @@ public class InterviewService {
 
     private InterviewResponse toResponse(Interview interview) {
         Map<Long, InterviewEvaluation> evalByInterviewer = evaluationRepository.findByInterviewId(interview.getId())
-                .stream().collect(Collectors.toMap(InterviewEvaluation::getInterviewerId, e -> e));
+                .stream().collect(Collectors.toMap(InterviewEvaluation::getInterviewerId, e -> e, (a, b) -> a));
 
         List<InterviewerSummary> interviewerSummaries = interview.getInterviewers().stream()
                 .map(i -> new InterviewerSummary(

@@ -236,8 +236,10 @@ public class OfferService {
     }
 
     private Map<Long, String> buildUserNameMap(Long tenantId) {
-        return authServiceClient.getUsers(tenantId, null).stream()
-                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
+        List<UserSummaryResponse> users = authServiceClient.getUsers(tenantId, null);
+        if (users == null) return Map.of();
+        return users.stream()
+                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
     }
 
 

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Drawer, Descriptions, Timeline, Typography, Spin, Tag } from "antd";
+import { Drawer, Descriptions, Timeline, Typography, Spin, Tag, Button, Space } from "antd";
 import { getApplicationHistory } from "../candidateApi";
 import type { ApplicationHistoryResponse, ApplicationResponse } from "../types";
+import InterviewCreateModal from "../../interview/components/InterviewCreateModal";
+import OfferCreateModal from "../../offer/components/OfferCreateModal";
 
 const { Title } = Typography;
 
@@ -14,6 +16,8 @@ interface Props {
 export default function ApplicationDetailDrawer({ open, application, onClose }: Props) {
   const [history, setHistory] = useState<ApplicationHistoryResponse[]>([]);
   const [loading, setLoading] = useState(false);
+  const [interviewModalOpen, setInterviewModalOpen] = useState(false);
+  const [offerModalOpen, setOfferModalOpen] = useState(false);
 
   useEffect(() => {
     if (!open || !application) return;
@@ -46,6 +50,15 @@ export default function ApplicationDetailDrawer({ open, application, onClose }: 
         <Descriptions.Item label="Ngày ứng tuyển">{application.appliedAt}</Descriptions.Item>
       </Descriptions>
 
+      <Space wrap style={{ marginTop: 16 }}>
+        <Button type="primary" onClick={() => setInterviewModalOpen(true)}>
+          Lên lịch phỏng vấn
+        </Button>
+        <Button type="primary" style={{ background: "#722ed1" }} onClick={() => setOfferModalOpen(true)}>
+          Tạo Offer
+        </Button>
+      </Space>
+
       <Title level={5} style={{ marginTop: 24 }}>
         Lịch sử xử lý
       </Title>
@@ -66,6 +79,20 @@ export default function ApplicationDetailDrawer({ open, application, onClose }: 
           }))}
         />
       )}
+
+      <InterviewCreateModal
+        open={interviewModalOpen}
+        applicationId={application.id}
+        onClose={() => setInterviewModalOpen(false)}
+        onSuccess={() => setInterviewModalOpen(false)}
+      />
+
+      <OfferCreateModal
+        open={offerModalOpen}
+        applicationId={application.id}
+        onClose={() => setOfferModalOpen(false)}
+        onSuccess={() => setOfferModalOpen(false)}
+      />
     </Drawer>
   );
 }

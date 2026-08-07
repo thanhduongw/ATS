@@ -72,7 +72,8 @@ public class InterviewEvaluationService {
     }
 
     private void validateCriteria(List<EvaluationScoreRequest> scores) {
-        List<Long> validIds = masterDataServiceClient.getInterviewCriteria().stream()
+        List<CatalogItemResponse> criteriaList = masterDataServiceClient.getInterviewCriteria();
+        List<Long> validIds = criteriaList == null ? List.of() : criteriaList.stream()
                 .map(CatalogItemResponse::id).toList();
         boolean allValid = scores.stream().map(EvaluationScoreRequest::criteriaId).allMatch(validIds::contains);
         if (!allValid) {
@@ -81,8 +82,9 @@ public class InterviewEvaluationService {
     }
 
     private EvaluationResponse toResponse(InterviewEvaluation evaluation, Interview interview) {
-        Map<Long, String> criteriaNameMap = masterDataServiceClient.getInterviewCriteria().stream()
-                .collect(Collectors.toMap(CatalogItemResponse::id, CatalogItemResponse::name));
+        List<CatalogItemResponse> criteriaList = masterDataServiceClient.getInterviewCriteria();
+        Map<Long, String> criteriaNameMap = criteriaList == null ? Map.of() : criteriaList.stream()
+                .collect(Collectors.toMap(CatalogItemResponse::id, CatalogItemResponse::name, (a, b) -> a));
 
         String interviewerName = interview.getInterviewers().stream()
                 .filter(i -> i.getInterviewerId().equals(evaluation.getInterviewerId()))

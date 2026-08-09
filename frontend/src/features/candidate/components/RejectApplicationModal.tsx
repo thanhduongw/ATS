@@ -53,7 +53,7 @@ export default function RejectApplicationModal({ open, applicationId, onClose, o
       confirmLoading={isSubmitting}
       okText="Từ chối"
       cancelText="Hủy"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form layout="vertical">
         <Form.Item

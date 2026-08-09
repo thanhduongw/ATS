@@ -57,7 +57,7 @@ export default function OfferDeclineModal({ open, offerId, onClose, onSuccess }:
       okText="Xác nhận từ chối"
       cancelText="Hủy"
       okButtonProps={{ danger: true }}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form layout="vertical">
         <Form.Item

@@ -66,7 +66,7 @@ export default function InterviewCreateModal({ open, applicationId, onClose, onS
       confirmLoading={isSubmitting}
       okText="Lên lịch"
       cancelText="Hủy"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form layout="vertical">
         <Form.Item

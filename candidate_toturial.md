@@ -328,7 +328,7 @@ export default function CandidateFormModal({ open, editingItem, onClose, onSucce
       okText={editingItem ? "Cập nhật" : "Tạo mới"}
       cancelText="Hủy"
       width={600}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form layout="vertical">
         <div style={{ display: "flex", gap: 16 }}>
@@ -484,7 +484,7 @@ export default function CvUploadModal({ open, candidateId, onClose, onSuccess }:
   };
 
   return (
-    <Modal title="Tải CV lên" open={open} onCancel={onClose} footer={null} destroyOnClose>
+    <Modal title="Tải CV lên" open={open} onCancel={onClose} footer={null} destroyOnHidden>
       <Upload.Dragger customRequest={handleUpload} showUploadList={false} accept=".pdf,.doc,.docx" disabled={uploading}>
         <p className="ant-upload-drag-icon">
           <InboxOutlined />
@@ -596,7 +596,7 @@ export default function ApplicationCreateModal({
       confirmLoading={isSubmitting}
       okText="Ứng tuyển"
       cancelText="Hủy"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form layout="vertical">
         <Form.Item
@@ -736,7 +736,7 @@ export default function RejectApplicationModal({ open, applicationId, onClose, o
       confirmLoading={isSubmitting}
       okText="Từ chối"
       cancelText="Hủy"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form layout="vertical">
         <Form.Item

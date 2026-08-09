@@ -36,7 +36,7 @@ export default function CvUploadModal({ open, candidateId, onClose, onSuccess }:
   };
 
   return (
-    <Modal title="Tải CV lên" open={open} onCancel={onClose} footer={null} destroyOnClose>
+    <Modal title="Tải CV lên" open={open} onCancel={onClose} footer={null} destroyOnHidden>
       <Upload.Dragger customRequest={handleUpload} showUploadList={false} accept=".pdf,.doc,.docx" disabled={uploading}>
         <p className="ant-upload-drag-icon">
           <InboxOutlined />

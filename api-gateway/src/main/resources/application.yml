@@ -11,7 +11,7 @@ spring:
         cors-configurations:
           '[/**]':
             allowedOrigins:
-              - "http://localhost:5173"
+              - "http://localhost:3000"
             allowedMethods:
               - GET
               - POST
@@ -52,6 +52,11 @@ spring:
           uri: http://localhost:8086
           predicates:
             - Path=/api/notification/**
+
+        - id: dashboard-service
+          uri: http://localhost:8087
+          predicates:
+            - Path=/api/dashboard/**
 
 app:
   jwt:

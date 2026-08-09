@@ -50,7 +50,7 @@ export default function OfferRejectModal({ open, offerId, onClose, onSuccess }: 
       okText="Từ chối duyệt"
       cancelText="Hủy"
       okButtonProps={{ danger: true }}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form layout="vertical">
         <Form.Item

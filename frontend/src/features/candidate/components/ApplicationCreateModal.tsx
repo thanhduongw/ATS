@@ -87,7 +87,7 @@ export default function ApplicationCreateModal({
       confirmLoading={isSubmitting}
       okText="Ứng tuyển"
       cancelText="Hủy"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form layout="vertical">
         <Form.Item

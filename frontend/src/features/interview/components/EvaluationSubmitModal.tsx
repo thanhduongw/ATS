@@ -67,7 +67,7 @@ export default function EvaluationSubmitModal({ open, interviewId, criteria, onC
       okText="Nộp đánh giá"
       cancelText="Hủy"
       width={600}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form layout="vertical">
         <Form.Item

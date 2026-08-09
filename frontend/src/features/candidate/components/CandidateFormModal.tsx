@@ -96,7 +96,7 @@ export default function CandidateFormModal({ open, editingItem, onClose, onSucce
       okText={editingItem ? "Cập nhật" : "Tạo mới"}
       cancelText="Hủy"
       width={600}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form layout="vertical">
         <div style={{ display: "flex", gap: 16 }}>

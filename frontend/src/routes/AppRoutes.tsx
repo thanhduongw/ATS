@@ -9,11 +9,12 @@ import DashboardPage from "../pages/DashboardPage";
 import MasterDataPage from "../features/masterdata/pages/MasterDataPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import RecruitmentPage from "../features/recruitment/pages/RecruitmentPage";
-import AuthManagementPage from "../features/auth/pages/AuthManagementPage";
 import CandidatesPage from "../features/candidate/pages/CandidatesPage";
 import ApplicationsPage from "../features/candidate/pages/ApplicationsPage";
 import InterviewsPage from "../features/interview/pages/InterviewsPage";
 import OffersPage from "../features/offer/pages/OffersPage";
+import AppLayout from "../layouts/AppLayout";
+import AuditLogPage from "../features/auditlog/pages/AuditLogPage";
 
 export default function AppRoutes() {
     return (
@@ -27,14 +28,16 @@ export default function AppRoutes() {
             </Route>
 
             <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/auth-manage" element={<AuthManagementPage />} />
-                <Route path="/masterdata" element={<MasterDataPage />} />
-                <Route path="/recruitment" element={<RecruitmentPage />} />
-                <Route path="/candidates" element={<CandidatesPage />} />
-                <Route path="/applications" element={<ApplicationsPage />} />
-                <Route path="/interviews" element={<InterviewsPage />} />
-                <Route path="/offers" element={<OffersPage />} />
+                <Route element={<AppLayout />}>
+                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/masterdata" element={<MasterDataPage />} />
+                    <Route path="/recruitment" element={<RecruitmentPage />} />
+                    <Route path="/candidates" element={<CandidatesPage />} />
+                    <Route path="/applications" element={<ApplicationsPage />} />
+                    <Route path="/interviews" element={<InterviewsPage />} />
+                    <Route path="/offers" element={<OffersPage />} />
+                    <Route path="/audit-logs" element={<AuditLogPage />} />
+                </Route>
             </Route>
 
             <Route path="*" element={<Navigate to="/login" replace />} />

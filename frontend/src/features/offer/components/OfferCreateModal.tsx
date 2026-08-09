@@ -97,7 +97,7 @@ export default function OfferCreateModal({ open, applicationId, initialData, onC
       okText={initialData ? "Cập nhật" : "Tạo bản nháp"}
       cancelText="Hủy"
       width={600}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form layout="vertical">
         <Form.Item

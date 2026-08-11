@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -64,8 +65,9 @@ public class JobRequisitionService {
         JobRequisition requisition = findOwned(tenantId, id);
         AccessGuard.requireOwner(requisition.getRequesterId(), requesterId);
 
-        if (requisition.getStatus() != RequisitionStatus.DRAFT) {
-            throw new BusinessException("Chỉ chỉnh sửa được yêu cầu tuyển dụng ở trạng thái bản nháp");
+        if (requisition.getStatus() != RequisitionStatus.DRAFT
+                && requisition.getStatus() != RequisitionStatus.CHANGES_REQUESTED) {
+            throw new BusinessException("Chỉ chỉnh sửa được yêu cầu đang ở trạng thái bản nháp hoặc cần chỉnh sửa lại");
         }
 
         validateApprover(req.approverId());
@@ -81,6 +83,9 @@ public class JobRequisitionService {
         requisition.setExpectedStartDate(req.expectedStartDate());
         requisition.setDescription(req.description());
         requisition.setApproverId(req.approverId());
+        // Chỉnh sửa lại sau khi HR yêu cầu chỉnh sửa -> đưa về Bản nháp, chờ phòng ban
+        // gửi duyệt lại
+        requisition.setStatus(RequisitionStatus.DRAFT);
 
         return toResponse(repository.save(requisition), buildUserNameMap());
     }
@@ -103,7 +108,8 @@ public class JobRequisitionService {
     }
 
     @Transactional
-    public JobRequisitionResponse approve(Long tenantId, Long id, Long approverUserId) {
+    public JobRequisitionResponse approve(Long tenantId, Long id, Long approverUserId,
+            JobRequisitionApproveRequest req) {
         JobRequisition requisition = findOwned(tenantId, id);
         AccessGuard.requireApprover(requisition.getApproverId(), approverUserId);
 
@@ -111,10 +117,23 @@ public class JobRequisitionService {
             throw new BusinessException("Chỉ phê duyệt được yêu cầu đang chờ duyệt");
         }
 
+        // HR có thể chốt lại khoảng lương; nếu không truyền thì lấy đúng mức phòng ban
+        // đã đề xuất
+        BigDecimal approvedMin = (req != null && req.approvedSalaryMin() != null)
+                ? req.approvedSalaryMin()
+                : requisition.getExpectedSalaryMin();
+        BigDecimal approvedMax = (req != null && req.approvedSalaryMax() != null)
+                ? req.approvedSalaryMax()
+                : requisition.getExpectedSalaryMax();
+
+        requisition.setApprovedSalaryMin(approvedMin);
+        requisition.setApprovedSalaryMax(approvedMax);
+        requisition.setHrNote(req != null ? req.note() : null);
         requisition.setStatus(RequisitionStatus.APPROVED);
         JobRequisition saved = repository.save(requisition);
 
-        auditEventPublisher.publish(tenantId, approverUserId, "REQUISITION_APPROVED", "REQUISITION", saved.getId(), null);
+        auditEventPublisher.publish(tenantId, approverUserId, "REQUISITION_APPROVED", "REQUISITION", saved.getId(),
+                null);
 
         return toResponse(saved, buildUserNameMap());
     }
@@ -132,7 +151,34 @@ public class JobRequisitionService {
         requisition.setRejectReason(req.reason());
         JobRequisition saved = repository.save(requisition);
 
-        auditEventPublisher.publish(tenantId, approverUserId, "REQUISITION_REJECTED", "REQUISITION", saved.getId(), req.reason());
+        auditEventPublisher.publish(tenantId, approverUserId, "REQUISITION_REJECTED", "REQUISITION", saved.getId(),
+                req.reason());
+
+        return toResponse(saved, buildUserNameMap());
+    }
+
+    /**
+     * HR yêu cầu phòng ban chỉnh sửa lại yêu cầu (khác với Từ chối — đây không phải
+     * quyết định cuối cùng).
+     * Yêu cầu quay về trạng thái CHANGES_REQUESTED, phòng ban sửa lại (sẽ tự đưa về
+     * DRAFT) rồi gửi duyệt lại.
+     */
+    @Transactional
+    public JobRequisitionResponse requestChanges(Long tenantId, Long id, Long approverUserId,
+            JobRequisitionRequestChangesRequest req) {
+        JobRequisition requisition = findOwned(tenantId, id);
+        AccessGuard.requireApprover(requisition.getApproverId(), approverUserId);
+
+        if (requisition.getStatus() != RequisitionStatus.PENDING_APPROVAL) {
+            throw new BusinessException("Chỉ yêu cầu chỉnh sửa được yêu cầu đang chờ duyệt");
+        }
+
+        requisition.setStatus(RequisitionStatus.CHANGES_REQUESTED);
+        requisition.setHrNote(req.note());
+        JobRequisition saved = repository.save(requisition);
+
+        auditEventPublisher.publish(tenantId, approverUserId, "REQUISITION_CHANGES_REQUESTED", "REQUISITION",
+                saved.getId(), req.note());
 
         return toResponse(saved, buildUserNameMap());
     }
@@ -148,11 +194,18 @@ public class JobRequisitionService {
         auditEventPublisher.publish(tenantId, actorUserId, "REQUISITION_DELETED", "REQUISITION", id, null);
     }
 
+    /**
+     * Theo đúng quy trình: phòng ban (Hiring Manager) tạo yêu cầu và gửi cho HR
+     * (Recruiter / Company Admin) duyệt.
+     * Người duyệt vì vậy phải thuộc nhóm HR, không phải Hiring Manager.
+     */
     private void validateApprover(Long approverId) {
-        List<UserSummaryResponse> hiringManagers = authServiceClient.getUsers("HIRING_MANAGER");
-        boolean valid = hiringManagers.stream().anyMatch(u -> u.id().equals(approverId));
+        List<UserSummaryResponse> recruiters = authServiceClient.getUsers("RECRUITER");
+        List<UserSummaryResponse> companyAdmins = authServiceClient.getUsers("COMPANY_ADMIN");
+        boolean valid = java.util.stream.Stream.concat(recruiters.stream(), companyAdmins.stream())
+                .anyMatch(u -> u.id().equals(approverId));
         if (!valid) {
-            throw new BusinessException("Người được chọn không phải là Hiring Manager hợp lệ");
+            throw new BusinessException("Người được chọn không phải là nhân sự HR hợp lệ");
         }
     }
 
@@ -170,10 +223,10 @@ public class JobRequisitionService {
         return new JobRequisitionResponse(
                 r.getId(), r.getTitle(), r.getDepartmentId(), r.getJobTitleId(), r.getJobLevelId(),
                 r.getQuantity(), r.getBudget(), r.getExpectedSalaryMin(), r.getExpectedSalaryMax(),
+                r.getApprovedSalaryMin(), r.getApprovedSalaryMax(),
                 r.getExpectedStartDate(), r.getDescription(),
                 r.getRequesterId(), userNameMap.getOrDefault(r.getRequesterId(), "N/A"),
                 r.getApproverId(), userNameMap.getOrDefault(r.getApproverId(), "N/A"),
-                r.getStatus(), r.getRejectReason(), r.getCreatedAt()
-        );
+                r.getStatus(), r.getRejectReason(), r.getHrNote(), r.getCreatedAt());
     }
 }

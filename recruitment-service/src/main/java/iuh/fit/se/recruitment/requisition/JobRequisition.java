@@ -41,6 +41,13 @@ public class JobRequisition {
     @Column(name = "expected_salary_max")
     private BigDecimal expectedSalaryMax;
 
+    /** Mức lương do HR chốt duyệt — có thể khác với mức phòng ban đề xuất (expectedSalaryMin/Max). */
+    @Column(name = "approved_salary_min")
+    private BigDecimal approvedSalaryMin;
+
+    @Column(name = "approved_salary_max")
+    private BigDecimal approvedSalaryMax;
+
     @Column(name = "expected_start_date")
     private LocalDate expectedStartDate;
 
@@ -59,6 +66,10 @@ public class JobRequisition {
 
     @Column(name = "reject_reason")
     private String rejectReason;
+
+    /** Ghi chú của HR khi duyệt (điều chỉnh lương) hoặc khi yêu cầu chỉnh sửa lại. */
+    @Column(name = "hr_note", columnDefinition = "TEXT")
+    private String hrNote;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

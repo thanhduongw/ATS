@@ -29,7 +29,7 @@ export default function RequisitionFormModal({
     const [departments, setDepartments] = useState<CatalogItem[]>([]);
     const [jobTitles, setJobTitles] = useState<CatalogItem[]>([]);
     const [jobLevels, setJobLevels] = useState<CatalogItem[]>([]);
-    const [hiringManagers, setHiringManagers] = useState<UserSummaryResponse[]>([]);
+    const [hrApprovers, setHrApprovers] = useState<UserSummaryResponse[]>([]);
 
     const {
         control,
@@ -46,12 +46,13 @@ export default function RequisitionFormModal({
             getCatalogItems("/masterdata/departments"),
             getCatalogItems("/masterdata/job-titles"),
             getCatalogItems("/masterdata/job-levels"),
-            getUsers("HIRING_MANAGER"),
-        ]).then(([deptRes, titleRes, levelRes, hmRes]) => {
+            getUsers("RECRUITER"),
+            getUsers("COMPANY_ADMIN"),
+        ]).then(([deptRes, titleRes, levelRes, recruiterRes, adminRes]) => {
             setDepartments(deptRes.data);
             setJobTitles(titleRes.data);
             setJobLevels(levelRes.data);
-            setHiringManagers(hmRes.data);
+            setHrApprovers([...recruiterRes.data, ...adminRes.data]);
         });
     }, [open]);
 
@@ -237,7 +238,7 @@ export default function RequisitionFormModal({
                 </Form.Item>
 
                 <Form.Item
-                    label="Người duyệt (Hiring Manager)"
+                    label="Người duyệt (HR)"
                     validateStatus={errors.approverId ? "error" : ""}
                     help={errors.approverId?.message}
                 >
@@ -247,8 +248,8 @@ export default function RequisitionFormModal({
                         render={({ field }) => (
                             <Select
                                 {...field}
-                                options={hiringManagers.map((u) => ({ value: u.id, label: `${u.fullName} (${u.email})` }))}
-                                placeholder="Chọn người duyệt"
+                                options={hrApprovers.map((u) => ({ value: u.id, label: `${u.fullName} (${u.email})` }))}
+                                placeholder="Chọn nhân sự HR sẽ duyệt yêu cầu này"
                             />
                         )}
                     />

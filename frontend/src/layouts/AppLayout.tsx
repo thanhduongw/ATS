@@ -49,16 +49,18 @@ export default function AppLayout() {
 
     return (
         <Layout style={{ minHeight: "100vh" }}>
-            <Sider breakpoint="lg" collapsedWidth="0" theme="light"
-                style={{ borderRight: "1px solid #E5E7EB" }}>
+            <Sider breakpoint="lg" collapsedWidth="0" theme="dark"
+                style={{ background: COLORS.header }}>
                 <div style={{
                     height: 56, display: "flex", alignItems: "center", justifyContent: "center",
-                    background: COLORS.header, color: COLORS.accent, fontWeight: 800, fontSize: 20, letterSpacing: 1
+                    color: COLORS.accent, fontWeight: 800, fontSize: 20, letterSpacing: 1,
+                    borderBottom: "1px solid rgba(255,255,255,0.08)",
                 }}>
                     ATS
                 </div>
-                <Menu mode="inline" selectedKeys={[location.pathname]}
-                    items={menuItems} onClick={({ key }) => navigate(key)} style={{ borderInlineEnd: "none" }} />
+                <Menu mode="inline" theme="dark" selectedKeys={[location.pathname]}
+                    items={menuItems} onClick={({ key }) => navigate(key)}
+                    style={{ borderInlineEnd: "none", background: "transparent", marginTop: 8 }} />
             </Sider>
             <Layout>
                 <Header style={{ padding: "0 24px", display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
@@ -81,7 +83,7 @@ export default function AppLayout() {
                         </Dropdown>
                     </Space>
                 </Header>
-                <Content style={{ margin: 16 }}><Outlet /></Content>
+                <Content style={{ margin: 0, minHeight: "calc(100vh - 64px)" }}><Outlet /></Content>
             </Layout>
         </Layout>
     );

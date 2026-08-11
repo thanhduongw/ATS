@@ -1,5 +1,6 @@
 package iuh.fit.se.dashboard.dashboard;
 
+import iuh.fit.se.dashboard.client.ApplicationServiceClient;
 import iuh.fit.se.dashboard.client.CandidateServiceClient;
 import iuh.fit.se.dashboard.client.RecruitmentServiceClient;
 import iuh.fit.se.dashboard.client.dto.ApplicationSummary;
@@ -22,12 +23,13 @@ public class DashboardService {
 
     private final RecruitmentServiceClient recruitmentServiceClient;
     private final CandidateServiceClient candidateServiceClient;
+    private final ApplicationServiceClient applicationServiceClient;
 
     public DashboardSummaryResponse getSummary() {
         List<RequisitionSummary> requisitions = recruitmentServiceClient.getRequisitions();
         List<PostingSummary> postings = recruitmentServiceClient.getPostings();
         List<CandidateSummary> candidates = candidateServiceClient.getCandidates();
-        List<ApplicationSummary> applications = candidateServiceClient.getApplications();
+        List<ApplicationSummary> applications = applicationServiceClient.getApplications();
 
         long openPostings = postings.stream().filter(p -> "OPEN".equals(p.status())).count();
         long activeRequisitions = requisitions.stream()

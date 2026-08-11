@@ -1,0 +1,27 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: offer-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ats_offer
+    username: ats_user
+    password: ats_password
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ats_user
+    password: ats_password
+
+services:
+  auth-service:
+    url: ${SERVICES_AUTH_SERVICE_URL:http://localhost:8081}
+  masterdata-service:
+    url: ${SERVICES_MASTERDATA_SERVICE_URL:http://localhost:8082}
+  application-service:
+    url: ${SERVICES_APPLICATION_SERVICE_URL:http://localhost:8089}

@@ -40,6 +40,8 @@ public class InterviewEvaluationService {
 
         evaluation.setOverallRecommendation(req.overallRecommendation());
         evaluation.setGeneralComment(req.generalComment());
+        evaluation.setSalaryProposed(req.salaryProposed());
+        evaluation.setSalaryNote(req.salaryNote());
         evaluation.setSubmittedAt(LocalDateTime.now());
 
         evaluation.getScores().clear();
@@ -99,7 +101,8 @@ public class InterviewEvaluationService {
 
         return new EvaluationResponse(
                 evaluation.getInterviewerId(), interviewerName, evaluation.getOverallRecommendation(),
-                evaluation.getGeneralComment(), evaluation.getSubmittedAt(), scoreDetails
+                evaluation.getGeneralComment(), evaluation.getSalaryProposed(), evaluation.getSalaryNote(),
+                evaluation.getSubmittedAt(), scoreDetails
         );
     }
 }

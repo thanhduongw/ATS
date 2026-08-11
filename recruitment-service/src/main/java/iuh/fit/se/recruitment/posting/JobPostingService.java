@@ -54,6 +54,8 @@ public class JobPostingService {
                 .employmentTypeId(req.employmentTypeId())
                 .workLocationId(req.workLocationId())
                 .pipelineId(req.pipelineId())
+                .salaryMin(req.salaryMin())
+                .salaryMax(req.salaryMax())
                 .description(req.description())
                 .requirements(req.requirements())
                 .benefits(req.benefits())
@@ -69,18 +71,14 @@ public class JobPostingService {
     public JobPostingResponse update(Long tenantId, Long id, JobPostingUpdateRequest req) {
         JobPosting posting = findOwned(tenantId, id);
 
-        if (posting.isPipelineLocked() && !posting.getPipelineId().equals(req.pipelineId())) {
-            throw new BusinessException("Không thể đổi quy trình tuyển dụng sau khi đã có ứng viên nộp hồ sơ");
-        }
-
         validateEmploymentType(req.employmentTypeId());
         validateWorkLocation(req.workLocationId());
-        validatePipeline(req.pipelineId());
 
         posting.setTitle(req.title());
         posting.setEmploymentTypeId(req.employmentTypeId());
         posting.setWorkLocationId(req.workLocationId());
-        posting.setPipelineId(req.pipelineId());
+        posting.setSalaryMin(req.salaryMin());
+        posting.setSalaryMax(req.salaryMax());
         posting.setDescription(req.description());
         posting.setRequirements(req.requirements());
         posting.setBenefits(req.benefits());
@@ -137,6 +135,7 @@ public class JobPostingService {
         return new JobPostingResponse(
                 p.getId(), p.getRequisition().getId(), p.getTitle(),
                 p.getEmploymentTypeId(), p.getWorkLocationId(), p.getPipelineId(),
+                p.getSalaryMin(), p.getSalaryMax(),
                 p.getDescription(), p.getRequirements(), p.getBenefits(),
                 p.getStatus(), p.isPipelineLocked(), p.getPublishedAt(), p.getClosedAt()
         );

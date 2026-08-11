@@ -104,6 +104,16 @@ export default function PostingListPanel() {
             render: (id: number) => pipelineMap[id] ?? "—",
         },
         {
+            title: "Mức lương",
+            key: "salaryRange",
+            render: (_: unknown, record: JobPostingResponse) => {
+                if (!record.salaryMin && !record.salaryMax) return "Thỏa thuận";
+                if (record.salaryMin && record.salaryMax) return `${(record.salaryMin / 1000000).toFixed(0)} - ${(record.salaryMax / 1000000).toFixed(0)} triệu`;
+                if (record.salaryMin) return `Từ ${(record.salaryMin / 1000000).toFixed(0)} triệu`;
+                return `Đến ${(record.salaryMax! / 1000000).toFixed(0)} triệu`;
+            },
+        },
+        {
             title: "Trạng thái",
             dataIndex: "status",
             key: "status",

@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { Form, Input, Button, Card, Typography, App } from "antd";
+import { Form, Input, Button, Card, App } from "antd";
 import { useLocation, useNavigate } from "react-router-dom";
+import { BankOutlined, MailOutlined, LockOutlined, KeyOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { resetPassword } from "../authApi";
 import type { ApiMessageResponse, ResetPasswordRequest } from "../types";
-
-const { Title, Text } = Typography;
 
 interface LocationState {
     tenantCode?: string;
@@ -17,7 +16,6 @@ export default function ResetPasswordPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const state = (location.state ?? {}) as LocationState;
-
     const [loading, setLoading] = useState(false);
 
     const onFinish = async (values: ResetPasswordRequest) => {
@@ -35,14 +33,26 @@ export default function ResetPasswordPage() {
     };
 
     return (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "80vh" }}>
-            <Card style={{ width: 440, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
-                <Title level={3} style={{ textAlign: "center", marginBottom: 8 }}>
-                    Đặt lại mật khẩu
-                </Title>
-                <Text type="secondary" style={{ display: "block", textAlign: "center", marginBottom: 24 }}>
-                    Nhập mã OTP 6 số nhận được từ Email để tạo mật khẩu mới.
-                </Text>
+        <div className="auth-center-page">
+            <Card className="auth-center-card" style={{ padding: "32px 28px" }}>
+                {/* Logo */}
+                <div className="auth-card-logo">ATS</div>
+
+                {/* Icon */}
+                <div style={{ textAlign: "center", marginBottom: 16 }}>
+                    <div style={{
+                        width: 64, height: 64, borderRadius: 16,
+                        background: "linear-gradient(135deg, #EDE9FE 0%, #DDD6FE 100%)",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                        <KeyOutlined style={{ fontSize: 28, color: "#7C3AED" }} />
+                    </div>
+                </div>
+
+                <div className="auth-form-header" style={{ marginBottom: 24 }}>
+                    <h2>Đặt lại mật khẩu</h2>
+                    <p>Nhập mã OTP 6 số từ Email và tạo mật khẩu mới.</p>
+                </div>
 
                 <Form
                     layout="vertical"
@@ -59,7 +69,11 @@ export default function ResetPasswordPage() {
                         name="tenantCode"
                         rules={[{ required: true, message: "Vui lòng nhập mã công ty" }]}
                     >
-                        <Input placeholder="vd: iuhtech" size="large" />
+                        <Input
+                            prefix={<BankOutlined style={{ color: "#9CA3AF" }} />}
+                            placeholder="vd: iuhtech"
+                            size="large"
+                        />
                     </Form.Item>
 
                     <Form.Item
@@ -70,7 +84,11 @@ export default function ResetPasswordPage() {
                             { type: "email", message: "Email không hợp lệ" },
                         ]}
                     >
-                        <Input placeholder="admin@iuhtech.com" size="large" />
+                        <Input
+                            prefix={<MailOutlined style={{ color: "#9CA3AF" }} />}
+                            placeholder="admin@company.com"
+                            size="large"
+                        />
                     </Form.Item>
 
                     <Form.Item
@@ -82,10 +100,16 @@ export default function ResetPasswordPage() {
                         ]}
                     >
                         <Input
-                            placeholder="123456"
+                            placeholder="• • • • • •"
                             size="large"
                             maxLength={6}
-                            style={{ letterSpacing: 4, fontWeight: "bold", textAlign: "center" }}
+                            style={{
+                                letterSpacing: 12,
+                                fontWeight: 700,
+                                fontSize: 22,
+                                textAlign: "center",
+                                height: 56,
+                            }}
                         />
                     </Form.Item>
 
@@ -94,19 +118,30 @@ export default function ResetPasswordPage() {
                         name="newPassword"
                         rules={[
                             { required: true, message: "Vui lòng nhập mật khẩu mới" },
-                            { min: 8, message: "Mật khẩu mới phải từ 8 ký tự trở lên" },
+                            { min: 8, message: "Mật khẩu mới phải từ 8 ký tự" },
                         ]}
                     >
-                        <Input.Password placeholder="Nhập mật khẩu mới" size="large" />
+                        <Input.Password
+                            prefix={<LockOutlined style={{ color: "#9CA3AF" }} />}
+                            placeholder="Tối thiểu 8 ký tự"
+                            size="large"
+                        />
                     </Form.Item>
 
-                    <Button type="primary" htmlType="submit" block size="large" loading={loading} style={{ marginTop: 12 }}>
+                    <Button
+                        type="primary"
+                        htmlType="submit"
+                        block
+                        size="large"
+                        loading={loading}
+                        style={{ height: 48, fontWeight: 600, fontSize: 15, marginTop: 8 }}
+                    >
                         Xác Nhận Đặt Lại Mật Khẩu
                     </Button>
                 </Form>
 
-                <div style={{ textAlign: "center", marginTop: 20 }}>
-                    Quay lại <a onClick={() => navigate("/login")}>Đăng nhập</a>
+                <div className="auth-form-footer">
+                    <a onClick={() => navigate("/login")}>← Quay lại Đăng nhập</a>
                 </div>
             </Card>
         </div>

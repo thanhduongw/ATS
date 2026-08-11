@@ -14,6 +14,7 @@ public class BusinessEventConfig {
     public static final String INTERVIEW_SCHEDULED_QUEUE = "notification.interview-scheduled.queue";
     public static final String REQUISITION_SUBMITTED_QUEUE = "notification.requisition-submitted.queue";
     public static final String OFFER_APPROVED_QUEUE = "notification.offer-approved.queue";
+    public static final String APPLICATION_STATUS_CHANGED_QUEUE = "notification.application-status-changed.queue";
     public static final String AUDIT_LOG_QUEUE = "notification.audit-log.queue";
 
     @Bean
@@ -54,6 +55,16 @@ public class BusinessEventConfig {
     @Bean
     public Binding offerApprovedBinding(Queue offerApprovedQueue, TopicExchange atsExchange) {
         return BindingBuilder.bind(offerApprovedQueue).to(atsExchange).with("offer.approved");
+    }
+
+    @Bean
+    public Queue applicationStatusChangedQueue() {
+        return new Queue(APPLICATION_STATUS_CHANGED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding applicationStatusChangedBinding(Queue applicationStatusChangedQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(applicationStatusChangedQueue).to(atsExchange).with("application.status_changed");
     }
 
     @Bean

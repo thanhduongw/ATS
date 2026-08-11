@@ -9,6 +9,8 @@ export const evaluationScoreSchema = z.object({
 export const evaluationSubmitSchema = z.object({
   overallRecommendation: z.enum(["STRONG_YES", "YES", "NO", "STRONG_NO"]),
   generalComment: z.string().optional().nullable(),
+  salaryProposed: z.number().optional().nullable(),
+  salaryNote: z.string().optional().nullable(),
   scores: z.array(evaluationScoreSchema).min(1, "Phải chấm điểm ít nhất 1 tiêu chí"),
 });
 

@@ -1,25 +1,38 @@
 import { useEffect, useState, useCallback } from "react";
-import { Card, Tabs, Typography, Form, Input, Button, Table, Tag, Modal, App, Space } from "antd";
+import { Card, Tabs, Form, Input, Button, Table, Tag, Modal, App, Space, Avatar, Divider, Badge } from "antd";
+import type { ColumnsType } from "antd/es/table";
+import {
+    UserOutlined, LockOutlined, MailOutlined, BankOutlined,
+    EditOutlined, CheckCircleOutlined, StopOutlined,
+    TeamOutlined, SettingOutlined, BuildOutlined,
+} from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import {
-    getMyProfile,
-    updateMyProfile,
-    changePassword,
-    getCompany,
-    updateCompany,
-    getUsers,
-    updateUserStatus,
+    getMyProfile, updateMyProfile, changePassword,
+    getCompany, updateCompany, getUsers, updateUserStatus,
 } from "../authApi";
 import type {
-    UserProfileResponse,
-    CompanyResponse,
-    UserSummaryResponse,
-    ApiMessageResponse,
-    UserRole,
+    UserProfileResponse, CompanyResponse, UserSummaryResponse,
+    ApiMessageResponse, UserRole,
 } from "../types";
 import { useAppSelector } from "../../../app/hooks";
+import { COLORS, GRADIENTS } from "../../../app/theme";
+import { ROLE_LABELS } from "../../../app/roles";
 
-const { Title, Text } = Typography;
+const ROLE_COLORS: Record<string, string> = {
+    COMPANY_ADMIN: "purple",
+    RECRUITER: "blue",
+    HIRING_MANAGER: "cyan",
+    INTERVIEWER: "geekblue",
+    CANDIDATE: "default",
+    PLATFORM_ADMIN: "red",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+    ACTIVE: "success",
+    LOCKED: "error",
+    UNVERIFIED: "warning",
+};
 
 export default function AuthManagementPage() {
     const { message } = App.useApp();
@@ -32,7 +45,6 @@ export default function AuthManagementPage() {
     const [loadingCompany, setLoadingCompany] = useState(false);
     const [loadingUsers, setLoadingUsers] = useState(false);
 
-    // Modal state for Password change
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [passwordForm] = Form.useForm();
     const [profileForm] = Form.useForm();
@@ -128,127 +140,275 @@ export default function AuthManagementPage() {
         }
     };
 
-    const userColumns = [
-        { title: "ID", dataIndex: "id", key: "id", width: 70 },
-        { title: "Họ và Tên", dataIndex: "fullName", key: "fullName" },
-        { title: "Email", dataIndex: "email", key: "email" },
+    /* Initials for avatar */
+    const getInitials = (name?: string, email?: string) => {
+        const src = name || email || "?";
+        const parts = src.split(" ").filter(Boolean);
+        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        return src.substring(0, 2).toUpperCase();
+    };
+
+    const userColumns: ColumnsType<UserSummaryResponse> = [
+        {
+            title: "Nhân sự",
+            key: "user",
+            render: (_, record) => (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Avatar
+                        size={36}
+                        style={{ background: GRADIENTS.primary, color: "#fff", fontWeight: 600, fontSize: 13, flexShrink: 0 }}
+                    >
+                        {getInitials(record.fullName, record.email)}
+                    </Avatar>
+                    <div>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.textPrimary }}>{record.fullName || "—"}</div>
+                        <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{record.email}</div>
+                    </div>
+                </div>
+            ),
+        },
         {
             title: "Vai trò",
             dataIndex: "role",
             key: "role",
-            render: (role: UserRole) => <Tag color="blue">{role}</Tag>,
+            render: (role: UserRole) => (
+                <Tag color={ROLE_COLORS[role] || "default"} style={{ fontWeight: 500 }}>
+                    {ROLE_LABELS[role]?.vi ?? role}
+                </Tag>
+            ),
+        },
+        {
+            title: "Trạng thái",
+            dataIndex: "status",
+            key: "status",
+            render: (status: string) => (
+                <Badge status={STATUS_COLORS[status] as "success" | "error" | "warning"} text={
+                    status === "ACTIVE" ? "Đang hoạt động"
+                        : status === "LOCKED" ? "Đã khóa"
+                            : "Chưa xác thực"
+                } />
+            ),
         },
         {
             title: "Thao tác",
             key: "action",
-            render: (_: unknown, record: UserSummaryResponse) => (
+            render: (_, record) =>
                 currentUserRole === "COMPANY_ADMIN" ? (
                     <Button
                         size="small"
-                        danger
-                        onClick={() => handleToggleUserStatus(record.id)}
+                        danger={record.status !== "LOCKED"}
+                        icon={record.status === "LOCKED" ? <CheckCircleOutlined /> : <StopOutlined />}
+                        onClick={() => handleToggleUserStatus(record.id, record.status)}
                     >
-                        Khóa / Mở khóa
+                        {record.status === "LOCKED" ? "Mở khóa" : "Khóa tài khoản"}
                     </Button>
-                ) : null
-            ),
+                ) : null,
         },
     ];
 
     const tabItems = [
         {
             key: "profile",
-            label: "Hồ Sơ Cá Nhân",
+            label: (
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <UserOutlined />Hồ Sơ Cá Nhân
+                </span>
+            ),
             children: (
-                <Card loading={loadingProfile}>
-                    <Title level={4}>Thông tin tài khoản (`/api/auth/me`)</Title>
-                    {profile && (
-                        <div style={{ marginBottom: 20 }}>
-                            <p><strong>Email:</strong> {profile.email}</p>
-                            <p><strong>Vai trò:</strong> <Tag color="purple">{profile.role}</Tag></p>
-                            <p><strong>Trạng thái:</strong> <Tag color="green">{profile.status}</Tag></p>
-                            <p><strong>Mã Tenant (ID):</strong> {profile.tenantId}</p>
+                <div style={{ maxWidth: 560 }}>
+                    {/* Profile header */}
+                    <div style={{
+                        display: "flex", alignItems: "center", gap: 20,
+                        padding: "20px 24px", background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)",
+                        borderRadius: 12, marginBottom: 24, border: "1px solid #BBF7D0",
+                    }}>
+                        <Avatar
+                            size={64}
+                            style={{ background: GRADIENTS.primary, color: "#fff", fontWeight: 700, fontSize: 24, flexShrink: 0 }}
+                        >
+                            {getInitials(profile?.fullName, profile?.email)}
+                        </Avatar>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: 18, color: COLORS.textPrimary }}>
+                                {profile?.fullName || "—"}
+                            </div>
+                            <div style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 2 }}>
+                                <MailOutlined style={{ marginRight: 6 }} />{profile?.email}
+                            </div>
+                            <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
+                                <Tag color={ROLE_COLORS[profile?.role || ""] || "default"}>
+                                    {ROLE_LABELS[profile?.role as UserRole]?.vi ?? profile?.role}
+                                </Tag>
+                                <Tag color={STATUS_COLORS[profile?.status || ""] as string}>
+                                    {profile?.status === "ACTIVE" ? "Đang hoạt động" : profile?.status}
+                                </Tag>
+                            </div>
                         </div>
-                    )}
+                    </div>
 
-                    <Form layout="vertical" form={profileForm} onFinish={handleUpdateProfile} style={{ maxWidth: 400 }}>
-                        <Form.Item label="Họ và tên" name="fullName" rules={[{ required: true }]}>
-                            <Input />
-                        </Form.Item>
-                        <Space>
-                            <Button type="primary" htmlType="submit">
-                                Cập Nhật Thông Tin
-                            </Button>
-                            <Button onClick={() => setIsPasswordModalOpen(true)}>
-                                Đổi Mật Khẩu
-                            </Button>
-                        </Space>
-                    </Form>
-                </Card>
+                    <Card loading={loadingProfile} title={<><EditOutlined style={{ marginRight: 8, color: COLORS.primary }} />Cập nhật thông tin</>} style={{ marginBottom: 16, border: "1px solid #E5E7EB" }}>
+                        <Form layout="vertical" form={profileForm} onFinish={handleUpdateProfile}>
+                            <Form.Item label="Họ và tên" name="fullName" rules={[{ required: true }]}>
+                                <Input prefix={<UserOutlined style={{ color: "#9CA3AF" }} />} size="large" placeholder="Nguyễn Văn A" />
+                            </Form.Item>
+                            <Space>
+                                <Button type="primary" htmlType="submit" icon={<CheckCircleOutlined />}>
+                                    Cập Nhật Thông Tin
+                                </Button>
+                                <Button icon={<LockOutlined />} onClick={() => setIsPasswordModalOpen(true)}>
+                                    Đổi Mật Khẩu
+                                </Button>
+                            </Space>
+                        </Form>
+                    </Card>
+
+                    {/* Tenant info */}
+                    <Card title="Thông tin tài khoản" style={{ border: "1px solid #E5E7EB" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span style={{ color: COLORS.textSecondary }}>Mã Tenant:</span>
+                                <Tag color="orange">{profile?.tenantId}</Tag>
+                            </div>
+                            <Divider style={{ margin: "4px 0" }} />
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span style={{ color: COLORS.textSecondary }}>Email:</span>
+                                <span style={{ fontWeight: 500 }}>{profile?.email}</span>
+                            </div>
+                            <Divider style={{ margin: "4px 0" }} />
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span style={{ color: COLORS.textSecondary }}>Vai trò:</span>
+                                <Tag color={ROLE_COLORS[profile?.role || ""] || "default"}>
+                                    {ROLE_LABELS[profile?.role as UserRole]?.vi ?? profile?.role}
+                                </Tag>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
             ),
         },
         {
             key: "company",
-            label: "Thông Tin Doanh Nghiệp",
+            label: (
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <BuildOutlined />Thông Tin Doanh Nghiệp
+                </span>
+            ),
             children: (
-                <Card loading={loadingCompany}>
-                    <Title level={4}>Thông tin Công ty (`/api/auth/company`)</Title>
-                    {company && (
-                        <div style={{ marginBottom: 20 }}>
-                            <p><strong>Mã công ty (Tenant Code):</strong> <Tag color="orange">{company.tenantCode}</Tag></p>
-                            <p><strong>ID Công ty:</strong> {company.id}</p>
+                <div style={{ maxWidth: 560 }}>
+                    {/* Company header */}
+                    <div style={{
+                        display: "flex", alignItems: "center", gap: 20,
+                        padding: "20px 24px", background: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)",
+                        borderRadius: 12, marginBottom: 24, border: "1px solid #BFDBFE",
+                    }}>
+                        <div style={{
+                            width: 56, height: 56, borderRadius: 14,
+                            background: "linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            color: "#fff", fontWeight: 700, fontSize: 22, flexShrink: 0,
+                        }}>
+                            <BankOutlined />
                         </div>
-                    )}
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: 18, color: COLORS.textPrimary }}>{company?.name || "—"}</div>
+                            <div style={{ marginTop: 6 }}>
+                                <Tag color="orange" icon={<SettingOutlined />}>
+                                    Mã: {company?.tenantCode}
+                                </Tag>
+                                <Tag color="blue">ID: {company?.id}</Tag>
+                            </div>
+                        </div>
+                    </div>
 
-                    <Form layout="vertical" form={companyForm} onFinish={handleUpdateCompany} style={{ maxWidth: 400 }}>
-                        <Form.Item label="Tên công ty" name="name" rules={[{ required: true }]}>
-                            <Input disabled={currentUserRole !== "COMPANY_ADMIN"} />
-                        </Form.Item>
-
-                        {currentUserRole === "COMPANY_ADMIN" ? (
-                            <Button type="primary" htmlType="submit">
-                                Lưu Thông Tin Công Ty
-                            </Button>
-                        ) : (
-                            <Text type="secondary">Chỉ Company Admin mới có quyền sửa tên công ty.</Text>
-                        )}
-                    </Form>
-                </Card>
+                    <Card loading={loadingCompany} title={<><EditOutlined style={{ marginRight: 8, color: "#3B82F6" }} />Cập nhật công ty</>} style={{ border: "1px solid #E5E7EB" }}>
+                        <Form layout="vertical" form={companyForm} onFinish={handleUpdateCompany}>
+                            <Form.Item label="Tên công ty" name="name" rules={[{ required: true }]}>
+                                <Input
+                                    prefix={<BankOutlined style={{ color: "#9CA3AF" }} />}
+                                    size="large"
+                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
+                                    placeholder="Tên đầy đủ công ty"
+                                />
+                            </Form.Item>
+                            {currentUserRole === "COMPANY_ADMIN" ? (
+                                <Button type="primary" htmlType="submit" icon={<CheckCircleOutlined />}>
+                                    Lưu Thông Tin Công Ty
+                                </Button>
+                            ) : (
+                                <p style={{ color: COLORS.textSecondary, fontSize: 13 }}>
+                                    Chỉ Company Admin mới có quyền sửa tên công ty.
+                                </p>
+                            )}
+                        </Form>
+                    </Card>
+                </div>
             ),
         },
         {
             key: "users",
-            label: "Quản Lý Nhân Sự Trong Công Ty",
+            label: (
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <TeamOutlined />Quản Lý Nhân Sự
+                </span>
+            ),
             children: (
-                <Card loading={loadingUsers}>
-                    <Title level={4}>Danh sách Nhân sự (`/api/auth/users`)</Title>
-                    <Table dataSource={users} columns={userColumns} rowKey="id" pagination={false} />
+                <Card loading={loadingUsers} style={{ border: "1px solid #E5E7EB" }}>
+                    <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div>
+                            <div style={{ fontWeight: 600, fontSize: 16 }}>Danh sách nhân sự</div>
+                            <div style={{ fontSize: 13, color: COLORS.textSecondary }}>Tổng: {users.length} người</div>
+                        </div>
+                    </div>
+                    <Table
+                        dataSource={users}
+                        columns={userColumns}
+                        rowKey="id"
+                        pagination={{ pageSize: 10, size: "small" }}
+                    />
                 </Card>
             ),
         },
     ];
 
     return (
-        <div style={{ padding: 24 }}>
-            <Title level={2}>Quản Lý Tài Khoản & Auth Service</Title>
-            <Text type="secondary">Thử nghiệm trực tiếp các chức năng quản lý Auth, Profile, Company và Người dùng</Text>
-            
-            <Tabs items={tabItems} style={{ marginTop: 24 }} />
+        <div className="page-container animate-fade-in">
+            {/* Page Header */}
+            <div className="page-header" style={{ marginBottom: 24 }}>
+                <div className="page-header-title">
+                    <div style={{
+                        width: 44, height: 44, borderRadius: 12,
+                        background: GRADIENTS.primary,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        color: "#fff", fontSize: 20,
+                    }}>
+                        <SettingOutlined />
+                    </div>
+                    <div>
+                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Cài đặt tài khoản</h2>
+                        <div className="page-header-subtitle">Quản lý thông tin cá nhân, công ty và nhân sự</div>
+                    </div>
+                </div>
+            </div>
 
-            {/* Modal đổi mật khẩu */}
+            <Card style={{ border: "none" }}>
+                <Tabs items={tabItems} size="large" />
+            </Card>
+
+            {/* Password Modal */}
             <Modal
-                title="Đổi mật khẩu tài khoản"
+                title={<><LockOutlined style={{ marginRight: 8, color: COLORS.primary }} />Đổi mật khẩu</>}
                 open={isPasswordModalOpen}
                 onCancel={() => setIsPasswordModalOpen(false)}
                 footer={null}
+                width={440}
             >
-                <Form layout="vertical" form={passwordForm} onFinish={handleChangePassword}>
+                <Form layout="vertical" form={passwordForm} onFinish={handleChangePassword} style={{ marginTop: 16 }}>
                     <Form.Item
                         label="Mật khẩu hiện tại"
                         name="currentPassword"
                         rules={[{ required: true, message: "Vui lòng nhập mật khẩu hiện tại" }]}
                     >
-                        <Input.Password />
+                        <Input.Password prefix={<LockOutlined style={{ color: "#9CA3AF" }} />} size="large" />
                     </Form.Item>
                     <Form.Item
                         label="Mật khẩu mới"
@@ -258,11 +418,10 @@ export default function AuthManagementPage() {
                             { min: 6, message: "Mật khẩu mới phải từ 6 ký tự" },
                         ]}
                     >
-                        <Input.Password />
+                        <Input.Password prefix={<LockOutlined style={{ color: "#9CA3AF" }} />} size="large" />
                     </Form.Item>
-
-                    <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
-                        <Space>
+                    <Form.Item style={{ marginBottom: 0 }}>
+                        <Space style={{ justifyContent: "flex-end", width: "100%" }}>
                             <Button onClick={() => setIsPasswordModalOpen(false)}>Hủy</Button>
                             <Button type="primary" htmlType="submit">Xác Nhận Đổi</Button>
                         </Space>

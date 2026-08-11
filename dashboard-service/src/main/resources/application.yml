@@ -7,6 +7,8 @@ spring:
 
 services:
   recruitment-service:
-    url: http://localhost:8083
+    url: ${SERVICES_RECRUITMENT_SERVICE_URL:http://localhost:8083}
   candidate-service:
-    url: http://localhost:8084
+    url: ${SERVICES_CANDIDATE_SERVICE_URL:http://localhost:8084}
+  application-service:
+    url: ${SERVICES_APPLICATION_SERVICE_URL:http://localhost:8089}

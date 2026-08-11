@@ -30,6 +30,12 @@ public class InterviewEvaluation {
     @Column(name = "general_comment", columnDefinition = "TEXT")
     private String generalComment;
 
+    @Column(name = "salary_proposed")
+    private java.math.BigDecimal salaryProposed;
+
+    @Column(name = "salary_note", columnDefinition = "TEXT")
+    private String salaryNote;
+
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
 

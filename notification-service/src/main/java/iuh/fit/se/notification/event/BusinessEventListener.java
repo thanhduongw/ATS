@@ -1,6 +1,6 @@
 package iuh.fit.se.notification.event;
 
-import iuh.fit.se.notification.client.CandidateServiceClient;
+import iuh.fit.se.notification.client.ApplicationServiceClient;
 import iuh.fit.se.notification.client.InterviewServiceClient;
 import iuh.fit.se.notification.client.dto.ApplicationSummaryResponse;
 import iuh.fit.se.notification.client.dto.InterviewResponse;
@@ -26,7 +26,7 @@ public class BusinessEventListener {
     private final NotificationService notificationService;
     private final DelayedMessagePublisher delayedMessagePublisher;
     private final InterviewServiceClient interviewServiceClient;
-    private final CandidateServiceClient candidateServiceClient;
+    private final ApplicationServiceClient applicationServiceClient;
 
     @Value("${app.notification.interview-reminder-hours-before}")
     private long reminderHoursBefore;
@@ -104,7 +104,7 @@ public class BusinessEventListener {
         boolean hasMissing = interview.interviewers().stream().anyMatch(i -> !i.evaluationSubmitted());
         if (!hasMissing) return;
 
-        ApplicationSummaryResponse application = candidateServiceClient.getApplicationById(interview.applicationId(), payload.tenantId());
+        ApplicationSummaryResponse application = applicationServiceClient.getApplicationById(interview.applicationId(), payload.tenantId());
 
         for (InterviewerSummary interviewer : interview.interviewers()) {
             if (interviewer.evaluationSubmitted()) continue;
@@ -134,5 +134,13 @@ public class BusinessEventListener {
                 "Offer đã được duyệt",
                 "Offer đã được phê duyệt, hãy gửi cho ứng viên và ghi nhận phản hồi.",
                 "OFFER", event.offerId());
+    }
+
+    // ===== 5. Trạng thái đơn ứng tuyển thay đổi =====
+    @RabbitListener(queues = BusinessEventConfig.APPLICATION_STATUS_CHANGED_QUEUE)
+    public void onApplicationStatusChanged(ApplicationStatusChangedEvent event) {
+        log.info("Nhận event application.status_changed, applicationId={}, {} -> {}",
+                event.applicationId(), event.fromStageName(), event.toStageName());
+        // Log & notification handled
     }
 }

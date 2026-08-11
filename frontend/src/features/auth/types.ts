@@ -4,7 +4,8 @@ export type UserRole =
     | "COMPANY_ADMIN"
     | "RECRUITER"
     | "HIRING_MANAGER"
-    | "INTERVIEWER";
+    | "INTERVIEWER"
+    | "CANDIDATE";
 
 // ===== Request DTO (khớp record bên Java) =====
 export interface RegisterCompanyRequest {

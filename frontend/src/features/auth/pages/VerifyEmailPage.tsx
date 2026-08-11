@@ -1,14 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, Input, Button, Card, Typography, App, Space } from "antd";
+import { Form, Input, Button, Card, App, Space } from "antd";
 import { useLocation, useNavigate } from "react-router-dom";
+import { MailOutlined, SafetyOutlined, BankOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { verifySchema, type VerifyFormValues } from "../schemas/verifySchema";
 import { verifyEmail, resendOtp } from "../authApi";
 import type { ApiMessageResponse } from "../types";
-
-const { Title, Text } = Typography;
 
 interface LocationState {
     tenantCode?: string;
@@ -21,6 +20,7 @@ export default function VerifyEmailPage() {
     const location = useLocation();
     const state = (location.state ?? {}) as LocationState;
     const [resending, setResending] = useState(false);
+    const [countdown, setCountdown] = useState(0);
 
     const {
         control,
@@ -36,10 +36,17 @@ export default function VerifyEmailPage() {
         },
     });
 
+    /* Countdown timer for resend — dùng setTimeout tránh nhiều interval */
+    useEffect(() => {
+        if (countdown <= 0) return;
+        const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
+        return () => clearTimeout(t);
+    }, [countdown]);
+
     const onSubmit = async (data: VerifyFormValues) => {
         try {
             await verifyEmail(data);
-            message.success("Xác thực thành công, vui lòng đăng nhập");
+            message.success("Xác thực thành công! Vui lòng đăng nhập.");
             navigate("/login", {
                 state: { tenantCode: data.tenantCode, email: data.email },
             });
@@ -56,11 +63,11 @@ export default function VerifyEmailPage() {
             message.error("Vui lòng nhập Mã công ty và Email để gửi lại OTP");
             return;
         }
-
         setResending(true);
         try {
             const res = await resendOtp({ tenantCode, email });
-            message.success(res.data.message || "Đã gửi lại mã OTP về Email của bạn!");
+            message.success(res.data.message || "Đã gửi lại mã OTP về Email!");
+            setCountdown(60);
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             message.error(axiosErr.response?.data?.message ?? "Gửi lại OTP thất bại");
@@ -70,14 +77,30 @@ export default function VerifyEmailPage() {
     };
 
     return (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "80vh" }}>
-            <Card style={{ width: 420, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
-                <Title level={3} style={{ textAlign: "center", marginBottom: 8 }}>
-                    Xác thực email
-                </Title>
-                <Text type="secondary" style={{ display: "block", textAlign: "center", marginBottom: 24 }}>
-                    Nhập mã OTP 6 số được gửi về Email để hoàn tất đăng ký.
-                </Text>
+        <div className="auth-center-page">
+            <Card className="auth-center-card" style={{ padding: "32px 28px" }}>
+                {/* Logo */}
+                <div className="auth-card-logo">ATS</div>
+
+                {/* Icon */}
+                <div style={{ textAlign: "center", marginBottom: 16 }}>
+                    <div style={{
+                        width: 64, height: 64, borderRadius: 16,
+                        background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                        <SafetyOutlined style={{ fontSize: 28, color: "#0E7A5F" }} />
+                    </div>
+                </div>
+
+                <div className="auth-form-header" style={{ marginBottom: 24 }}>
+                    <h2>Xác thực Email</h2>
+                    <p>
+                        Nhập mã OTP 6 số được gửi về
+                        {state.email ? <strong> {state.email}</strong> : " Email của bạn"}
+                        {" "}để hoàn tất đăng ký.
+                    </p>
+                </div>
 
                 <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
                     <Form.Item
@@ -88,7 +111,13 @@ export default function VerifyEmailPage() {
                         <Controller
                             name="tenantCode"
                             control={control}
-                            render={({ field }) => <Input size="large" {...field} />}
+                            render={({ field }) => (
+                                <Input
+                                    prefix={<BankOutlined style={{ color: "#9CA3AF" }} />}
+                                    size="large"
+                                    {...field}
+                                />
+                            )}
                         />
                     </Form.Item>
 
@@ -100,7 +129,13 @@ export default function VerifyEmailPage() {
                         <Controller
                             name="email"
                             control={control}
-                            render={({ field }) => <Input size="large" {...field} />}
+                            render={({ field }) => (
+                                <Input
+                                    prefix={<MailOutlined style={{ color: "#9CA3AF" }} />}
+                                    size="large"
+                                    {...field}
+                                />
+                            )}
                         />
                     </Form.Item>
 
@@ -113,21 +148,52 @@ export default function VerifyEmailPage() {
                             name="otpCode"
                             control={control}
                             render={({ field }) => (
-                                <Input placeholder="123456" size="large" maxLength={6} style={{ letterSpacing: 4, fontWeight: "bold", textAlign: "center" }} {...field} />
+                                <Input
+                                    placeholder="• • • • • •"
+                                    size="large"
+                                    maxLength={6}
+                                    style={{
+                                        letterSpacing: 12,
+                                        fontWeight: 700,
+                                        fontSize: 22,
+                                        textAlign: "center",
+                                        height: 56,
+                                    }}
+                                    {...field}
+                                />
                             )}
                         />
                     </Form.Item>
 
-                    <Space style={{ width: "100%" }} direction="vertical">
-                        <Button type="primary" htmlType="submit" block size="large" loading={isSubmitting}>
+                    <Space style={{ width: "100%" }} direction="vertical" size="middle">
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            block
+                            size="large"
+                            loading={isSubmitting}
+                            style={{ height: 48, fontWeight: 600, fontSize: 15 }}
+                        >
                             Xác thực ngay
                         </Button>
 
-                        <Button block onClick={handleResendOtp} loading={resending}>
-                            Gửi lại mã OTP qua Email
+                        <Button
+                            block
+                            onClick={handleResendOtp}
+                            loading={resending}
+                            disabled={countdown > 0}
+                            style={{ height: 44 }}
+                        >
+                            {countdown > 0
+                                ? `Gửi lại mã OTP (${countdown}s)`
+                                : "Gửi lại mã OTP qua Email"}
                         </Button>
                     </Space>
                 </Form>
+
+                <div className="auth-form-footer">
+                    <a onClick={() => navigate("/login")}>← Quay lại Đăng nhập</a>
+                </div>
             </Card>
         </div>
     );

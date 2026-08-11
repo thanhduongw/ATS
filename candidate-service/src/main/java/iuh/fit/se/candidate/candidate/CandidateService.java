@@ -42,6 +42,17 @@ public class CandidateService {
         return toResponse(candidate, educationMap, skillMap);
     }
 
+    public iuh.fit.se.candidate.candidate.dto.CandidateSummaryResponse getSummaryById(Long tenantId, Long id) {
+        Candidate candidate = findOwned(tenantId, id);
+        return new iuh.fit.se.candidate.candidate.dto.CandidateSummaryResponse(
+                candidate.getId(),
+                candidate.getFullName(),
+                candidate.getEmail(),
+                candidate.getPhone(),
+                candidate.getCvFileUrl()
+        );
+    }
+
     @Transactional
     public CandidateResponse create(Long tenantId, CandidateCreateRequest req) {
         if (candidateRepository.existsByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(tenantId, req.email())) {

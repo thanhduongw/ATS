@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # ==========================================
   # 1. MIDDLEWARE & DATABASES
@@ -37,10 +35,11 @@ services:
     networks:
       - ats-network
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping || exit 1"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 10
+      start_period: 20s
 
   redis:
     image: redis:7-alpine
@@ -166,6 +165,67 @@ services:
     networks:
       - ats-network
 
+  dashboard-service:
+    build:
+      context: ./dashboard-service
+      dockerfile: Dockerfile
+    container_name: ats-dashboard-service
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_dashboard
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_DATA_REDIS_HOST: redis
+      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
+      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
+      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ats-network
+
+  application-service:
+    build:
+      context: ./application-service
+      dockerfile: Dockerfile
+    container_name: ats-application-service
+    ports:
+      - "8089:8089"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_application
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_DATA_REDIS_HOST: redis
+      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
+      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
+      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
+      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ats-network
+
+  offer-service:
+    build:
+      context: ./offer-service
+      dockerfile: Dockerfile
+    container_name: ats-offer-service
+    ports:
+      - "8090:8090"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_offer
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_DATA_REDIS_HOST: redis
+      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
+      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
+      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ats-network
+
   # ==========================================
   # 3. API GATEWAY
   # ==========================================
@@ -200,6 +260,18 @@ services:
       SPRING_CLOUD_GATEWAY_ROUTES_5_ID: notification-service
       SPRING_CLOUD_GATEWAY_ROUTES_5_URI: http://notification-service:8086
       SPRING_CLOUD_GATEWAY_ROUTES_5_PREDICATES_0: Path=/api/notification/**
+
+      SPRING_CLOUD_GATEWAY_ROUTES_6_ID: dashboard-service
+      SPRING_CLOUD_GATEWAY_ROUTES_6_URI: http://dashboard-service:8087
+      SPRING_CLOUD_GATEWAY_ROUTES_6_PREDICATES_0: Path=/api/dashboard/**
+
+      SPRING_CLOUD_GATEWAY_ROUTES_7_ID: application-service
+      SPRING_CLOUD_GATEWAY_ROUTES_7_URI: http://application-service:8089
+      SPRING_CLOUD_GATEWAY_ROUTES_7_PREDICATES_0: Path=/api/application/**
+
+      SPRING_CLOUD_GATEWAY_ROUTES_8_ID: offer-service
+      SPRING_CLOUD_GATEWAY_ROUTES_8_URI: http://offer-service:8090
+      SPRING_CLOUD_GATEWAY_ROUTES_8_PREDICATES_0: Path=/api/offer/**
     depends_on:
       - auth-service
       - masterdata-service
@@ -207,6 +279,9 @@ services:
       - candidate-service
       - interview-service
       - notification-service
+      - dashboard-service
+      - application-service
+      - offer-service
     networks:
       - ats-network
 

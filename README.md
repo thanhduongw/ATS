@@ -4,6 +4,19 @@
 
 ---
 
+## 🔑 Tài Khoản Thử Nghiệm Nhanh (Preset Test Accounts)
+> 📄 Danh sách chi tiết và kịch bản test đầy đủ tại: **[TEST_ACCOUNTS.md](file:///d:/KLTN/ATS/TEST_ACCOUNTS.md)**
+
+| Mã Công Ty | Email Đăng Nhập | Mật Khẩu | Vai Trò | Quyền Hạn |
+|---|---|---|---|---|
+| `TECHCORP` | `admin.company@test.net` | `Password123!` | **Company Admin** | Quản trị công ty, cấu hình danh mục & xem báo cáo |
+| `TECHCORP` | `hr.recruiter@test.net` | `Password123!` | **Recruiter** | Đăng tin, quản lý CV, đặt lịch phỏng vấn, tạo Offer |
+| `TECHCORP` | `dept.manager@test.net` | `Password123!` | **Hiring Manager** | Duyệt yêu cầu tuyển dụng & Phê duyệt Offer |
+| `TECHCORP` | `tech.interviewer@test.net` | `Password123!` | **Interviewer** | Chấm điểm phỏng vấn & Đề xuất mức lương |
+| `TECHCORP` | `candidate.test@test.net` | `Password123!` | **Candidate** | Xem đơn ứng tuyển, lịch phỏng vấn & Nhận/Từ chối Offer |
+
+---
+
 ## 📖 1. Tổng Quan Dự Án
 
 **ATS (Applicant Tracking System)** là giải pháp phần mềm quản lý toàn bộ quy trình tuyển dụng nhân sự dành cho các doanh nghiệp với mô hình **Multi-tenancy** (nhiều công ty cùng sử dụng trên một hạ tầng với dữ liệu phân tách tuyệt đối).

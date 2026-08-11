@@ -54,6 +54,7 @@ export default function OfferCreateModal({ open, applicationId, initialData, onC
         allowance: initialData.allowance ?? 0,
         note: initialData.note ?? "",
         approverId: initialData.approverId,
+        responseDeadline: initialData.responseDeadline ?? "",
       });
     } else {
       reset({
@@ -65,6 +66,7 @@ export default function OfferCreateModal({ open, applicationId, initialData, onC
         allowance: 0,
         note: "",
         approverId: undefined,
+        responseDeadline: "",
       });
     }
   }, [open, initialData, reset]);
@@ -206,6 +208,22 @@ export default function OfferCreateModal({ open, applicationId, initialData, onC
                 {...field}
                 placeholder="Chọn người duyệt Offer"
                 options={approvers.map((u) => ({ value: u.id, label: `${u.fullName} (${u.email})` }))}
+              />
+            )}
+          />
+        </Form.Item>
+
+        <Form.Item label="Thời hạn ứng viên phản hồi (Deadline)">
+          <Controller
+            name="responseDeadline"
+            control={control}
+            render={({ field }) => (
+              <DatePicker
+                showTime
+                style={{ width: "100%" }}
+                format="YYYY-MM-DD HH:mm:ss"
+                value={field.value ? dayjs(field.value) : null}
+                onChange={(date) => field.onChange(date ? date.format("YYYY-MM-DDTHH:mm:ss") : "")}
               />
             )}
           />

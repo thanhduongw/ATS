@@ -42,6 +42,8 @@ export interface EvaluationScoreRequest {
 export interface EvaluationSubmitRequest {
   overallRecommendation: RecommendationType;
   generalComment?: string | null;
+  salaryProposed?: number | null;
+  salaryNote?: string | null;
   scores: EvaluationScoreRequest[];
 }
 
@@ -57,6 +59,8 @@ export interface EvaluationResponse {
   interviewerName: string;
   overallRecommendation: RecommendationType | null;
   generalComment: string | null;
+  salaryProposed: number | null;
+  salaryNote: string | null;
   submittedAt: string | null;
   scores: EvaluationScoreDetail[];
 }

@@ -42,6 +42,12 @@ public class JobPosting {
     @Column(columnDefinition = "TEXT")
     private String benefits;
 
+    @Column(name = "salary_min")
+    private java.math.BigDecimal salaryMin;
+
+    @Column(name = "salary_max")
+    private java.math.BigDecimal salaryMax;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PostingStatus status;

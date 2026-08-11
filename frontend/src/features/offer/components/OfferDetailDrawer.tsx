@@ -123,10 +123,25 @@ export default function OfferDetailDrawer({ open, offer, onClose, onChanged }: P
           </Descriptions.Item>
         )}
 
+        <Descriptions.Item label="Thời hạn phản hồi">
+          {offer.responseDeadline ? dayjs(offer.responseDeadline).format("HH:mm DD/MM/YYYY") : "—"}
+        </Descriptions.Item>
         <Descriptions.Item label="Ngày tạo">{dayjs(offer.createdAt).format("HH:mm DD/MM/YYYY")}</Descriptions.Item>
       </Descriptions>
 
       <Space wrap style={{ marginTop: 24 }}>
+        {offer.status === "APPROVED" && (
+          <Button
+            type="dashed"
+            onClick={() => {
+              const url = `${window.location.origin}/offers/candidate/${offer.id}`;
+              navigator.clipboard.writeText(url);
+              message.success("Đã sao chép link xem Offer cho ứng viên!");
+            }}
+          >
+            📋 Link gửi ứng viên
+          </Button>
+        )}
         {/* Nút Chỉnh sửa & Gửi duyệt dành cho Người tạo khi DRAFT */}
         {offer.status === "DRAFT" && isRequester && (
           <>

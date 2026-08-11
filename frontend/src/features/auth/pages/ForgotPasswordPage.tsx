@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { Form, Input, Button, Card, Typography, App } from "antd";
+import { Form, Input, Button, Card, App } from "antd";
 import { useNavigate } from "react-router-dom";
+import { BankOutlined, MailOutlined, QuestionCircleOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { forgotPassword } from "../authApi";
 import type { ApiMessageResponse } from "../types";
-
-const { Title, Text } = Typography;
 
 export default function ForgotPasswordPage() {
     const { message } = App.useApp();
@@ -16,7 +15,7 @@ export default function ForgotPasswordPage() {
         setLoading(true);
         try {
             const res = await forgotPassword(values);
-            message.success(res.data.message || "Đã gửi mã OTP khôi phục mật khẩu về email của bạn!");
+            message.success(res.data.message || "Đã gửi mã OTP khôi phục mật khẩu về email!");
             navigate("/reset-password", { state: { tenantCode: values.tenantCode, email: values.email } });
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
@@ -27,14 +26,26 @@ export default function ForgotPasswordPage() {
     };
 
     return (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "80vh" }}>
-            <Card style={{ width: 420, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
-                <Title level={3} style={{ textAlign: "center", marginBottom: 8 }}>
-                    Quên mật khẩu
-                </Title>
-                <Text type="secondary" style={{ display: "block", textAlign: "center", marginBottom: 24 }}>
-                    Nhập Mã công ty và Email của bạn để nhận mã OTP 6 số khôi phục mật khẩu.
-                </Text>
+        <div className="auth-center-page">
+            <Card className="auth-center-card" style={{ padding: "32px 28px" }}>
+                {/* Logo */}
+                <div className="auth-card-logo">ATS</div>
+
+                {/* Icon */}
+                <div style={{ textAlign: "center", marginBottom: 16 }}>
+                    <div style={{
+                        width: 64, height: 64, borderRadius: 16,
+                        background: "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                        <QuestionCircleOutlined style={{ fontSize: 28, color: "#D97706" }} />
+                    </div>
+                </div>
+
+                <div className="auth-form-header" style={{ marginBottom: 24 }}>
+                    <h2>Quên mật khẩu</h2>
+                    <p>Nhập Mã công ty và Email để nhận mã OTP khôi phục mật khẩu.</p>
+                </div>
 
                 <Form layout="vertical" onFinish={onFinish}>
                     <Form.Item
@@ -42,7 +53,11 @@ export default function ForgotPasswordPage() {
                         name="tenantCode"
                         rules={[{ required: true, message: "Vui lòng nhập mã công ty" }]}
                     >
-                        <Input placeholder="vd: iuhtech" size="large" />
+                        <Input
+                            prefix={<BankOutlined style={{ color: "#9CA3AF" }} />}
+                            placeholder="vd: iuhtech"
+                            size="large"
+                        />
                     </Form.Item>
 
                     <Form.Item
@@ -53,16 +68,27 @@ export default function ForgotPasswordPage() {
                             { type: "email", message: "Email không đúng định dạng" },
                         ]}
                     >
-                        <Input placeholder="admin@iuhtech.com" size="large" />
+                        <Input
+                            prefix={<MailOutlined style={{ color: "#9CA3AF" }} />}
+                            placeholder="admin@company.com"
+                            size="large"
+                        />
                     </Form.Item>
 
-                    <Button type="primary" htmlType="submit" block size="large" loading={loading} style={{ marginTop: 12 }}>
+                    <Button
+                        type="primary"
+                        htmlType="submit"
+                        block
+                        size="large"
+                        loading={loading}
+                        style={{ height: 48, fontWeight: 600, fontSize: 15, marginTop: 8 }}
+                    >
                         Gửi Mã OTP Khôi Phục
                     </Button>
                 </Form>
 
-                <div style={{ textAlign: "center", marginTop: 20 }}>
-                    Quay lại <a onClick={() => navigate("/login")}>Đăng nhập</a>
+                <div className="auth-form-footer">
+                    <a onClick={() => navigate("/login")}>← Quay lại Đăng nhập</a>
                 </div>
             </Card>
         </div>

@@ -9,6 +9,7 @@ export const offerCreateSchema = z.object({
   allowance: z.number().min(0, "Phụ cấp phải >= 0").optional().nullable(),
   note: z.string().optional().nullable(),
   approverId: z.number(),
+  responseDeadline: z.string().optional().nullable(),
 });
 
 export type OfferCreateFormValues = z.infer<typeof offerCreateSchema>;

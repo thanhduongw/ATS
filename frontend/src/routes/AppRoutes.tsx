@@ -8,7 +8,7 @@ import VerifyEmailPage from "../features/auth/pages/VerifyEmailPage";
 import LoginPage from "../features/auth/pages/LoginPage";
 import ForgotPasswordPage from "../features/auth/pages/ForgotPasswordPage";
 import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
-import DashboardPage from "../pages/DashboardPage";
+import DashboardPage from "../features/dashboard/pages/DashboardPage";
 import MasterDataPage from "../features/masterdata/pages/MasterDataPage";
 import RecruitmentPage from "../features/recruitment/pages/RecruitmentPage";
 import CandidatesPage from "../features/candidate/pages/CandidatesPage";
@@ -17,13 +17,15 @@ import InterviewsPage from "../features/interview/pages/InterviewsPage";
 import InterviewSchedulingPage from "../features/interview/pages/InterviewSchedulingPage";
 import OffersPage from "../features/offer/pages/OffersPage";
 import OfferCandidateViewPage from "../features/offer/pages/OfferCandidateViewPage";
+import MyApplicationsPage from "../features/candidate/pages/MyApplicationsPage";
 import AuditLogPage from "../features/auditlog/pages/AuditLogPage";
+import AuthManagementPage from "../features/auth/pages/AuthManagementPage";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../app/roles";
-import InterviewResultPage from "../features/interview/pages/InterviewsPage";
 
 export default function AppRoutes() {
     return (
         <Routes>
+            {/* ── Guest (unauthenticated) ──────── */}
             <Route element={<GuestRoute />}>
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
@@ -32,37 +34,50 @@ export default function AppRoutes() {
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
             </Route>
 
+            {/* ── Protected (authenticated) ────── */}
             <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
+                    {/* Dashboard — all roles */}
                     <Route path="/dashboard" element={<DashboardPage />} />
 
+                    {/* HR-only pages */}
                     <Route element={<RoleRoute allow={[...HR_ROLES]} />}>
                         <Route path="/masterdata" element={<MasterDataPage />} />
                         <Route path="/candidates" element={<CandidatesPage />} />
                         <Route path="/offers" element={<OffersPage />} />
                     </Route>
 
+                    {/* HR + Department pages */}
                     <Route element={<RoleRoute allow={[...HR_ROLES, ...DEPARTMENT_ROLES]} />}>
                         <Route path="/recruitment" element={<RecruitmentPage />} />
+                        <Route path="/applications" element={<ApplicationsPage />} />
                         <Route path="/interviews" element={<InterviewsPage />} />
-                        <Route path="/interviews/:interviewId/result" element={<InterviewResultPage />} />
+                        <Route path="/interviews/:interviewId/result" element={<InterviewsPage />} />
                     </Route>
 
+                    {/* Scheduling — HR + Dept + Candidate */}
                     <Route element={<RoleRoute allow={[...HR_ROLES, ...DEPARTMENT_ROLES, "CANDIDATE"]} />}>
                         <Route path="/scheduling" element={<InterviewSchedulingPage />} />
                     </Route>
 
+                    {/* Candidate-only pages */}
                     <Route element={<RoleRoute allow={["CANDIDATE"]} />}>
-                        <Route path="/applications" element={<ApplicationsPage />} />
+                        <Route path="/my-applications" element={<MyApplicationsPage />} />
+                        <Route path="/offers/candidate/:id" element={<OfferCandidateViewPage />} />
                         <Route path="/offers/:id/view" element={<OfferCandidateViewPage />} />
                     </Route>
 
+                    {/* Admin-only pages */}
                     <Route element={<RoleRoute allow={["COMPANY_ADMIN", "PLATFORM_ADMIN"]} />}>
                         <Route path="/audit-logs" element={<AuditLogPage />} />
                     </Route>
+
+                    {/* Settings / Account — all authenticated roles */}
+                    <Route path="/settings" element={<AuthManagementPage />} />
                 </Route>
             </Route>
 
+            {/* ── Fallback ─────────────────────── */}
             <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
     );

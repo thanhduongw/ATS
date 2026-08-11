@@ -124,6 +124,36 @@ export default function EvaluationSubmitModal({ open, interviewId, criteria, onC
             render={({ field }) => <Input.TextArea {...field} value={field.value ?? ""} rows={3} />}
           />
         </Form.Item>
+
+        <Form.Item label="Đề xuất mức lương (VNĐ) & Ghi chú đãi ngộ">
+          <div style={{ display: "flex", gap: 12 }}>
+            <Controller
+              name="salaryProposed"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  placeholder="Lương đề xuất (VD: 15000000)"
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                  style={{ width: "50%" }}
+                />
+              )}
+            />
+            <Controller
+              name="salaryNote"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  placeholder="Ghi chú thêm về lương/thưởng"
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  style={{ width: "50%" }}
+                />
+              )}
+            />
+          </div>
+        </Form.Item>
       </Form>
     </Modal>
   );

@@ -31,6 +31,12 @@ public class CandidateController {
         return ResponseEntity.ok(service.getById(tenantId, id));
     }
 
+    @GetMapping("/{id}/summary")
+    public ResponseEntity<iuh.fit.se.candidate.candidate.dto.CandidateSummaryResponse> getSummaryById(
+            @RequestHeader("X-Tenant-Id") Long tenantId, @PathVariable Long id) {
+        return ResponseEntity.ok(service.getSummaryById(tenantId, id));
+    }
+
     @PostMapping
     public ResponseEntity<CandidateResponse> create(
             @RequestHeader("X-Tenant-Id") Long tenantId,

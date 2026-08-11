@@ -27,6 +27,7 @@ export interface OfferResponse {
   declineReasonName: string | null;
   declineNote: string | null;
   createdAt: string;
+  responseDeadline: string
 }
 
 export interface OfferCreateRequest {
@@ -39,6 +40,7 @@ export interface OfferCreateRequest {
   allowance?: number | null;
   note?: string | null;
   approverId: number;
+  responseDeadline: string
 }
 
 export interface OfferUpdateRequest {
@@ -50,6 +52,7 @@ export interface OfferUpdateRequest {
   allowance?: number | null;
   note?: string | null;
   approverId: number;
+  responseDeadline: string
 }
 
 export interface OfferRejectRequest {

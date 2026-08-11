@@ -7,6 +7,7 @@ import type { ApiMessageResponse, CandidateResponse } from "../types";
 import CandidateFormModal from "../components/CandidateFormModal";
 import CvUploadModal from "../components/CvUploadModal";
 import ApplicationCreateModal from "../components/ApplicationCreateModal";
+import AiScoreBadge from "../../../components/AiScoreBadge";
 
 export default function CandidatesPage() {
   const [candidates, setCandidates] = useState<CandidateResponse[]>([]);
@@ -62,6 +63,7 @@ export default function CandidatesPage() {
           <Tag color="default">Chưa có</Tag>
         ),
     },
+    { title: "AI Score", render: (_: any, r: any) => <AiScoreBadge score={r.aiScore} /> },
     {
       title: "Thao tác",
       key: "actions",

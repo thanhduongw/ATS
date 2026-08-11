@@ -1,26 +1,29 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import { BrowserRouter } from "react-router-dom";
-import { App, ConfigProvider } from "antd";
+import { App as AntApp, ConfigProvider } from "antd";
+import viVN from "antd/locale/vi_VN";
+import enUS from "antd/locale/en_US";
 import { store } from "./app/store";
 import AppRoutes from "./routes/AppRoutes";
+import { atsTheme } from "./app/theme";
+import "./index.css";
+import { I18nProvider, useI18n } from "./i18n/I18nProvider";
 
-const rootElement = document.getElementById("root");
-if (!rootElement) {
-  throw new Error("Không tìm thấy phần tử #root trong index.html");
+function ThemedApp() {
+  const { lang } = useI18n();
+  return (
+    <ConfigProvider theme={atsTheme} locale={lang === "vi" ? viVN : enUS}>
+      <AntApp><AppRoutes /></AntApp>
+    </ConfigProvider>
+  );
 }
 
-ReactDOM.createRoot(rootElement).render(
-  <React.StrictMode>
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
     <Provider store={store}>
-      <BrowserRouter>
-        <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
-          <App>
-            <AppRoutes />
-          </App>
-        </ConfigProvider>
-      </BrowserRouter>
+      <I18nProvider><BrowserRouter><ThemedApp /></BrowserRouter></I18nProvider>
     </Provider>
-  </React.StrictMode>
+  </StrictMode>,
 );

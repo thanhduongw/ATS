@@ -2,12 +2,14 @@ package iuh.fit.se.recruitment.posting.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
 
 public record JobPostingUpdateRequest(
-        @NotBlank String title,
-        @NotNull Long employmentTypeId,
-        @NotNull Long workLocationId,
-        @NotNull Long pipelineId,
+        @NotBlank(message = "Tiêu đề không được để trống") String title,
+        @NotNull(message = "Vui lòng chọn loại hình làm việc") Long employmentTypeId,
+        @NotNull(message = "Vui lòng chọn địa điểm làm việc") Long workLocationId,
+        BigDecimal salaryMin,
+        BigDecimal salaryMax,
         String description,
         String requirements,
         String benefits

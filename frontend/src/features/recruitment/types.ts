@@ -62,6 +62,8 @@ export interface JobPostingResponse {
     employmentTypeId: number;
     workLocationId: number;
     pipelineId: number;
+    salaryMin: number | null;
+    salaryMax: number | null;
     description: string | null;
     requirements: string | null;
     benefits: string | null;
@@ -77,6 +79,8 @@ export interface JobPostingCreateRequest {
     employmentTypeId: number;
     workLocationId: number;
     pipelineId: number;
+    salaryMin?: number | null;
+    salaryMax?: number | null;
     description?: string | null;
     requirements?: string | null;
     benefits?: string | null;

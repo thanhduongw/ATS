@@ -20,11 +20,13 @@ spring:
 
 services:
   auth-service:
-    url: http://localhost:8081
+    url: ${SERVICES_AUTH_SERVICE_URL:http://localhost:8081}
   interview-service:
-    url: http://localhost:8085
+    url: ${SERVICES_INTERVIEW_SERVICE_URL:http://localhost:8085}
   candidate-service:
-    url: http://localhost:8084
+    url: ${SERVICES_CANDIDATE_SERVICE_URL:http://localhost:8084}
+  application-service:
+    url: ${SERVICES_APPLICATION_SERVICE_URL:http://localhost:8089}
 
 app:
   jwt:

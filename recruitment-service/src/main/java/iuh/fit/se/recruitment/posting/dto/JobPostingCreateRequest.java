@@ -2,6 +2,7 @@ package iuh.fit.se.recruitment.posting.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
 
 public record JobPostingCreateRequest(
         @NotNull(message = "Vui lòng chọn yêu cầu tuyển dụng") Long requisitionId,
@@ -9,6 +10,8 @@ public record JobPostingCreateRequest(
         @NotNull(message = "Vui lòng chọn loại hình làm việc") Long employmentTypeId,
         @NotNull(message = "Vui lòng chọn địa điểm làm việc") Long workLocationId,
         @NotNull(message = "Vui lòng chọn quy trình tuyển dụng") Long pipelineId,
+        BigDecimal salaryMin,
+        BigDecimal salaryMax,
         String description,
         String requirements,
         String benefits

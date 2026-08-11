@@ -55,6 +55,8 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 employmentTypeId: editingItem.employmentTypeId,
                 workLocationId: editingItem.workLocationId,
                 pipelineId: editingItem.pipelineId,
+                salaryMin: editingItem.salaryMin,
+                salaryMax: editingItem.salaryMax,
                 description: editingItem.description,
                 requirements: editingItem.requirements,
                 benefits: editingItem.benefits,
@@ -66,6 +68,8 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 employmentTypeId: undefined,
                 workLocationId: undefined,
                 pipelineId: undefined,
+                salaryMin: undefined,
+                salaryMax: undefined,
                 description: "",
                 requirements: "",
                 benefits: "",
@@ -182,6 +186,37 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                             />
                         )}
                     />
+                </Form.Item>
+
+                <Form.Item label="Khoảng lương dự kiến (VNĐ)">
+                    <div style={{ display: "flex", gap: 12 }}>
+                        <Controller
+                            name="salaryMin"
+                            control={control}
+                            render={({ field }) => (
+                                <Input
+                                    type="number"
+                                    placeholder="Lương tối thiểu (VD: 12000000)"
+                                    value={field.value ?? ""}
+                                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                                    style={{ flex: 1 }}
+                                />
+                            )}
+                        />
+                        <Controller
+                            name="salaryMax"
+                            control={control}
+                            render={({ field }) => (
+                                <Input
+                                    type="number"
+                                    placeholder="Lương tối đa (VD: 18000000)"
+                                    value={field.value ?? ""}
+                                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                                    style={{ flex: 1 }}
+                                />
+                            )}
+                        />
+                    </div>
                 </Form.Item>
 
                 <Form.Item label="Mô tả công việc">

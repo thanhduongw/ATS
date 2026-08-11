@@ -113,6 +113,8 @@ export interface AuthUser {
     userId: string;
     tenantId: number;
     role: UserRole;
+    email?: string;
+    fullName?: string;
 }
 
 export interface UserSummaryResponse {
@@ -120,4 +122,5 @@ export interface UserSummaryResponse {
     fullName: string;
     email: string;
     role: UserRole;
+    status?: string;
 }

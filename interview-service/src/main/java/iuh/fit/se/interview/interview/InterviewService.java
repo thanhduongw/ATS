@@ -1,7 +1,7 @@
 package iuh.fit.se.interview.interview;
 
+import iuh.fit.se.interview.client.ApplicationServiceClient;
 import iuh.fit.se.interview.client.AuthServiceClient;
-import iuh.fit.se.interview.client.CandidateServiceClient;
 import iuh.fit.se.interview.client.MasterDataServiceClient;
 import iuh.fit.se.interview.client.RecruitmentServiceClient;
 import iuh.fit.se.interview.client.dto.*;
@@ -28,7 +28,7 @@ public class InterviewService {
 
     private final InterviewRepository interviewRepository;
     private final InterviewEvaluationRepository evaluationRepository;
-    private final CandidateServiceClient candidateServiceClient;
+    private final ApplicationServiceClient applicationServiceClient;
     private final RecruitmentServiceClient recruitmentServiceClient;
     private final MasterDataServiceClient masterDataServiceClient;
     private final AuthServiceClient authServiceClient;
@@ -123,7 +123,7 @@ public class InterviewService {
 
     private ApplicationSummaryResponse fetchApplication(Long tenantId, Long applicationId) {
         try {
-            return candidateServiceClient.getApplicationById(tenantId, applicationId);
+            return applicationServiceClient.getApplicationById(tenantId, applicationId);
         } catch (Exception e) {
             throw new BusinessException("Không tìm thấy hồ sơ ứng tuyển");
         }

@@ -1,13 +1,8 @@
 package iuh.fit.se.auth.controller;
 
 import iuh.fit.se.auth.dto.request.*;
-import iuh.fit.se.auth.dto.response.ApiMessageResponse;
-import iuh.fit.se.auth.dto.response.LoginResponse;
-import iuh.fit.se.auth.dto.response.UserSummaryResponse;
-import iuh.fit.se.auth.service.LoginService;
-import iuh.fit.se.auth.service.PasswordService;
-import iuh.fit.se.auth.service.RegisterService;
-import iuh.fit.se.auth.service.UserService;
+import iuh.fit.se.auth.dto.response.*;
+import iuh.fit.se.auth.service.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +20,7 @@ public class AuthController {
     private final LoginService loginService;
     private final UserService userService;
     private final PasswordService passwordService;
+    private final CompanyService companyService;
 
     @PostMapping("/register-company")
     public ResponseEntity<ApiMessageResponse> register(@Valid @RequestBody RegisterCompanyRequest req) {
@@ -93,5 +89,34 @@ public class AuthController {
         }
         userService.createUser(tenantId, actorUserId, req);
         return ResponseEntity.ok(new ApiMessageResponse("Tạo tài khoản thành công"));
+    }
+    @GetMapping("/me")
+    public ResponseEntity<UserProfileResponse> getMyProfile(
+            @RequestHeader("X-User-Id") Long userId) {
+        return ResponseEntity.ok(userService.getProfile(userId));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<UserProfileResponse> updateProfile(
+            @RequestHeader("X-User-Id") Long userId,
+            @Valid @RequestBody UpdateProfileRequest req) {
+        return ResponseEntity.ok(userService.updateProfile(userId, req));
+    }
+
+    @GetMapping("/company")
+    public ResponseEntity<CompanyResponse> getCompany(
+            @RequestHeader("X-Tenant-Id") Long tenantId) {
+        return ResponseEntity.ok(companyService.getCompanyInfo(tenantId));
+    }
+
+    @PutMapping("/company")
+    public ResponseEntity<CompanyResponse> updateCompany(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody UpdateCompanyRequest req) {
+        if (!"COMPANY_ADMIN".equals(role)) {
+            throw new AccessDeniedException("Chỉ Company Admin được cập nhật thông tin công ty");
+        }
+        return ResponseEntity.ok(companyService.updateCompanyInfo(tenantId, req));
     }
 }

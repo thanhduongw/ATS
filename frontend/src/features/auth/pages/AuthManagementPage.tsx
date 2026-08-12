@@ -41,43 +41,46 @@ export default function AuthManagementPage() {
     const [profile, setProfile] = useState<UserProfileResponse | null>(null);
     const [company, setCompany] = useState<CompanyResponse | null>(null);
     const [users, setUsers] = useState<UserSummaryResponse[]>([]);
+
     const [loadingProfile, setLoadingProfile] = useState(false);
     const [loadingCompany, setLoadingCompany] = useState(false);
     const [loadingUsers, setLoadingUsers] = useState(false);
 
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
     const [passwordForm] = Form.useForm();
     const [profileForm] = Form.useForm();
     const [companyForm] = Form.useForm();
 
     const fetchProfile = useCallback(async () => {
         setLoadingProfile(true);
+
         try {
             const res = await getMyProfile();
             setProfile(res.data);
-            profileForm.setFieldsValue({ fullName: res.data.fullName });
         } catch {
             message.error("Không thể lấy thông tin cá nhân");
         } finally {
             setLoadingProfile(false);
         }
-    }, [message, profileForm]);
+    }, [message]);
 
     const fetchCompany = useCallback(async () => {
         setLoadingCompany(true);
+
         try {
             const res = await getCompany();
             setCompany(res.data);
-            companyForm.setFieldsValue({ name: res.data.name });
         } catch {
             message.error("Không thể lấy thông tin công ty");
         } finally {
             setLoadingCompany(false);
         }
-    }, [message, companyForm]);
+    }, [message]);
 
     const fetchUsers = useCallback(async () => {
         setLoadingUsers(true);
+
         try {
             const res = await getUsers();
             setUsers(res.data);
@@ -93,6 +96,22 @@ export default function AuthManagementPage() {
         fetchCompany();
         fetchUsers();
     }, [fetchProfile, fetchCompany, fetchUsers]);
+
+    useEffect(() => {
+        if (profile) {
+            profileForm.setFieldsValue({
+                fullName: profile.fullName,
+            });
+        }
+    }, [profile, profileForm]);
+
+    useEffect(() => {
+        if (company) {
+            companyForm.setFieldsValue({
+                name: company.name,
+            });
+        }
+    }, [company, companyForm]);
 
     const handleUpdateProfile = async (values: { fullName: string }) => {
         try {

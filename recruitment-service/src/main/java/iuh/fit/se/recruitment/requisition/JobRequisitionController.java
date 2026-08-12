@@ -59,8 +59,9 @@ public class JobRequisitionController {
     public ResponseEntity<JobRequisitionResponse> approve(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long approverUserId,
-            @PathVariable Long id) {
-        return ResponseEntity.ok(service.approve(tenantId, id, approverUserId));
+            @PathVariable Long id,
+            @RequestBody(required = false) JobRequisitionApproveRequest req) {
+        return ResponseEntity.ok(service.approve(tenantId, id, approverUserId, req));
     }
 
     @PostMapping("/{id}/reject")
@@ -70,6 +71,15 @@ public class JobRequisitionController {
             @PathVariable Long id,
             @Valid @RequestBody JobRequisitionRejectRequest req) {
         return ResponseEntity.ok(service.reject(tenantId, id, approverUserId, req));
+    }
+
+    @PostMapping("/{id}/request-changes")
+    public ResponseEntity<JobRequisitionResponse> requestChanges(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long approverUserId,
+            @PathVariable Long id,
+            @Valid @RequestBody JobRequisitionRequestChangesRequest req) {
+        return ResponseEntity.ok(service.requestChanges(tenantId, id, approverUserId, req));
     }
 
     @DeleteMapping("/{id}")

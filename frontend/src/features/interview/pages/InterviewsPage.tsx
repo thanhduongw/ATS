@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { App, Button, Card, Col, Descriptions, Input, InputNumber, List, Row, Space, Tag } from "antd";
+import { App, Button, Card, Col, Descriptions, Input, InputNumber, Row, Tag, Flex, Divider } from "antd";
 import { LockOutlined } from "@ant-design/icons";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,7 +19,7 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-export default function InterviewResultPage() {
+export default function InterviewsPage() {
   const { interviewId } = useParams();
   const id = Number(interviewId);
   const { message } = App.useApp();
@@ -36,24 +36,32 @@ export default function InterviewResultPage() {
   const { control, handleSubmit, formState: { isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const load = () => {
+    // [FIX 1] Chặn gọi API khi ID là NaN hoặc undefined
+    if (!interviewId || isNaN(id)) {
+      message.warning("ID phỏng vấn không hợp lệ.");
+      navigate("/interviews"); // Điều hướng về trang danh sách
+      return;
+    }
+
     getInterviewById(id).then((r) => {
       setInterview(r.data);
       getEvaluations(id).then((e) => setEvals(e.data));
-      if (isHR) getSalaryProposals(r.data.applicationId).then((p) => setProposals(p.data));
-    });
+      if (isHR && r.data.applicationId) getSalaryProposals(r.data.applicationId).then((p) => setProposals(p.data));
+    }).catch(() => message.error("Không thể tải dữ liệu phỏng vấn"));
   };
+
   useEffect(load, [id]);
 
   const onProposal = handleSubmit(async (v) => {
-    await submitSalaryProposal({ applicationId: interview!.applicationId, interviewId: id, ...v });
+    if (!interview) return;
+    await submitSalaryProposal({ applicationId: interview.applicationId, interviewId: id, ...v });
     message.success(t("result.submit") + " ✓");
   });
 
   const onApprove = async (proposalId: number) => {
     const p = proposals.find((x) => x.id === proposalId)!;
     await approveSalaryProposal(proposalId);
-    message.success("OK");
-    // Sang màn tạo Offer, prefill lương đã chốt
+    message.success("Đã duyệt ✓");
     navigate(`/offers?applicationId=${p.applicationId}&salary=${p.proposedSalary}`);
   };
 
@@ -66,13 +74,24 @@ export default function InterviewResultPage() {
               { key: "c", label: "Candidate", children: interview?.candidateName },
               { key: "s", label: "Status", children: <Tag>{interview?.status}</Tag> },
             ]} />
-          <List dataSource={evals} renderItem={(e) => (
-            <List.Item>
-              <List.Item.Meta
-                title={`${e.interviewerName} — ${e.overallRecommendation ?? "pending"}`}
-                description={e.generalComment ?? "-"} />
-            </List.Item>
-          )} />
+
+          {/* [FIX 2] Thay thế <List> (đã deprecated) bằng Flex và Card */}
+          <Flex vertical gap="middle">
+            {evals.length === 0 ? (
+              <Card size="small" style={{ textAlign: "center", color: "#999" }}>Chưa có đánh giá nào</Card>
+            ) : (
+              evals.map((e, idx) => (
+                <Card key={idx} size="small" style={{ background: "#fafafa", border: "1px solid #f0f0f0" }}>
+                  <Flex justify="space-between" align="center">
+                    <div style={{ fontWeight: 600 }}>{e.interviewerName}</div>
+                    <Tag color="blue">{e.overallRecommendation ?? "pending"}</Tag>
+                  </Flex>
+                  <Divider style={{ margin: "8px 0" }} />
+                  <div style={{ color: "#666", fontSize: 13 }}>{e.generalComment ?? "-"}</div>
+                </Card>
+              ))
+            )}
+          </Flex>
         </Card>
       </Col>
 
@@ -80,7 +99,8 @@ export default function InterviewResultPage() {
         {isDept && (
           <Card title={t("result.title")}>
             <form onSubmit={onProposal}>
-              <Space direction="vertical" style={{ width: "100%" }} size="middle">
+              {/* [FIX 3] Thay Space direction="vertical" bằng Flex vertical */}
+              <Flex vertical gap="middle" style={{ width: "100%" }}>
                 <Controller name="proposedSalary" control={control}
                   render={({ field }) => (
                     <InputNumber style={{ width: "100%" }} size="large"
@@ -94,23 +114,37 @@ export default function InterviewResultPage() {
                 <Button block type="primary" htmlType="submit" loading={isSubmitting}>
                   {t("result.submit")} <Tag icon={<LockOutlined />} color="warning">{t("result.hrOnly")}</Tag>
                 </Button>
-              </Space>
+              </Flex>
             </form>
           </Card>
         )}
 
         {isHR && (
           <Card title={<>{t("result.proposedSalary")} <Tag icon={<LockOutlined />} color="warning">{t("result.hrOnly")}</Tag></>}>
-            <List dataSource={proposals} locale={{ emptyText: "—" }} renderItem={(p) => (
-              <List.Item actions={p.status === "PENDING" ? [
-                <Button key="a" type="primary" size="small" onClick={() => onApprove(p.id)}>
-                  {t("result.approve")}
-                </Button>] : []}>
-                <List.Item.Meta
-                  title={`${p.proposedByName}: ${p.proposedSalary.toLocaleString("vi-VN")} VND`}
-                  description={p.comment ?? "-"} />
-              </List.Item>
-            )} />
+            <Flex vertical gap="middle">
+              {proposals.length === 0 ? (
+                <div style={{ textAlign: "center", color: "#999", padding: 20 }}>—</div>
+              ) : (
+                proposals.map((p) => (
+                  <Card key={p.id} size="small" style={{ background: "#fafafa" }}>
+                    <Flex justify="space-between" align="start" gap="middle">
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600 }}>{p.proposedByName}</div>
+                        <div style={{ color: "#1677ff", fontWeight: 500 }}>
+                          {p.proposedSalary?.toLocaleString("vi-VN")} VND
+                        </div>
+                        <div style={{ color: "#666", fontSize: 13, marginTop: 4 }}>{p.comment ?? "-"}</div>
+                      </div>
+                      {p.status === "PENDING" && (
+                        <Button type="primary" size="small" onClick={() => onApprove(p.id)}>
+                          {t("result.approve")}
+                        </Button>
+                      )}
+                    </Flex>
+                  </Card>
+                ))
+              )}
+            </Flex>
           </Card>
         )}
       </Col>

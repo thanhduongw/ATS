@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Tag, Segmented, App } from "antd";
+import { Table, Button, Segmented, App } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getRequisitions } from "../recruitmentApi";
@@ -9,20 +9,9 @@ import type { ApiMessageResponse, JobRequisitionResponse, RequisitionStatus } fr
 import { useAppSelector } from "../../../app/hooks";
 import RequisitionFormModal from "./RequisitionFormModal";
 import RequisitionDetailDrawer from "./RequisitionDetailDrawer";
-
-const STATUS_COLOR: Record<RequisitionStatus, string> = {
-    DRAFT: "default",
-    PENDING_APPROVAL: "gold",
-    APPROVED: "green",
-    REJECTED: "red",
-};
-
-const STATUS_LABEL: Record<RequisitionStatus, string> = {
-    DRAFT: "Bản nháp",
-    PENDING_APPROVAL: "Chờ duyệt",
-    APPROVED: "Đã duyệt",
-    REJECTED: "Từ chối",
-};
+import { REQUISITION_STATUS_COLOR, REQUISITION_STATUS_LABEL } from "../requisitionStatus";
+import StatusTag from "../../../components/ui/StatusTag";
+import EmptyState from "../../../components/ui/EmptyState";
 
 export default function RequisitionListPanel() {
     const { message } = App.useApp();
@@ -32,7 +21,7 @@ export default function RequisitionListPanel() {
     const [jobTitleMap, setJobTitleMap] = useState<Record<number, string>>({});
     const [jobLevelMap, setJobLevelMap] = useState<Record<number, string>>({});
     const [loading, setLoading] = useState(false);
-    const [filterMode, setFilterMode] = useState<"all" | "pendingForMe">("all");
+    const [filterMode, setFilterMode] = useState<"all" | "pendingForMe" | "needsMyEdit">("all");
 
     const [formModalOpen, setFormModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<JobRequisitionResponse | null>(null);
@@ -73,7 +62,11 @@ export default function RequisitionListPanel() {
             ? requisitions.filter(
                 (r) => r.status === "PENDING_APPROVAL" && currentUser?.userId === String(r.approverId)
             )
-            : requisitions;
+            : filterMode === "needsMyEdit"
+                ? requisitions.filter(
+                    (r) => r.status === "CHANGES_REQUESTED" && currentUser?.userId === String(r.requesterId)
+                )
+                : requisitions;
 
     const openCreate = () => {
         setEditingItem(null);
@@ -111,7 +104,7 @@ export default function RequisitionListPanel() {
             title: "Trạng thái",
             dataIndex: "status",
             key: "status",
-            render: (status: RequisitionStatus) => <Tag color={STATUS_COLOR[status]}>{STATUS_LABEL[status]}</Tag>,
+            render: (status: RequisitionStatus) => <StatusTag color={REQUISITION_STATUS_COLOR[status]} label={REQUISITION_STATUS_LABEL[status]} />,
         },
         {
             title: "",
@@ -129,10 +122,11 @@ export default function RequisitionListPanel() {
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
                 <Segmented
                     value={filterMode}
-                    onChange={(value) => setFilterMode(value as "all" | "pendingForMe")}
+                    onChange={(value) => setFilterMode(value as "all" | "pendingForMe" | "needsMyEdit")}
                     options={[
                         { label: "Tất cả", value: "all" },
                         { label: "Chờ tôi duyệt", value: "pendingForMe" },
+                        { label: "Cần tôi chỉnh sửa", value: "needsMyEdit" },
                     ]}
                 />
                 <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
@@ -146,6 +140,14 @@ export default function RequisitionListPanel() {
                 columns={columns}
                 dataSource={displayedData}
                 pagination={{ pageSize: 10 }}
+                locale={{
+                    emptyText: (
+                        <EmptyState
+                            title="Chưa có yêu cầu tuyển dụng nào"
+                            description="Tạo yêu cầu đầu tiên để gửi HR duyệt và mở tin tuyển dụng."
+                        />
+                    ),
+                }}
             />
 
             <RequisitionFormModal

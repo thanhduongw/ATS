@@ -16,6 +16,8 @@ public record JobRequisitionResponse(
         BigDecimal budget,
         BigDecimal expectedSalaryMin,
         BigDecimal expectedSalaryMax,
+        BigDecimal approvedSalaryMin,
+        BigDecimal approvedSalaryMax,
         LocalDate expectedStartDate,
         String description,
         Long requesterId,
@@ -24,5 +26,6 @@ public record JobRequisitionResponse(
         String approverName,
         RequisitionStatus status,
         String rejectReason,
+        String hrNote,
         LocalDateTime createdAt
 ) {}

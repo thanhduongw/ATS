@@ -4,6 +4,8 @@ import type {
     JobRequisitionCreateRequest,
     JobRequisitionUpdateRequest,
     JobRequisitionRejectRequest,
+    JobRequisitionApproveRequest,
+    JobRequisitionRequestChangesRequest,
     JobPostingResponse,
     JobPostingCreateRequest,
     JobPostingUpdateRequest,
@@ -26,11 +28,14 @@ export const updateRequisition = (id: number, data: JobRequisitionUpdateRequest)
 export const submitRequisition = (id: number) =>
     axiosClient.post<JobRequisitionResponse>(`/recruitment/requisitions/${id}/submit`);
 
-export const approveRequisition = (id: number) =>
-    axiosClient.post<JobRequisitionResponse>(`/recruitment/requisitions/${id}/approve`);
+export const approveRequisition = (id: number, data?: JobRequisitionApproveRequest) =>
+    axiosClient.post<JobRequisitionResponse>(`/recruitment/requisitions/${id}/approve`, data ?? {});
 
 export const rejectRequisition = (id: number, data: JobRequisitionRejectRequest) =>
     axiosClient.post<JobRequisitionResponse>(`/recruitment/requisitions/${id}/reject`, data);
+
+export const requestRequisitionChanges = (id: number, data: JobRequisitionRequestChangesRequest) =>
+    axiosClient.post<JobRequisitionResponse>(`/recruitment/requisitions/${id}/request-changes`, data);
 
 // ===== Job Posting =====
 export const getPostings = () =>

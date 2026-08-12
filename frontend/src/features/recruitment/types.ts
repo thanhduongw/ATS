@@ -1,4 +1,4 @@
-export type RequisitionStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
+export type RequisitionStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
 export type PostingStatus = "OPEN" | "PAUSED" | "CLOSED";
 
 export interface JobRequisitionResponse {
@@ -11,6 +11,8 @@ export interface JobRequisitionResponse {
     budget: number | null;
     expectedSalaryMin: number | null;
     expectedSalaryMax: number | null;
+    approvedSalaryMin: number | null;
+    approvedSalaryMax: number | null;
     expectedStartDate: string | null; // "YYYY-MM-DD"
     description: string | null;
     requesterId: number;
@@ -19,6 +21,7 @@ export interface JobRequisitionResponse {
     approverName: string;
     status: RequisitionStatus;
     rejectReason: string | null;
+    hrNote: string | null;
     createdAt: string;
 }
 
@@ -40,6 +43,16 @@ export type JobRequisitionUpdateRequest = JobRequisitionCreateRequest;
 
 export interface JobRequisitionRejectRequest {
     reason: string;
+}
+
+export interface JobRequisitionApproveRequest {
+    approvedSalaryMin?: number | null;
+    approvedSalaryMax?: number | null;
+    note?: string | null;
+}
+
+export interface JobRequisitionRequestChangesRequest {
+    note: string;
 }
 
 export interface JobPostingResponse {

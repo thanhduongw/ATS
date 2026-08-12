@@ -25,7 +25,7 @@ export default function PageHeader({ title, subtitle, extra }: PageHeaderProps) 
                 marginBottom: 20,
             }}
         >
-            <Space direction="vertical" size={2}>
+            <Space orientation="vertical" size={2}>
                 <Title level={3} style={{ margin: 0 }}>
                     {title}
                 </Title>

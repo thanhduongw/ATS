@@ -25,7 +25,7 @@ interface ScoreChecklistPanelProps {
 export default function ScoreChecklistPanel({ title = "Điểm hoàn thiện", items }: ScoreChecklistPanelProps) {
     return (
         <Card title={title} variant="borderless" style={{ boxShadow: "0 1px 2px rgba(16,24,40,0.06)" }}>
-            <Space direction="vertical" size={12} style={{ width: "100%" }}>
+            <Space orientation="vertical" size={12} style={{ width: "100%" }}>
                 {items.map((item) => (
                     <Space key={item.label} size={10}>
                         <span

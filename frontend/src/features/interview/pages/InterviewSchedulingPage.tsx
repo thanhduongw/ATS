@@ -245,7 +245,7 @@ export default function InterviewSchedulingPage() {
                 <Alert
                     type="info"
                     showIcon
-                    message='Mở trang này từ trang "Hồ sơ ứng tuyển" hoặc thêm ?applicationId=… vào URL'
+                    title='Mở trang này từ trang "Hồ sơ ứng tuyển" hoặc thêm ?applicationId=… vào URL'
                     style={{ marginBottom: 20, borderRadius: 10 }}
                 />
             )}

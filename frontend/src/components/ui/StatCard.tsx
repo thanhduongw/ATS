@@ -19,7 +19,7 @@ interface StatCardProps {
 export default function StatCard({ icon, label, value, hint, accentColor = COLORS.primary }: StatCardProps) {
     return (
         <Card variant="borderless" style={{ boxShadow: "0 1px 2px rgba(16,24,40,0.06)" }} styles={{ body: { padding: 20 } }}>
-            <Space direction="vertical" size={8} style={{ width: "100%", alignItems: "center", textAlign: "center" }}>
+            <Space orientation="vertical" size={8} style={{ width: "100%", alignItems: "center", textAlign: "center" }}>
                 {icon && (
                     <div
                         style={{

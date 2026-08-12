@@ -52,7 +52,7 @@ export default function MyApplicationsPage() {
                     <Empty description="Bạn chưa có hồ sơ ứng tuyển nào trong hệ thống" />
                 </Card>
             ) : (
-                <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                <Space orientation="vertical" size={16} style={{ width: "100%" }}>
                     {applications.map(app => (
                         <Card key={app.id} hoverable style={{ borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>

@@ -145,7 +145,7 @@ export default function RequisitionDetailDrawer({
                 <Alert
                     type="warning"
                     showIcon
-                    message="HR yêu cầu chỉnh sửa lại"
+                    title="HR yêu cầu chỉnh sửa lại"
                     description={requisition.hrNote}
                     style={{ marginBottom: 16 }}
                 />
@@ -223,7 +223,7 @@ export default function RequisitionDetailDrawer({
                 <Alert
                     type="info"
                     showIcon
-                    message="Bạn có thể chốt lại mức lương khác với đề xuất của phòng ban trước khi duyệt."
+                    title="Bạn có thể chốt lại mức lương khác với đề xuất của phòng ban trước khi duyệt."
                     style={{ marginBottom: 16 }}
                 />
                 <Form form={approveForm} layout="vertical">

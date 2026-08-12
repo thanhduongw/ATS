@@ -112,7 +112,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     type="warning"
                     showIcon
                     style={{ marginBottom: 16 }}
-                    message="Tin tuyển dụng này đã có ứng viên nộp hồ sơ nên không thể đổi Quy trình tuyển dụng."
+                    title="Tin tuyển dụng này đã có ứng viên nộp hồ sơ nên không thể đổi Quy trình tuyển dụng."
                 />
             )}
             <Form layout="vertical">

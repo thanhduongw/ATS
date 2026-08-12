@@ -31,7 +31,7 @@ export default function DetailTabsLayout({
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
                 <Space size={12}>
                     {avatar}
-                    <Space direction="vertical" size={0}>
+                    <Space orientation="vertical" size={0}>
                         <Title level={4} style={{ margin: 0 }}>{title}</Title>
                         {subtitle && <Text type="secondary">{subtitle}</Text>}
                     </Space>

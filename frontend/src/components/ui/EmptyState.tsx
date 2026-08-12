@@ -16,7 +16,7 @@ export default function EmptyState({ title, description, action }: EmptyStatePro
             <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={
-                    <Space direction="vertical" size={4}>
+                    <Space orientation="vertical" size={4}>
                         <Text strong>{title}</Text>
                         {description && <Text type="secondary">{description}</Text>}
                     </Space>

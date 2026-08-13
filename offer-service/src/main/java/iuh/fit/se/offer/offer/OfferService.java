@@ -191,8 +191,9 @@ public class OfferService {
         offer.setStatus(OfferStatus.APPROVED);
         offerRepository.save(offer);
 
+        Long candidateUserId = resolveCandidateUserId(tenantId, offer.getCandidateId());
         offerEventPublisher.publishOfferApproved(
-                tenantId, offer.getId(), offer.getApplicationId(), offer.getRequesterId());
+                tenantId, offer.getId(), offer.getApplicationId(), offer.getRequesterId(), candidateUserId);
         auditEventPublisher.publish(tenantId, approverUserId, "OFFER_APPROVED", "OFFER", offer.getId(), null);
 
         return getById(tenantId, id);
@@ -235,7 +236,9 @@ public class OfferService {
         applicationServiceClient.advanceStage(
                 tenantId, actorUserId, "SYSTEM", offer.getApplicationId(),
                 new ApplicationAdvanceStageRequest("Ứng viên đã chấp nhận Offer"));
-
+        offerEventPublisher.publishOfferAccepted(
+                tenantId, offer.getId(), offer.getApplicationId(),
+                offer.getRequesterId(), offer.getCandidateNameSnapshot());
         auditEventPublisher.publish(tenantId, actorUserId, "OFFER_ACCEPTED", "OFFER", offer.getId(), null);
         return getById(tenantId, id);
     }
@@ -260,7 +263,9 @@ public class OfferService {
                 new ApplicationRejectRequest(
                         req.declineReasonId(),
                         "Ứng viên từ chối Offer: " + (req.note() != null ? req.note() : "")));
-
+        offerEventPublisher.publishOfferDeclined(
+                tenantId, offer.getId(), offer.getApplicationId(),
+                offer.getRequesterId(), offer.getCandidateNameSnapshot(), req.note());
         auditEventPublisher.publish(
                 tenantId, actorUserId, "OFFER_DECLINED", "OFFER", offer.getId(), req.note());
         return getById(tenantId, id);
@@ -304,6 +309,14 @@ public class OfferService {
             return candidateServiceClient.getByUserId(tenantId, userId).id();
         } catch (Exception e) {
             throw new BusinessException("Không tìm thấy hồ sơ ứng viên gắn với tài khoản");
+        }
+    }
+
+    private Long resolveCandidateUserId(Long tenantId, Long candidateId) {
+        try {
+            return candidateServiceClient.getCandidateSummary(tenantId, candidateId).userId();
+        } catch (Exception e) {
+            return null;
         }
     }
 

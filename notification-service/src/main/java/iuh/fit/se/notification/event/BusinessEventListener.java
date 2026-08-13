@@ -1,10 +1,14 @@
 package iuh.fit.se.notification.event;
 
 import iuh.fit.se.notification.client.ApplicationServiceClient;
+import iuh.fit.se.notification.client.AuthServiceClient;
+import iuh.fit.se.notification.client.CandidateServiceClient;
 import iuh.fit.se.notification.client.InterviewServiceClient;
 import iuh.fit.se.notification.client.dto.ApplicationSummaryResponse;
+import iuh.fit.se.notification.client.dto.CandidateSummaryResponse;
 import iuh.fit.se.notification.client.dto.InterviewResponse;
 import iuh.fit.se.notification.client.dto.InterviewerSummary;
+import iuh.fit.se.notification.client.dto.UserSummaryResponse;
 import iuh.fit.se.notification.config.BusinessEventConfig;
 import iuh.fit.se.notification.config.DelayQueueConfig;
 import iuh.fit.se.notification.notification.NotificationService;
@@ -17,6 +21,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -27,6 +32,8 @@ public class BusinessEventListener {
     private final DelayedMessagePublisher delayedMessagePublisher;
     private final InterviewServiceClient interviewServiceClient;
     private final ApplicationServiceClient applicationServiceClient;
+    private final CandidateServiceClient candidateServiceClient;
+    private final AuthServiceClient authServiceClient;
 
     @Value("${app.notification.interview-reminder-hours-before}")
     private long reminderHoursBefore;
@@ -45,7 +52,80 @@ public class BusinessEventListener {
                 "REQUISITION", event.requisitionId());
     }
 
-    // ===== 2. Lịch phỏng vấn: thông báo ngay + lên lịch nhắc trước + lên lịch kiểm tra evaluation =====
+    // ===== 2. Application created =====
+    @RabbitListener(queues = BusinessEventConfig.APPLICATION_CREATED_QUEUE)
+    public void onApplicationCreated(ApplicationCreatedEvent event) {
+        log.info("Nhận event application.created, applicationId={}", event.applicationId());
+
+        if (event.assignedRecruiterId() != null) {
+            notificationService.createAndPush(
+                    event.tenantId(), event.assignedRecruiterId(), NotificationType.APPLICATION_CREATED,
+                    "Hồ sơ ứng tuyển mới",
+                    (event.candidateName() != null ? event.candidateName() : "Ứng viên")
+                            + " vừa nộp hồ sơ (application #" + event.applicationId() + ").",
+                    "APPLICATION", event.applicationId());
+            return;
+        }
+
+        // Không có recruiter được gán sẵn -> báo cho tất cả RECRUITER trong tenant
+        try {
+            List<UserSummaryResponse> recruiters = authServiceClient.getUsers(event.tenantId(), "RECRUITER");
+            if (recruiters != null) {
+                for (UserSummaryResponse u : recruiters) {
+                    notificationService.createAndPush(
+                            event.tenantId(), u.id(), NotificationType.APPLICATION_CREATED,
+                            "Hồ sơ ứng tuyển mới",
+                            (event.candidateName() != null ? event.candidateName() : "Ứng viên")
+                                    + " vừa nộp hồ sơ (application #" + event.applicationId() + ").",
+                            "APPLICATION", event.applicationId());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không gửi được notify cho RECRUITER: {}", e.getMessage());
+        }
+    }
+
+    // ===== 3. Trạng thái đơn ứng tuyển thay đổi =====
+    @RabbitListener(queues = BusinessEventConfig.APPLICATION_STATUS_CHANGED_QUEUE)
+    public void onApplicationStatusChanged(ApplicationStatusChangedEvent event) {
+        log.info("Nhận event application.status_changed, applicationId={}, {} -> {}",
+                event.applicationId(), event.fromStageName(), event.toStageName());
+
+        Long candidateUserId = event.candidateUserId();
+        if (candidateUserId == null && event.candidateId() != null) {
+            candidateUserId = resolveCandidateUserId(event.tenantId(), event.candidateId());
+        }
+
+        String toType = event.toStageType() != null ? event.toStageType() : "";
+
+        if (candidateUserId != null) {
+            if ("REJECTED".equalsIgnoreCase(toType)) {
+                notificationService.createAndPush(
+                        event.tenantId(), candidateUserId, NotificationType.APPLICATION_REJECTED,
+                        "Kết quả hồ sơ ứng tuyển",
+                        "Hồ sơ của bạn đã chuyển sang giai đoạn: " + event.toStageName() + ".",
+                        "APPLICATION", event.applicationId());
+            } else {
+                notificationService.createAndPush(
+                        event.tenantId(), candidateUserId, NotificationType.APPLICATION_STAGE_CHANGED,
+                        "Cập nhật trạng thái hồ sơ",
+                        "Hồ sơ chuyển từ \"" + nullSafe(event.fromStageName())
+                                + "\" sang \"" + event.toStageName() + "\".",
+                        "APPLICATION", event.applicationId());
+            }
+        }
+
+        if (event.assignedRecruiterId() != null) {
+            notificationService.createAndPush(
+                    event.tenantId(), event.assignedRecruiterId(), NotificationType.APPLICATION_STAGE_CHANGED,
+                    "Hồ sơ đổi giai đoạn",
+                    "Application #" + event.applicationId() + ": "
+                            + nullSafe(event.fromStageName()) + " → " + event.toStageName(),
+                    "APPLICATION", event.applicationId());
+        }
+    }
+
+    // ===== 4. Lịch phỏng vấn: thông báo ngay + lên lịch nhắc trước + lên lịch kiểm tra evaluation =====
     @RabbitListener(queues = BusinessEventConfig.INTERVIEW_SCHEDULED_QUEUE)
     public void onInterviewScheduled(InterviewScheduledEvent event) {
         log.info("Nhận event interview.scheduled, interviewId={}", event.interviewId());
@@ -62,6 +142,15 @@ public class BusinessEventListener {
                     "INTERVIEW", event.interviewId());
         }
 
+        Long candidateUserId = resolveCandidateUserIdFromApplication(event.tenantId(), event.applicationId());
+        if (candidateUserId != null) {
+            notificationService.createAndPush(
+                    event.tenantId(), candidateUserId, NotificationType.INTERVIEW_SCHEDULED,
+                    "Lịch phỏng vấn",
+                    "Bạn có lịch phỏng vấn lúc " + event.scheduledAt() + ". Vui lòng xác nhận trên hệ thống.",
+                    "INTERVIEW", event.interviewId());
+        }
+
         long reminderDelay = Duration.between(LocalDateTime.now(),
                 event.scheduledAt().minusHours(reminderHoursBefore)).toMillis();
         delayedMessagePublisher.scheduleInterviewReminder(
@@ -73,15 +162,32 @@ public class BusinessEventListener {
                 new EvaluationCheckPayload(event.tenantId(), event.interviewId()), evalCheckDelay);
     }
 
-    // ===== 3a. Đến giờ nhắc phỏng vấn (delayed message đã "chín") =====
+    // ===== 5. Interview confirmed =====
+    @RabbitListener(queues = BusinessEventConfig.INTERVIEW_CONFIRMED_QUEUE)
+    public void onInterviewConfirmed(InterviewConfirmedEvent event) {
+        log.info("Nhận event interview.confirmed, interviewId={}", event.interviewId());
+
+        InterviewResponse interview = interviewServiceClient.getInterviewById(event.interviewId(), event.tenantId());
+        if (interview == null) return;
+
+        for (InterviewerSummary interviewer : interview.interviewers()) {
+            notificationService.createAndPush(
+                    event.tenantId(), interviewer.interviewerId(), NotificationType.INTERVIEW_CONFIRMED,
+                    "Ứng viên đã xác nhận lịch phỏng vấn",
+                    interview.candidateName() + " đã xác nhận lịch lúc " + event.scheduledAt() + ".",
+                    "INTERVIEW", event.interviewId());
+        }
+    }
+
+    // ===== 6a. Đến giờ nhắc phỏng vấn (delayed message đã "chín") =====
     @RabbitListener(queues = DelayQueueConfig.INTERVIEW_REMINDER_PROCESS_QUEUE)
     public void onInterviewReminderDue(InterviewReminderPayload payload) {
         log.info("Đến giờ nhắc phỏng vấn, interviewId={}", payload.interviewId());
 
         InterviewResponse interview = interviewServiceClient.getInterviewById(payload.interviewId(), payload.tenantId());
-        if (interview == null || !"SCHEDULED".equals(interview.status())) {
-            return; // đã hủy hoặc đã hoàn tất, không cần nhắc nữa
-        }
+        if (interview == null) return;
+        String status = interview.status();
+        if (!"SCHEDULED".equals(status) && !"CONFIRMED".equals(status)) return;
 
         for (InterviewerSummary interviewer : interview.interviewers()) {
             notificationService.createAndPush(
@@ -93,7 +199,7 @@ public class BusinessEventListener {
         }
     }
 
-    // ===== 3b. Đến giờ kiểm tra Evaluation còn thiếu không =====
+    // ===== 6b. Đến giờ kiểm tra Evaluation còn thiếu không =====
     @RabbitListener(queues = DelayQueueConfig.EVALUATION_CHECK_PROCESS_QUEUE)
     public void onEvaluationCheckDue(EvaluationCheckPayload payload) {
         log.info("Đến giờ kiểm tra evaluation, interviewId={}", payload.interviewId());
@@ -125,22 +231,84 @@ public class BusinessEventListener {
         }
     }
 
-    // ===== 4. Offer cần xác nhận =====
+    // ===== 7. Offer đã duyệt =====
     @RabbitListener(queues = BusinessEventConfig.OFFER_APPROVED_QUEUE)
     public void onOfferApproved(OfferApprovedEvent event) {
         log.info("Nhận event offer.approved, offerId={}", event.offerId());
+
+        if (event.requesterId() != null) {
+            notificationService.createAndPush(
+                    event.tenantId(), event.requesterId(), NotificationType.OFFER_PENDING_CONFIRMATION,
+                    "Offer đã được duyệt",
+                    "Offer #" + event.offerId() + " đã được phê duyệt. Ứng viên có thể Accept/Decline.",
+                    "OFFER", event.offerId());
+        }
+
+        Long candidateUserId = event.candidateUserId();
+        if (candidateUserId == null) {
+            candidateUserId = resolveCandidateUserIdFromApplication(event.tenantId(), event.applicationId());
+        }
+        if (candidateUserId != null) {
+            notificationService.createAndPush(
+                    event.tenantId(), candidateUserId, NotificationType.OFFER_READY_FOR_CANDIDATE,
+                    "Bạn nhận được thư đề nghị nhận việc",
+                    "Offer đã sẵn sàng. Vui lòng xem và phản hồi trên hệ thống.",
+                    "OFFER", event.offerId());
+        }
+    }
+
+    // ===== 8. Offer accepted =====
+    @RabbitListener(queues = BusinessEventConfig.OFFER_ACCEPTED_QUEUE)
+    public void onOfferAccepted(OfferAcceptedEvent event) {
+        log.info("Nhận event offer.accepted, offerId={}", event.offerId());
+        if (event.requesterId() == null) return;
+
         notificationService.createAndPush(
-                event.tenantId(), event.requesterId(), NotificationType.OFFER_PENDING_CONFIRMATION,
-                "Offer đã được duyệt",
-                "Offer đã được phê duyệt, hãy gửi cho ứng viên và ghi nhận phản hồi.",
+                event.tenantId(), event.requesterId(), NotificationType.OFFER_ACCEPTED,
+                "Ứng viên đã chấp nhận Offer",
+                (event.candidateName() != null ? event.candidateName() : "Ứng viên")
+                        + " đã chấp nhận Offer #" + event.offerId() + ".",
                 "OFFER", event.offerId());
     }
 
-    // ===== 5. Trạng thái đơn ứng tuyển thay đổi =====
-    @RabbitListener(queues = BusinessEventConfig.APPLICATION_STATUS_CHANGED_QUEUE)
-    public void onApplicationStatusChanged(ApplicationStatusChangedEvent event) {
-        log.info("Nhận event application.status_changed, applicationId={}, {} -> {}",
-                event.applicationId(), event.fromStageName(), event.toStageName());
-        // Log & notification handled
+    // ===== 9. Offer declined =====
+    @RabbitListener(queues = BusinessEventConfig.OFFER_DECLINED_QUEUE)
+    public void onOfferDeclined(OfferDeclinedEvent event) {
+        log.info("Nhận event offer.declined, offerId={}", event.offerId());
+        if (event.requesterId() == null) return;
+
+        String extra = event.note() != null && !event.note().isBlank() ? " Lý do: " + event.note() : "";
+        notificationService.createAndPush(
+                event.tenantId(), event.requesterId(), NotificationType.OFFER_DECLINED,
+                "Ứng viên đã từ chối Offer",
+                (event.candidateName() != null ? event.candidateName() : "Ứng viên")
+                        + " đã từ chối Offer #" + event.offerId() + "." + extra,
+                "OFFER", event.offerId());
+    }
+
+    // ---- helpers ----
+
+    private Long resolveCandidateUserId(Long tenantId, Long candidateId) {
+        try {
+            CandidateSummaryResponse c = candidateServiceClient.getCandidateSummary(tenantId, candidateId);
+            return c != null ? c.userId() : null;
+        } catch (Exception e) {
+            log.warn("resolveCandidateUserId thất bại: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private Long resolveCandidateUserIdFromApplication(Long tenantId, Long applicationId) {
+        try {
+            ApplicationSummaryResponse app = applicationServiceClient.getApplicationById(applicationId, tenantId);
+            if (app == null || app.candidateId() == null) return null;
+            return resolveCandidateUserId(tenantId, app.candidateId());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String nullSafe(String s) {
+        return s != null ? s : "";
     }
 }

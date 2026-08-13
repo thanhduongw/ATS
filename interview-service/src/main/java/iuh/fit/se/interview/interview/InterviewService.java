@@ -183,7 +183,13 @@ public class InterviewService {
         }
         interview.setStatus(InterviewStatus.CONFIRMED);
         interview.setCandidateConfirmedAt(LocalDateTime.now());
-        return toResponse(interviewRepository.save(interview));
+        Interview saved = interviewRepository.save(interview);
+
+        eventPublisher.publishInterviewConfirmed(
+                tenantId, saved.getId(), saved.getApplicationId(),
+                saved.getScheduledAt(), saved.getCandidateNameSnapshot());
+
+        return toResponse(saved);
     }
 
     private void assertCanView(Interview interview, Long userId, String role) {

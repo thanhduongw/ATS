@@ -49,7 +49,6 @@ public class CandidateService {
         return toSummary(candidate);
     }
 
-    /** Dùng bởi application-service (Feign) để resolve candidateId theo user đang login. */
     public CandidateSummaryResponse getSummaryByUserId(Long tenantId, Long userId) {
         Candidate candidate = candidateRepository
                 .findByTenantIdAndUserIdAndDeletedAtIsNull(tenantId, userId)
@@ -59,7 +58,8 @@ public class CandidateService {
                 candidate.getFullName(),
                 candidate.getEmail(),
                 candidate.getPhone(),
-                candidate.getCvFileUrl()
+                candidate.getCvFileUrl(),
+                candidate.getUserId()
         );
     }
 
@@ -209,7 +209,8 @@ public class CandidateService {
     }
 
     private CandidateSummaryResponse toSummary(Candidate c) {
-        return new CandidateSummaryResponse(c.getId(), c.getFullName(), c.getEmail(), c.getPhone(), c.getCvFileUrl());
+        return new CandidateSummaryResponse(
+                c.getId(), c.getFullName(), c.getEmail(), c.getPhone(), c.getCvFileUrl(), c.getUserId());
     }
 
     private CandidateResponse toResponse(Candidate c, Map<Long, String> educationMap, Map<Long, String> skillMap) {

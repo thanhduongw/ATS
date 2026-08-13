@@ -12,6 +12,10 @@ public interface CandidateServiceClient {
     @GetMapping("/api/candidate/candidates/{id}/summary")
     CandidateSummaryResponse getCandidateSummary(
             @RequestHeader("X-Tenant-Id") Long tenantId,
-            @PathVariable("id") Long id
-    );
+            @PathVariable("id") Long id);
+
+    @GetMapping("/api/candidate/candidates/by-user/{userId}")
+    CandidateSummaryResponse getByUserId(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @PathVariable("userId") Long userId);
 }

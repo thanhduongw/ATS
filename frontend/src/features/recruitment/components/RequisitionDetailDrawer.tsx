@@ -10,6 +10,8 @@ import {
 import type { ApiMessageResponse, JobRequisitionResponse } from "../types";
 import { REQUISITION_STATUS_COLOR, REQUISITION_STATUS_LABEL } from "../requisitionStatus";
 import { useAppSelector } from "../../../app/hooks";
+import { DEPARTMENT_ROLES, HR_ROLES } from "../../../app/roles";
+import type { UserRole } from "../../auth/types";
 import StatusTag from "../../../components/ui/StatusTag";
 
 interface Props {
@@ -60,8 +62,17 @@ export default function RequisitionDetailDrawer({
 
     if (!requisition) return null;
 
-    const isOwner = currentUser?.userId === String(requisition.requesterId);
-    const isApprover = currentUser?.userId === String(requisition.approverId);
+    const role = currentUser?.role as UserRole | undefined;
+
+    const isOwner =
+        currentUser?.userId === String(requisition.requesterId) &&
+        !!role &&
+        DEPARTMENT_ROLES.includes(role);
+
+    const isApprover =
+        currentUser?.userId === String(requisition.approverId) &&
+        !!role &&
+        HR_ROLES.includes(role);
 
     const handleSubmit = async () => {
         setActionLoading(true);

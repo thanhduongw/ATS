@@ -6,6 +6,7 @@ import iuh.fit.se.auth.dto.response.UserProfileResponse;
 import iuh.fit.se.auth.dto.response.UserSummaryResponse;
 import iuh.fit.se.auth.entity.AppUser;
 import iuh.fit.se.auth.entity.Role;
+import iuh.fit.se.auth.enums.RoleName;
 import iuh.fit.se.auth.enums.UserStatus;
 import iuh.fit.se.auth.event.AuditEventPublisher;
 import iuh.fit.se.auth.exception.BusinessException;
@@ -95,12 +96,7 @@ public class UserService {
     }
 
     @Transactional
-    public void createUser(
-            Long tenantId,
-            Long actorUserId,
-            CreateUserRequest req
-    ) {
-
+    public void createUser(Long tenantId, Long actorUserId, CreateUserRequest req) {
         if (appUserRepository.existsByTenantIdAndEmail(
                 tenantId,
                 req.email()
@@ -113,6 +109,10 @@ public class UserService {
         Role role = roleRepository.findByName(req.role())
                 .orElseThrow(() ->
                         new BusinessException("Vai trò không hợp lệ"));
+
+        if (req.role() == RoleName.PLATFORM_ADMIN) {
+            throw new BusinessException("Không được tạo tài khoản Quản trị nền tảng từ trong công ty");
+        }
 
         appUserRepository.save(
                 AppUser.builder()

@@ -32,7 +32,7 @@ export default function InterviewCreateModal({ open, applicationId, onClose, onS
 
   useEffect(() => {
     if (!open) return;
-    getUsers("INTERVIEWER").then((res) => setInterviewers(res.data));
+    getUsers("HIRING_MANAGER").then((res) => setInterviewers(res.data));
     reset({
       scheduledAt: "",
       durationMinutes: 60,

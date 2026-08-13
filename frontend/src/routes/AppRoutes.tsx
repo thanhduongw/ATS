@@ -21,6 +21,7 @@ import MyApplicationsPage from "../features/candidate/pages/MyApplicationsPage";
 import AuditLogPage from "../features/auditlog/pages/AuditLogPage";
 import AuthManagementPage from "../features/auth/pages/AuthManagementPage";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../app/roles";
+import JobsPage from "../features/candidate/pages/JobsPage";
 
 export default function AppRoutes() {
     return (
@@ -62,6 +63,7 @@ export default function AppRoutes() {
 
                     {/* Candidate-only pages */}
                     <Route element={<RoleRoute allow={["CANDIDATE"]} />}>
+                        <Route path="/jobs" element={<JobsPage />} />
                         <Route path="/my-applications" element={<MyApplicationsPage />} />
                         <Route path="/offers/candidate/:id" element={<OfferCandidateViewPage />} />
                         <Route path="/offers/:id/view" element={<OfferCandidateViewPage />} />

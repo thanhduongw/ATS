@@ -2,11 +2,13 @@ package iuh.fit.se.candidate.candidate;
 
 import iuh.fit.se.candidate.candidate.dto.CandidateCreateRequest;
 import iuh.fit.se.candidate.candidate.dto.CandidateResponse;
+import iuh.fit.se.candidate.candidate.dto.CandidateSummaryResponse;
 import iuh.fit.se.candidate.candidate.dto.CandidateUpdateRequest;
 import iuh.fit.se.candidate.common.AccessGuard;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -94,5 +96,26 @@ public class CandidateController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    @GetMapping("/by-user/{userId}")
+    public ResponseEntity<CandidateSummaryResponse> getByUserId(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @PathVariable Long userId) {
+        return ResponseEntity.ok(service.getSummaryByUserId(tenantId, userId));
+    }
+
+    @PostMapping("/me/link")
+    public ResponseEntity<CandidateResponse> linkMe(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestBody Map<String, String> body) {
+        if (!"CANDIDATE".equals(role)) {
+            throw new AccessDeniedException("Chỉ ứng viên");
+        }
+        String email = body.get("email");
+        String fullName = body.get("fullName");
+        return ResponseEntity.ok(service.linkOrCreateForUser(tenantId, userId, email, fullName));
     }
 }

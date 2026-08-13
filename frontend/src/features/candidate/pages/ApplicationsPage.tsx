@@ -1,117 +1,154 @@
-import { useEffect, useState } from "react";
-import { Card, Select, Button, Empty, Tag } from "antd";
-import { PlusOutlined, AppstoreOutlined } from "@ant-design/icons";
-import { getPostings } from "../../recruitment/recruitmentApi";
-import type { JobPostingResponse } from "../../recruitment/types";
-import ApplicationKanbanBoard from "../components/ApplicationKanbanBoard";
-import ApplicationCreateModal from "../components/ApplicationCreateModal";
-import { COLORS, GRADIENTS } from "../../../app/theme";
+import { useCallback, useEffect, useState } from "react";
+import { Table, Button, Space, Select, Modal, Form, Input, App, Tag } from "antd";
+import type { AxiosError } from "axios";
+import {
+    getApplications,
+    advanceApplicationStage,
+    rejectApplication,
+} from "../applicationApi";
+import { getCatalogItems } from "../../masterdata/masterdataApi";
+import type { ApplicationResponse, ApiMessageResponse } from "../types";
+import { useAppSelector } from "../../../app/hooks";
+import { HR_ROLES } from "../../../app/roles";
+import type { UserRole } from "../../auth/types";
 
 export default function ApplicationsPage() {
-    const [postings, setPostings] = useState<JobPostingResponse[]>([]);
-    const [selectedPostingId, setSelectedPostingId] = useState<number | undefined>(undefined);
-    const [applyModalOpen, setApplyModalOpen] = useState(false);
-    const [refreshKey, setRefreshKey] = useState(0);
+    const { message } = App.useApp();
+    const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
+    const isHr = !!role && HR_ROLES.includes(role);
+
+    const [rows, setRows] = useState<ApplicationResponse[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [jobPostingId, setJobPostingId] = useState<number | undefined>();
+    const [rejectOpen, setRejectOpen] = useState(false);
+    const [selectedId, setSelectedId] = useState<number | null>(null);
+    const [reasons, setReasons] = useState<{ id: number; name: string }[]>([]);
+    const [rejectForm] = Form.useForm();
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await getApplications(jobPostingId ? { jobPostingId } : undefined);
+            setRows(res.data);
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Không tải được danh sách");
+        } finally {
+            setLoading(false);
+        }
+    }, [jobPostingId, message]);
 
     useEffect(() => {
-        getPostings().then((res) => setPostings(res.data));
-    }, []);
+        load();
+        getCatalogItems("/masterdata/rejection-reasons").then((r) => setReasons(r.data as any));
+    }, [load]);
 
-    const selectedPosting = postings.find(p => p.id === selectedPostingId);
+    const handlePass = async (id: number) => {
+        try {
+            await advanceApplicationStage(id, { note: "Pass sơ tuyển" });
+            message.success("Đã chuyển vòng tiếp theo");
+            load();
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Thất bại");
+        }
+    };
+
+    const handleReject = async () => {
+        const values = await rejectForm.validateFields();
+        if (!selectedId) return;
+        try {
+            await rejectApplication(selectedId, {
+                rejectionReasonId: values.rejectionReasonId,
+                note: values.note,
+            });
+            message.success("Đã từ chối hồ sơ");
+            setRejectOpen(false);
+            load();
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Thất bại");
+        }
+    };
+
+    const columns = [
+        { title: "Ứng viên", dataIndex: "candidateName", key: "candidateName" },
+        { title: "Job Posting ID", dataIndex: "jobPostingId", key: "jobPostingId" },
+        {
+            title: "Giai đoạn",
+            key: "stage",
+            render: (_: unknown, r: ApplicationResponse) => (
+                <Tag>{r.currentStageName}</Tag>
+            ),
+        },
+        {
+            title: "CV",
+            dataIndex: "resumeUrl",
+            key: "resumeUrl",
+            render: (url: string) =>
+                url ? (
+                    <a href={url} target="_blank" rel="noreferrer">
+                        Xem CV
+                    </a>
+                ) : (
+                    "—"
+                ),
+        },
+        ...(isHr
+            ? [
+                {
+                    title: "Thao tác",
+                    key: "actions",
+                    render: (_: unknown, r: ApplicationResponse) =>
+                        r.currentStageType === "REJECTED" || r.currentStageType === "HIRED" ? null : (
+                            <Space>
+                                <Button type="primary" size="small" onClick={() => handlePass(r.id)}>
+                                    Pass
+                                </Button>
+                                <Button
+                                    danger
+                                    size="small"
+                                    onClick={() => {
+                                        setSelectedId(r.id);
+                                        setRejectOpen(true);
+                                    }}
+                                >
+                                    Reject
+                                </Button>
+                            </Space>
+                        ),
+                },
+            ]
+            : []),
+    ];
 
     return (
-        <div className="page-container animate-fade-in">
-            {/* ── Page Header ──────────────────── */}
-            <div className="page-header">
-                <div className="page-header-title">
-                    <div style={{
-                        width: 44, height: 44, borderRadius: 12,
-                        background: GRADIENTS.stat1,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "#fff", fontSize: 20,
-                    }}>
-                        <AppstoreOutlined />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Hồ sơ ứng tuyển</h2>
-                        <div className="page-header-subtitle">Quản lý ứng viên theo từng tin tuyển dụng (Kanban)</div>
-                    </div>
-                </div>
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    size="large"
-                    disabled={!selectedPostingId}
-                    onClick={() => setApplyModalOpen(true)}
-                >
-                    Thêm ứng viên vào tin
-                </Button>
-            </div>
+        <div className="page-container">
+            <h2>Hồ sơ ứng tuyển</h2>
+            <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} />
 
-            {/* ── Posting Selector ─────────────── */}
-            <Card style={{ marginBottom: 16, border: "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                    <div style={{ flex: 1, minWidth: 260 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, color: COLORS.textSecondary }}>
-                            Chọn tin tuyển dụng
-                        </div>
+            <Modal
+                title="Từ chối hồ sơ"
+                open={rejectOpen}
+                onOk={handleReject}
+                onCancel={() => setRejectOpen(false)}
+                okText="Từ chối"
+            >
+                <Form form={rejectForm} layout="vertical">
+                    <Form.Item
+                        name="rejectionReasonId"
+                        label="Lý do"
+                        rules={[{ required: true, message: "Chọn lý do" }]}
+                    >
                         <Select
-                            style={{ width: "100%", maxWidth: 480 }}
-                            placeholder="Chọn tin để xem Kanban..."
-                            size="large"
-                            value={selectedPostingId}
-                            onChange={setSelectedPostingId}
-                            showSearch
-                            filterOption={(input, option) =>
-                                String(option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-                            }
-                            options={postings.map((p) => ({
-                                value: p.id,
-                                label: p.title,
-                            }))}
+                            options={reasons.map((r) => ({ value: r.id, label: r.name }))}
                         />
-                    </div>
-
-                    {selectedPosting && (
-                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                            <Tag color={selectedPosting.status === "OPEN" ? "success" : selectedPosting.status === "PAUSED" ? "warning" : "default"} style={{ fontSize: 12 }}>
-                                {selectedPosting.status === "OPEN" ? "Đang mở" : selectedPosting.status === "PAUSED" ? "Tạm dừng" : "Đã đóng"}
-                            </Tag>
-                        </div>
-                    )}
-                </div>
-            </Card>
-
-            {/* ── Kanban Board ─────────────────── */}
-            <Card style={{ border: "none" }}>
-                {selectedPostingId ? (
-                    <ApplicationKanbanBoard
-                        key={`${selectedPostingId}-${refreshKey}`}
-                        jobPostingId={selectedPostingId}
-                    />
-                ) : (
-                    <div style={{ padding: "60px 0" }}>
-                        <Empty
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            description={
-                                <span style={{ color: COLORS.textSecondary }}>
-                                    Chọn 1 tin tuyển dụng ở trên để xem bảng Kanban
-                                </span>
-                            }
-                        />
-                    </div>
-                )}
-            </Card>
-
-            <ApplicationCreateModal
-                open={applyModalOpen}
-                presetJobPostingId={selectedPostingId}
-                onClose={() => setApplyModalOpen(false)}
-                onSuccess={() => {
-                    setApplyModalOpen(false);
-                    setRefreshKey((k) => k + 1);
-                }}
-            />
+                    </Form.Item>
+                    <Form.Item name="note" label="Ghi chú">
+                        <Input.TextArea rows={3} />
+                    </Form.Item>
+                </Form>
+            </Modal>
         </div>
     );
 }

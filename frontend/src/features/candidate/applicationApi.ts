@@ -20,6 +20,14 @@ export const getApplicationHistory = (id: number) =>
 export const createApplication = (data: ApplicationCreateRequest) =>
   axiosClient.post<ApplicationResponse>("/application/applications", data);
 
+/** Candidate self-apply — không gửi candidateId, server tự resolve theo user login. */
+export const applyToJob = (data: {
+  jobPostingId: number;
+  recruitmentSourceId: number;
+  resumeUrl?: string | null;
+  note?: string | null;
+}) => axiosClient.post<ApplicationResponse>("/application/applications", data);
+
 export const advanceApplicationStage = (id: number, data: ApplicationAdvanceStageRequest) =>
   axiosClient.patch<ApplicationResponse>(`/application/applications/${id}/advance-stage`, data);
 

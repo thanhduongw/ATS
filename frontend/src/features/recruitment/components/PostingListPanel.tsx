@@ -7,6 +7,9 @@ import { getCatalogItems, getPipelines } from "../../masterdata/masterdataApi";
 import type { CatalogItem, PipelineResponse } from "../../masterdata/types";
 import type { ApiMessageResponse, JobPostingResponse, PostingStatus } from "../types";
 import PostingFormModal from "./PostingFormModal";
+import { useAppSelector } from "../../../app/hooks";
+import { HR_ROLES } from "../../../app/roles";
+import type { UserRole } from "../../auth/types";
 
 const STATUS_COLOR: Record<PostingStatus, string> = {
     OPEN: "green",
@@ -22,6 +25,10 @@ const STATUS_LABEL: Record<PostingStatus, string> = {
 
 export default function PostingListPanel() {
     const { message } = App.useApp();
+    const currentUser = useAppSelector((s) => s.auth.user);
+    const role = currentUser?.role as UserRole | undefined;
+    const canManagePosting = !!role && HR_ROLES.includes(role);
+
     const [postings, setPostings] = useState<JobPostingResponse[]>([]);
     const [employmentTypeMap, setEmploymentTypeMap] = useState<Record<number, string>>({});
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
@@ -56,7 +63,7 @@ export default function PostingListPanel() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [message]);
 
     useEffect(() => {
         loadAll();
@@ -119,49 +126,57 @@ export default function PostingListPanel() {
             key: "status",
             render: (status: PostingStatus) => <Tag color={STATUS_COLOR[status]}>{STATUS_LABEL[status]}</Tag>,
         },
-        {
-            title: "Đổi trạng thái",
-            key: "statusAction",
-            render: (_: unknown, record: JobPostingResponse) => (
-                <Segmented
-                    size="small"
-                    value={record.status}
-                    onChange={(value) => handleStatusChange(record.id, value as PostingStatus)}
-                    options={[
-                        { label: "Mở", value: "OPEN" },
-                        { label: "Tạm dừng", value: "PAUSED" },
-                        { label: "Đóng", value: "CLOSED" },
-                    ]}
-                />
-            ),
-        },
-        {
-            title: "",
-            key: "edit",
-            render: (_: unknown, record: JobPostingResponse) => (
-                <Button type="link" onClick={() => openEdit(record)}>
-                    Sửa
-                </Button>
-            ),
-        },
+        ...(canManagePosting
+            ? [
+                {
+                    title: "Đổi trạng thái",
+                    key: "statusAction",
+                    render: (_: unknown, record: JobPostingResponse) => (
+                        <Segmented
+                            size="small"
+                            value={record.status}
+                            onChange={(value) => handleStatusChange(record.id, value as PostingStatus)}
+                            options={[
+                                { label: "Mở", value: "OPEN" },
+                                { label: "Tạm dừng", value: "PAUSED" },
+                                { label: "Đóng", value: "CLOSED" },
+                            ]}
+                        />
+                    ),
+                },
+                {
+                    title: "",
+                    key: "edit",
+                    render: (_: unknown, record: JobPostingResponse) => (
+                        <Button type="link" onClick={() => openEdit(record)}>
+                            Sửa
+                        </Button>
+                    ),
+                },
+            ]
+            : []),
     ];
 
     return (
         <div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                    Tạo tin tuyển dụng
-                </Button>
+                {canManagePosting && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                        Tạo tin tuyển dụng
+                    </Button>
+                )}
             </div>
 
             <Table rowKey="id" loading={loading} columns={columns} dataSource={postings} pagination={{ pageSize: 10 }} />
 
-            <PostingFormModal
-                open={formModalOpen}
-                editingItem={editingItem}
-                onClose={() => setFormModalOpen(false)}
-                onSuccess={loadAll}
-            />
+            {canManagePosting && (
+                <PostingFormModal
+                    open={formModalOpen}
+                    editingItem={editingItem}
+                    onClose={() => setFormModalOpen(false)}
+                    onSuccess={loadAll}
+                />
+            )}
         </div>
     );
 }

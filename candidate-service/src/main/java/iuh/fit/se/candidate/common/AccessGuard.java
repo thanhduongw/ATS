@@ -13,6 +13,12 @@ public class AccessGuard {
         }
     }
 
+    public static void requireCandidate(String role) {
+        if (!"CANDIDATE".equals(role)) {
+            throw new AccessDeniedException("Chỉ ứng viên được thực hiện thao tác này");
+        }
+    }
+
     public static void requireOwner(Long ownerId, Long currentUserId) {
         if (!ownerId.equals(currentUserId)) {
             throw new AccessDeniedException("Chỉ người tạo mới được thực hiện thao tác này");

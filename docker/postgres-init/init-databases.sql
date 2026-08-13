@@ -59,17 +59,16 @@ INSERT INTO role (id, name) VALUES
 (1, 'COMPANY_ADMIN'),
 (2, 'RECRUITER'),
 (3, 'HIRING_MANAGER'),
-(4, 'INTERVIEWER'),
-(5, 'CANDIDATE')
+(4, 'CANDIDATE'),
+(5, 'PLATFORM_ADMIN')
 ON CONFLICT (id) DO NOTHING;
 
 -- BCrypt Hash for 'Password123!': $2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu
 INSERT INTO app_user (id, tenant_id, email, password_hash, full_name, role_id, status)
-VALUES
-(1, 1, 'admin.company@test.net', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'Nguyễn Quản Trị', 2, 'ACTIVE'),
-(2, 1, 'hr.recruiter@test.net', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'Trần Tuyển Dụng', 3, 'ACTIVE'),
-(3, 1, 'dept.manager@test.net', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'Lê Trưởng Phòng', 4, 'ACTIVE'),
-(4, 1, 'tech.interviewer@test.net', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'Phạm Phỏng Vấn', 5, 'ACTIVE')
+VALUES  (1, 1, 'admin.company@test.net', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'Nguyễn Quản Trị', 1, 'ACTIVE'),           -- COMPANY_ADMIN
+        (2, 1, 'hr.recruiter@test.net', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'Trần Tuyển Dụng', 2, 'ACTIVE'),           -- RECRUITER (HR)
+        (3, 1, 'dept.manager@test.net', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'Lê Trưởng Phòng', 3, 'ACTIVE'),           -- HIRING_MANAGER (Phòng ban)
+        (4, 1, 'candidate.test@test.net', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'Nguyễn Văn Ứng Viên', 4, 'ACTIVE')        -- CANDIDATE
 ON CONFLICT (email) DO NOTHING;
 
 SELECT setval('tenant_id_seq', (SELECT MAX(id) FROM tenant));

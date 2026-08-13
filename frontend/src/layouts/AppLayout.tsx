@@ -45,6 +45,7 @@ export default function AppLayout() {
         recruitment: { key: "/recruitment", icon: <SolutionOutlined />, label: t("menu.recruitment") },
         candidates: { key: "/candidates", icon: <TeamOutlined />, label: t("menu.candidates") },
         applications: { key: "/applications", icon: <AppstoreOutlined />, label: t("menu.applications") },
+        jobs: { key: "/jobs", icon: <SolutionOutlined />, label: lang === "vi" ? "Việc làm" : "Jobs" },
         myApplications: { key: "/my-applications", icon: <AppstoreOutlined />, label: lang === "vi" ? "Đơn của tôi" : "My Applications" },
         scheduling: { key: "/scheduling", icon: <ScheduleOutlined />, label: t("menu.scheduling") },
         interviews: { key: "/interviews", icon: <CalendarOutlined />, label: t("menu.interviews") },
@@ -58,8 +59,7 @@ export default function AppLayout() {
         COMPANY_ADMIN: [all.dashboard, all.masterdata, all.recruitment, all.candidates, all.applications, all.scheduling, all.interviews, all.offers, all.audit, all.settings],
         RECRUITER: [all.dashboard, all.masterdata, all.recruitment, all.candidates, all.applications, all.scheduling, all.interviews, all.offers, all.settings],
         HIRING_MANAGER: [all.dashboard, all.recruitment, all.scheduling, all.interviews, all.settings],
-        INTERVIEWER: [all.dashboard, all.scheduling, all.interviews, all.settings],
-        CANDIDATE: [all.myApplications, all.scheduling],
+        CANDIDATE: [all.jobs, all.myApplications, all.scheduling],
     };
 
     const menuItems = user ? MENU_BY_ROLE[user.role] : [];

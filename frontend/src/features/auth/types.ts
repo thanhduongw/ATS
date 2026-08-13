@@ -1,10 +1,9 @@
-// Khớp với RoleName enum bên auth-service (Java)
+
 export type UserRole =
     | "PLATFORM_ADMIN"
     | "COMPANY_ADMIN"
     | "RECRUITER"
     | "HIRING_MANAGER"
-    | "INTERVIEWER"
     | "CANDIDATE";
 
 // ===== Request DTO (khớp record bên Java) =====

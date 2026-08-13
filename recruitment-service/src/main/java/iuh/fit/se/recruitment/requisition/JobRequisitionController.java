@@ -18,8 +18,12 @@ public class JobRequisitionController {
     private final JobRequisitionService service;
 
     @GetMapping
-    public ResponseEntity<List<JobRequisitionResponse>> getAll(@RequestHeader("X-Tenant-Id") Long tenantId) {
-        return ResponseEntity.ok(service.getAll(tenantId));
+    public ResponseEntity<List<JobRequisitionResponse>> getAll(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role) {
+        AccessGuard.requireHrOrDepartment(role);
+        return ResponseEntity.ok(service.getAll(tenantId, userId, role));
     }
 
     @GetMapping("/{id}")
@@ -34,7 +38,7 @@ public class JobRequisitionController {
             @RequestHeader("X-User-Id") Long requesterId,
             @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody JobRequisitionCreateRequest req) {
-        AccessGuard.requireRecruiterOrAbove(role);
+        AccessGuard.requireDepartment(role);
         return ResponseEntity.ok(service.create(tenantId, requesterId, req));
     }
 
@@ -42,8 +46,10 @@ public class JobRequisitionController {
     public ResponseEntity<JobRequisitionResponse> update(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long requesterId,
+            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
             @Valid @RequestBody JobRequisitionUpdateRequest req) {
+        AccessGuard.requireDepartment(role);
         return ResponseEntity.ok(service.update(tenantId, id, requesterId, req));
     }
 
@@ -59,8 +65,10 @@ public class JobRequisitionController {
     public ResponseEntity<JobRequisitionResponse> approve(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long approverUserId,
+            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
             @RequestBody(required = false) JobRequisitionApproveRequest req) {
+        AccessGuard.requireHr(role);
         return ResponseEntity.ok(service.approve(tenantId, id, approverUserId, req));
     }
 
@@ -68,8 +76,10 @@ public class JobRequisitionController {
     public ResponseEntity<JobRequisitionResponse> reject(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long approverUserId,
+            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
             @Valid @RequestBody JobRequisitionRejectRequest req) {
+        AccessGuard.requireHr(role);
         return ResponseEntity.ok(service.reject(tenantId, id, approverUserId, req));
     }
 
@@ -77,8 +87,10 @@ public class JobRequisitionController {
     public ResponseEntity<JobRequisitionResponse> requestChanges(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long approverUserId,
+            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
             @Valid @RequestBody JobRequisitionRequestChangesRequest req) {
+        AccessGuard.requireHr(role);
         return ResponseEntity.ok(service.requestChanges(tenantId, id, approverUserId, req));
     }
 
@@ -88,7 +100,7 @@ public class JobRequisitionController {
             @RequestHeader("X-User-Id") Long actorUserId,
             @RequestHeader("X-User-Role") String role,
             @PathVariable Long id) {
-        AccessGuard.requireRecruiterOrAbove(role);
+        AccessGuard.requireHr(role);
         service.softDelete(tenantId, id, actorUserId);
         return ResponseEntity.ok(Map.of("message", "Xóa yêu cầu tuyển dụng thành công"));
     }

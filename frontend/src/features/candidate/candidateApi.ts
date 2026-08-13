@@ -26,3 +26,7 @@ export const uploadCandidateCv = (id: number, file: File) => {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
+
+/** Candidate tự tạo/lấy hồ sơ của mình — gọi 1 lần trước khi apply (idempotent). */
+export const ensureMyCandidateProfile = (data: { email: string; fullName: string }) =>
+  axiosClient.post<CandidateResponse>("/candidate/candidates/me", data);

@@ -8,6 +8,7 @@ import iuh.fit.se.recruitment.event.RequisitionEventPublisher;
 import iuh.fit.se.recruitment.exception.BusinessException;
 import iuh.fit.se.recruitment.requisition.dto.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,8 +26,20 @@ public class JobRequisitionService {
     private final RequisitionEventPublisher requisitionEventPublisher;
     private final AuditEventPublisher auditEventPublisher;
 
-    public List<JobRequisitionResponse> getAll(Long tenantId) {
-        List<JobRequisition> requisitions = repository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
+    public List<JobRequisitionResponse> getAll(Long tenantId, Long userId, String role) {
+        List<JobRequisition> requisitions;
+
+        if (AccessGuard.isHr(role)) {
+            // HR / Company Admin: xem toàn bộ requisition của tenant
+            requisitions = repository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
+        } else if (AccessGuard.isDepartment(role)) {
+            // Phòng ban: chỉ xem yêu cầu do mình tạo
+            requisitions = repository
+                    .findByTenantIdAndRequesterIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, userId);
+        } else {
+            throw new AccessDeniedException("Bạn không có quyền xem danh sách yêu cầu tuyển dụng");
+        }
+
         Map<Long, String> userNameMap = buildUserNameMap();
         return requisitions.stream().map(r -> toResponse(r, userNameMap)).toList();
     }
@@ -109,7 +122,7 @@ public class JobRequisitionService {
 
     @Transactional
     public JobRequisitionResponse approve(Long tenantId, Long id, Long approverUserId,
-            JobRequisitionApproveRequest req) {
+                                          JobRequisitionApproveRequest req) {
         JobRequisition requisition = findOwned(tenantId, id);
         AccessGuard.requireApprover(requisition.getApproverId(), approverUserId);
 
@@ -165,7 +178,7 @@ public class JobRequisitionService {
      */
     @Transactional
     public JobRequisitionResponse requestChanges(Long tenantId, Long id, Long approverUserId,
-            JobRequisitionRequestChangesRequest req) {
+                                                 JobRequisitionRequestChangesRequest req) {
         JobRequisition requisition = findOwned(tenantId, id);
         AccessGuard.requireApprover(requisition.getApproverId(), approverUserId);
 

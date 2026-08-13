@@ -68,7 +68,7 @@ public class InterviewService {
             throw new BusinessException("Phỏng vấn Offline cần nhập địa điểm");
         }
 
-        List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers(tenantId, "INTERVIEWER");
+        List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers(tenantId, "HIRING_MANAGER");
         Map<Long, String> interviewerNameMap = interviewerPool == null ? Map.of() : interviewerPool.stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
 

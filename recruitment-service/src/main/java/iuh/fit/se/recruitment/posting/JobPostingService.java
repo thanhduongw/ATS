@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -35,28 +36,54 @@ public class JobPostingService {
     }
 
     @Transactional
-    public JobPostingResponse create(Long tenantId, JobPostingCreateRequest req) {
-        JobRequisition requisition = requisitionRepository.findByIdAndTenantIdAndDeletedAtIsNull(req.requisitionId(), tenantId)
+    public JobPostingResponse create(Long tenantId, Long actorUserId, JobPostingCreateRequest req) {
+        JobRequisition requisition = requisitionRepository
+                .findByIdAndTenantIdAndDeletedAtIsNull(req.requisitionId(), tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy yêu cầu tuyển dụng"));
 
         if (requisition.getStatus() != RequisitionStatus.APPROVED) {
             throw new BusinessException("Chỉ tạo tin tuyển dụng từ yêu cầu đã được phê duyệt");
         }
 
+        // Một requisition chỉ một tin đang hiệu lực (không bị soft-delete)
+        if (repository.existsByTenantIdAndRequisition_IdAndDeletedAtIsNull(tenantId, requisition.getId())) {
+            throw new BusinessException("Yêu cầu tuyển dụng này đã có tin đăng. Hãy sửa tin hiện có hoặc đóng tin cũ trước.");
+        }
+
         validateEmploymentType(req.employmentTypeId());
         validateWorkLocation(req.workLocationId());
         validatePipeline(req.pipelineId());
 
+        // Prefill lương: ưu tiên body FE; nếu null → lấy approved* từ requisition; nếu vẫn null → expected*
+        BigDecimal salaryMin = req.salaryMin() != null
+                ? req.salaryMin()
+                : (requisition.getApprovedSalaryMin() != null
+                ? requisition.getApprovedSalaryMin()
+                : requisition.getExpectedSalaryMin());
+        BigDecimal salaryMax = req.salaryMax() != null
+                ? req.salaryMax()
+                : (requisition.getApprovedSalaryMax() != null
+                ? requisition.getApprovedSalaryMax()
+                : requisition.getExpectedSalaryMax());
+
+        // Prefill mô tả / tiêu đề nếu FE để trống
+        String description = (req.description() != null && !req.description().isBlank())
+                ? req.description()
+                : requisition.getDescription();
+        String title = (req.title() != null && !req.title().isBlank())
+                ? req.title()
+                : requisition.getTitle();
+
         JobPosting saved = repository.save(JobPosting.builder()
                 .tenantId(tenantId)
                 .requisition(requisition)
-                .title(req.title())
+                .title(title)
                 .employmentTypeId(req.employmentTypeId())
                 .workLocationId(req.workLocationId())
                 .pipelineId(req.pipelineId())
-                .salaryMin(req.salaryMin())
-                .salaryMax(req.salaryMax())
-                .description(req.description())
+                .salaryMin(salaryMin)
+                .salaryMax(salaryMax)
+                .description(description)
                 .requirements(req.requirements())
                 .benefits(req.benefits())
                 .status(PostingStatus.OPEN)
@@ -64,12 +91,19 @@ public class JobPostingService {
                 .publishedAt(LocalDateTime.now())
                 .build());
 
+        auditEventPublisher.publish(
+                tenantId, actorUserId, "POSTING_CREATED", "JOB_POSTING", saved.getId(), null);
+
         return toResponse(saved);
     }
 
     @Transactional
     public JobPostingResponse update(Long tenantId, Long id, JobPostingUpdateRequest req) {
         JobPosting posting = findOwned(tenantId, id);
+
+        if (posting.getStatus() == PostingStatus.CLOSED) {
+            throw new BusinessException("Không thể sửa tin đã đóng");
+        }
 
         validateEmploymentType(req.employmentTypeId());
         validateWorkLocation(req.workLocationId());

@@ -50,7 +50,7 @@ export interface ApplicationResponse {
 }
 
 export interface ApplicationCreateRequest {
-  candidateId: number;
+  candidateId?: number | null;
   jobPostingId: number;
   recruitmentSourceId: number;
   assignedRecruiterId?: number | null;

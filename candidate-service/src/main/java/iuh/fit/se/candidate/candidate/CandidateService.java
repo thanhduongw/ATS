@@ -2,6 +2,8 @@ package iuh.fit.se.candidate.candidate;
 
 import iuh.fit.se.candidate.candidate.dto.CandidateCreateRequest;
 import iuh.fit.se.candidate.candidate.dto.CandidateResponse;
+import iuh.fit.se.candidate.candidate.dto.CandidateSelfProfileRequest;
+import iuh.fit.se.candidate.candidate.dto.CandidateSummaryResponse;
 import iuh.fit.se.candidate.candidate.dto.CandidateUpdateRequest;
 import iuh.fit.se.candidate.client.MasterDataServiceClient;
 import iuh.fit.se.candidate.client.dto.CatalogItemResponse;
@@ -42,15 +44,75 @@ public class CandidateService {
         return toResponse(candidate, educationMap, skillMap);
     }
 
-    public iuh.fit.se.candidate.candidate.dto.CandidateSummaryResponse getSummaryById(Long tenantId, Long id) {
+    public CandidateSummaryResponse getSummaryById(Long tenantId, Long id) {
         Candidate candidate = findOwned(tenantId, id);
-        return new iuh.fit.se.candidate.candidate.dto.CandidateSummaryResponse(
+        return toSummary(candidate);
+    }
+
+    /** Dùng bởi application-service (Feign) để resolve candidateId theo user đang login. */
+    public CandidateSummaryResponse getSummaryByUserId(Long tenantId, Long userId) {
+        Candidate candidate = candidateRepository
+                .findByTenantIdAndUserIdAndDeletedAtIsNull(tenantId, userId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy hồ sơ ứng viên cho tài khoản này"));
+        return new CandidateSummaryResponse(
                 candidate.getId(),
                 candidate.getFullName(),
                 candidate.getEmail(),
                 candidate.getPhone(),
                 candidate.getCvFileUrl()
         );
+    }
+
+    /**
+     * Candidate lần đầu login: gắn userId vào candidate cùng email, hoặc tạo mới.
+     */
+    @Transactional
+    public CandidateResponse linkOrCreateForUser(
+            Long tenantId, Long userId, String email, String fullName) {
+
+        var byUser = candidateRepository.findByTenantIdAndUserIdAndDeletedAtIsNull(tenantId, userId);
+        if (byUser.isPresent()) {
+            return getById(tenantId, byUser.get().getId());
+        }
+
+        var byEmail = candidateRepository.findByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(tenantId, email);
+        if (byEmail.isPresent()) {
+            Candidate c = byEmail.get();
+            c.setUserId(userId);
+            candidateRepository.save(c);
+            return getById(tenantId, c.getId());
+        }
+
+        Candidate created = candidateRepository.save(Candidate.builder()
+                .tenantId(tenantId)
+                .userId(userId)
+                .fullName(fullName != null ? fullName : email)
+                .email(email)
+                .build());
+        return getById(tenantId, created.getId());
+    }
+
+    /** Candidate tự tạo/lấy hồ sơ của mình khi lần đầu vào hệ thống (self-service). */
+    @Transactional
+    public CandidateResponse getOrCreateMyProfile(Long tenantId, Long userId, CandidateSelfProfileRequest req) {
+        Candidate candidate = candidateRepository.findByTenantIdAndUserIdAndDeletedAtIsNull(tenantId, userId)
+                .orElseGet(() -> {
+                    // Nếu HR đã tạo sẵn candidate cùng email (import/seed) thì gắn userId vào, không tạo trùng
+                    Candidate byEmail = candidateRepository
+                            .findByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(tenantId, req.email())
+                            .orElse(null);
+                    if (byEmail != null) {
+                        byEmail.setUserId(userId);
+                        return candidateRepository.save(byEmail);
+                    }
+                    return candidateRepository.save(Candidate.builder()
+                            .tenantId(tenantId)
+                            .userId(userId)
+                            .fullName(req.fullName())
+                            .email(req.email())
+                            .build());
+                });
+        return getById(tenantId, candidate.getId());
     }
 
     @Transactional
@@ -136,7 +198,6 @@ public class CandidateService {
         if (!allValid) throw new BusinessException("Danh sách kỹ năng chứa giá trị không hợp lệ");
     }
 
-
     private Map<Long, String> buildCatalogMap(List<CatalogItemResponse> items) {
         if (items == null) return Map.of();
         return items.stream().collect(Collectors.toMap(CatalogItemResponse::id, CatalogItemResponse::name, (a, b) -> a));
@@ -145,6 +206,10 @@ public class CandidateService {
     private Candidate findOwned(Long tenantId, Long id) {
         return candidateRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy ứng viên"));
+    }
+
+    private CandidateSummaryResponse toSummary(Candidate c) {
+        return new CandidateSummaryResponse(c.getId(), c.getFullName(), c.getEmail(), c.getPhone(), c.getCvFileUrl());
     }
 
     private CandidateResponse toResponse(Candidate c, Map<Long, String> educationMap, Map<Long, String> skillMap) {

@@ -17,24 +17,33 @@ public class JobPostingController {
 
     private final JobPostingService service;
 
+    /** HR + Phòng ban đều xem được danh sách (Phòng ban read-only ở UI). */
     @GetMapping
-    public ResponseEntity<List<JobPostingResponse>> getAll(@RequestHeader("X-Tenant-Id") Long tenantId) {
+    public ResponseEntity<List<JobPostingResponse>> getAll(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Role") String role) {
+        AccessGuard.requireHrOrDepartment(role);
         return ResponseEntity.ok(service.getAll(tenantId));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<JobPostingResponse> getById(
-            @RequestHeader("X-Tenant-Id") Long tenantId, @PathVariable Long id) {
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        AccessGuard.requireHrOrDepartment(role);
         return ResponseEntity.ok(service.getById(tenantId, id));
     }
 
+    /** Chỉ HR đăng tin từ requisition APPROVED. */
     @PostMapping
     public ResponseEntity<JobPostingResponse> create(
             @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
             @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody JobPostingCreateRequest req) {
-        AccessGuard.requireRecruiterOrAbove(role);
-        return ResponseEntity.ok(service.create(tenantId, req));
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.create(tenantId, actorUserId, req));
     }
 
     @PutMapping("/{id}")
@@ -43,7 +52,7 @@ public class JobPostingController {
             @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
             @Valid @RequestBody JobPostingUpdateRequest req) {
-        AccessGuard.requireRecruiterOrAbove(role);
+        AccessGuard.requireHr(role);
         return ResponseEntity.ok(service.update(tenantId, id, req));
     }
 
@@ -53,7 +62,7 @@ public class JobPostingController {
             @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
             @Valid @RequestBody JobPostingStatusRequest req) {
-        AccessGuard.requireRecruiterOrAbove(role);
+        AccessGuard.requireHr(role);
         return ResponseEntity.ok(service.changeStatus(tenantId, id, req));
     }
 
@@ -63,7 +72,7 @@ public class JobPostingController {
             @RequestHeader("X-User-Id") Long actorUserId,
             @RequestHeader("X-User-Role") String role,
             @PathVariable Long id) {
-        AccessGuard.requireRecruiterOrAbove(role);
+        AccessGuard.requireHr(role);
         service.softDelete(tenantId, id, actorUserId);
         return ResponseEntity.ok(Map.of("message", "Xóa tin tuyển dụng thành công"));
     }

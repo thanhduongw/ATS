@@ -37,7 +37,9 @@ export default function NotificationBell() {
     const navigate = useNavigate();
     const { message: antMessage } = App.useApp();
     const accessToken = useAppSelector((s) => s.auth.accessToken);
-    const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
+    const role = useAppSelector((s) => s.auth.user?.role) as
+        | UserRole
+        | undefined;
 
     const [notifications, setNotifications] = useState<NotificationResponse[]>(
         []
@@ -80,7 +82,6 @@ export default function NotificationBell() {
             });
             setUnreadCount((prev) => prev + 1);
 
-            // Toast nhẹ khi có notify realtime
             antMessage.info({
                 content: n.title || "Thông báo mới",
                 duration: 3,
@@ -124,7 +125,14 @@ export default function NotificationBell() {
         setOpen(false);
         if (path) {
             navigate(path);
+        } else {
+            navigate("/notifications");
         }
+    };
+
+    const handleViewAll = () => {
+        setOpen(false);
+        navigate("/notifications");
     };
 
     const dropdownRender = () => (
@@ -248,6 +256,19 @@ export default function NotificationBell() {
                     )}
                 />
             )}
+
+            <div
+                style={{
+                    borderTop: "1px solid #f0f0f0",
+                    padding: "8px 16px",
+                    textAlign: "center",
+                    background: "#FAFAFA",
+                }}
+            >
+                <Button type="link" onClick={handleViewAll} style={{ padding: 0 }}>
+                    Xem tất cả thông báo
+                </Button>
+            </div>
         </div>
     );
 
@@ -256,7 +277,7 @@ export default function NotificationBell() {
             open={open}
             onOpenChange={(v) => {
                 setOpen(v);
-                if (v) loadInitial(); // refresh khi mở
+                if (v) loadInitial();
             }}
             popupRender={dropdownRender}
             trigger={["click"]}

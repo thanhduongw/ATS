@@ -3,45 +3,80 @@ import type { UserRole } from "../auth/types";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../../app/roles";
 
 /**
- * Điều hướng khi click 1 notification theo resourceType + role.
+ * Deep-link khi click notification.
+ * highlightId giúp list page mở drawer / focus đúng bản ghi.
  */
 export function resolveNotificationPath(
     n: NotificationResponse,
     role?: UserRole
 ): string | null {
-    const type = n.resourceType?.toUpperCase() ?? "";
+    const type = (n.resourceType ?? "").toUpperCase();
     const id = n.resourceId;
-
-    const isHr = role && HR_ROLES.includes(role);
-    const isDept = role && DEPARTMENT_ROLES.includes(role);
+    const isHr = !!role && HR_ROLES.includes(role);
+    const isDept = !!role && DEPARTMENT_ROLES.includes(role);
     const isCandidate = role === "CANDIDATE";
 
     switch (type) {
         case "REQUISITION":
-            return "/recruitment"; // tab Requisition
+            return id != null
+                ? `/recruitment?tab=requisition&highlightId=${id}`
+                : "/recruitment";
+
         case "APPLICATION":
-            if (isCandidate) return "/my-applications";
-            return "/applications";
+            if (isCandidate) {
+                return id != null
+                    ? `/my-applications?highlightId=${id}`
+                    : "/my-applications";
+            }
+            return id != null
+                ? `/applications?highlightId=${id}`
+                : "/applications";
+
         case "INTERVIEW":
-            if (isCandidate) return "/scheduling";
-            if (id != null) return `/interviews`;
-            return "/interviews";
+            if (isCandidate) {
+                return id != null
+                    ? `/scheduling?highlightId=${id}`
+                    : "/scheduling";
+            }
+            return id != null
+                ? `/interviews?highlightId=${id}`
+                : "/interviews";
+
         case "OFFER":
-            if (isCandidate && id != null) return `/offers/candidate/${id}`;
-            if (isHr || isDept) return "/offers";
-            return null;
-        default:
-            // Fallback theo notification type
-            if (n.type?.includes("OFFER") && isCandidate && id != null) {
-                return `/offers/candidate/${id}`;
+            if (isCandidate) {
+                return id != null ? `/offers/candidate/${id}` : "/offers";
             }
-            if (n.type?.includes("INTERVIEW")) {
-                return isCandidate ? "/scheduling" : "/interviews";
-            }
-            if (n.type?.includes("APPLICATION") && isCandidate) {
-                return "/my-applications";
+            if (isHr || isDept) {
+                return id != null ? `/offers?highlightId=${id}` : "/offers";
             }
             return null;
+
+        default: {
+            const t = String(n.type ?? "");
+            if (t.includes("OFFER")) {
+                if (isCandidate && id != null) return `/offers/candidate/${id}`;
+                if (isHr || isDept) {
+                    return id != null ? `/offers?highlightId=${id}` : "/offers";
+                }
+            }
+            if (t.includes("INTERVIEW")) {
+                if (isCandidate) {
+                    return id != null
+                        ? `/scheduling?highlightId=${id}`
+                        : "/scheduling";
+                }
+                return id != null
+                    ? `/interviews?highlightId=${id}`
+                    : "/interviews";
+            }
+            if (t.includes("APPLICATION")) {
+                return isCandidate ? "/my-applications" : "/applications";
+            }
+            if (t.includes("REQUISITION")) {
+                return "/recruitment";
+            }
+            return "/notifications";
+        }
     }
 }
 

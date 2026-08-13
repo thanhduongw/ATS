@@ -8,5 +8,7 @@ import java.util.Optional;
 public interface CandidateRepository extends JpaRepository<Candidate, Long> {
     List<Candidate> findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long tenantId);
     Optional<Candidate> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
+    Optional<Candidate> findByTenantIdAndUserIdAndDeletedAtIsNull(Long tenantId, Long userId);
+    Optional<Candidate> findByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(Long tenantId, String email);
     boolean existsByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(Long tenantId, String email);
 }

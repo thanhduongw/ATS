@@ -19,6 +19,9 @@ public class Candidate {
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 
+    @Column(name = "user_id")
+    private Long userId;
+
     @Column(name = "full_name", nullable = false)
     private String fullName;
 

@@ -6,6 +6,7 @@ import iuh.fit.se.interview.evaluation.dto.EvaluationSubmitRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,21 +18,36 @@ public class InterviewEvaluationController {
 
     private final InterviewEvaluationService service;
 
+    /**
+     * Phòng ban (interviewer được assign) nộp đánh giá + đề xuất lương.
+     * HR cũng có thể nộp nếu được gán trong list interviewer.
+     */
     @PostMapping
     public ResponseEntity<EvaluationResponse> submit(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
             @PathVariable Long interviewId,
             @Valid @RequestBody EvaluationSubmitRequest req) {
-        return ResponseEntity.ok(service.submit(tenantId, interviewId, actorUserId, req));
+        AccessGuard.requireHrOrDepartment(role);
+        return ResponseEntity.ok(service.submit(tenantId, interviewId, actorUserId, role, req));
     }
 
+    /**
+     * HR xem full (kèm lương đề xuất).
+     * Phòng ban xem được list; lương chỉ hiện của chính mình (hoặc full nếu isHr).
+     * Candidate: 403.
+     */
     @GetMapping
     public ResponseEntity<List<EvaluationResponse>> getAll(
             @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
             @PathVariable Long interviewId) {
-        AccessGuard.requireRecruiterOrAbove(role);
-        return ResponseEntity.ok(service.getByInterview(tenantId, interviewId));
+        if (AccessGuard.isCandidate(role)) {
+            throw new AccessDeniedException("Ứng viên không xem được đánh giá nội bộ");
+        }
+        AccessGuard.requireHrOrDepartment(role);
+        return ResponseEntity.ok(service.getByInterview(tenantId, interviewId, userId, role));
     }
 }

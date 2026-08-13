@@ -17,5 +17,6 @@ public record InterviewResponse(
         String meetingLink,
         String note,
         InterviewStatus status,
+        boolean candidateConfirmed,
         List<InterviewerSummary> interviewers
 ) {}

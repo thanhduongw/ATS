@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 
-@FeignClient(name = "interview-service", url = "${services.interview-service.url}")
+@FeignClient(name = "interview-service", url = "${services.interview-service.url:http://localhost:8086}")
 public interface InterviewServiceClient {
     @GetMapping("/api/interview/interviews/{id}")
     InterviewResponse getInterviewById(@PathVariable Long id, @RequestHeader("X-Tenant-Id") Long tenantId);

@@ -37,8 +37,9 @@ public class NotificationService {
 
     @Transactional
     public void markAllAsRead(Long tenantId, Long userId) {
-        repository.findByTenantIdAndRecipientUserIdOrderByCreatedAtDesc(tenantId, userId)
-                .forEach(n -> n.setRead(true));
+        List<Notification> list = repository.findByTenantIdAndRecipientUserIdOrderByCreatedAtDesc(tenantId, userId);
+        list.forEach(n -> n.setRead(true));
+        repository.saveAll(list);
     }
 
     /** Tạo + lưu + đẩy realtime trong 1 bước — dùng bởi các listener ở Bước 7 */

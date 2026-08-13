@@ -193,7 +193,11 @@ public class OfferService {
 
         Long candidateUserId = resolveCandidateUserId(tenantId, offer.getCandidateId());
         offerEventPublisher.publishOfferApproved(
-                tenantId, offer.getId(), offer.getApplicationId(), offer.getRequesterId(), candidateUserId);
+                tenantId,
+                offer.getId(),
+                offer.getApplicationId(),
+                offer.getRequesterId(),
+                offer.getCandidateId());
         auditEventPublisher.publish(tenantId, approverUserId, "OFFER_APPROVED", "OFFER", offer.getId(), null);
 
         return getById(tenantId, id);
@@ -322,7 +326,7 @@ public class OfferService {
 
     private ApplicationSummaryResponse fetchApplicationSummary(Long tenantId, Long applicationId) {
         try {
-            return applicationServiceClient.getApplicationById(tenantId, applicationId);
+            return applicationServiceClient.getApplicationSummary(tenantId, applicationId);
         } catch (Exception e) {
             throw new BusinessException("Không tìm thấy hồ sơ ứng tuyển");
         }

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 public interface CandidateServiceClient {
 
     @GetMapping("/api/candidate/candidates/{id}/summary")
-    CandidateSummaryResponse getById(
+    CandidateSummaryResponse getCandidateSummary(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @PathVariable("id") Long id
     );

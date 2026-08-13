@@ -12,29 +12,55 @@ public class OfferEventPublisher {
     private final RabbitTemplate rabbitTemplate;
 
     public void publishOfferApproved(
-            Long tenantId, Long offerId, Long applicationId, Long requesterId, Long candidateUserId) {
+            Long tenantId,
+            Long offerId,
+            Long applicationId,
+            Long requesterId,
+            Long candidateId) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.OFFER_APPROVED_ROUTING_KEY,
-                new OfferApprovedEvent(tenantId, offerId, applicationId, requesterId, candidateUserId)
+                new OfferApprovedEvent(tenantId, offerId, applicationId, requesterId, candidateId)
         );
     }
 
     public void publishOfferAccepted(
-            Long tenantId, Long offerId, Long applicationId, Long requesterId, String candidateName) {
+            Long tenantId,
+            Long offerId,
+            Long applicationId,
+            Long requesterId,
+            String candidateName) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.OFFER_ACCEPTED_ROUTING_KEY,
-                new OfferAcceptedEvent(tenantId, offerId, applicationId, requesterId, candidateName)
+                new OfferAcceptedEvent(
+                        tenantId,
+                        offerId,
+                        applicationId,
+                        requesterId,
+                        candidateName
+                )
         );
     }
 
     public void publishOfferDeclined(
-            Long tenantId, Long offerId, Long applicationId, Long requesterId, String candidateName, String note) {
+            Long tenantId,
+            Long offerId,
+            Long applicationId,
+            Long requesterId,
+            String candidateName,
+            String note) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.OFFER_DECLINED_ROUTING_KEY,
-                new OfferDeclinedEvent(tenantId, offerId, applicationId, requesterId, candidateName, note)
+                new OfferDeclinedEvent(
+                        tenantId,
+                        offerId,
+                        applicationId,
+                        requesterId,
+                        candidateName,
+                        note
+                )
         );
     }
 }

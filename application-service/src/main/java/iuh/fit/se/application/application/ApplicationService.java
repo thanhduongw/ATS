@@ -40,7 +40,7 @@ public class ApplicationService {
     private final ApplicationEventPublisher eventPublisher;
     private final AuditEventPublisher auditEventPublisher;
 
-    public List<ApplicationResponse> getAll(Long tenantId, Long jobPostingId, Long candidateId) {
+    public List<ApplicationResponse> getAll(Long tenantId, Long userId, String role, Long jobPostingId, Long candidateId) {
         List<Application> applications;
         if (jobPostingId != null) {
             applications = applicationRepository.findByTenantIdAndJobPostingIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, jobPostingId);
@@ -58,7 +58,7 @@ public class ApplicationService {
         return applications.stream().map(a -> toResponse(a, sourceMap, reasonMap, userMap)).toList();
     }
 
-    public ApplicationResponse getById(Long tenantId, Long id) {
+    public ApplicationResponse getById(Long tenantId, Long userId, String role, Long id) {
         Application application = findOwned(tenantId, id);
         Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources(tenantId));
         Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons(tenantId));
@@ -83,7 +83,7 @@ public class ApplicationService {
     }
 
     @Transactional
-    public ApplicationResponse create(Long tenantId, Long actorUserId, ApplicationCreateRequest req) {
+    public ApplicationResponse create(Long tenantId, Long actorUserId, String role, ApplicationCreateRequest req) {
         CandidateSummaryResponse candidate = fetchCandidate(tenantId, req.candidateId());
 
         JobPostingResponse posting = fetchPosting(tenantId, req.jobPostingId());
@@ -130,9 +130,9 @@ public class ApplicationService {
 
         eventPublisher.publishApplicationCreated(
                 tenantId, req.jobPostingId(), application.getId(),
-                application.getCandidateId(), assignedRecruiterId, application.getCandidateNameSnapshot());
+                application.getCandidateId(), application.getAssignedRecruiterId(), application.getCandidateNameSnapshot());
 
-        return getById(tenantId, application.getId());
+        return getById(tenantId, actorUserId, role, application.getId());
     }
 
     @Transactional
@@ -161,11 +161,11 @@ public class ApplicationService {
         eventPublisher.publishApplicationStatusChanged(
                 tenantId, application.getId(), application.getJobPostingId(),
                 application.getCandidateId(), application.getAssignedRecruiterId(),
-                previousStageName, nextStage.getName(), nextStage.getStageType());
+                previousStageName, nextStage.name(), nextStage.stageType());
         auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_STAGE_CHANGED", "APPLICATION", application.getId(),
                 previousStageName + " → " + nextStage.name());
 
-        return getById(tenantId, application.getId());
+        return getById(tenantId, actorUserId, null, application.getId());
     }
 
     @Transactional
@@ -199,11 +199,11 @@ public class ApplicationService {
         eventPublisher.publishApplicationStatusChanged(
                 tenantId, application.getId(), application.getJobPostingId(),
                 application.getCandidateId(), application.getAssignedRecruiterId(),
-                previousStageName, rejectedStage.getName(), rejectedStage.getStageType());
+                previousStageName, rejectedStage.name(), rejectedStage.stageType());
         auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_REJECTED", "APPLICATION", application.getId(),
                 "Từ chối hồ sơ: " + req.note());
 
-        return getById(tenantId, application.getId());
+        return getById(tenantId, actorUserId, null, application.getId());
     }
 
     @Transactional

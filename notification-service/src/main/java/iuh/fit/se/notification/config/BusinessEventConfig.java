@@ -12,8 +12,12 @@ public class BusinessEventConfig {
     public static final String ATS_EXCHANGE = "ats.events";
 
     public static final String INTERVIEW_SCHEDULED_QUEUE = "notification.interview-scheduled.queue";
+    public static final String INTERVIEW_CONFIRMED_QUEUE = "notification.interview-confirmed.queue";
     public static final String REQUISITION_SUBMITTED_QUEUE = "notification.requisition-submitted.queue";
     public static final String OFFER_APPROVED_QUEUE = "notification.offer-approved.queue";
+    public static final String OFFER_ACCEPTED_QUEUE = "notification.offer-accepted.queue";
+    public static final String OFFER_DECLINED_QUEUE = "notification.offer-declined.queue";
+    public static final String APPLICATION_CREATED_QUEUE = "notification.application-created.queue";
     public static final String APPLICATION_STATUS_CHANGED_QUEUE = "notification.application-status-changed.queue";
     public static final String AUDIT_LOG_QUEUE = "notification.audit-log.queue";
 
@@ -38,6 +42,16 @@ public class BusinessEventConfig {
     }
 
     @Bean
+    public Queue interviewConfirmedQueue() {
+        return new Queue(INTERVIEW_CONFIRMED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding interviewConfirmedBinding(Queue interviewConfirmedQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(interviewConfirmedQueue).to(atsExchange).with("interview.confirmed");
+    }
+
+    @Bean
     public Queue requisitionSubmittedQueue() {
         return new Queue(REQUISITION_SUBMITTED_QUEUE, true);
     }
@@ -55,6 +69,36 @@ public class BusinessEventConfig {
     @Bean
     public Binding offerApprovedBinding(Queue offerApprovedQueue, TopicExchange atsExchange) {
         return BindingBuilder.bind(offerApprovedQueue).to(atsExchange).with("offer.approved");
+    }
+
+    @Bean
+    public Queue offerAcceptedQueue() {
+        return new Queue(OFFER_ACCEPTED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding offerAcceptedBinding(Queue offerAcceptedQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(offerAcceptedQueue).to(atsExchange).with("offer.accepted");
+    }
+
+    @Bean
+    public Queue offerDeclinedQueue() {
+        return new Queue(OFFER_DECLINED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding offerDeclinedBinding(Queue offerDeclinedQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(offerDeclinedQueue).to(atsExchange).with("offer.declined");
+    }
+
+    @Bean
+    public Queue applicationCreatedQueue() {
+        return new Queue(APPLICATION_CREATED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding applicationCreatedBinding(Queue applicationCreatedQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(applicationCreatedQueue).to(atsExchange).with("application.created");
     }
 
     @Bean

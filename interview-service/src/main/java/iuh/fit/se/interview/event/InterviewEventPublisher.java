@@ -20,4 +20,13 @@ public class InterviewEventPublisher {
                 new InterviewScheduledEvent(tenantId, interviewId, applicationId, scheduledAt)
         );
     }
+
+    public void publishInterviewConfirmed(
+            Long tenantId, Long interviewId, Long applicationId, LocalDateTime scheduledAt, String candidateName) {
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ATS_EXCHANGE,
+                RabbitMQConfig.INTERVIEW_CONFIRMED_ROUTING_KEY,
+                new InterviewConfirmedEvent(tenantId, interviewId, applicationId, scheduledAt, candidateName)
+        );
+    }
 }

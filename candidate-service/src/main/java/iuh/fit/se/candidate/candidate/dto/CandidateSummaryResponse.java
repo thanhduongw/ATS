@@ -5,5 +5,6 @@ public record CandidateSummaryResponse(
         String fullName,
         String email,
         String phone,
-        String cvFileUrl
+        String cvFileUrl,
+        Long userId
 ) {}

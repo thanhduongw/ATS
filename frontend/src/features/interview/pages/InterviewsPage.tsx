@@ -38,7 +38,7 @@ export default function InterviewsPage() {
   const load = () => {
     // [FIX 1] Chặn gọi API khi ID là NaN hoặc undefined
     if (!interviewId || isNaN(id)) {
-      message.warning("ID phỏng vấn không hợp lệ.");
+      // message.warning("ID phỏng vấn không hợp lệ.");
       navigate("/interviews"); // Điều hướng về trang danh sách
       return;
     }

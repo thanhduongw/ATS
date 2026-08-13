@@ -5,7 +5,9 @@ import org.springframework.security.access.AccessDeniedException;
 import java.util.Set;
 
 public class AccessGuard {
-    private static final Set<String> RECRUITER_OR_ABOVE = Set.of("RECRUITER", "HIRING_MANAGER", "COMPANY_ADMIN");
+
+    private static final Set<String> RECRUITER_OR_ABOVE =
+            Set.of("RECRUITER", "HIRING_MANAGER", "COMPANY_ADMIN");
 
     public static void requireRecruiterOrAbove(String role) {
         if (!RECRUITER_OR_ABOVE.contains(role)) {
@@ -13,15 +15,17 @@ public class AccessGuard {
         }
     }
 
-    public static void requireCandidate(String role) {
-        if (!"CANDIDATE".equals(role)) {
-            throw new AccessDeniedException("Chỉ ứng viên được thực hiện thao tác này");
-        }
+    public static boolean isCandidate(String role) {
+        return "CANDIDATE".equals(role);
+    }
+
+    public static boolean isHr(String role) {
+        return Set.of("RECRUITER", "COMPANY_ADMIN").contains(role);
     }
 
     public static void requireOwner(Long ownerId, Long currentUserId) {
         if (!ownerId.equals(currentUserId)) {
-            throw new AccessDeniedException("Chỉ người tạo mới được thực hiện thao tác này");
+            throw new AccessDeniedException("Chỉ chủ sở hữu được thực hiện thao tác này");
         }
     }
 

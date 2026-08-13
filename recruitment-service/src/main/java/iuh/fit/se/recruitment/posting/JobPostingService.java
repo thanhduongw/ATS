@@ -174,4 +174,22 @@ public class JobPostingService {
                 p.getStatus(), p.isPipelineLocked(), p.getPublishedAt(), p.getClosedAt()
         );
     }
+
+    /** Danh sách tin OPEN cho Candidate. */
+    public List<JobPostingResponse> getOpen(Long tenantId) {
+        return repository
+                .findByTenantIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, PostingStatus.OPEN)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /** Candidate xem chi tiết — chỉ khi OPEN. */
+    public JobPostingResponse getOpenById(Long tenantId, Long id) {
+        JobPosting posting = findOwned(tenantId, id);
+        if (posting.getStatus() != PostingStatus.OPEN) {
+            throw new BusinessException("Tin tuyển dụng không còn mở hoặc không tồn tại");
+        }
+        return toResponse(posting);
+    }
 }

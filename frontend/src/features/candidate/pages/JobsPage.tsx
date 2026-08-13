@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, Button, List, App, Select, Space, Typography, Tag, Empty, Spin } from "antd";
 import { SendOutlined, DollarOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
-import { getPostings } from "../../recruitment/recruitmentApi";
+import { getOpenPostings } from "../../recruitment/recruitmentApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { applyToJob } from "../applicationApi";
 import { ensureMyCandidateProfile } from "../candidateApi";
@@ -30,10 +30,10 @@ export default function JobsPage() {
             await ensureMyCandidateProfile({ email: profile.data.email, fullName: profile.data.fullName });
 
             const [postingRes, sourceRes] = await Promise.all([
-                getPostings(),
+                getOpenPostings(),
                 getCatalogItems("/masterdata/recruitment-sources"),
             ]);
-            setJobs(postingRes.data.filter((p) => p.status === "OPEN"));
+            setJobs(postingRes.data);
             setSources(sourceRes.data);
             if (sourceRes.data.length > 0) setSourceId(sourceRes.data[0].id);
         } catch (err) {

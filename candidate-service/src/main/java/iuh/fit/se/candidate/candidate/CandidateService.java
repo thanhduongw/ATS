@@ -49,7 +49,6 @@ public class CandidateService {
         return toSummary(candidate);
     }
 
-    /** Dùng bởi application-service (Feign) để resolve candidateId theo user đang login. */
     public CandidateSummaryResponse getSummaryByUserId(Long tenantId, Long userId) {
         Candidate candidate = candidateRepository
                 .findByTenantIdAndUserIdAndDeletedAtIsNull(tenantId, userId)
@@ -59,7 +58,8 @@ public class CandidateService {
                 candidate.getFullName(),
                 candidate.getEmail(),
                 candidate.getPhone(),
-                candidate.getCvFileUrl()
+                candidate.getCvFileUrl(),
+                candidate.getUserId()
         );
     }
 
@@ -209,7 +209,8 @@ public class CandidateService {
     }
 
     private CandidateSummaryResponse toSummary(Candidate c) {
-        return new CandidateSummaryResponse(c.getId(), c.getFullName(), c.getEmail(), c.getPhone(), c.getCvFileUrl());
+        return new CandidateSummaryResponse(
+                c.getId(), c.getFullName(), c.getEmail(), c.getPhone(), c.getCvFileUrl(), c.getUserId());
     }
 
     private CandidateResponse toResponse(Candidate c, Map<Long, String> educationMap, Map<Long, String> skillMap) {
@@ -222,5 +223,31 @@ public class CandidateService {
                 c.getEducationLevelId(), c.getEducationLevelId() == null ? null : educationMap.get(c.getEducationLevelId()),
                 skillIds, skillNames, c.getCvFileUrl(), c.getCreatedAt()
         );
+    }
+
+    public CandidateResponse getOwnById(Long tenantId, Long userId, Long id) {
+        Candidate candidate = findOwned(tenantId, id);
+        if (candidate.getUserId() == null || !candidate.getUserId().equals(userId)) {
+            throw new BusinessException("Không thể xem hồ sơ ứng viên khác");
+        }
+        return getById(tenantId, id);
+    }
+
+    @Transactional
+    public CandidateResponse updateOwn(Long tenantId, Long userId, Long id, CandidateUpdateRequest req) {
+        Candidate candidate = findOwned(tenantId, id);
+        if (candidate.getUserId() == null || !candidate.getUserId().equals(userId)) {
+            throw new BusinessException("Không thể cập nhật hồ sơ ứng viên khác");
+        }
+        return update(tenantId, id, req);
+    }
+
+    @Transactional
+    public CandidateResponse uploadCvOwn(Long tenantId, Long userId, Long id, MultipartFile file) {
+        Candidate candidate = findOwned(tenantId, id);
+        if (candidate.getUserId() == null || !candidate.getUserId().equals(userId)) {
+            throw new BusinessException("Không thể tải CV cho hồ sơ ứng viên khác");
+        }
+        return uploadCv(tenantId, id, file);
     }
 }

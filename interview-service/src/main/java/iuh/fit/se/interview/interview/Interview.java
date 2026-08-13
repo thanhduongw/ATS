@@ -24,6 +24,10 @@ public class Interview {
     @Column(name = "job_posting_id", nullable = false)
     private Long jobPostingId;
 
+    /** Dùng filter lịch cho Candidate */
+    @Column(name = "candidate_id")
+    private Long candidateId;
+
     @Column(name = "candidate_name_snapshot", nullable = false)
     private String candidateNameSnapshot;
 
@@ -48,6 +52,9 @@ public class Interview {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private InterviewStatus status;
+
+    @Column(name = "candidate_confirmed_at")
+    private LocalDateTime candidateConfirmedAt;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

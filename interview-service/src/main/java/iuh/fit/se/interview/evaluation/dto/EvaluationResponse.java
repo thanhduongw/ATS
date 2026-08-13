@@ -14,7 +14,5 @@ public record EvaluationResponse(
         BigDecimal salaryProposed,
         String salaryNote,
         LocalDateTime submittedAt,
-        List<ScoreDetail> scores
-) {
-    public record ScoreDetail(Long criteriaId, String criteriaName, Integer score, String comment) {}
-}
+        List<EvaluationScoreResponse> scores
+) {}

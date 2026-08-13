@@ -17,7 +17,7 @@ public class JobPostingController {
 
     private final JobPostingService service;
 
-    /** HR + Phòng ban đều xem được danh sách (Phòng ban read-only ở UI). */
+    /** HR + Phòng ban: mọi status */
     @GetMapping
     public ResponseEntity<List<JobPostingResponse>> getAll(
             @RequestHeader("X-Tenant-Id") Long tenantId,
@@ -26,16 +26,28 @@ public class JobPostingController {
         return ResponseEntity.ok(service.getAll(tenantId));
     }
 
+    /**
+     * Tin OPEN — Candidate dùng để xem & apply.
+     * Khai báo TRƯỚC /{id} để không bị nuốt path "open".
+     */
+    @GetMapping("/open")
+    public ResponseEntity<List<JobPostingResponse>> getOpen(
+            @RequestHeader("X-Tenant-Id") Long tenantId) {
+        return ResponseEntity.ok(service.getOpen(tenantId));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<JobPostingResponse> getById(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Role") String role,
             @PathVariable Long id) {
+        if ("CANDIDATE".equals(role)) {
+            return ResponseEntity.ok(service.getOpenById(tenantId, id));
+        }
         AccessGuard.requireHrOrDepartment(role);
         return ResponseEntity.ok(service.getById(tenantId, id));
     }
 
-    /** Chỉ HR đăng tin từ requisition APPROVED. */
     @PostMapping
     public ResponseEntity<JobPostingResponse> create(
             @RequestHeader("X-Tenant-Id") Long tenantId,

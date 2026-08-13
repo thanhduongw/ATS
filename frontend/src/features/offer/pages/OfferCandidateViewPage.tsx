@@ -1,39 +1,89 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { App, Button, Card, Col, Descriptions, Input, Modal, Row, Select, Tag, Divider } from "antd";
 import {
-    CheckCircleFilled, CloseCircleFilled, CalendarOutlined,
-    DollarOutlined, FileTextOutlined, ClockCircleOutlined, GiftOutlined,
+    Card,
+    Button,
+    Row,
+    Col,
+    Modal,
+    Select,
+    Input,
+    Result,
+    Spin,
+    Tag,
+    Typography,
+    message,
+    App,
+} from "antd";
+import {
+    CheckCircleFilled,
+    CloseCircleFilled,
+    GiftOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { acceptOffer, declineOffer, getOfferById } from "../offerCandidateApi";
-import type { OfferResponse } from "../types";
+import type { AxiosError } from "axios";
+import {
+    getOfferById,
+    acceptOffer,
+    declineOffer,
+} from "../offerCandidateApi";
+import type { ApiMessageResponse, OfferResponse } from "../types";
 import { COLORS, GRADIENTS } from "../../../app/theme";
+
+const { Title, Text, Paragraph } = Typography;
 
 export default function OfferCandidateViewPage() {
     const { id } = useParams();
-    const { message } = App.useApp();
+    const { message: msg } = App.useApp();
+
     const [offer, setOffer] = useState<OfferResponse | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [forbidden, setForbidden] = useState(false);
+    const [notFound, setNotFound] = useState(false);
+    const [accepted, setAccepted] = useState(false);
     const [declineOpen, setDeclineOpen] = useState(false);
     const [declineReason, setDeclineReason] = useState<number>(1);
     const [note, setNote] = useState("");
-    const [accepted, setAccepted] = useState(false);
-    const [timeLeft, setTimeLeft] = useState<string>("");
+    const [timeLeft, setTimeLeft] = useState("");
 
-    const load = () => getOfferById(Number(id)).then((r) => setOffer(r.data));
-    useEffect(() => { load(); }, [id]);
+    const load = useCallback(async () => {
+        if (!id) return;
+        setLoading(true);
+        setForbidden(false);
+        setNotFound(false);
+        try {
+            const r = await getOfferById(Number(id));
+            setOffer(r.data);
+            if (r.data.status === "ACCEPTED") setAccepted(true);
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            if (e.response?.status === 403) setForbidden(true);
+            else if (e.response?.status === 404) setNotFound(true);
+            else msg.error(e.response?.data?.message ?? "Không tải được Offer");
+        } finally {
+            setLoading(false);
+        }
+    }, [id, msg]);
 
-    /* Countdown timer */
+    useEffect(() => {
+        load();
+    }, [load]);
+
     useEffect(() => {
         if (!offer?.responseDeadline) return;
         const update = () => {
             const diff = dayjs(offer.responseDeadline).valueOf() - Date.now();
-            if (diff <= 0) { setTimeLeft("Đã hết hạn"); return; }
+            if (diff <= 0) {
+                setTimeLeft("Đã hết hạn");
+                return;
+            }
             const d = Math.floor(diff / 86400000);
             const h = Math.floor((diff % 86400000) / 3600000);
             const m = Math.floor((diff % 3600000) / 60000);
             const s = Math.floor((diff % 60000) / 1000);
-            setTimeLeft(`${d > 0 ? d + " ngày " : ""}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+            setTimeLeft(
+                `${d > 0 ? d + " ngày " : ""}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+            );
         };
         update();
         const timer = setInterval(update, 1000);
@@ -41,176 +91,229 @@ export default function OfferCandidateViewPage() {
     }, [offer?.responseDeadline]);
 
     const handleAccept = async () => {
-        await acceptOffer(offer!.id);
-        message.success("🎉 Chúc mừng! Bạn đã chấp nhận offer!");
-        setAccepted(true);
-        load();
+        if (!offer) return;
+        try {
+            await acceptOffer(offer.id);
+            message.success("Chúc mừng! Bạn đã chấp nhận offer.");
+            setAccepted(true);
+            load();
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Không thể chấp nhận offer");
+        }
     };
 
     const handleDecline = async () => {
-        await declineOffer(offer!.id, { declineReasonId: declineReason, note });
-        setDeclineOpen(false);
-        message.info("Bạn đã từ chối offer.");
-        load();
+        if (!offer) return;
+        try {
+            await declineOffer(offer.id, {
+                declineReasonId: declineReason,
+                note: note || null,
+            });
+            setDeclineOpen(false);
+            message.info("Bạn đã từ chối offer.");
+            load();
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Không thể từ chối offer");
+        }
     };
 
-    if (!offer) return null;
+    if (loading) {
+        return (
+            <div style={{ textAlign: "center", padding: 80 }}>
+                <Spin size="large" />
+            </div>
+        );
+    }
+
+    if (forbidden) {
+        return (
+            <Result
+                status="403"
+                title="Không có quyền"
+                subTitle="Đây không phải Offer của bạn."
+            />
+        );
+    }
+
+    if (notFound || !offer) {
+        return (
+            <Result
+                status="404"
+                title="Không tìm thấy"
+                subTitle="Offer không tồn tại hoặc đã bị xóa."
+            />
+        );
+    }
 
     const pending = offer.status === "APPROVED";
+    const expired =
+        offer.responseDeadline != null &&
+        dayjs(offer.responseDeadline).isBefore(dayjs());
 
     return (
-        <div style={{ minHeight: "100vh", background: "#F0F2F5", padding: "40px 16px" }}>
-            <div style={{ maxWidth: 680, margin: "0 auto" }}>
-                {/* ── Company Header ──────────────── */}
-                <div style={{
-                    background: GRADIENTS.header,
-                    borderRadius: "16px 16px 0 0", padding: "32px 40px",
-                    textAlign: "center", position: "relative", overflow: "hidden",
-                }}>
-                    <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(217,249,157,0.1)" }} />
-                    <div style={{ position: "absolute", bottom: -40, left: -20, width: 160, height: 160, borderRadius: "50%", background: "rgba(16,185,129,0.08)" }} />
-                    <div style={{ position: "relative", zIndex: 1 }}>
-                        <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: 3, color: "#D9F99D", marginBottom: 8 }}>ATS</div>
-                        <div style={{ fontSize: 18, fontWeight: 600, color: "#fff", marginBottom: 4 }}>
-                            Thư Đề Nghị Tuyển Dụng
+        <div className="page-container animate-fade-in">
+            <div style={{ maxWidth: 720, margin: "0 auto" }}>
+                <Card
+                    style={{
+                        borderRadius: 16,
+                        border: "none",
+                        boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
+                    }}
+                >
+                    <div style={{ textAlign: "center", marginBottom: 24 }}>
+                        <div
+                            style={{
+                                width: 64,
+                                height: 64,
+                                borderRadius: 16,
+                                background: GRADIENTS.stat3,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "#fff",
+                                fontSize: 28,
+                                marginBottom: 12,
+                            }}
+                        >
+                            <GiftOutlined />
                         </div>
-                        <div style={{ fontSize: 14, color: "rgba(255,255,255,0.7)" }}>
-                            Gửi đến: <strong style={{ color: "#fff" }}>{offer.candidateName}</strong>
+                        <Title level={3} style={{ marginBottom: 4 }}>
+                            Thư đề nghị nhận việc
+                        </Title>
+                        <Text type="secondary">Xin chào, {offer.candidateName}</Text>
+                        <div style={{ marginTop: 8 }}>
+                            <Tag color={STATUS_COLOR_SAFE(offer.status)}>
+                                {STATUS_LABEL_SAFE(offer.status)}
+                            </Tag>
                         </div>
                     </div>
-                </div>
 
-                {/* ── Status Banner ────────────────── */}
-                {offer.status !== "APPROVED" && (
-                    <div style={{
-                        padding: "16px 24px", textAlign: "center",
-                        background: offer.status === "ACCEPTED" ? "#F0FDF4" : offer.status === "DECLINED" ? "#FEF2F2" : "#FFFBEB",
-                        border: `1px solid ${offer.status === "ACCEPTED" ? "#BBF7D0" : offer.status === "DECLINED" ? "#FECACA" : "#FDE68A"}`,
-                    }}>
-                        {offer.status === "ACCEPTED" && (
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                                <CheckCircleFilled style={{ color: "#22C55E", fontSize: 20 }} />
-                                <span style={{ fontWeight: 600, color: "#166534", fontSize: 15 }}>Bạn đã chấp nhận offer này! 🎉</span>
-                            </div>
-                        )}
-                        {offer.status === "DECLINED" && (
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                                <CloseCircleFilled style={{ color: "#EF4444", fontSize: 20 }} />
-                                <span style={{ fontWeight: 600, color: "#991B1B", fontSize: 15 }}>Bạn đã từ chối offer này.</span>
-                            </div>
-                        )}
-                    </div>
-                )}
+                    <Card
+                        type="inner"
+                        title="Chi tiết đề nghị"
+                        style={{ marginBottom: 20, borderRadius: 12 }}
+                    >
+                        <Row gutter={[16, 16]}>
+                            <Col span={12}>
+                                <Text type="secondary">Mức lương</Text>
+                                <div style={{ fontSize: 22, fontWeight: 700, color: "#16a34a" }}>
+                                    {Number(offer.salaryOffered).toLocaleString("vi-VN")} đ
+                                </div>
+                            </Col>
+                            <Col span={12}>
+                                <Text type="secondary">Loại hợp đồng</Text>
+                                <div style={{ fontWeight: 600 }}>{offer.contractTypeName}</div>
+                            </Col>
+                            <Col span={12}>
+                                <Text type="secondary">Ngày bắt đầu</Text>
+                                <div style={{ fontWeight: 600 }}>
+                                    {dayjs(offer.startDate).format("DD/MM/YYYY")}
+                                </div>
+                            </Col>
+                            <Col span={12}>
+                                <Text type="secondary">Thử việc</Text>
+                                <div style={{ fontWeight: 600 }}>
+                                    {offer.probationMonths} tháng
+                                </div>
+                            </Col>
+                            {offer.allowance != null && (
+                                <Col span={12}>
+                                    <Text type="secondary">Phụ cấp</Text>
+                                    <div style={{ fontWeight: 600 }}>
+                                        {Number(offer.allowance).toLocaleString("vi-VN")} đ
+                                    </div>
+                                </Col>
+                            )}
+                            {offer.benefits && (
+                                <Col span={24}>
+                                    <Text type="secondary">Phúc lợi</Text>
+                                    <Paragraph style={{ marginBottom: 0 }}>
+                                        {offer.benefits}
+                                    </Paragraph>
+                                </Col>
+                            )}
+                            {offer.note && (
+                                <Col span={24}>
+                                    <Text type="secondary">Ghi chú</Text>
+                                    <Paragraph style={{ marginBottom: 0 }}>{offer.note}</Paragraph>
+                                </Col>
+                            )}
+                        </Row>
+                    </Card>
 
-                {/* ── Offer Detail Card ─────────────── */}
-                <Card style={{ borderRadius: "0 0 16px 16px", border: "1px solid #E5E7EB", borderTop: "none", boxShadow: "0 10px 25px rgba(0,0,0,0.08)" }}>
-                    {/* Salary highlight */}
-                    <div style={{
-                        background: GRADIENTS.card,
-                        border: "1px solid #BBF7D0",
-                        borderRadius: 12, padding: "20px 24px", marginBottom: 24,
-                        textAlign: "center",
-                    }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textSecondary, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
-                            <DollarOutlined style={{ marginRight: 6 }} />Mức lương đề nghị
-                        </div>
-                        <div style={{ fontSize: 38, fontWeight: 800, color: COLORS.primary, lineHeight: 1 }}>
-                            {offer.salaryOffered.toLocaleString("vi-VN")}
-                        </div>
-                        <div style={{ fontSize: 16, color: COLORS.textSecondary, marginTop: 4 }}>VND / tháng</div>
-                        {offer.allowance && (
-                            <div style={{ marginTop: 8, fontSize: 14, color: COLORS.textSecondary }}>
-                                + Phụ cấp: <strong style={{ color: COLORS.primaryLight }}>{offer.allowance.toLocaleString("vi-VN")} VND</strong>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Offer details */}
-                    <Descriptions column={1} labelStyle={{ fontWeight: 600, color: COLORS.textSecondary, width: 160 }} bordered size="small">
-                        <Descriptions.Item label={<><FileTextOutlined style={{ marginRight: 6 }} />Loại hợp đồng</>}>
-                            <Tag color="blue">{offer.contractTypeName}</Tag>
-                        </Descriptions.Item>
-                        <Descriptions.Item label={<><CalendarOutlined style={{ marginRight: 6 }} />Ngày bắt đầu</>}>
-                            <strong>{dayjs(offer.startDate).format("DD/MM/YYYY")}</strong>
-                        </Descriptions.Item>
-                        {offer.probationMonths !== null && (
-                            <Descriptions.Item label={<><ClockCircleOutlined style={{ marginRight: 6 }} />Thời gian thử việc</>}>
-                                {offer.probationMonths} tháng
-                            </Descriptions.Item>
-                        )}
-                        {offer.benefits && (
-                            <Descriptions.Item label={<><GiftOutlined style={{ marginRight: 6 }} />Phúc lợi & Đãi ngộ</>}>
-                                {offer.benefits}
-                            </Descriptions.Item>
-                        )}
-                        {offer.note && (
-                            <Descriptions.Item label="Ghi chú">
-                                {offer.note}
-                            </Descriptions.Item>
-                        )}
-                    </Descriptions>
-
-                    {/* Deadline countdown */}
-                    {pending && offer.responseDeadline && (
-                        <div style={{ textAlign: "center", margin: "24px 0 16px" }}>
-                            <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 8 }}>
-                                <ClockCircleOutlined style={{ marginRight: 6 }} />
-                                Vui lòng phản hồi trước:
-                            </div>
-                            <div style={{ fontSize: 22, color: COLORS.warning, fontWeight: 700, letterSpacing: 1 }}>
-                                {timeLeft || dayjs(offer.responseDeadline).format("HH:mm DD/MM/YYYY")}
-                            </div>
-                            <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 4 }}>
-                                Hạn chót: {dayjs(offer.responseDeadline).format("DD/MM/YYYY HH:mm")}
-                            </div>
-                        </div>
+                    {offer.responseDeadline && pending && (
+                        <AlertCountdown timeLeft={timeLeft} expired={expired} />
                     )}
 
-                    {/* Action Buttons */}
-                    {pending && (
-                        <>
-                            <Divider />
-                            {accepted ? (
-                                <div style={{ textAlign: "center", padding: "16px 0" }}>
-                                    <CheckCircleFilled style={{ fontSize: 48, color: "#22C55E", marginBottom: 12, display: "block" }} />
-                                    <div style={{ fontWeight: 600, fontSize: 16, color: "#166534" }}>Offer đã được chấp nhận! 🎉</div>
-                                    <div style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 4 }}>Chúng tôi sẽ liên hệ với bạn sớm.</div>
-                                </div>
-                            ) : (
-                                <Row gutter={16} justify="center">
-                                    <Col>
-                                        <Button
-                                            type="primary"
-                                            size="large"
-                                            icon={<CheckCircleFilled />}
-                                            onClick={handleAccept}
-                                            style={{ height: 52, paddingInline: 32, fontWeight: 600, fontSize: 15 }}
-                                        >
-                                            Đồng ý nhận việc
-                                        </Button>
-                                    </Col>
-                                    <Col>
-                                        <Button
-                                            danger
-                                            size="large"
-                                            icon={<CloseCircleFilled />}
-                                            onClick={() => setDeclineOpen(true)}
-                                            style={{ height: 52, paddingInline: 32, fontWeight: 600, fontSize: 15 }}
-                                        >
-                                            Từ chối
-                                        </Button>
-                                    </Col>
-                                </Row>
-                            )}
-                        </>
+                    {accepted || offer.status === "ACCEPTED" ? (
+                        <Result
+                            status="success"
+                            title="Bạn đã chấp nhận Offer"
+                            subTitle="HR sẽ liên hệ các bước tiếp theo."
+                        />
+                    ) : offer.status === "DECLINED" ? (
+                        <Result
+                            status="info"
+                            title="Bạn đã từ chối Offer"
+                            subTitle={offer.declineReasonName ?? ""}
+                        />
+                    ) : pending && !expired ? (
+                        <Row gutter={16} justify="center">
+                            <Col>
+                                <Button
+                                    type="primary"
+                                    size="large"
+                                    icon={<CheckCircleFilled />}
+                                    onClick={handleAccept}
+                                    style={{
+                                        height: 52,
+                                        paddingInline: 32,
+                                        fontWeight: 600,
+                                        fontSize: 15,
+                                    }}
+                                >
+                                    Chấp nhận
+                                </Button>
+                            </Col>
+                            <Col>
+                                <Button
+                                    size="large"
+                                    danger
+                                    icon={<CloseCircleFilled />}
+                                    onClick={() => setDeclineOpen(true)}
+                                    style={{
+                                        height: 52,
+                                        paddingInline: 32,
+                                        fontWeight: 600,
+                                        fontSize: 15,
+                                    }}
+                                >
+                                    Từ chối
+                                </Button>
+                            </Col>
+                        </Row>
+                    ) : pending && expired ? (
+                        <Result status="warning" title="Offer đã hết hạn phản hồi" />
+                    ) : (
+                        <Result
+                            status="info"
+                            title="Offer chưa sẵn sàng"
+                            subTitle="Vui lòng đợi HR/Phòng ban hoàn tất phê duyệt."
+                        />
                     )}
                 </Card>
             </div>
 
-            {/* Decline Modal */}
             <Modal
                 open={declineOpen}
-                title={<><CloseCircleFilled style={{ color: "#EF4444", marginRight: 8 }} />Từ chối Offer</>}
+                title={
+                    <>
+                        <CloseCircleFilled style={{ color: "#EF4444", marginRight: 8 }} />
+                        Từ chối Offer
+                    </>
+                }
                 okText="Xác nhận từ chối"
                 okButtonProps={{ danger: true }}
                 cancelText="Hủy"
@@ -220,7 +323,9 @@ export default function OfferCandidateViewPage() {
             >
                 <div style={{ paddingTop: 12 }}>
                     <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Lý do từ chối</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                            Lý do từ chối
+                        </div>
                         <Select
                             style={{ width: "100%" }}
                             size="large"
@@ -235,7 +340,9 @@ export default function OfferCandidateViewPage() {
                         />
                     </div>
                     <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Ghi chú thêm (tùy chọn)</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                            Ghi chú thêm (tùy chọn)
+                        </div>
                         <Input.TextArea
                             rows={3}
                             placeholder="Nhập ghi chú..."
@@ -245,6 +352,62 @@ export default function OfferCandidateViewPage() {
                     </div>
                 </div>
             </Modal>
+        </div>
+    );
+}
+
+function STATUS_LABEL_SAFE(s: string) {
+    const m: Record<string, string> = {
+        DRAFT: "Nháp",
+        PENDING_APPROVAL: "Chờ duyệt",
+        APPROVED: "Chờ bạn phản hồi",
+        REJECTED: "Đã bị từ chối nội bộ",
+        ACCEPTED: "Đã chấp nhận",
+        DECLINED: "Đã từ chối",
+    };
+    return m[s] ?? s;
+}
+
+function STATUS_COLOR_SAFE(s: string) {
+    const m: Record<string, string> = {
+        APPROVED: "blue",
+        ACCEPTED: "green",
+        DECLINED: "magenta",
+        PENDING_APPROVAL: "gold",
+        REJECTED: "red",
+        DRAFT: "default",
+    };
+    return m[s] ?? "default";
+}
+
+function AlertCountdown({
+    timeLeft,
+    expired,
+}: {
+    timeLeft: string;
+    expired: boolean;
+}) {
+    return (
+        <div
+            style={{
+                marginBottom: 20,
+                padding: "12px 16px",
+                borderRadius: 10,
+                background: expired ? "#FEF2F2" : "#EFF6FF",
+                border: `1px solid ${expired ? "#FECACA" : "#BFDBFE"}`,
+                textAlign: "center",
+            }}
+        >
+            <Text type="secondary">Thời hạn phản hồi còn lại</Text>
+            <div
+                style={{
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: expired ? COLORS.error : COLORS.info,
+                }}
+            >
+                {timeLeft}
+            </div>
         </div>
     );
 }

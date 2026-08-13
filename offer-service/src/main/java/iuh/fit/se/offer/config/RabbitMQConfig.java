@@ -11,6 +11,8 @@ public class RabbitMQConfig {
 
     public static final String ATS_EXCHANGE = "ats.events";
     public static final String OFFER_APPROVED_ROUTING_KEY = "offer.approved";
+    public static final String OFFER_ACCEPTED_ROUTING_KEY = "offer.accepted";
+    public static final String OFFER_DECLINED_ROUTING_KEY = "offer.declined";
     public static final String AUDIT_LOG_ROUTING_KEY = "audit.log";
 
     @Bean

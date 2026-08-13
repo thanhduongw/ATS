@@ -1,13 +1,24 @@
 import { useState } from "react";
-import { Drawer, Descriptions, Tag, Button, Space, message, Popconfirm } from "antd";
+import {
+  Drawer,
+  Descriptions,
+  Tag,
+  Button,
+  Space,
+  message,
+  Popconfirm,
+  Typography,
+} from "antd";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
-import { submitOffer, approveOffer, acceptOffer, deleteOffer } from "../offerApi";
+import { submitOffer, approveOffer, deleteOffer } from "../offerApi";
 import type { ApiMessageResponse, OfferResponse } from "../types";
 import { useAppSelector } from "../../../app/hooks";
-import OfferCreateModal from "./OfferCreateModal";
+import { HR_ROLES, DEPARTMENT_ROLES } from "../../../app/roles";
+import type { UserRole } from "../../auth/types";
 import OfferRejectModal from "./OfferRejectModal";
-import OfferDeclineModal from "./OfferDeclineModal";
+
+const { Text } = Typography;
 
 interface Props {
   open: boolean;
@@ -19,9 +30,9 @@ interface Props {
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Bản nháp",
   PENDING_APPROVAL: "Chờ duyệt",
-  APPROVED: "Đã duyệt",
-  REJECTED: "Đã từ chối duyệt",
-  ACCEPTED: "Đã chấp nhận",
+  APPROVED: "Đã duyệt (gửi ứng viên)",
+  REJECTED: "Từ chối duyệt",
+  ACCEPTED: "Ứng viên đã nhận",
   DECLINED: "Ứng viên từ chối",
 };
 
@@ -34,51 +45,55 @@ const STATUS_COLOR: Record<string, string> = {
   DECLINED: "magenta",
 };
 
-export default function OfferDetailDrawer({ open, offer, onClose, onChanged }: Props) {
-  const currentUser = useAppSelector((state) => state.auth.user);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [declineModalOpen, setDeclineModalOpen] = useState(false);
+export default function OfferDetailDrawer({
+  open,
+  offer,
+  onClose,
+  onChanged,
+}: Props) {
+  const user = useAppSelector((s) => s.auth.user);
+  const role = user?.role as UserRole | undefined;
+  // AuthUser.userId là string (JWT sub) — convert sang number để so với requesterId/approverId
+  const userId = user?.userId != null ? Number(user.userId) : undefined;
+
+  const isHr = !!role && HR_ROLES.includes(role);
+  const isDept = !!role && DEPARTMENT_ROLES.includes(role);
+
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   if (!offer) return null;
 
-  const isRequester = String(offer.requesterId) === currentUser?.userId;
-  const isApprover = String(offer.approverId) === currentUser?.userId;
-  const canRecruiterAct = currentUser?.role === "RECRUITER" || currentUser?.role === "COMPANY_ADMIN";
+  const isOwner = userId != null && offer.requesterId === userId;
+  const isApprover = userId != null && offer.approverId === userId;
 
   const handleSubmit = async () => {
+    setLoading(true);
     try {
       await submitOffer(offer.id);
-      message.success("Đã gửi Offer để phê duyệt");
+      message.success("Đã gửi duyệt Offer");
       onChanged();
       onClose();
     } catch (err) {
-      const axiosErr = err as AxiosError<ApiMessageResponse>;
-      message.error(axiosErr.response?.data?.message ?? "Gửi duyệt thất bại");
+      const e = err as AxiosError<ApiMessageResponse>;
+      message.error(e.response?.data?.message ?? "Gửi duyệt thất bại");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleApprove = async () => {
+    setLoading(true);
     try {
       await approveOffer(offer.id);
-      message.success("Phê duyệt Offer thành công");
+      message.success("Đã phê duyệt Offer — ứng viên có thể Accept/Decline");
       onChanged();
       onClose();
     } catch (err) {
-      const axiosErr = err as AxiosError<ApiMessageResponse>;
-      message.error(axiosErr.response?.data?.message ?? "Phê duyệt thất bại");
-    }
-  };
-
-  const handleAccept = async () => {
-    try {
-      await acceptOffer(offer.id);
-      message.success("Đã ghi nhận Ứng viên Chấp nhận Offer & Chuyển sang Nhận việc");
-      onChanged();
-      onClose();
-    } catch (err) {
-      const axiosErr = err as AxiosError<ApiMessageResponse>;
-      message.error(axiosErr.response?.data?.message ?? "Thao tác thất bại");
+      const e = err as AxiosError<ApiMessageResponse>;
+      message.error(e.response?.data?.message ?? "Phê duyệt thất bại");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -89,115 +104,114 @@ export default function OfferDetailDrawer({ open, offer, onClose, onChanged }: P
       onChanged();
       onClose();
     } catch (err) {
-      const axiosErr = err as AxiosError<ApiMessageResponse>;
-      message.error(axiosErr.response?.data?.message ?? "Xóa thất bại");
+      const e = err as AxiosError<ApiMessageResponse>;
+      message.error(e.response?.data?.message ?? "Xóa thất bại");
     }
   };
 
   return (
-    <Drawer title={`Offer: ${offer.candidateName}`} open={open} onClose={onClose} width={520}>
+    <Drawer
+      title={`Offer — ${offer.candidateName}`}
+      open={open}
+      onClose={onClose}
+      width={520}
+    >
       <Tag color={STATUS_COLOR[offer.status]} style={{ marginBottom: 16 }}>
-        {STATUS_LABEL[offer.status]}
+        {STATUS_LABEL[offer.status] ?? offer.status}
       </Tag>
 
       <Descriptions column={1} bordered size="small">
-        <Descriptions.Item label="Ứng viên">{offer.candidateName}</Descriptions.Item>
-        <Descriptions.Item label="Mức lương">{offer.salaryOffered.toLocaleString("vi-VN")} VND</Descriptions.Item>
-        <Descriptions.Item label="Loại hợp đồng">{offer.contractTypeName}</Descriptions.Item>
-        <Descriptions.Item label="Ngày bắt đầu">{dayjs(offer.startDate).format("DD/MM/YYYY")}</Descriptions.Item>
-        <Descriptions.Item label="Thử việc">{offer.probationMonths} tháng</Descriptions.Item>
-        <Descriptions.Item label="Phụ cấp">{offer.allowance ? `${offer.allowance.toLocaleString("vi-VN")} VND` : "0 VND"}</Descriptions.Item>
-        <Descriptions.Item label="Phúc lợi">{offer.benefits ?? "—"}</Descriptions.Item>
-        <Descriptions.Item label="Người tạo">{offer.requesterName}</Descriptions.Item>
-        <Descriptions.Item label="Người duyệt">{offer.approverName}</Descriptions.Item>
-
-        {offer.status === "REJECTED" && (
-          <Descriptions.Item label="Lý do từ chối duyệt">
-            <span style={{ color: "red" }}>{offer.rejectReason}</span>
-          </Descriptions.Item>
-        )}
-
-        {offer.status === "DECLINED" && (
-          <Descriptions.Item label="Ứng viên từ chối">
-            <span style={{ color: "red" }}>{offer.declineReasonName} {offer.declineNote && `(${offer.declineNote})`}</span>
-          </Descriptions.Item>
-        )}
-
-        <Descriptions.Item label="Thời hạn phản hồi">
-          {offer.responseDeadline ? dayjs(offer.responseDeadline).format("HH:mm DD/MM/YYYY") : "—"}
+        <Descriptions.Item label="Application ID">
+          {offer.applicationId}
         </Descriptions.Item>
-        <Descriptions.Item label="Ngày tạo">{dayjs(offer.createdAt).format("HH:mm DD/MM/YYYY")}</Descriptions.Item>
+        <Descriptions.Item label="Mức lương">
+          <Text strong style={{ color: "#16a34a" }}>
+            {Number(offer.salaryOffered).toLocaleString("vi-VN")} đ
+          </Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="Loại HĐ">
+          {offer.contractTypeName}
+        </Descriptions.Item>
+        <Descriptions.Item label="Ngày bắt đầu">
+          {offer.startDate ? dayjs(offer.startDate).format("DD/MM/YYYY") : "—"}
+        </Descriptions.Item>
+        <Descriptions.Item label="Thử việc">
+          {offer.probationMonths} tháng
+        </Descriptions.Item>
+        <Descriptions.Item label="Phụ cấp">
+          {offer.allowance != null
+            ? `${Number(offer.allowance).toLocaleString("vi-VN")} đ`
+            : "—"}
+        </Descriptions.Item>
+        <Descriptions.Item label="Phúc lợi">
+          {offer.benefits ?? "—"}
+        </Descriptions.Item>
+        <Descriptions.Item label="Hạn phản hồi">
+          {offer.responseDeadline
+            ? dayjs(offer.responseDeadline).format("HH:mm DD/MM/YYYY")
+            : "—"}
+        </Descriptions.Item>
+        <Descriptions.Item label="Người tạo">
+          {offer.requesterName}
+        </Descriptions.Item>
+        <Descriptions.Item label="Người duyệt">
+          {offer.approverName}
+        </Descriptions.Item>
+        <Descriptions.Item label="Ghi chú">
+          {offer.note ?? "—"}
+        </Descriptions.Item>
+        {offer.rejectReason && (
+          <Descriptions.Item label="Lý do từ chối duyệt">
+            {offer.rejectReason}
+          </Descriptions.Item>
+        )}
+        {offer.declineReasonName && (
+          <Descriptions.Item label="Lý do ứng viên từ chối">
+            {offer.declineReasonName}
+            {offer.declineNote ? ` — ${offer.declineNote}` : ""}
+          </Descriptions.Item>
+        )}
       </Descriptions>
 
-      <Space wrap style={{ marginTop: 24 }}>
-        {offer.status === "APPROVED" && (
-          <Button
-            type="dashed"
-            onClick={() => {
-              const url = `${window.location.origin}/offers/candidate/${offer.id}`;
-              navigator.clipboard.writeText(url);
-              message.success("Đã sao chép link xem Offer cho ứng viên!");
-            }}
-          >
-            📋 Link gửi ứng viên
+      <Space style={{ marginTop: 24 }} wrap>
+        {isHr && isOwner && offer.status === "DRAFT" && (
+          <Button type="primary" loading={loading} onClick={handleSubmit}>
+            Gửi duyệt
           </Button>
         )}
-        {/* Nút Chỉnh sửa & Gửi duyệt dành cho Người tạo khi DRAFT */}
-        {offer.status === "DRAFT" && isRequester && (
-          <>
-            <Button onClick={() => setEditModalOpen(true)}>Chỉnh sửa</Button>
-            <Button type="primary" onClick={handleSubmit}>Gửi duyệt</Button>
-          </>
-        )}
 
-        {/* Nút Phê duyệt & Từ chối duyệt dành cho Approver khi PENDING_APPROVAL */}
-        {offer.status === "PENDING_APPROVAL" && (isApprover || currentUser?.role === "COMPANY_ADMIN") && (
+        {(isDept || isHr) && isApprover && offer.status === "PENDING_APPROVAL" && (
           <>
-            <Button type="primary" onClick={handleApprove}>Phê duyệt Offer</Button>
-            <Button danger onClick={() => setRejectModalOpen(true)}>Từ chối duyệt</Button>
-          </>
-        )}
-
-        {/* Nút Chấp nhận / Từ chối dành cho Recruiter khi APPROVED */}
-        {offer.status === "APPROVED" && canRecruiterAct && (
-          <>
-            <Button type="primary" style={{ background: "#52c41a" }} onClick={handleAccept}>
-              Ứng viên Chấp nhận
+            <Button type="primary" loading={loading} onClick={handleApprove}>
+              Phê duyệt
             </Button>
-            <Button danger onClick={() => setDeclineModalOpen(true)}>
-              Ứng viên Từ chối
+            <Button danger onClick={() => setRejectOpen(true)}>
+              Từ chối duyệt
             </Button>
           </>
         )}
 
-        {/* Nút Xóa Offer nếu chưa ACCEPTED */}
-        {offer.status !== "ACCEPTED" && canRecruiterAct && (
-          <Popconfirm title="Xóa Offer này?" onConfirm={handleDelete} okText="Xóa" cancelText="Hủy">
-            <Button danger type="text">Xóa Offer</Button>
+        {isHr && (offer.status === "DRAFT" || offer.status === "REJECTED") && (
+          <Popconfirm
+            title="Xóa Offer này?"
+            onConfirm={handleDelete}
+            okText="Xóa"
+            cancelText="Hủy"
+          >
+            <Button danger>Xóa</Button>
           </Popconfirm>
         )}
       </Space>
 
-      <OfferCreateModal
-        open={editModalOpen}
-        applicationId={offer.applicationId}
-        initialData={offer}
-        onClose={() => setEditModalOpen(false)}
-        onSuccess={onChanged}
-      />
-
       <OfferRejectModal
-        open={rejectModalOpen}
+        open={rejectOpen}
         offerId={offer.id}
-        onClose={() => setRejectModalOpen(false)}
-        onSuccess={onChanged}
-      />
-
-      <OfferDeclineModal
-        open={declineModalOpen}
-        offerId={offer.id}
-        onClose={() => setDeclineModalOpen(false)}
-        onSuccess={onChanged}
+        onClose={() => setRejectOpen(false)}
+        onSuccess={() => {
+          setRejectOpen(false);
+          onChanged();
+          onClose();
+        }}
       />
     </Drawer>
   );

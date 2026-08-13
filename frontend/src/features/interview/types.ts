@@ -1,5 +1,5 @@
 export type InterviewFormat = "ONLINE" | "OFFLINE";
-export type InterviewStatus = "SCHEDULED" | "COMPLETED" | "CANCELLED";
+export type InterviewStatus = "SCHEDULED" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
 export type RecommendationType = "STRONG_YES" | "YES" | "NO" | "STRONG_NO";
 
 export interface InterviewerSummary {
@@ -19,6 +19,7 @@ export interface InterviewResponse {
   meetingLink: string | null;
   note: string | null;
   status: InterviewStatus;
+  candidateConfirmed?: boolean;
   interviewers: InterviewerSummary[];
 }
 
@@ -47,12 +48,16 @@ export interface EvaluationSubmitRequest {
   scores: EvaluationScoreRequest[];
 }
 
-export interface EvaluationScoreDetail {
+/** Khớp EvaluationScoreResponse Java */
+export interface EvaluationScoreResponse {
   criteriaId: number;
   criteriaName: string;
   score: number;
   comment: string | null;
 }
+
+/** Alias cũ nếu component còn dùng tên ScoreDetail */
+export type EvaluationScoreDetail = EvaluationScoreResponse;
 
 export interface EvaluationResponse {
   interviewerId: number;
@@ -62,7 +67,7 @@ export interface EvaluationResponse {
   salaryProposed: number | null;
   salaryNote: string | null;
   submittedAt: string | null;
-  scores: EvaluationScoreDetail[];
+  scores: EvaluationScoreResponse[];
 }
 
 export interface ApiMessageResponse {

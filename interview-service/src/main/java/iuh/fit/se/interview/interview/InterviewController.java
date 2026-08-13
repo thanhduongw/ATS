@@ -20,23 +20,30 @@ public class InterviewController {
     @GetMapping
     public ResponseEntity<List<InterviewResponse>> getAll(
             @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
             @RequestParam(required = false) Long applicationId) {
-        return ResponseEntity.ok(service.getAll(tenantId, applicationId));
+        return ResponseEntity.ok(service.getAll(tenantId, userId, role, applicationId));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<InterviewResponse> getById(
-            @RequestHeader("X-Tenant-Id") Long tenantId, @PathVariable Long id) {
-        return ResponseEntity.ok(service.getById(tenantId, id));
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(service.getById(tenantId, userId, role, id));
     }
 
+    /** Chỉ HR lên lịch */
     @PostMapping
     public ResponseEntity<InterviewResponse> create(
             @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
             @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody InterviewCreateRequest req) {
-        AccessGuard.requireRecruiterOrAbove(role);
-        return ResponseEntity.ok(service.create(tenantId, req));
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.create(tenantId, actorUserId, req));
     }
 
     @PatchMapping("/{id}/cancel")
@@ -44,7 +51,18 @@ public class InterviewController {
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Role") String role,
             @PathVariable Long id) {
-        AccessGuard.requireRecruiterOrAbove(role);
+        AccessGuard.requireHr(role);
         return ResponseEntity.ok(service.cancel(tenantId, id));
+    }
+
+    /** Candidate xác nhận lịch */
+    @PatchMapping("/{id}/confirm")
+    public ResponseEntity<InterviewResponse> confirm(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        AccessGuard.requireCandidate(role);
+        return ResponseEntity.ok(service.confirmByCandidate(tenantId, userId, id));
     }
 }

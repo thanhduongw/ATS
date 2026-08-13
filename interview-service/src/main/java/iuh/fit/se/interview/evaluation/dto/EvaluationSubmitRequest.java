@@ -4,8 +4,8 @@ import iuh.fit.se.interview.evaluation.RecommendationType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import java.math.BigDecimal;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public record EvaluationSubmitRequest(
@@ -13,5 +13,6 @@ public record EvaluationSubmitRequest(
         String generalComment,
         BigDecimal salaryProposed,
         String salaryNote,
-        @NotEmpty(message = "Phải chấm điểm ít nhất 1 tiêu chí") @Valid List<EvaluationScoreRequest> scores
+        @NotEmpty(message = "Phải chấm điểm ít nhất 1 tiêu chí")
+        @Valid List<EvaluationScoreRequest> scores
 ) {}

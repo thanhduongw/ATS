@@ -11,19 +11,36 @@ public class ApplicationEventPublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
-    public void publishApplicationCreated(Long jobPostingId, Long applicationId) {
+    public void publishApplicationCreated(
+            Long tenantId,
+            Long jobPostingId,
+            Long applicationId,
+            Long candidateId,
+            Long assignedRecruiterId,
+            String candidateName) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.APPLICATION_CREATED_ROUTING_KEY,
-                new ApplicationCreatedEvent(jobPostingId, applicationId)
+                new ApplicationCreatedEvent(
+                        tenantId, applicationId, jobPostingId, candidateId, assignedRecruiterId, candidateName)
         );
     }
 
-    public void publishApplicationStatusChanged(Long applicationId, Long jobPostingId, String fromStageName, String toStageName) {
+    public void publishApplicationStatusChanged(
+            Long tenantId,
+            Long applicationId,
+            Long jobPostingId,
+            Long candidateId,
+            Long assignedRecruiterId,
+            String fromStageName,
+            String toStageName,
+            String toStageType) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.APPLICATION_STATUS_CHANGED_ROUTING_KEY,
-                new ApplicationStatusChangedEvent(applicationId, jobPostingId, fromStageName, toStageName)
+                new ApplicationStatusChangedEvent(
+                        tenantId, applicationId, jobPostingId, candidateId, null,
+                        assignedRecruiterId, fromStageName, toStageName, toStageType)
         );
     }
 }

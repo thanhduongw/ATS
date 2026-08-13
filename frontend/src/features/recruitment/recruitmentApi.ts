@@ -52,3 +52,6 @@ export const updatePosting = (id: number, data: JobPostingUpdateRequest) =>
 
 export const changePostingStatus = (id: number, data: JobPostingStatusRequest) =>
     axiosClient.patch<JobPostingResponse>(`/recruitment/postings/${id}/status`, data);
+/** Tin OPEN — Candidate (JobsPage) */
+export const getOpenPostings = () =>
+    axiosClient.get<JobPostingResponse[]>("/recruitment/postings/open");

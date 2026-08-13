@@ -223,4 +223,30 @@ public class CandidateService {
                 skillIds, skillNames, c.getCvFileUrl(), c.getCreatedAt()
         );
     }
+
+    public CandidateResponse getOwnById(Long tenantId, Long userId, Long id) {
+        Candidate candidate = findOwned(tenantId, id);
+        if (candidate.getUserId() == null || !candidate.getUserId().equals(userId)) {
+            throw new BusinessException("Không thể xem hồ sơ ứng viên khác");
+        }
+        return getById(tenantId, id);
+    }
+
+    @Transactional
+    public CandidateResponse updateOwn(Long tenantId, Long userId, Long id, CandidateUpdateRequest req) {
+        Candidate candidate = findOwned(tenantId, id);
+        if (candidate.getUserId() == null || !candidate.getUserId().equals(userId)) {
+            throw new BusinessException("Không thể cập nhật hồ sơ ứng viên khác");
+        }
+        return update(tenantId, id, req);
+    }
+
+    @Transactional
+    public CandidateResponse uploadCvOwn(Long tenantId, Long userId, Long id, MultipartFile file) {
+        Candidate candidate = findOwned(tenantId, id);
+        if (candidate.getUserId() == null || !candidate.getUserId().equals(userId)) {
+            throw new BusinessException("Không thể tải CV cho hồ sơ ứng viên khác");
+        }
+        return uploadCv(tenantId, id, file);
+    }
 }

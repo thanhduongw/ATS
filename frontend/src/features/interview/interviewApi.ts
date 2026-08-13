@@ -20,8 +20,17 @@ export const createInterview = (data: InterviewCreateRequest) =>
 export const cancelInterview = (id: number) =>
   axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/cancel`);
 
+/** Candidate xác nhận lịch phỏng vấn */
+export const confirmInterview = (id: number) =>
+  axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/confirm`);
+
 export const submitEvaluation = (interviewId: number, data: EvaluationSubmitRequest) =>
-  axiosClient.post<EvaluationResponse>(`/interview/interviews/${interviewId}/evaluations`, data);
+  axiosClient.post<EvaluationResponse>(
+    `/interview/interviews/${interviewId}/evaluations`,
+    data
+  );
 
 export const getEvaluations = (interviewId: number) =>
-  axiosClient.get<EvaluationResponse[]>(`/interview/interviews/${interviewId}/evaluations`);
+  axiosClient.get<EvaluationResponse[]>(
+    `/interview/interviews/${interviewId}/evaluations`
+  );

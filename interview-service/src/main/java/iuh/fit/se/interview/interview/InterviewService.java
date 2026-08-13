@@ -77,9 +77,13 @@ public class InterviewService {
 
     public InterviewResponse getById(Long tenantId, Long userId, String role, Long id) {
         Interview interview = findOwned(tenantId, id);
-        assertCanView(interview, userId, role);
+        if (!"SYSTEM".equals(role)) {
+            assertCanView(interview, userId, role);
+        }
         return toResponse(interview);
     }
+
+
 
     @Transactional
     public InterviewResponse create(Long tenantId, Long actorUserId, InterviewCreateRequest req) {

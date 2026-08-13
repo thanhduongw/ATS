@@ -10,5 +10,6 @@ public record DashboardSummaryResponse(
         long hiredCount,
         long rejectedCount,
         double successRatePercent,
-        Map<String, Long> applicationsByStage
+        Map<String, Long> applicationsByStage,
+        FunnelMetrics funnel
 ) {}

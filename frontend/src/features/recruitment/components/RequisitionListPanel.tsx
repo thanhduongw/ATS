@@ -7,6 +7,8 @@ import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import type { ApiMessageResponse, JobRequisitionResponse, RequisitionStatus } from "../types";
 import { useAppSelector } from "../../../app/hooks";
+import { DEPARTMENT_ROLES, HR_ROLES } from "../../../app/roles";
+import type { UserRole } from "../../auth/types";
 import RequisitionFormModal from "./RequisitionFormModal";
 import RequisitionDetailDrawer from "./RequisitionDetailDrawer";
 import { REQUISITION_STATUS_COLOR, REQUISITION_STATUS_LABEL } from "../requisitionStatus";
@@ -16,6 +18,10 @@ import EmptyState from "../../../components/ui/EmptyState";
 export default function RequisitionListPanel() {
     const { message } = App.useApp();
     const currentUser = useAppSelector((state) => state.auth.user);
+    const role = currentUser?.role as UserRole | undefined;
+    const canCreateRequisition = !!role && DEPARTMENT_ROLES.includes(role);
+    const isHr = !!role && HR_ROLES.includes(role);
+
     const [requisitions, setRequisitions] = useState<JobRequisitionResponse[]>([]);
     const [departmentMap, setDepartmentMap] = useState<Record<number, string>>({});
     const [jobTitleMap, setJobTitleMap] = useState<Record<number, string>>({});
@@ -125,13 +131,19 @@ export default function RequisitionListPanel() {
                     onChange={(value) => setFilterMode(value as "all" | "pendingForMe" | "needsMyEdit")}
                     options={[
                         { label: "Tất cả", value: "all" },
-                        { label: "Chờ tôi duyệt", value: "pendingForMe" },
-                        { label: "Cần tôi chỉnh sửa", value: "needsMyEdit" },
+                        ...(isHr
+                            ? [{ label: "Chờ tôi duyệt", value: "pendingForMe" as const }]
+                            : []),
+                        ...(canCreateRequisition
+                            ? [{ label: "Cần tôi chỉnh sửa", value: "needsMyEdit" as const }]
+                            : []),
                     ]}
                 />
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                    Tạo yêu cầu tuyển dụng
-                </Button>
+                {canCreateRequisition && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                        Tạo yêu cầu tuyển dụng
+                    </Button>
+                )}
             </div>
 
             <Table

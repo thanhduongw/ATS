@@ -27,10 +27,14 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
         control,
         handleSubmit,
         reset,
+        watch,
+        setValue,
         formState: { errors, isSubmitting },
     } = useForm<PostingFormValues>({
         resolver: zodResolver(postingSchema),
     });
+
+    const selectedRequisitionId = watch("requisitionId");
 
     useEffect(() => {
         if (!open) return;
@@ -77,6 +81,25 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
         }
     }, [editingItem, open, reset]);
 
+    // Chỉ prefill khi TẠO MỚI — không đè dữ liệu khi đang sửa tin
+    useEffect(() => {
+        if (editingItem) return;
+        if (!selectedRequisitionId) return;
+        const req = approvedRequisitions.find((r) => r.id === selectedRequisitionId);
+        if (!req) return;
+
+        setValue("title", req.title);
+
+        const min = req.approvedSalaryMin ?? req.expectedSalaryMin ?? null;
+        const max = req.approvedSalaryMax ?? req.expectedSalaryMax ?? null;
+        setValue("salaryMin", min);
+        setValue("salaryMax", max);
+
+        if (req.description) {
+            setValue("description", req.description);
+        }
+    }, [selectedRequisitionId, approvedRequisitions, editingItem, setValue]);
+
     const onSubmit = async (data: PostingFormValues) => {
         try {
             if (editingItem) {
@@ -115,6 +138,14 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     title="Tin tuyển dụng này đã có ứng viên nộp hồ sơ nên không thể đổi Quy trình tuyển dụng."
                 />
             )}
+            {!editingItem && (
+                <Alert
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                    message="Chỉ đăng tin từ yêu cầu đã được HR phê duyệt. Lương mặc định lấy theo mức lương chốt duyệt."
+                />
+            )}
             <Form layout="vertical">
                 <Form.Item
                     label="Yêu cầu tuyển dụng"
@@ -128,7 +159,18 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                             <Select
                                 {...field}
                                 disabled={!!editingItem}
-                                options={approvedRequisitions.map((r) => ({ value: r.id, label: r.title }))}
+                                options={approvedRequisitions.map((r) => {
+                                    const min = r.approvedSalaryMin ?? r.expectedSalaryMin;
+                                    const max = r.approvedSalaryMax ?? r.expectedSalaryMax;
+                                    const salaryHint =
+                                        min || max
+                                            ? ` (${min ? min / 1e6 : "?"}–${max ? max / 1e6 : "?"}tr)`
+                                            : "";
+                                    return {
+                                        value: r.id,
+                                        label: `${r.title}${salaryHint}`,
+                                    };
+                                })}
                                 placeholder="Chọn yêu cầu tuyển dụng đã được duyệt"
                             />
                         )}

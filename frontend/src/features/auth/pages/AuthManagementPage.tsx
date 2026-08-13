@@ -23,7 +23,6 @@ const ROLE_COLORS: Record<string, string> = {
     COMPANY_ADMIN: "purple",
     RECRUITER: "blue",
     HIRING_MANAGER: "cyan",
-    INTERVIEWER: "geekblue",
     CANDIDATE: "default",
     PLATFORM_ADMIN: "red",
 };

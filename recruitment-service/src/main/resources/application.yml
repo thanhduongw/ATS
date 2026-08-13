@@ -20,6 +20,6 @@ spring:
 
 services:
   auth-service:
-    url: http://localhost:8081
+    url: ${SERVICES_AUTH_SERVICE_URL:http://localhost:8081}
   masterdata-service:
-    url: http://localhost:8082
+    url: ${SERVICES_MASTERDATA_SERVICE_URL:http://localhost:8082}

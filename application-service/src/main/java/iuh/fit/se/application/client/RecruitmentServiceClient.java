@@ -10,5 +10,12 @@ import org.springframework.web.bind.annotation.RequestHeader;
 public interface RecruitmentServiceClient {
 
     @GetMapping("/api/recruitment/postings/{id}")
-    JobPostingResponse getPostingById(@RequestHeader("X-Tenant-Id") Long tenantId, @PathVariable("id") Long id);
+    JobPostingResponse getPostingById(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @PathVariable("id") Long id);
+
+    @GetMapping("/api/recruitment/public/companies/{tenantCode}/jobs/{jobId}")
+    JobPostingResponse getPublicOpenJob(
+            @PathVariable("tenantCode") String tenantCode,
+            @PathVariable("jobId") Long jobId);
 }

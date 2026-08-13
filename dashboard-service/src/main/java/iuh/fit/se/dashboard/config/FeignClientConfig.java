@@ -4,16 +4,14 @@ import feign.RequestInterceptor;
 import feign.RequestTemplate;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-@Configuration
 public class FeignClientConfig {
 
     @Bean
     public RequestInterceptor headerForwardingInterceptor() {
-        return requestTemplate -> {
+        return (RequestTemplate requestTemplate) -> {
             ServletRequestAttributes attributes =
                     (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes == null) return;
@@ -27,7 +25,7 @@ public class FeignClientConfig {
 
     private void forwardHeader(HttpServletRequest request, RequestTemplate template, String headerName) {
         String value = request.getHeader(headerName);
-        if (value != null) {
+        if (value != null && !value.isBlank()) {
             template.header(headerName, value);
         }
     }

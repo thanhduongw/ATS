@@ -218,6 +218,10 @@ export default function DashboardPage() {
         setLoading(true);
         getDashboardSummary()
             .then((res) => setSummary(res.data))
+            .catch(() => {
+                // Không để Uncaught AxiosError; giữ summary = null → UI hiện 0
+                setSummary(null);
+            })
             .finally(() => setLoading(false));
     }, []);
 

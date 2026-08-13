@@ -1,10 +1,6 @@
 package iuh.fit.se.candidate.candidate;
 
-import iuh.fit.se.candidate.candidate.dto.CandidateCreateRequest;
-import iuh.fit.se.candidate.candidate.dto.CandidateResponse;
-import iuh.fit.se.candidate.candidate.dto.CandidateSelfProfileRequest;
-import iuh.fit.se.candidate.candidate.dto.CandidateSummaryResponse;
-import iuh.fit.se.candidate.candidate.dto.CandidateUpdateRequest;
+import iuh.fit.se.candidate.candidate.dto.*;
 import iuh.fit.se.candidate.client.MasterDataServiceClient;
 import iuh.fit.se.candidate.client.dto.CatalogItemResponse;
 import iuh.fit.se.candidate.event.AuditEventPublisher;
@@ -249,5 +245,68 @@ public class CandidateService {
             throw new BusinessException("Không thể tải CV cho hồ sơ ứng viên khác");
         }
         return uploadCv(tenantId, id, file);
+    }
+
+    /**
+     * Public apply: tìm candidate theo email, nếu chưa có thì tạo mới.
+     */
+    @Transactional
+    public CandidateSummaryResponse findOrCreatePublic(Long tenantId, PublicCandidateCreateRequest req) {
+        Candidate candidate = candidateRepository
+                .findByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(tenantId, req.email().trim())
+                .orElseGet(() -> candidateRepository.save(Candidate.builder()
+                        .tenantId(tenantId)
+                        .fullName(req.fullName().trim())
+                        .email(req.email().trim().toLowerCase())
+                        .phone(req.phone() != null ? req.phone().trim() : null)
+                        .build()));
+
+        // Cập nhật tên/phone nếu đã tồn tại (ứng viên sửa lại)
+        boolean changed = false;
+        if (req.fullName() != null && !req.fullName().isBlank()
+                && !req.fullName().trim().equals(candidate.getFullName())) {
+            candidate.setFullName(req.fullName().trim());
+            changed = true;
+        }
+        if (req.phone() != null && !req.phone().isBlank()
+                && !req.phone().trim().equals(candidate.getPhone())) {
+            candidate.setPhone(req.phone().trim());
+            changed = true;
+        }
+        if (changed) {
+            candidateRepository.save(candidate);
+        }
+
+        return new CandidateSummaryResponse(
+                candidate.getId(),
+                candidate.getFullName(),
+                candidate.getEmail(),
+                candidate.getPhone(),
+                candidate.getCvFileUrl(),
+                candidate.getUserId()
+        );
+    }
+
+    /**
+     * Public apply: upload CV, gắn vào candidate.
+     */
+    @Transactional
+    public CandidateSummaryResponse uploadCvPublic(Long tenantId, Long candidateId, MultipartFile file) {
+        Candidate candidate = candidateRepository
+                .findByIdAndTenantIdAndDeletedAtIsNull(candidateId, tenantId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy ứng viên"));
+
+        String url = s3Service.uploadFile(file, "cv/" + tenantId);
+        candidate.setCvFileUrl(url);
+        candidateRepository.save(candidate);
+
+        return new CandidateSummaryResponse(
+                candidate.getId(),
+                candidate.getFullName(),
+                candidate.getEmail(),
+                candidate.getPhone(),
+                candidate.getCvFileUrl(),
+                candidate.getUserId()
+        );
     }
 }

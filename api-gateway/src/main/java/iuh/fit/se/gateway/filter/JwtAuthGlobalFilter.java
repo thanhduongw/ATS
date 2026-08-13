@@ -1,7 +1,6 @@
 package iuh.fit.se.gateway.filter;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +14,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -48,7 +48,9 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
         }
 
         String path = exchange.getRequest().getURI().getPath();
-        if (PUBLIC_PATHS.contains(path) || path.startsWith("/api/candidate/candidates/cv-file/")) {
+
+        // Public paths: auth + career portal + apply
+        if (isPublicPath(path)) {
             return chain.filter(exchange);
         }
 
@@ -77,6 +79,18 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
             log.error("JWT validation failed for path {}: {}", path, e.getMessage(), e);
             return unauthorized(exchange);
         }
+    }
+
+    private boolean isPublicPath(String path) {
+        if (PUBLIC_PATHS.contains(path)) return true;
+        // CV file public (đã có sẵn)
+        if (path.startsWith("/api/candidate/candidates/cv-file/")) return true;
+        // Career Portal + Public Apply
+        if (path.startsWith("/api/auth/public/")) return true;
+        if (path.startsWith("/api/recruitment/public/")) return true;
+        if (path.startsWith("/api/candidate/public/")) return true;
+        if (path.startsWith("/api/application/public/")) return true;
+        return false;
     }
 
     private Mono<Void> unauthorized(ServerWebExchange exchange) {

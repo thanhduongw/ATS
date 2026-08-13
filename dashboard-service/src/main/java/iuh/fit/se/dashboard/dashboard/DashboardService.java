@@ -31,15 +31,24 @@ public class DashboardService {
     private final CandidateServiceClient candidateServiceClient;
     private final ApplicationServiceClient applicationServiceClient;
 
-    public DashboardSummaryResponse getSummary() {
-        List<RequisitionSummary> requisitions = safeList(() -> recruitmentServiceClient.getRequisitions());
-        List<PostingSummary> postings = safeList(() -> recruitmentServiceClient.getPostings());
-        List<CandidateSummary> candidates = safeList(() -> candidateServiceClient.getCandidates());
-        List<ApplicationSummary> applications = safeList(() -> applicationServiceClient.getApplications());
+    public DashboardSummaryResponse getSummary(Long tenantId, Long userId, String role) {
+        String safeRole = role != null ? role : "COMPANY_ADMIN";
+        Long safeUserId = userId != null ? userId : 0L;
 
-        long openPostings = postings.stream().filter(p -> "OPEN".equals(p.status())).count();
+        List<RequisitionSummary> requisitions = safeList(
+                () -> recruitmentServiceClient.getRequisitions(tenantId, safeRole));
+        List<PostingSummary> postings = safeList(
+                () -> recruitmentServiceClient.getPostings(tenantId, safeRole));
+        List<CandidateSummary> candidates = safeList(
+                () -> candidateServiceClient.getCandidates(tenantId));
+        List<ApplicationSummary> applications = safeList(
+                () -> applicationServiceClient.getApplications(tenantId, safeUserId, safeRole));
+
+        long openPostings = postings.stream()
+                .filter(p -> p.status() != null && "OPEN".equalsIgnoreCase(p.status()))
+                .count();
         long activeRequisitions = requisitions.stream()
-                .filter(r -> ACTIVE_REQUISITION_STATUSES.contains(r.status()))
+                .filter(r -> r.status() != null && ACTIVE_REQUISITION_STATUSES.contains(r.status()))
                 .count();
 
         long hired = applications.stream()
@@ -56,18 +65,14 @@ public class DashboardService {
 
         Map<String, Long> applicationsByStage = applications.stream()
                 .collect(Collectors.groupingBy(
-                        a -> a.currentStageName() != null ? a.currentStageName() : "Unknown",
+                        a -> a.currentStageName() != null && !a.currentStageName().isBlank()
+                                ? a.currentStageName()
+                                : "Unknown",
                         Collectors.counting()
                 ));
 
-        // Funnel: Req → Posting → Apply → Interview → Offer → Hired
-        // Ước lượng Interview/Offer từ stageType của application (không cần thêm Feign).
-        long interviews = applications.stream()
-                .filter(a -> isInterviewStage(a))
-                .count();
-        long offers = applications.stream()
-                .filter(a -> isOfferStage(a))
-                .count();
+        long interviews = applications.stream().filter(this::isInterviewStage).count();
+        long offers = applications.stream().filter(this::isOfferStage).count();
 
         FunnelMetrics funnel = new FunnelMetrics(
                 requisitions.size(),
@@ -91,7 +96,7 @@ public class DashboardService {
         );
     }
 
-    private static boolean isInterviewStage(ApplicationSummary a) {
+    private boolean isInterviewStage(ApplicationSummary a) {
         String type = nullSafe(a.currentStageType()).toUpperCase();
         String name = nullSafe(a.currentStageName()).toLowerCase();
         return type.contains("INTERVIEW")
@@ -99,7 +104,7 @@ public class DashboardService {
                 || name.contains("interview");
     }
 
-    private static boolean isOfferStage(ApplicationSummary a) {
+    private boolean isOfferStage(ApplicationSummary a) {
         String type = nullSafe(a.currentStageType()).toUpperCase();
         String name = nullSafe(a.currentStageName()).toLowerCase();
         return type.contains("OFFER")
@@ -116,7 +121,7 @@ public class DashboardService {
             List<T> list = supplier.get();
             return list != null ? list : Collections.emptyList();
         } catch (Exception e) {
-            log.warn("Dashboard aggregate thất bại: {}", e.getMessage());
+            log.warn("Dashboard aggregate thất bại: {} - {}", e.getClass().getSimpleName(), e.getMessage());
             return Collections.emptyList();
         }
     }

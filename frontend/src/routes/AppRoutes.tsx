@@ -3,6 +3,7 @@ import GuestRoute from "../components/GuestRoute";
 import ProtectedRoute from "../components/ProtectedRoute";
 import RoleRoute from "../components/RoleRoute";
 import AppLayout from "../layouts/AppLayout";
+import PublicLayout from "../layouts/PublicLayout";
 import RegisterPage from "../features/auth/pages/RegisterPage";
 import VerifyEmailPage from "../features/auth/pages/VerifyEmailPage";
 import LoginPage from "../features/auth/pages/LoginPage";
@@ -23,10 +24,19 @@ import AuthManagementPage from "../features/auth/pages/AuthManagementPage";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../app/roles";
 import JobsPage from "../features/candidate/pages/JobsPage";
 import NotificationsPage from "../features/notification/pages/NotificationsPage";
+import CompanyJobsPage from "../features/public/pages/CompanyJobsPage";
+import JobDetailApplyPage from "../features/public/pages/JobDetailApplyPage";
 
 export default function AppRoutes() {
     return (
         <Routes>
+            {/* ===== Public Career Portal (không cần login) ===== */}
+            <Route path="/c/:tenantCode" element={<PublicLayout />}>
+                <Route index element={<CompanyJobsPage />} />
+                <Route path="jobs/:jobId" element={<JobDetailApplyPage />} />
+            </Route>
+
+            {/* ===== Guest (auth pages) ===== */}
             <Route element={<GuestRoute />}>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
@@ -35,17 +45,17 @@ export default function AppRoutes() {
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
             </Route>
 
+            {/* ===== Protected (nội bộ) ===== */}
             <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
                     <Route path="/dashboard" element={<DashboardPage />} />
                     <Route path="/notifications" element={<NotificationsPage />} />
-                    {/* HR-only */}
+
                     <Route element={<RoleRoute allow={[...HR_ROLES]} />}>
                         <Route path="/masterdata" element={<MasterDataPage />} />
                         <Route path="/candidates" element={<CandidatesPage />} />
                     </Route>
 
-                    {/* HR + Phòng ban — gồm Offer (HR tạo, Dept duyệt) */}
                     <Route element={<RoleRoute allow={[...HR_ROLES, ...DEPARTMENT_ROLES]} />}>
                         <Route path="/recruitment" element={<RecruitmentPage />} />
                         <Route path="/applications" element={<ApplicationsPage />} />

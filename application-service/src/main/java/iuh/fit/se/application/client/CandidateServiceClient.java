@@ -1,10 +1,11 @@
 package iuh.fit.se.application.client;
 
 import iuh.fit.se.application.client.dto.CandidateSummaryResponse;
+import iuh.fit.se.application.client.dto.PublicCandidateCreateRequest;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @FeignClient(name = "candidate-service", url = "${services.candidate-service.url:http://localhost:8084}")
 public interface CandidateServiceClient {
@@ -18,4 +19,16 @@ public interface CandidateServiceClient {
     CandidateSummaryResponse getByUserId(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @PathVariable("userId") Long userId);
+
+    @PostMapping("/api/candidate/public/companies/{tenantCode}/candidates")
+    CandidateSummaryResponse findOrCreatePublic(
+            @PathVariable("tenantCode") String tenantCode,
+            @RequestBody PublicCandidateCreateRequest req);
+
+    @PostMapping(value = "/api/candidate/public/companies/{tenantCode}/candidates/{candidateId}/cv",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    CandidateSummaryResponse uploadCvPublic(
+            @PathVariable("tenantCode") String tenantCode,
+            @PathVariable("candidateId") Long candidateId,
+            @RequestPart("file") MultipartFile file);
 }

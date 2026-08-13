@@ -17,6 +17,7 @@ import iuh.fit.se.application.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -300,5 +301,126 @@ public class ApplicationService {
                 a.getRejectionReasonId(), a.getRejectionReasonId() == null ? null : reasonMap.get(a.getRejectionReasonId()),
                 a.getNote(), a.getAppliedAt()
         );
+    }
+
+    /**
+     * Public Career Portal apply.
+     */
+    @Transactional
+    public PublicApplyResponse createPublicApply(
+            String tenantCode,
+            Long jobPostingId,
+            String fullName,
+            String email,
+            String phone,
+            String note,
+            MultipartFile file) {
+
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("Vui lòng đính kèm file CV");
+        }
+        if (fullName == null || fullName.isBlank()) {
+            throw new BusinessException("Họ tên không được để trống");
+        }
+        if (email == null || email.isBlank()) {
+            throw new BusinessException("Email không được để trống");
+        }
+
+        // 1. Resolve tenant
+        var company = authServiceClient.getCompanyByTenantCode(tenantCode);
+        Long tenantId = company.tenantId();
+
+        // 2. Validate job OPEN
+        JobPostingResponse posting;
+        try {
+            posting = recruitmentServiceClient.getPublicOpenJob(tenantCode, jobPostingId);
+        } catch (Exception e) {
+            throw new BusinessException("Tin tuyển dụng không tồn tại hoặc đã đóng");
+        }
+        if (posting == null || !"OPEN".equalsIgnoreCase(String.valueOf(posting.status()))) {
+            throw new BusinessException("Chỉ ứng tuyển được vào tin đang mở");
+        }
+
+        // 3. Find or create candidate
+        CandidateSummaryResponse candidate = candidateServiceClient.findOrCreatePublic(
+                tenantCode,
+                new iuh.fit.se.application.client.dto.PublicCandidateCreateRequest(
+                        fullName.trim(), email.trim().toLowerCase(), phone)
+        );
+
+        // 4. Upload CV
+        candidate = candidateServiceClient.uploadCvPublic(tenantCode, candidate.id(), file);
+
+        // 5. Chống nộp trùng
+        if (applicationRepository.existsByTenantIdAndCandidateIdAndJobPostingIdAndDeletedAtIsNull(
+                tenantId, candidate.id(), jobPostingId)) {
+            throw new BusinessException("Bạn đã nộp hồ sơ vào vị trí này rồi");
+        }
+
+        // 6. Lấy nguồn tuyển dụng mặc định (Website / Career Site / cái đầu tiên)
+        Long sourceId = resolveDefaultRecruitmentSource(tenantId);
+
+        // 7. Lấy stage đầu của pipeline
+        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(tenantId, posting.pipelineId());
+        PipelineStageResponse firstStage = pipeline.stages().stream()
+                .min(Comparator.comparing(PipelineStageResponse::stageOrder))
+                .orElseThrow(() -> new BusinessException("Quy trình tuyển dụng chưa có giai đoạn nào"));
+
+        // 8. Tạo Application
+        Application application = applicationRepository.save(Application.builder()
+                .tenantId(tenantId)
+                .candidateId(candidate.id())
+                .candidateNameSnapshot(candidate.fullName())
+                .candidateEmailSnapshot(candidate.email())
+                .jobPostingId(jobPostingId)
+                .recruitmentSourceId(sourceId)
+                .resumeUrl(candidate.cvFileUrl())
+                .currentStageId(firstStage.id())
+                .currentStageName(firstStage.name())
+                .currentStageOrder(firstStage.stageOrder())
+                .currentStageType(firstStage.stageType())
+                .note(note)
+                .build());
+
+        saveHistory(application, null, firstStage.name(), "Ứng tuyển qua Career Portal", null);
+
+        // actorUserId = null vì public
+        eventPublisher.publishApplicationStatusChanged(
+                tenantId, application.getId(), application.getJobPostingId(),
+                application.getCandidateId(), null,
+                null, firstStage.name(), firstStage.stageType());
+
+        auditEventPublisher.publish(tenantId, null, "APPLICATION_CREATED_PUBLIC",
+                "APPLICATION", application.getId(), "Nộp qua Career Portal");
+
+        return new PublicApplyResponse(
+                application.getId(),
+                candidate.id(),
+                candidate.fullName(),
+                candidate.email(),
+                jobPostingId,
+                firstStage.name(),
+                application.getAppliedAt(),
+                "Nộp hồ sơ thành công. Chúng tôi sẽ liên hệ với bạn sớm."
+        );
+    }
+
+    private Long resolveDefaultRecruitmentSource(Long tenantId) {
+        List<CatalogItemResponse> sources = masterDataServiceClient.getRecruitmentSources(tenantId);
+        if (sources == null || sources.isEmpty()) {
+            throw new BusinessException(
+                    "Công ty chưa cấu hình nguồn tuyển dụng. Vui lòng liên hệ HR.");
+        }
+        // Ưu tiên tên chứa Website / Career / Trang web / Portal
+        return sources.stream()
+                .filter(s -> {
+                    String n = s.name() == null ? "" : s.name().toLowerCase();
+                    return n.contains("website") || n.contains("career")
+                            || n.contains("trang web") || n.contains("portal")
+                            || n.contains("web");
+                })
+                .map(CatalogItemResponse::id)
+                .findFirst()
+                .orElse(sources.get(0).id());
     }
 }

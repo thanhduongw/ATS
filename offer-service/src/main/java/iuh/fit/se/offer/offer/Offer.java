@@ -21,6 +21,10 @@ public class Offer {
     @Column(name = "application_id", nullable = false)
     private Long applicationId;
 
+    /** Filter offer cho Candidate */
+    @Column(name = "candidate_id")
+    private Long candidateId;
+
     @Column(name = "candidate_name_snapshot")
     private String candidateNameSnapshot;
 

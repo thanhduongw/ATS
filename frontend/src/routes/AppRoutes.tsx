@@ -26,42 +26,37 @@ import JobsPage from "../features/candidate/pages/JobsPage";
 export default function AppRoutes() {
     return (
         <Routes>
-            {/* ── Guest (unauthenticated) ──────── */}
             <Route element={<GuestRoute />}>
+                <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
-                <Route path="/login" element={<LoginPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
             </Route>
 
-            {/* ── Protected (authenticated) ────── */}
             <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
-                    {/* Dashboard — all roles */}
                     <Route path="/dashboard" element={<DashboardPage />} />
 
-                    {/* HR-only pages */}
+                    {/* HR-only */}
                     <Route element={<RoleRoute allow={[...HR_ROLES]} />}>
                         <Route path="/masterdata" element={<MasterDataPage />} />
                         <Route path="/candidates" element={<CandidatesPage />} />
-                        <Route path="/offers" element={<OffersPage />} />
                     </Route>
 
-                    {/* HR + Department pages */}
+                    {/* HR + Phòng ban — gồm Offer (HR tạo, Dept duyệt) */}
                     <Route element={<RoleRoute allow={[...HR_ROLES, ...DEPARTMENT_ROLES]} />}>
                         <Route path="/recruitment" element={<RecruitmentPage />} />
                         <Route path="/applications" element={<ApplicationsPage />} />
                         <Route path="/interviews" element={<InterviewsPage />} />
                         <Route path="/interviews/:interviewId/result" element={<InterviewsPage />} />
+                        <Route path="/offers" element={<OffersPage />} />
                     </Route>
 
-                    {/* Scheduling — HR + Dept + Candidate */}
                     <Route element={<RoleRoute allow={[...HR_ROLES, ...DEPARTMENT_ROLES, "CANDIDATE"]} />}>
                         <Route path="/scheduling" element={<InterviewSchedulingPage />} />
                     </Route>
 
-                    {/* Candidate-only pages */}
                     <Route element={<RoleRoute allow={["CANDIDATE"]} />}>
                         <Route path="/jobs" element={<JobsPage />} />
                         <Route path="/my-applications" element={<MyApplicationsPage />} />
@@ -69,17 +64,14 @@ export default function AppRoutes() {
                         <Route path="/offers/:id/view" element={<OfferCandidateViewPage />} />
                     </Route>
 
-                    {/* Admin-only pages */}
                     <Route element={<RoleRoute allow={["COMPANY_ADMIN", "PLATFORM_ADMIN"]} />}>
                         <Route path="/audit-logs" element={<AuditLogPage />} />
                     </Route>
 
-                    {/* Settings / Account — all authenticated roles */}
                     <Route path="/settings" element={<AuthManagementPage />} />
                 </Route>
             </Route>
 
-            {/* ── Fallback ─────────────────────── */}
             <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
     );

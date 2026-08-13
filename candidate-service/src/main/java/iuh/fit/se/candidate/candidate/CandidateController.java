@@ -58,16 +58,6 @@ public class CandidateController {
         return ResponseEntity.ok(service.update(tenantId, id, req));
     }
 
-    @PostMapping(value = "/{id}/cv", consumes = "multipart/form-data")
-    public ResponseEntity<CandidateResponse> uploadCv(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
-            @PathVariable Long id,
-            @RequestParam("file") MultipartFile file) {
-        AccessGuard.requireRecruiterOrAbove(role);
-        return ResponseEntity.ok(service.uploadCv(tenantId, id, file));
-    }
-
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(
             @RequestHeader("X-Tenant-Id") Long tenantId,

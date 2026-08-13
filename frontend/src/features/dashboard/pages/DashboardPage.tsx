@@ -45,7 +45,8 @@ function StatCard({ title, value, suffix, icon, gradient, trend, precision }: St
                                 ? <ArrowUpOutlined style={{ color: COLORS.success }} />
                                 : <ArrowDownOutlined style={{ color: COLORS.error }} />}
                             <span style={{ color: trend >= 0 ? COLORS.success : COLORS.error, fontWeight: 600 }}>
-                                {Math.abs(trend)}%
+                                {/* {Math.abs(trend)}% */}
+                                0
                             </span>
                             <span style={{ color: COLORS.textMuted }}>so với tháng trước</span>
                         </div>

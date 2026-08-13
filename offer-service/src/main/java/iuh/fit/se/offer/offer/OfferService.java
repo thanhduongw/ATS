@@ -2,6 +2,7 @@ package iuh.fit.se.offer.offer;
 
 import iuh.fit.se.offer.client.ApplicationServiceClient;
 import iuh.fit.se.offer.client.AuthServiceClient;
+import iuh.fit.se.offer.client.CandidateServiceClient;
 import iuh.fit.se.offer.client.MasterDataServiceClient;
 import iuh.fit.se.offer.client.dto.ApplicationAdvanceStageRequest;
 import iuh.fit.se.offer.client.dto.ApplicationRejectRequest;
@@ -14,12 +15,14 @@ import iuh.fit.se.offer.event.OfferEventPublisher;
 import iuh.fit.se.offer.exception.BusinessException;
 import iuh.fit.se.offer.offer.dto.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -36,21 +39,58 @@ public class OfferService {
     private final ApplicationServiceClient applicationServiceClient;
     private final AuthServiceClient authServiceClient;
     private final MasterDataServiceClient masterDataServiceClient;
+    private final CandidateServiceClient candidateServiceClient;
     private final OfferEventPublisher offerEventPublisher;
     private final AuditEventPublisher auditEventPublisher;
 
-    public List<OfferResponse> getAll(Long tenantId, Long applicationId) {
-        List<Offer> offers = applicationId != null
-                ? offerRepository.findByTenantIdAndApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, applicationId)
-                : offerRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
+    public List<OfferResponse> getAll(Long tenantId, Long userId, String role, Long applicationId) {
+        List<Offer> offers;
+
+        if (AccessGuard.isCandidate(role)) {
+            long candidateId = resolveCandidateId(tenantId, userId);
+            offers = offerRepository
+                    .findByTenantIdAndCandidateIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, candidateId);
+            if (applicationId != null) {
+                offers = offers.stream()
+                        .filter(o -> o.getApplicationId().equals(applicationId))
+                        .toList();
+            }
+        } else if (AccessGuard.isDepartment(role)) {
+            // Phòng ban: offer mình là approver
+            offers = offerRepository
+                    .findByTenantIdAndApproverIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, userId);
+            if (applicationId != null) {
+                offers = offers.stream()
+                        .filter(o -> o.getApplicationId().equals(applicationId))
+                        .toList();
+            }
+        } else if (AccessGuard.isHr(role)) {
+            offers = applicationId != null
+                    ? offerRepository.findByTenantIdAndApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(
+                    tenantId, applicationId)
+                    : offerRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
+        } else {
+            throw new AccessDeniedException("Bạn không có quyền xem Offer");
+        }
 
         Map<Long, String> userNameMap = buildUserNameMap(tenantId);
         Map<Long, String> contractTypeMap = buildCatalogMap(masterDataServiceClient.getContractTypes(tenantId));
         Map<Long, String> reasonMap = buildCatalogMap(masterDataServiceClient.getRejectionReasons(tenantId));
 
-        return offers.stream().map(o -> toResponse(o, userNameMap, contractTypeMap, reasonMap)).toList();
+        return offers.stream()
+                .map(o -> toResponse(o, userNameMap, contractTypeMap, reasonMap))
+                .toList();
     }
 
+    public OfferResponse getById(Long tenantId, Long userId, String role, Long id) {
+        Offer offer = findOwned(tenantId, id);
+        assertCanView(offer, userId, role);
+        return toResponse(offer, buildUserNameMap(tenantId),
+                buildCatalogMap(masterDataServiceClient.getContractTypes(tenantId)),
+                buildCatalogMap(masterDataServiceClient.getRejectionReasons(tenantId)));
+    }
+
+    /** Internal / Feign không cần role */
     public OfferResponse getById(Long tenantId, Long id) {
         Offer offer = findOwned(tenantId, id);
         return toResponse(offer, buildUserNameMap(tenantId),
@@ -63,11 +103,15 @@ public class OfferService {
         ApplicationSummaryResponse application = fetchApplicationSummary(tenantId, req.applicationId());
 
         if (!STAGE_TYPE_OFFER.equals(application.currentStageType())) {
-            throw new BusinessException("Chỉ tạo Offer khi hồ sơ đã đến giai đoạn Offer trong quy trình tuyển dụng");
+            throw new BusinessException(
+                    "Chỉ tạo Offer khi hồ sơ đã đến giai đoạn Offer trong quy trình tuyển dụng");
         }
 
-        boolean hasActiveOffer = offerRepository.findByTenantIdAndApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, req.applicationId())
-                .stream().anyMatch(o -> NON_TERMINAL.contains(o.getStatus()) || o.getStatus() == OfferStatus.ACCEPTED);
+        boolean hasActiveOffer = offerRepository
+                .findByTenantIdAndApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(
+                        tenantId, req.applicationId())
+                .stream()
+                .anyMatch(o -> NON_TERMINAL.contains(o.getStatus()) || o.getStatus() == OfferStatus.ACCEPTED);
         if (hasActiveOffer) {
             throw new BusinessException("Hồ sơ này đã có Offer đang xử lý hoặc đã được chấp nhận");
         }
@@ -78,6 +122,7 @@ public class OfferService {
         Offer saved = offerRepository.save(Offer.builder()
                 .tenantId(tenantId)
                 .applicationId(application.id())
+                .candidateId(application.candidateId())
                 .candidateNameSnapshot(application.candidateName())
                 .salaryOffered(req.salaryOffered())
                 .contractTypeId(req.contractTypeId())
@@ -92,6 +137,7 @@ public class OfferService {
                 .status(OfferStatus.DRAFT)
                 .build());
 
+        auditEventPublisher.publish(tenantId, requesterId, "OFFER_CREATED", "OFFER", saved.getId(), null);
         return getById(tenantId, saved.getId());
     }
 
@@ -145,7 +191,8 @@ public class OfferService {
         offer.setStatus(OfferStatus.APPROVED);
         offerRepository.save(offer);
 
-        offerEventPublisher.publishOfferApproved(tenantId, offer.getId(), offer.getApplicationId(), offer.getRequesterId());
+        offerEventPublisher.publishOfferApproved(
+                tenantId, offer.getId(), offer.getApplicationId(), offer.getRequesterId());
         auditEventPublisher.publish(tenantId, approverUserId, "OFFER_APPROVED", "OFFER", offer.getId(), null);
 
         return getById(tenantId, id);
@@ -162,31 +209,43 @@ public class OfferService {
         offer.setStatus(OfferStatus.REJECTED);
         offer.setRejectReason(req.reason());
         offerRepository.save(offer);
+
+        auditEventPublisher.publish(
+                tenantId, approverUserId, "OFFER_REJECTED", "OFFER", offer.getId(), req.reason());
         return getById(tenantId, id);
     }
 
     @Transactional
     public OfferResponse accept(Long tenantId, Long id, Long actorUserId, String userRole) {
         Offer offer = findOwned(tenantId, id);
+        assertCandidateOwns(tenantId, actorUserId, offer);
+
         if (offer.getStatus() != OfferStatus.APPROVED) {
             throw new BusinessException("Chỉ ghi nhận chấp nhận cho Offer đã được duyệt");
+        }
+        if (offer.getResponseDeadline() != null
+                && offer.getResponseDeadline().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("Offer đã hết hạn phản hồi");
         }
 
         offer.setStatus(OfferStatus.ACCEPTED);
         offerRepository.save(offer);
 
+        // Advance application → HIRED (SYSTEM role bỏ qua requireHr của application-service)
         applicationServiceClient.advanceStage(
                 tenantId, actorUserId, "SYSTEM", offer.getApplicationId(),
                 new ApplicationAdvanceStageRequest("Ứng viên đã chấp nhận Offer"));
 
         auditEventPublisher.publish(tenantId, actorUserId, "OFFER_ACCEPTED", "OFFER", offer.getId(), null);
-
         return getById(tenantId, id);
     }
 
     @Transactional
-    public OfferResponse decline(Long tenantId, Long id, Long actorUserId, String userRole, OfferDeclineRequest req) {
+    public OfferResponse decline(
+            Long tenantId, Long id, Long actorUserId, String userRole, OfferDeclineRequest req) {
         Offer offer = findOwned(tenantId, id);
+        assertCandidateOwns(tenantId, actorUserId, offer);
+
         if (offer.getStatus() != OfferStatus.APPROVED) {
             throw new BusinessException("Chỉ ghi nhận từ chối cho Offer đã được duyệt");
         }
@@ -198,11 +257,12 @@ public class OfferService {
 
         applicationServiceClient.reject(
                 tenantId, actorUserId, "SYSTEM", offer.getApplicationId(),
-                new ApplicationRejectRequest(req.declineReasonId(), "Ứng viên từ chối Offer: " +
-                        (req.note() != null ? req.note() : "")));
+                new ApplicationRejectRequest(
+                        req.declineReasonId(),
+                        "Ứng viên từ chối Offer: " + (req.note() != null ? req.note() : "")));
 
-        auditEventPublisher.publish(tenantId, actorUserId, "OFFER_DECLINED", "OFFER", offer.getId(), req.note());
-
+        auditEventPublisher.publish(
+                tenantId, actorUserId, "OFFER_DECLINED", "OFFER", offer.getId(), req.note());
         return getById(tenantId, id);
     }
 
@@ -217,16 +277,47 @@ public class OfferService {
         auditEventPublisher.publish(tenantId, actorUserId, "OFFER_DELETED", "OFFER", id, null);
     }
 
+    private void assertCanView(Offer offer, Long userId, String role) {
+        if (AccessGuard.isHr(role)) return;
+        if (AccessGuard.isDepartment(role)) {
+            if (!Objects.equals(offer.getApproverId(), userId)) {
+                throw new AccessDeniedException("Bạn không phải người duyệt Offer này");
+            }
+            return;
+        }
+        if (AccessGuard.isCandidate(role)) {
+            assertCandidateOwns(offer.getTenantId(), userId, offer);
+            return;
+        }
+        throw new AccessDeniedException("Bạn không có quyền xem Offer này");
+    }
+
+    private void assertCandidateOwns(Long tenantId, Long userId, Offer offer) {
+        long candidateId = resolveCandidateId(tenantId, userId);
+        if (!Objects.equals(offer.getCandidateId(), candidateId)) {
+            throw new AccessDeniedException("Đây không phải Offer của bạn");
+        }
+    }
+
+    private long resolveCandidateId(Long tenantId, Long userId) {
+        try {
+            return candidateServiceClient.getByUserId(tenantId, userId).id();
+        } catch (Exception e) {
+            throw new BusinessException("Không tìm thấy hồ sơ ứng viên gắn với tài khoản");
+        }
+    }
+
     private ApplicationSummaryResponse fetchApplicationSummary(Long tenantId, Long applicationId) {
         try {
-            return applicationServiceClient.getApplicationSummary(tenantId, applicationId);
+            return applicationServiceClient.getApplicationById(tenantId, applicationId);
         } catch (Exception e) {
             throw new BusinessException("Không tìm thấy hồ sơ ứng tuyển");
         }
     }
 
     private void validateContractType(Long tenantId, Long id) {
-        boolean valid = masterDataServiceClient.getContractTypes(tenantId).stream().anyMatch(c -> c.id().equals(id));
+        boolean valid = masterDataServiceClient.getContractTypes(tenantId).stream()
+                .anyMatch(c -> c.id().equals(id));
         if (!valid) throw new BusinessException("Loại hợp đồng không hợp lệ");
     }
 
@@ -250,7 +341,8 @@ public class OfferService {
 
     private Map<Long, String> buildCatalogMap(List<CatalogItemResponse> items) {
         if (items == null) return Map.of();
-        return items.stream().collect(Collectors.toMap(CatalogItemResponse::id, CatalogItemResponse::name, (a, b) -> a));
+        return items.stream()
+                .collect(Collectors.toMap(CatalogItemResponse::id, CatalogItemResponse::name, (a, b) -> a));
     }
 
     private Offer findOwned(Long tenantId, Long id) {
@@ -259,16 +351,32 @@ public class OfferService {
     }
 
     private OfferResponse toResponse(
-            Offer o, Map<Long, String> userNameMap, Map<Long, String> contractTypeMap, Map<Long, String> reasonMap) {
+            Offer o,
+            Map<Long, String> userNameMap,
+            Map<Long, String> contractTypeMap,
+            Map<Long, String> reasonMap) {
         return new OfferResponse(
-                o.getId(), o.getApplicationId(), o.getCandidateNameSnapshot() != null ? o.getCandidateNameSnapshot() : "N/A",
-                o.getSalaryOffered(), o.getContractTypeId(), contractTypeMap.getOrDefault(o.getContractTypeId(), "N/A"),
-                o.getStartDate(), o.getProbationMonths(), o.getResponseDeadline(), o.getBenefits(), o.getAllowance(), o.getNote(),
-                o.getRequesterId(), userNameMap.getOrDefault(o.getRequesterId(), "N/A"),
-                o.getApproverId(), userNameMap.getOrDefault(o.getApproverId(), "N/A"),
-                o.getStatus(), o.getRejectReason(),
+                o.getId(),
+                o.getApplicationId(),
+                o.getCandidateNameSnapshot() != null ? o.getCandidateNameSnapshot() : "N/A",
+                o.getSalaryOffered(),
+                o.getContractTypeId(),
+                contractTypeMap.getOrDefault(o.getContractTypeId(), "N/A"),
+                o.getStartDate(),
+                o.getProbationMonths(),
+                o.getResponseDeadline(),
+                o.getBenefits(),
+                o.getAllowance(),
+                o.getNote(),
+                o.getRequesterId(),
+                userNameMap.getOrDefault(o.getRequesterId(), "N/A"),
+                o.getApproverId(),
+                userNameMap.getOrDefault(o.getApproverId(), "N/A"),
+                o.getStatus(),
+                o.getRejectReason(),
                 o.getDeclineReasonId() == null ? null : reasonMap.get(o.getDeclineReasonId()),
-                o.getDeclineNote(), o.getCreatedAt()
+                o.getDeclineNote(),
+                o.getCreatedAt()
         );
     }
 }

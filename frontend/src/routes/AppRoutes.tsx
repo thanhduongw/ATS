@@ -22,6 +22,7 @@ import AuditLogPage from "../features/auditlog/pages/AuditLogPage";
 import AuthManagementPage from "../features/auth/pages/AuthManagementPage";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../app/roles";
 import JobsPage from "../features/candidate/pages/JobsPage";
+import NotificationsPage from "../features/notification/pages/NotificationsPage";
 
 export default function AppRoutes() {
     return (
@@ -37,7 +38,7 @@ export default function AppRoutes() {
             <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
                     <Route path="/dashboard" element={<DashboardPage />} />
-
+                    <Route path="/notifications" element={<NotificationsPage />} />
                     {/* HR-only */}
                     <Route element={<RoleRoute allow={[...HR_ROLES]} />}>
                         <Route path="/masterdata" element={<MasterDataPage />} />

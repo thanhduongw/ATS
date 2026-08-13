@@ -49,11 +49,10 @@ export default function AuthManagementPage() {
 
     const [passwordForm] = Form.useForm();
     const [profileForm] = Form.useForm();
-    const [companyForm] = Form.useForm();
+    // ❌ Bỏ companyForm hook — dùng initialValues + key thay thế
 
     const fetchProfile = useCallback(async () => {
         setLoadingProfile(true);
-
         try {
             const res = await getMyProfile();
             setProfile(res.data);
@@ -66,7 +65,6 @@ export default function AuthManagementPage() {
 
     const fetchCompany = useCallback(async () => {
         setLoadingCompany(true);
-
         try {
             const res = await getCompany();
             setCompany(res.data);
@@ -79,7 +77,6 @@ export default function AuthManagementPage() {
 
     const fetchUsers = useCallback(async () => {
         setLoadingUsers(true);
-
         try {
             const res = await getUsers();
             setUsers(res.data);
@@ -104,13 +101,7 @@ export default function AuthManagementPage() {
         }
     }, [profile, profileForm]);
 
-    useEffect(() => {
-        if (company) {
-            companyForm.setFieldsValue({
-                name: company.name,
-            });
-        }
-    }, [company, companyForm]);
+    // ❌ Bỏ useEffect set companyForm — thay bằng initialValues + key trên Card
 
     const handleUpdateProfile = async (values: { fullName: string }) => {
         try {
@@ -158,7 +149,6 @@ export default function AuthManagementPage() {
         }
     };
 
-    /* Initials for avatar */
     const getInitials = (name?: string, email?: string) => {
         const src = name || email || "?";
         const parts = src.split(" ").filter(Boolean);
@@ -200,11 +190,15 @@ export default function AuthManagementPage() {
             dataIndex: "status",
             key: "status",
             render: (status: string) => (
-                <Badge status={STATUS_COLORS[status] as "success" | "error" | "warning"} text={
-                    status === "ACTIVE" ? "Đang hoạt động"
-                        : status === "LOCKED" ? "Đã khóa"
-                            : "Chưa xác thực"
-                } />
+                <Badge
+                    status={(STATUS_COLORS[status] as "success" | "error" | "warning") ?? "default"}
+                    text={
+                        status === "ACTIVE" ? "Đang hoạt động"
+                            : status === "LOCKED" ? "Đã khóa"
+                                : status === "UNVERIFIED" ? "Chưa xác thực"
+                                    : status
+                    }
+                />
             ),
         },
         {
@@ -234,7 +228,6 @@ export default function AuthManagementPage() {
             ),
             children: (
                 <div style={{ maxWidth: 560 }}>
-                    {/* Profile header */}
                     <div style={{
                         display: "flex", alignItems: "center", gap: 20,
                         padding: "20px 24px", background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)",
@@ -257,7 +250,7 @@ export default function AuthManagementPage() {
                                 <Tag color={ROLE_COLORS[profile?.role || ""] || "default"}>
                                     {ROLE_LABELS[profile?.role as UserRole]?.vi ?? profile?.role}
                                 </Tag>
-                                <Tag color={STATUS_COLORS[profile?.status || ""] as string}>
+                                <Tag color={STATUS_COLORS[profile?.status || ""] || "default"}>
                                     {profile?.status === "ACTIVE" ? "Đang hoạt động" : profile?.status}
                                 </Tag>
                             </div>
@@ -280,7 +273,6 @@ export default function AuthManagementPage() {
                         </Form>
                     </Card>
 
-                    {/* Tenant info */}
                     <Card title="Thông tin tài khoản" style={{ border: "1px solid #E5E7EB" }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                             <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -313,7 +305,6 @@ export default function AuthManagementPage() {
             ),
             children: (
                 <div style={{ maxWidth: 560 }}>
-                    {/* Company header */}
                     <div style={{
                         display: "flex", alignItems: "center", gap: 20,
                         padding: "20px 24px", background: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)",
@@ -338,8 +329,18 @@ export default function AuthManagementPage() {
                         </div>
                     </div>
 
-                    <Card loading={loadingCompany} title={<><EditOutlined style={{ marginRight: 8, color: "#3B82F6" }} />Cập nhật công ty</>} style={{ border: "1px solid #E5E7EB" }}>
-                        <Form layout="vertical" form={companyForm} onFinish={handleUpdateCompany}>
+                    {/* ✅ Dùng key để remount + initialValues thay cho form hook */}
+                    <Card
+                        key={`company-${company?.id ?? "loading"}`}
+                        loading={loadingCompany}
+                        title={<><EditOutlined style={{ marginRight: 8, color: "#3B82F6" }} />Cập nhật công ty</>}
+                        style={{ border: "1px solid #E5E7EB" }}
+                    >
+                        <Form
+                            layout="vertical"
+                            onFinish={handleUpdateCompany}
+                            initialValues={{ name: company?.name }}
+                        >
                             <Form.Item label="Tên công ty" name="name" rules={[{ required: true }]}>
                                 <Input
                                     prefix={<BankOutlined style={{ color: "#9CA3AF" }} />}
@@ -390,7 +391,6 @@ export default function AuthManagementPage() {
 
     return (
         <div className="page-container animate-fade-in">
-            {/* Page Header */}
             <div className="page-header" style={{ marginBottom: 24 }}>
                 <div className="page-header-title">
                     <div style={{
@@ -412,13 +412,14 @@ export default function AuthManagementPage() {
                 <Tabs items={tabItems} size="large" />
             </Card>
 
-            {/* Password Modal */}
+            {/* ✅ forceRender để Form mount ngay từ đầu, tránh warning */}
             <Modal
                 title={<><LockOutlined style={{ marginRight: 8, color: COLORS.primary }} />Đổi mật khẩu</>}
                 open={isPasswordModalOpen}
                 onCancel={() => setIsPasswordModalOpen(false)}
                 footer={null}
                 width={440}
+                forceRender
             >
                 <Form layout="vertical" form={passwordForm} onFinish={handleChangePassword} style={{ marginTop: 16 }}>
                     <Form.Item

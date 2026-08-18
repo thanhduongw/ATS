@@ -155,7 +155,7 @@ export default function InterviewCreateModal({ open, applicationId, onClose, onS
           />
         </Form.Item>
 
-        <Form.Item label="Ghi chú (không bắt buộc)">
+        <Form.Item label="Ghi chú ">
           <Controller
             name="note"
             control={control}

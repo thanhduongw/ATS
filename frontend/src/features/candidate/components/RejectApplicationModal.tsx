@@ -69,7 +69,7 @@ export default function RejectApplicationModal({ open, applicationId, onClose, o
             )}
           />
         </Form.Item>
-        <Form.Item label="Ghi chú thêm (không bắt buộc)">
+        <Form.Item label="Ghi chú thêm ">
           <Controller
             name="note"
             control={control}

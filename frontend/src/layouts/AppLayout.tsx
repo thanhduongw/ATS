@@ -57,7 +57,9 @@ export default function AppLayout() {
     const MENU_BY_ROLE: Record<UserRole, typeof all[keyof typeof all][]> = {
         PLATFORM_ADMIN: [all.dashboard, all.audit],
         COMPANY_ADMIN: [all.dashboard, all.masterdata, all.recruitment, all.candidates, all.applications, all.scheduling, all.interviews, all.offers, all.audit, all.settings],
-        RECRUITER: [all.dashboard, all.masterdata, all.recruitment, all.candidates, all.applications, all.scheduling, all.interviews, all.offers, all.settings],
+        RECRUITER: [all.dashboard, all.masterdata, all.recruitment, all.candidates,
+        // all.applications,
+        all.scheduling, all.interviews, all.offers, all.settings],
         HIRING_MANAGER: [all.dashboard, all.recruitment, all.applications, all.scheduling, all.interviews, all.offers, all.settings,],
         CANDIDATE: [all.jobs, all.myApplications, all.scheduling],
     };

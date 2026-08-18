@@ -246,7 +246,7 @@ export default function RequisitionDetailDrawer({
                             <InputNumber style={{ width: "100%" }} min={0} placeholder={String(requisition.expectedSalaryMax ?? "")} />
                         </Form.Item>
                     </div>
-                    <Form.Item label="Ghi chú (không bắt buộc)" name="note">
+                    <Form.Item label="Ghi chú " name="note">
                         <Input.TextArea rows={2} placeholder="Ví dụ: duyệt theo ngân sách quý này" />
                     </Form.Item>
                 </Form>

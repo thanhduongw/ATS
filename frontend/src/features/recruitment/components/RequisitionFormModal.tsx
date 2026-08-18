@@ -162,7 +162,7 @@ export default function RequisitionFormModal({
                 </div>
 
                 <div style={{ display: "flex", gap: 16 }}>
-                    <Form.Item label="Cấp bậc (không bắt buộc)" style={{ flex: 1 }}>
+                    <Form.Item label="Cấp bậc " style={{ flex: 1 }}>
                         <Controller
                             name="jobLevelId"
                             control={control}
@@ -207,7 +207,7 @@ export default function RequisitionFormModal({
                     </Form.Item>
                 </div>
 
-                <Form.Item label="Ngân sách (không bắt buộc)">
+                <Form.Item label="Ngân sách ">
                     <Controller
                         name="budget"
                         control={control}
@@ -215,7 +215,7 @@ export default function RequisitionFormModal({
                     />
                 </Form.Item>
 
-                <Form.Item label="Ngày cần tuyển (không bắt buộc)">
+                <Form.Item label="Ngày cần tuyển ">
                     <Controller
                         name="expectedStartDate"
                         control={control}
@@ -229,7 +229,7 @@ export default function RequisitionFormModal({
                     />
                 </Form.Item>
 
-                <Form.Item label="Mô tả (không bắt buộc)">
+                <Form.Item label="Mô tả ">
                     <Controller
                         name="description"
                         control={control}

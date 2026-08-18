@@ -408,7 +408,7 @@ export default function DashboardPage() {
             </Row>
 
             {/* ── Recruitment Funnel ── */}
-            {funnelSteps.length > 0 && (
+            {/* {funnelSteps.length > 0 && (
                 <Card
                     title={
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -499,7 +499,7 @@ export default function DashboardPage() {
                         })}
                     </div>
                 </Card>
-            )}
+            )} */}
 
             {/* Charts */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
@@ -664,7 +664,7 @@ export default function DashboardPage() {
                             <Col span={12}>
                                 <QuickAction
                                     icon={<AppstoreOutlined />}
-                                    label="Kanban Ứng tuyển"
+                                    label="Hồ sơ ứng tuyển"
                                     color="#3B82F6"
                                     onClick={() => navigate("/applications")}
                                 />

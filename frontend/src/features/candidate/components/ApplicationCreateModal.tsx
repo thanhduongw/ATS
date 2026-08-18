@@ -143,7 +143,7 @@ export default function ApplicationCreateModal({
           />
         </Form.Item>
 
-        <Form.Item label="Người phụ trách (không bắt buộc)">
+        <Form.Item label="Người phụ trách ">
           <Controller
             name="assignedRecruiterId"
             control={control}
@@ -153,7 +153,7 @@ export default function ApplicationCreateModal({
           />
         </Form.Item>
 
-        <Form.Item label="Ghi chú (không bắt buộc)">
+        <Form.Item label="Ghi chú ">
           <Controller
             name="note"
             control={control}

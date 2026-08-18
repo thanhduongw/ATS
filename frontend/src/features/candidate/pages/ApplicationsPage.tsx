@@ -73,13 +73,16 @@ export default function ApplicationsPage() {
 
     const columns = [
         { title: "Ứng viên", dataIndex: "candidateName", key: "candidateName" },
-        { title: "Job Posting ID", dataIndex: "jobPostingId", key: "jobPostingId" },
+        {
+            title: "Vị trí ứng tuyển",
+            key: "jobTitle",
+            render: (_: unknown, r: ApplicationResponse) =>
+                r.jobTitle || `Job #${r.jobPostingId}`,
+        },
         {
             title: "Giai đoạn",
             key: "stage",
-            render: (_: unknown, r: ApplicationResponse) => (
-                <Tag>{r.currentStageName}</Tag>
-            ),
+            render: (_: unknown, r: ApplicationResponse) => <Tag>{r.currentStageName}</Tag>,
         },
         {
             title: "CV",

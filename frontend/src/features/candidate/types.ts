@@ -34,6 +34,8 @@ export interface ApplicationResponse {
   candidateId: number;
   candidateName: string;
   jobPostingId: number;
+  jobTitle?: string;
+  jobPostingTitle?: string;
   recruitmentSourceId: number;
   recruitmentSourceName: string;
   assignedRecruiterId: number | null;
@@ -47,6 +49,9 @@ export interface ApplicationResponse {
   rejectionReasonName: string | null;
   note: string | null;
   appliedAt: string;
+}
+export interface CandidateWithApplications extends CandidateResponse {
+  applications: ApplicationResponse[];
 }
 
 export interface ApplicationCreateRequest {

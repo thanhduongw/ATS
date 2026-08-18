@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { App, Card, Table, Button, Tag, Space, Input, Select, Row, Col, Tooltip, Avatar } from "antd";
 import { PlusOutlined, UploadOutlined, SendOutlined, SearchOutlined, UserOutlined, FilePdfOutlined, FileUnknownOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import type { ColumnsType } from "antd/es/table";
 import { getCandidates } from "../candidateApi";
-import type { ApiMessageResponse, CandidateResponse } from "../types";
+import { getApplications } from "../applicationApi";
+import type { ApiMessageResponse, CandidateResponse, ApplicationResponse, CandidateWithApplications } from "../types";
 import CandidateFormModal from "../components/CandidateFormModal";
 import CvUploadModal from "../components/CvUploadModal";
 import ApplicationCreateModal from "../components/ApplicationCreateModal";
@@ -13,24 +14,27 @@ import { COLORS, GRADIENTS } from "../../../app/theme";
 export default function CandidatesPage() {
     const { notification } = App.useApp();
     const [candidates, setCandidates] = useState<CandidateResponse[]>([]);
+    const [applications, setApplications] = useState<ApplicationResponse[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState("");
     const [filterCvStatus, setFilterCvStatus] = useState<"all" | "has_cv" | "no_cv">("all");
 
     const [formModalOpen, setFormModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<CandidateResponse | null>(null);
-
     const [cvModalOpen, setCvModalOpen] = useState(false);
     const [cvCandidateId, setCvCandidateId] = useState<number | null>(null);
-
     const [applyModalOpen, setApplyModalOpen] = useState(false);
     const [applyCandidateId, setApplyCandidateId] = useState<number | undefined>(undefined);
 
-    const loadCandidates = useCallback(async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await getCandidates();
-            setCandidates(res.data);
+            const [candRes, appRes] = await Promise.all([
+                getCandidates(),
+                getApplications(),          // lấy tất cả đơn ứng tuyển
+            ]);
+            setCandidates(candRes.data);
+            setApplications(appRes.data);
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             notification.error({
@@ -41,41 +45,58 @@ export default function CandidatesPage() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [notification]);
 
-    useEffect(() => { loadCandidates(); }, [loadCandidates]);
+    useEffect(() => { loadData(); }, [loadData]);
 
-    /* ── Filter logic ─────────────────────────────────── */
-    const filtered = candidates.filter((c) => {
+    // Gộp ứng viên + danh sách vị trí đã ứng tuyển
+    const candidatesWithApps: CandidateWithApplications[] = useMemo(() => {
+        const appByCandidate = applications.reduce<Record<number, ApplicationResponse[]>>((acc, app) => {
+            (acc[app.candidateId] ??= []).push(app);
+            return acc;
+        }, {});
+
+        return candidates.map((c) => ({
+            ...c,
+            applications: appByCandidate[c.id] ?? [],
+        }));
+    }, [candidates, applications]);
+
+    /* ── Filter ─────────────────────────────────── */
+    const filtered = candidatesWithApps.filter((c) => {
         const matchText = !searchText ||
             c.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
             c.email.toLowerCase().includes(searchText.toLowerCase()) ||
-            (c.skillNames?.some(s => s.toLowerCase().includes(searchText.toLowerCase())));
+            (c.skillNames?.some(s => s.toLowerCase().includes(searchText.toLowerCase()))) ||
+            (c.applications.some(a =>
+                (a.jobTitle || "").toLowerCase().includes(searchText.toLowerCase()) ||
+                a.currentStageName.toLowerCase().includes(searchText.toLowerCase())
+            ));
+
         const matchCv =
             filterCvStatus === "all" ||
             (filterCvStatus === "has_cv" && !!c.cvFileUrl) ||
             (filterCvStatus === "no_cv" && !c.cvFileUrl);
+
         return matchText && matchCv;
     });
 
-    /* ── Summary stats ────────────────────────────────── */
     const totalWithCv = candidates.filter(c => !!c.cvFileUrl).length;
     const totalNoCv = candidates.filter(c => !c.cvFileUrl).length;
 
-    /* ── Get initials ─────────────────────────────────── */
     const getInitials = (name: string) => {
         const parts = name.split(" ").filter(Boolean);
         if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
         return name.substring(0, 2).toUpperCase();
     };
 
-    /* Avatar gradient colors for variety */
     const AVATAR_COLORS = [GRADIENTS.stat1, GRADIENTS.stat2, GRADIENTS.stat3, GRADIENTS.stat4];
 
-    const columns: ColumnsType<CandidateResponse> = [
+    const columns: ColumnsType<CandidateWithApplications> = [
         {
             title: "Ứng viên",
             key: "candidate",
+            width: 220,
             render: (_, record, index) => (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Avatar
@@ -90,20 +111,48 @@ export default function CandidatesPage() {
                     <div>
                         <div style={{ fontWeight: 600, color: COLORS.textPrimary }}>{record.fullName}</div>
                         <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{record.email}</div>
+                        {record.phone && (
+                            <div style={{ fontSize: 12, color: COLORS.textMuted }}>{record.phone}</div>
+                        )}
                     </div>
                 </div>
             ),
         },
         {
-            title: "Điện thoại",
-            dataIndex: "phone",
-            key: "phone",
-            render: (v) => v || <span style={{ color: COLORS.textMuted }}>—</span>,
+            title: "Vị trí ứng tuyển",
+            key: "applications",
+            width: 280,
+            render: (_, record) => {
+                if (!record.applications.length) {
+                    return <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Chưa ứng tuyển</span>;
+                }
+                return (
+                    <Space direction="vertical" size={4} style={{ width: "100%" }}>
+                        {record.applications.map((app) => (
+                            <div key={app.id} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                <Tag color="geekblue" style={{ borderRadius: 6, margin: 0, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    {app.jobTitle || `Job #${app.jobPostingId}`}
+                                </Tag>
+                                <Tag
+                                    color={
+                                        app.currentStageType === "REJECTED" ? "red" :
+                                            app.currentStageType === "HIRED" ? "green" : "processing"
+                                    }
+                                    style={{ borderRadius: 6, margin: 0, fontSize: 11 }}
+                                >
+                                    {app.currentStageName}
+                                </Tag>
+                            </div>
+                        ))}
+                    </Space>
+                );
+            },
         },
         {
             title: "Học vấn",
             dataIndex: "educationLevelName",
             key: "educationLevelName",
+            width: 120,
             render: (v) => v
                 ? <Tag style={{ borderRadius: 6 }}>{v}</Tag>
                 : <span style={{ color: COLORS.textMuted }}>—</span>,
@@ -112,6 +161,7 @@ export default function CandidatesPage() {
             title: "Kỹ năng",
             dataIndex: "skillNames",
             key: "skillNames",
+            width: 180,
             render: (names: string[]) => (
                 <Space wrap size={4}>
                     {names?.slice(0, 3).map((n) => (
@@ -129,22 +179,23 @@ export default function CandidatesPage() {
             title: "CV",
             dataIndex: "cvFileUrl",
             key: "cvFileUrl",
+            width: 100,
             render: (url: string | null) =>
                 url ? (
                     <a href={url} target="_blank" rel="noopener noreferrer"
                         style={{ display: "flex", alignItems: "center", gap: 4, color: COLORS.primary, fontWeight: 500 }}>
-                        <FilePdfOutlined />Xem CV
+                        <FilePdfOutlined /> Xem
                     </a>
                 ) : (
                     <span style={{ color: COLORS.textMuted, display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
-                        <FileUnknownOutlined />Chưa có
+                        <FileUnknownOutlined /> Chưa có
                     </span>
                 ),
         },
         {
             title: "Thao tác",
             key: "actions",
-            fixed: "right" as const,
+            fixed: "right",
             width: 180,
             render: (_, record) => (
                 <Space size={4}>
@@ -173,7 +224,7 @@ export default function CandidatesPage() {
 
     return (
         <div className="page-container animate-fade-in">
-            {/* ── Page Header ──────────────────── */}
+            {/* Header giữ nguyên */}
             <div className="page-header">
                 <div className="page-header-title">
                     <div style={{
@@ -195,7 +246,7 @@ export default function CandidatesPage() {
                 </Button>
             </div>
 
-            {/* ── Summary Cards ─────────────────── */}
+            {/* Summary cards giữ nguyên */}
             <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
                 {[
                     { label: "Tổng ứng viên", value: candidates.length, color: COLORS.primary, bg: "#F0FDF4" },
@@ -211,16 +262,14 @@ export default function CandidatesPage() {
                 ))}
             </Row>
 
-            {/* ── Main Table Card ─────────────── */}
             <Card style={{ border: "none" }}>
-                {/* Filter bar */}
                 <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
                     <Input
                         prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
-                        placeholder="Tìm theo tên, email, kỹ năng..."
+                        placeholder="Tìm theo tên, email, kỹ năng, vị trí..."
                         value={searchText}
                         onChange={e => setSearchText(e.target.value)}
-                        style={{ width: 280 }}
+                        style={{ width: 300 }}
                         allowClear
                     />
                     <Select
@@ -244,18 +293,17 @@ export default function CandidatesPage() {
                     columns={columns}
                     dataSource={filtered}
                     pagination={{ pageSize: 10, size: "small", showSizeChanger: false }}
-                    scroll={{ x: 800 }}
+                    scroll={{ x: 1000 }}
                     rowHoverable
                 />
             </Card>
 
-            {/* ── Modals ────────────────────────── */}
             <CandidateFormModal open={formModalOpen} editingItem={editingItem}
-                onClose={() => setFormModalOpen(false)} onSuccess={loadCandidates} />
+                onClose={() => setFormModalOpen(false)} onSuccess={loadData} />
             <CvUploadModal open={cvModalOpen} candidateId={cvCandidateId}
-                onClose={() => setCvModalOpen(false)} onSuccess={loadCandidates} />
+                onClose={() => setCvModalOpen(false)} onSuccess={loadData} />
             <ApplicationCreateModal open={applyModalOpen} presetCandidateId={applyCandidateId}
-                onClose={() => setApplyModalOpen(false)} onSuccess={loadCandidates} />
+                onClose={() => setApplyModalOpen(false)} onSuccess={loadData} />
         </div>
     );
 }

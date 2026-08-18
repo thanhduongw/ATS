@@ -7,6 +7,7 @@ public record ApplicationResponse(
         Long candidateId,
         String candidateName,
         Long jobPostingId,
+        String jobTitle,
         Long recruitmentSourceId,
         String recruitmentSourceName,
         Long assignedRecruiterId,

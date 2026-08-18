@@ -56,7 +56,26 @@ public class ApplicationService {
         Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
 
-        return applications.stream().map(a -> toResponse(a, sourceMap, reasonMap, userMap)).toList();
+        // Lấy title của tất cả job posting liên quan (tránh N+1)
+        Map<Long, String> jobTitleMap = applications.stream()
+                .map(Application::getJobPostingId)
+                .distinct()
+                .collect(Collectors.toMap(
+                        id -> id,
+                        id -> {
+                            try {
+                                JobPostingResponse p = recruitmentServiceClient.getPostingById(tenantId, id);
+                                return p.title() != null ? p.title() : "Job #" + id;
+                            } catch (Exception e) {
+                                return "Job #" + id;
+                            }
+                        },
+                        (a, b) -> a
+                ));
+
+        return applications.stream()
+                .map(a -> toResponse(a, sourceMap, reasonMap, userMap, jobTitleMap))
+                .toList();
     }
 
     public ApplicationResponse getById(Long tenantId, Long userId, String role, Long id) {
@@ -65,7 +84,51 @@ public class ApplicationService {
         Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons(tenantId));
         Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
-        return toResponse(application, sourceMap, reasonMap, userMap);
+
+        Map<Long, String> jobTitleMap = Map.of(
+                application.getJobPostingId(),
+                safeGetJobTitle(tenantId, application.getJobPostingId())
+        );
+
+        return toResponse(application, sourceMap, reasonMap, userMap, jobTitleMap);
+    }
+
+    private String safeGetJobTitle(Long tenantId, Long jobPostingId) {
+        try {
+            JobPostingResponse p = recruitmentServiceClient.getPostingById(tenantId, jobPostingId);
+            return p.title() != null ? p.title() : "Job #" + jobPostingId;
+        } catch (Exception e) {
+            return "Job #" + jobPostingId;
+        }
+    }
+
+    private ApplicationResponse toResponse(
+            Application a,
+            Map<Long, String> sourceMap,
+            Map<Long, String> reasonMap,
+            Map<Long, String> userMap,
+            Map<Long, String> jobTitleMap) {
+
+        return new ApplicationResponse(
+                a.getId(),
+                a.getCandidateId(),
+                a.getCandidateNameSnapshot(),
+                a.getJobPostingId(),
+                jobTitleMap.getOrDefault(a.getJobPostingId(), "Job #" + a.getJobPostingId()),  // ← title ở đây
+                a.getRecruitmentSourceId(),
+                sourceMap.getOrDefault(a.getRecruitmentSourceId(), "N/A"),
+                a.getAssignedRecruiterId(),
+                a.getAssignedRecruiterId() == null ? null : userMap.get(a.getAssignedRecruiterId()),
+                a.getResumeUrl(),
+                a.getCurrentStageId(),
+                a.getCurrentStageName(),
+                a.getCurrentStageOrder(),
+                a.getCurrentStageType(),
+                a.getRejectionReasonId(),
+                a.getRejectionReasonId() == null ? null : reasonMap.get(a.getRejectionReasonId()),
+                a.getNote(),
+                a.getAppliedAt()
+        );
     }
 
     public ApplicationSummaryResponse getSummaryById(Long tenantId, Long id) {
@@ -289,18 +352,6 @@ public class ApplicationService {
     private Application findOwned(Long tenantId, Long id) {
         return applicationRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy hồ sơ ứng tuyển"));
-    }
-
-    private ApplicationResponse toResponse(
-            Application a, Map<Long, String> sourceMap, Map<Long, String> reasonMap, Map<Long, String> userMap) {
-        return new ApplicationResponse(
-                a.getId(), a.getCandidateId(), a.getCandidateNameSnapshot(),
-                a.getJobPostingId(), a.getRecruitmentSourceId(), sourceMap.getOrDefault(a.getRecruitmentSourceId(), "N/A"),
-                a.getAssignedRecruiterId(), a.getAssignedRecruiterId() == null ? null : userMap.get(a.getAssignedRecruiterId()),
-                a.getResumeUrl(), a.getCurrentStageId(), a.getCurrentStageName(), a.getCurrentStageOrder(), a.getCurrentStageType(),
-                a.getRejectionReasonId(), a.getRejectionReasonId() == null ? null : reasonMap.get(a.getRejectionReasonId()),
-                a.getNote(), a.getAppliedAt()
-        );
     }
 
     /**

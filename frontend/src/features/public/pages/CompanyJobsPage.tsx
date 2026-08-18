@@ -85,9 +85,6 @@ export default function CompanyJobsPage() {
                 description="Không tìm thấy công ty hoặc công ty không hoạt động"
                 style={{ marginTop: 80 }}
             >
-                <Button type="primary" onClick={() => navigate("/login")}>
-                    Về trang đăng nhập
-                </Button>
             </Empty>
         );
     }

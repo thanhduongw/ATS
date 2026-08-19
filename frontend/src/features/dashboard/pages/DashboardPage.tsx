@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Col, Row, Spin, Typography } from "antd";
+import { Card, Col, Row, Spin } from "antd";
 import {
     BarChart,
     Bar,
@@ -28,15 +28,12 @@ import {
     CalendarOutlined,
     FileTextOutlined,
     AppstoreOutlined,
-    FilterOutlined,
 } from "@ant-design/icons";
 import { getDashboardSummary } from "../dashboardApi";
 import type { DashboardSummaryResponse } from "../types";
 import { GRADIENTS, COLORS } from "../../../app/theme";
 import { useAppSelector } from "../../../app/hooks";
 import { useNavigate } from "react-router-dom";
-
-const { Text } = Typography;
 
 interface StatCardProps {
     title: string;
@@ -199,15 +196,6 @@ const PIE_COLORS = [
     "#10B981",
 ];
 
-const FUNNEL_COLORS = [
-    "#8B5CF6",
-    "#3B82F6",
-    "#0E7A5F",
-    "#F59E0B",
-    "#EC4899",
-    "#10B981",
-];
-
 export default function DashboardPage() {
     const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
     const [loading, setLoading] = useState(false);
@@ -247,19 +235,6 @@ export default function DashboardPage() {
                 stage,
             }))
         : [];
-
-    const funnelSteps = summary?.funnel
-        ? [
-            { key: "Req", label: "Requisition", value: summary.funnel.requisitions },
-            { key: "Posting", label: "Job Posting", value: summary.funnel.postings },
-            { key: "Apply", label: "Application", value: summary.funnel.applications },
-            { key: "Interview", label: "Interview", value: summary.funnel.interviews },
-            { key: "Offer", label: "Offer", value: summary.funnel.offers },
-            { key: "Hired", label: "Hired", value: summary.funnel.hired },
-        ]
-        : [];
-
-    const funnelMax = Math.max(...funnelSteps.map((s) => s.value), 1);
 
     if (loading) {
         return (

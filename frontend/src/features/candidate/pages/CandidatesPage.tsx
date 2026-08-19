@@ -127,7 +127,7 @@ export default function CandidatesPage() {
                     return <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Chưa ứng tuyển</span>;
                 }
                 return (
-                    <Space direction="vertical" size={4} style={{ width: "100%" }}>
+                    <Space orientation="vertical" size={4} style={{ width: "100%" }}>
                         {record.applications.map((app) => (
                             <div key={app.id} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                 <Tag color="geekblue" style={{ borderRadius: 6, margin: 0, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>

@@ -17,7 +17,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # 2. Start Backend Services
-Write-Host "`n[Bước 2/3] Khởi động 8 Microservices Backend..." -ForegroundColor Yellow
+Write-Host "`n[Bước 2/3] Khởi động 10 Backend Microservices (1 Gateway + 9 Services)..." -ForegroundColor Yellow
 
 $services = @(
     @{ Name = "API Gateway"; Port = 8080; Dir = "api-gateway" },
@@ -34,13 +34,13 @@ $services = @(
 
 foreach ($s in $services) {
     Write-Host "  -> Khởi động $($s.Name) (Port $($s.Port))..." -ForegroundColor DarkCyan
-    Start-Process cmd.exe -ArgumentList "/k cd /d d:\KLTN\ATS\$($s.Dir) && mvnw.cmd spring-boot:run"
+    Start-Process cmd.exe -ArgumentList "/k cd /d ""$PSScriptRoot\$($s.Dir)"" && mvnw.cmd spring-boot:run"
     Start-Sleep -Seconds 2
 }
 
 # 3. Start Frontend
 Write-Host "`n[Bước 3/3] Khởi động Frontend React..." -ForegroundColor Yellow
-Start-Process cmd.exe -ArgumentList "/k cd /d d:\KLTN\ATS\frontend && npm run dev"
+Start-Process cmd.exe -ArgumentList "/k cd /d ""$PSScriptRoot\frontend"" && npm run dev"
 
 Write-Host "`n====================================================" -ForegroundColor Cyan
 Write-Host "  HỆ THỐNG ĐÃ ĐƯỢC KHỞI ĐỘNG!" -ForegroundColor Green

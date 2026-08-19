@@ -34,6 +34,12 @@ public class AuthController {
         return ResponseEntity.ok(new ApiMessageResponse("Xác thực thành công"));
     }
 
+    @PostMapping("/resend-otp")
+    public ResponseEntity<ApiMessageResponse> resendOtp(@Valid @RequestBody ResendOtpRequest req) {
+        registerService.resendOtp(req);
+        return ResponseEntity.ok(new ApiMessageResponse("Mã OTP mới đã được gửi tới email của bạn"));
+    }
+
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest req) {
         return ResponseEntity.ok(loginService.login(req));
@@ -90,6 +96,22 @@ public class AuthController {
         userService.createUser(tenantId, actorUserId, req);
         return ResponseEntity.ok(new ApiMessageResponse("Tạo tài khoản thành công"));
     }
+
+    @PatchMapping("/users/{id}/status")
+    public ResponseEntity<ApiMessageResponse> updateUserStatus(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String requesterRole,
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateUserStatusRequest req) {
+
+        if (!"COMPANY_ADMIN".equals(requesterRole)) {
+            throw new AccessDeniedException("Chỉ Company Admin được cập nhật trạng thái tài khoản");
+        }
+        userService.updateUserStatus(tenantId, actorUserId, id, req);
+        return ResponseEntity.ok(new ApiMessageResponse("Cập nhật trạng thái tài khoản thành công"));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> getMyProfile(
             @RequestHeader("X-User-Id") Long userId) {

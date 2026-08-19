@@ -297,15 +297,6 @@ export default function JobDetailApplyPage() {
     };
 
     /**
-     * Apply another job/application
-     */
-    const handleApplyAgain = () => {
-        setSuccess(null);
-        setFileList([]);
-        form.resetFields();
-    };
-
-    /**
      * Scroll xuống form ứng tuyển — dùng trên mobile khi cột form
      * nằm dưới cùng, tránh người dùng phải tự cuộn tìm
      */

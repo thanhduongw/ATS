@@ -89,7 +89,7 @@ export default function ApplicationDetailDrawer({ open, application, onClose }: 
 
       <OfferCreateModal
         open={offerModalOpen}
-        applicationId={application.id}
+        defaultApplicationId={application.id}
         onClose={() => setOfferModalOpen(false)}
         onSuccess={() => setOfferModalOpen(false)}
       />

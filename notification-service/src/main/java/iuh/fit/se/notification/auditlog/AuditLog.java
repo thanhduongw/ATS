@@ -7,16 +7,21 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "audit_log")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class AuditLog {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 
-    @Column(name = "actor_user_id", nullable = false)
+    @Column(name = "actor_user_id", nullable = true)
     private Long actorUserId;
 
     @Column(nullable = false)

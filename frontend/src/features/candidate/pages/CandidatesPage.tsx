@@ -14,10 +14,15 @@ import { COLORS, GRADIENTS } from "../../../app/theme";
 export default function CandidatesPage() {
     const { notification } = App.useApp();
     const [candidates, setCandidates] = useState<CandidateResponse[]>([]);
+    const [totalCandidates, setTotalCandidates] = useState(0);
+    const [cvBreakdown, setCvBreakdown] = useState({ withCv: 0, withoutCv: 0 });
     const [applications, setApplications] = useState<ApplicationResponse[]>([]);
     const [loading, setLoading] = useState(false);
-    const [searchText, setSearchText] = useState("");
+    const [searchInput, setSearchInput] = useState("");
+    const [keyword, setKeyword] = useState("");
     const [filterCvStatus, setFilterCvStatus] = useState<"all" | "has_cv" | "no_cv">("all");
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     const [formModalOpen, setFormModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<CandidateResponse | null>(null);
@@ -26,15 +31,31 @@ export default function CandidatesPage() {
     const [applyModalOpen, setApplyModalOpen] = useState(false);
     const [applyCandidateId, setApplyCandidateId] = useState<number | undefined>(undefined);
 
+    // Debounce ô tìm kiếm trước khi gọi API; đổi từ khóa thì quay về trang 1
+    useEffect(() => {
+        const t = setTimeout(() => {
+            setKeyword(searchInput.trim());
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(t);
+    }, [searchInput]);
+
+    const handleCvFilterChange = (v: "all" | "has_cv" | "no_cv") => {
+        setFilterCvStatus(v);
+        setPage(1);
+    };
+
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
+            const hasCv = filterCvStatus === "all" ? undefined : filterCvStatus === "has_cv";
             const [candRes, appRes] = await Promise.all([
-                getCandidates(),
-                getApplications(),          // lấy tất cả đơn ứng tuyển
+                getCandidates({ keyword: keyword || undefined, hasCv, page: page - 1, size: pageSize }),
+                getApplications(),          // lấy tất cả đơn ứng tuyển (không phân trang) để gộp vào từng ứng viên
             ]);
-            setCandidates(candRes.data);
-            setApplications(appRes.data);
+            setCandidates(candRes.data.content);
+            setTotalCandidates(candRes.data.totalItems);
+            setApplications(appRes.data.content);
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             notification.error({
@@ -45,11 +66,24 @@ export default function CandidatesPage() {
         } finally {
             setLoading(false);
         }
-    }, [notification]);
+    }, [notification, keyword, filterCvStatus, page, pageSize]);
 
     useEffect(() => { loadData(); }, [loadData]);
 
-    // Gộp ứng viên + danh sách vị trí đã ứng tuyển
+    // Đếm ứng viên có/chưa có CV trên toàn bộ kết quả khớp từ khóa (độc lập với lựa chọn filter CV hiện tại)
+    useEffect(() => {
+        let cancelled = false;
+        Promise.all([
+            getCandidates({ keyword: keyword || undefined, hasCv: true, page: 0, size: 1 }),
+            getCandidates({ keyword: keyword || undefined, hasCv: false, page: 0, size: 1 }),
+        ]).then(([withCvRes, withoutCvRes]) => {
+            if (cancelled) return;
+            setCvBreakdown({ withCv: withCvRes.data.totalItems, withoutCv: withoutCvRes.data.totalItems });
+        }).catch(() => { /* không chặn trang chính nếu lỗi */ });
+        return () => { cancelled = true; };
+    }, [keyword]);
+
+    // Gộp ứng viên (trang hiện tại) + danh sách vị trí đã ứng tuyển
     const candidatesWithApps: CandidateWithApplications[] = useMemo(() => {
         const appByCandidate = applications.reduce<Record<number, ApplicationResponse[]>>((acc, app) => {
             (acc[app.candidateId] ??= []).push(app);
@@ -61,28 +95,6 @@ export default function CandidatesPage() {
             applications: appByCandidate[c.id] ?? [],
         }));
     }, [candidates, applications]);
-
-    /* ── Filter ─────────────────────────────────── */
-    const filtered = candidatesWithApps.filter((c) => {
-        const matchText = !searchText ||
-            c.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
-            c.email.toLowerCase().includes(searchText.toLowerCase()) ||
-            (c.skillNames?.some(s => s.toLowerCase().includes(searchText.toLowerCase()))) ||
-            (c.applications.some(a =>
-                (a.jobTitle || "").toLowerCase().includes(searchText.toLowerCase()) ||
-                a.currentStageName.toLowerCase().includes(searchText.toLowerCase())
-            ));
-
-        const matchCv =
-            filterCvStatus === "all" ||
-            (filterCvStatus === "has_cv" && !!c.cvFileUrl) ||
-            (filterCvStatus === "no_cv" && !c.cvFileUrl);
-
-        return matchText && matchCv;
-    });
-
-    const totalWithCv = candidates.filter(c => !!c.cvFileUrl).length;
-    const totalNoCv = candidates.filter(c => !c.cvFileUrl).length;
 
     const getInitials = (name: string) => {
         const parts = name.split(" ").filter(Boolean);
@@ -249,9 +261,9 @@ export default function CandidatesPage() {
             {/* Summary cards giữ nguyên */}
             <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
                 {[
-                    { label: "Tổng ứng viên", value: candidates.length, color: COLORS.primary, bg: "#F0FDF4" },
-                    { label: "Đã có CV", value: totalWithCv, color: "#3B82F6", bg: "#EFF6FF" },
-                    { label: "Chưa có CV", value: totalNoCv, color: "#F59E0B", bg: "#FFFBEB" },
+                    { label: "Tổng ứng viên", value: totalCandidates, color: COLORS.primary, bg: "#F0FDF4" },
+                    { label: "Đã có CV", value: cvBreakdown.withCv, color: "#3B82F6", bg: "#EFF6FF" },
+                    { label: "Chưa có CV", value: cvBreakdown.withoutCv, color: "#F59E0B", bg: "#FFFBEB" },
                 ].map((s) => (
                     <Col xs={8} key={s.label}>
                         <Card style={{ background: s.bg, border: `1px solid ${s.color}20`, borderRadius: 12 }}>
@@ -267,14 +279,14 @@ export default function CandidatesPage() {
                     <Input
                         prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
                         placeholder="Tìm theo tên, email, kỹ năng, vị trí..."
-                        value={searchText}
-                        onChange={e => setSearchText(e.target.value)}
+                        value={searchInput}
+                        onChange={e => setSearchInput(e.target.value)}
                         style={{ width: 300 }}
                         allowClear
                     />
                     <Select
                         value={filterCvStatus}
-                        onChange={setFilterCvStatus}
+                        onChange={handleCvFilterChange}
                         style={{ width: 160 }}
                         options={[
                             { value: "all", label: "Tất cả CV" },
@@ -282,17 +294,23 @@ export default function CandidatesPage() {
                             { value: "no_cv", label: "Chưa có CV" },
                         ]}
                     />
-                    <span style={{ fontSize: 13, color: COLORS.textSecondary, alignSelf: "center" }}>
-                        Hiển thị {filtered.length} / {candidates.length}
-                    </span>
                 </div>
 
                 <Table
                     rowKey="id"
                     loading={loading}
                     columns={columns}
-                    dataSource={filtered}
-                    pagination={{ pageSize: 10, size: "small", showSizeChanger: false }}
+                    dataSource={candidatesWithApps}
+                    pagination={{
+                        current: page,
+                        pageSize,
+                        total: totalCandidates,
+                        size: "small",
+                        showSizeChanger: true,
+                        pageSizeOptions: [10, 20, 50],
+                        showTotal: (total) => `Tổng ${total} ứng viên`,
+                        onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                    }}
                     scroll={{ x: 1000 }}
                     rowHoverable
                 />

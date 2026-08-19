@@ -2,11 +2,14 @@ package iuh.fit.se.application.application;
 
 import iuh.fit.se.application.application.dto.*;
 import iuh.fit.se.application.common.AccessGuard;
+import iuh.fit.se.application.common.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -18,13 +21,23 @@ public class ApplicationController {
     private final ApplicationService service;
 
     @GetMapping
-    public ResponseEntity<List<ApplicationResponse>> getAll(
+    public ResponseEntity<PageResponse<ApplicationResponse>> getAll(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
             @RequestParam(required = false) Long jobPostingId,
-            @RequestParam(required = false) Long candidateId) {
-        return ResponseEntity.ok(service.getAll(tenantId, userId, role, jobPostingId, candidateId));
+            @RequestParam(required = false) Long candidateId,
+            @RequestParam(required = false) Long assignedRecruiterId,
+            @RequestParam(required = false) Long recruitmentSourceId,
+            @RequestParam(required = false) String stageType,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedTo,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ResponseEntity.ok(service.getAll(
+                tenantId, userId, role, jobPostingId, candidateId,
+                assignedRecruiterId, recruitmentSourceId, stageType,
+                appliedFrom, appliedTo, page, size));
     }
 
     @GetMapping("/{id}")

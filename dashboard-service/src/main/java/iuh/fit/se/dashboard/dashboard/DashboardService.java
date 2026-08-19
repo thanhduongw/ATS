@@ -40,9 +40,9 @@ public class DashboardService {
         List<PostingSummary> postings = safeList(
                 () -> recruitmentServiceClient.getPostings(tenantId, safeRole));
         List<CandidateSummary> candidates = safeList(
-                () -> candidateServiceClient.getCandidates(tenantId));
+                () -> candidateServiceClient.getCandidates(tenantId).content());
         List<ApplicationSummary> applications = safeList(
-                () -> applicationServiceClient.getApplications(tenantId, safeUserId, safeRole));
+                () -> applicationServiceClient.getApplications(tenantId, safeUserId, safeRole).content());
 
         long openPostings = postings.stream()
                 .filter(p -> p.status() != null && "OPEN".equalsIgnoreCase(p.status()))

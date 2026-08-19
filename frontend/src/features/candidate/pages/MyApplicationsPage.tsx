@@ -17,7 +17,7 @@ export default function MyApplicationsPage() {
 
     useEffect(() => {
         getApplications()
-            .then(res => setApplications(res.data))
+            .then(res => setApplications(res.data.content))
             .catch(() => setApplications([]))
             .finally(() => setLoading(false));
     }, []);

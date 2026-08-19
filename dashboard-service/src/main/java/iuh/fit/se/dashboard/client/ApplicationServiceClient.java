@@ -1,12 +1,11 @@
 package iuh.fit.se.dashboard.client;
 
 import iuh.fit.se.dashboard.client.dto.ApplicationSummary;
+import iuh.fit.se.dashboard.client.dto.PageResponse;
 import iuh.fit.se.dashboard.config.FeignClientConfig;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
-
-import java.util.List;
 
 @FeignClient(
         name = "application-service",
@@ -15,8 +14,9 @@ import java.util.List;
 )
 public interface ApplicationServiceClient {
 
+    /** No page/size sent on purpose: dashboard aggregation needs the full tenant dataset, not one page. */
     @GetMapping("/api/application/applications")
-    List<ApplicationSummary> getApplications(
+    PageResponse<ApplicationSummary> getApplications(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role);

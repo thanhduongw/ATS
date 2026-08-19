@@ -5,11 +5,21 @@ import type {
   ApplicationAdvanceStageRequest,
   ApplicationRejectRequest,
   ApplicationHistoryResponse,
+  PageResponse,
 } from "./types";
 
 // ===== Application =====
-export const getApplications = (params?: { jobPostingId?: number; candidateId?: number }) =>
-  axiosClient.get<ApplicationResponse[]>("/application/applications", { params });
+export const getApplications = (params?: {
+  jobPostingId?: number;
+  candidateId?: number;
+  assignedRecruiterId?: number;
+  recruitmentSourceId?: number;
+  stageType?: string;
+  appliedFrom?: string;
+  appliedTo?: string;
+  page?: number;
+  size?: number;
+}) => axiosClient.get<PageResponse<ApplicationResponse>>("/application/applications", { params });
 
 export const getApplicationById = (id: number) =>
   axiosClient.get<ApplicationResponse>(`/application/applications/${id}`);

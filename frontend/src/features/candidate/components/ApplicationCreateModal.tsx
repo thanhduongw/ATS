@@ -52,7 +52,7 @@ export default function ApplicationCreateModal({
       getCatalogItems("/masterdata/recruitment-sources"),
       getUsers("RECRUITER"),
     ]).then(([candRes, postRes, srcRes, recRes]) => {
-      setCandidates(candRes.data);
+      setCandidates(candRes.data.content);
       setPostings(postRes.data.filter((p) => p.status === "OPEN"));
       setSources(srcRes.data);
       setRecruiters(recRes.data);

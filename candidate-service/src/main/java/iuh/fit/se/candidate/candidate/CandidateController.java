@@ -5,6 +5,7 @@ import iuh.fit.se.candidate.candidate.dto.CandidateResponse;
 import iuh.fit.se.candidate.candidate.dto.CandidateSummaryResponse;
 import iuh.fit.se.candidate.candidate.dto.CandidateUpdateRequest;
 import iuh.fit.se.candidate.common.AccessGuard;
+import iuh.fit.se.candidate.common.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,8 +24,13 @@ public class CandidateController {
     private final CandidateService service;
 
     @GetMapping
-    public ResponseEntity<List<CandidateResponse>> getAll(@RequestHeader("X-Tenant-Id") Long tenantId) {
-        return ResponseEntity.ok(service.getAll(tenantId));
+    public ResponseEntity<PageResponse<CandidateResponse>> getAll(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean hasCv,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ResponseEntity.ok(service.getAll(tenantId, keyword, hasCv, page, size));
     }
 
     @GetMapping("/{id}")

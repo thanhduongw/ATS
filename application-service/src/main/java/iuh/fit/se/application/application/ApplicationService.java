@@ -11,15 +11,23 @@ import iuh.fit.se.application.client.dto.JobPostingResponse;
 import iuh.fit.se.application.client.dto.PipelineResponse;
 import iuh.fit.se.application.client.dto.PipelineStageResponse;
 import iuh.fit.se.application.client.dto.UserSummaryResponse;
+import iuh.fit.se.application.common.PageResponse;
 import iuh.fit.se.application.event.ApplicationEventPublisher;
 import iuh.fit.se.application.event.AuditEventPublisher;
 import iuh.fit.se.application.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -41,23 +49,43 @@ public class ApplicationService {
     private final ApplicationEventPublisher eventPublisher;
     private final AuditEventPublisher auditEventPublisher;
 
-    public List<ApplicationResponse> getAll(Long tenantId, Long userId, String role, Long jobPostingId, Long candidateId) {
-        List<Application> applications;
-        if (jobPostingId != null) {
-            applications = applicationRepository.findByTenantIdAndJobPostingIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, jobPostingId);
-        } else if (candidateId != null) {
-            applications = applicationRepository.findByTenantIdAndCandidateIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, candidateId);
-        } else {
-            applications = applicationRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
-        }
+    public PageResponse<ApplicationResponse> getAll(
+            Long tenantId, Long userId, String role,
+            Long jobPostingId, Long candidateId,
+            Long assignedRecruiterId, Long recruitmentSourceId, String stageType,
+            LocalDate appliedFrom, LocalDate appliedTo,
+            Integer page, Integer size) {
+
+        Specification<Application> spec = ApplicationSpecifications.build(
+                tenantId, jobPostingId, candidateId, assignedRecruiterId, recruitmentSourceId, stageType,
+                appliedFrom != null ? appliedFrom.atStartOfDay() : null,
+                appliedTo != null ? appliedTo.atTime(LocalTime.MAX) : null);
 
         Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources(tenantId));
         Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons(tenantId));
         Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
 
-        // Lấy title của tất cả job posting liên quan (tránh N+1)
-        Map<Long, String> jobTitleMap = applications.stream()
+        if (page == null && size == null) {
+            List<Application> applications = applicationRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+            Map<Long, String> jobTitleMap = buildJobTitleMap(tenantId, applications);
+            return PageResponse.unpaged(applications.stream()
+                    .map(a -> toResponse(a, sourceMap, reasonMap, userMap, jobTitleMap))
+                    .toList());
+        }
+
+        Pageable pageable = PageRequest.of(
+                page != null ? page : 0,
+                size != null ? size : 10,
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Application> result = applicationRepository.findAll(spec, pageable);
+        Map<Long, String> jobTitleMap = buildJobTitleMap(tenantId, result.getContent());
+        return PageResponse.of(result.map(a -> toResponse(a, sourceMap, reasonMap, userMap, jobTitleMap)));
+    }
+
+    /** Lấy title của tất cả job posting liên quan (tránh N+1). */
+    private Map<Long, String> buildJobTitleMap(Long tenantId, List<Application> applications) {
+        return applications.stream()
                 .map(Application::getJobPostingId)
                 .distinct()
                 .collect(Collectors.toMap(
@@ -72,10 +100,6 @@ public class ApplicationService {
                         },
                         (a, b) -> a
                 ));
-
-        return applications.stream()
-                .map(a -> toResponse(a, sourceMap, reasonMap, userMap, jobTitleMap))
-                .toList();
     }
 
     public ApplicationResponse getById(Long tenantId, Long userId, String role, Long id) {

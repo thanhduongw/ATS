@@ -3,10 +3,16 @@ package iuh.fit.se.candidate.candidate;
 import iuh.fit.se.candidate.candidate.dto.*;
 import iuh.fit.se.candidate.client.MasterDataServiceClient;
 import iuh.fit.se.candidate.client.dto.CatalogItemResponse;
+import iuh.fit.se.candidate.common.PageResponse;
 import iuh.fit.se.candidate.event.AuditEventPublisher;
 import iuh.fit.se.candidate.exception.BusinessException;
 import iuh.fit.se.candidate.storage.S3Service;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,11 +32,32 @@ public class CandidateService {
     private final S3Service s3Service;
     private final AuditEventPublisher auditEventPublisher;
 
-    public List<CandidateResponse> getAll(Long tenantId) {
-        List<Candidate> candidates = candidateRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
+    public PageResponse<CandidateResponse> getAll(
+            Long tenantId, String keyword, Boolean hasCv, Integer page, Integer size) {
         Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels(tenantId));
-        Map<Long, String> skillMap = buildCatalogMap(masterDataServiceClient.getSkills(tenantId));
-        return candidates.stream().map(c -> toResponse(c, educationMap, skillMap)).toList();
+        List<CatalogItemResponse> allSkills = masterDataServiceClient.getSkills(tenantId);
+        Map<Long, String> skillMap = buildCatalogMap(allSkills);
+
+        List<Long> matchedSkillIds = (keyword == null || keyword.isBlank())
+                ? List.of()
+                : allSkills.stream()
+                        .filter(s -> s.name() != null && s.name().toLowerCase().contains(keyword.trim().toLowerCase()))
+                        .map(CatalogItemResponse::id)
+                        .toList();
+
+        Specification<Candidate> spec = CandidateSpecifications.build(tenantId, keyword, hasCv, matchedSkillIds);
+
+        if (page == null && size == null) {
+            List<Candidate> candidates = candidateRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+            return PageResponse.unpaged(candidates.stream().map(c -> toResponse(c, educationMap, skillMap)).toList());
+        }
+
+        Pageable pageable = PageRequest.of(
+                page != null ? page : 0,
+                size != null ? size : 10,
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Candidate> result = candidateRepository.findAll(spec, pageable);
+        return PageResponse.of(result.map(c -> toResponse(c, educationMap, skillMap)));
     }
 
     public CandidateResponse getById(Long tenantId, Long id) {

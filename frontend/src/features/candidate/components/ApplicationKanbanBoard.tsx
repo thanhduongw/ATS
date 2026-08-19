@@ -61,7 +61,7 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
             const pipeline = pipelineListRes.data.find((p) => p.id === postingRes.data.pipelineId);
             setStages(pipeline ? [...pipeline.stages].sort((a, b) => a.stageOrder - b.stageOrder) : []);
             const appsRes = await getApplications({ jobPostingId });
-            setApplications(appsRes.data);
+            setApplications(appsRes.data.content);
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             message.error(axiosErr.response?.data?.message ?? "Không tải được dữ liệu");

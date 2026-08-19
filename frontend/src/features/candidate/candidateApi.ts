@@ -3,12 +3,18 @@ import type {
   CandidateResponse,
   CandidateCreateRequest,
   CandidateUpdateRequest,
+  PageResponse,
 } from "./types";
 
 export * from "./applicationApi";
 
 // ===== Candidate =====
-export const getCandidates = () => axiosClient.get<CandidateResponse[]>("/candidate/candidates");
+export const getCandidates = (params?: {
+  keyword?: string;
+  hasCv?: boolean;
+  page?: number;
+  size?: number;
+}) => axiosClient.get<PageResponse<CandidateResponse>>("/candidate/candidates", { params });
 
 export const getCandidateById = (id: number) =>
   axiosClient.get<CandidateResponse>(`/candidate/candidates/${id}`);

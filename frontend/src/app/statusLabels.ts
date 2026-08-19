@@ -79,6 +79,19 @@ export const RESOURCE_TYPE_LABEL: Record<string, string> = {
     USER: "Người dùng",
 };
 
+export const STAGE_TYPE_LABEL: Record<string, string> = {
+    APPLIED: "Mới ứng tuyển",
+    CV_SCREENING: "Sàng lọc CV",
+    HR_SCREENING: "Sàng lọc HR",
+    TECHNICAL_INTERVIEW: "Phỏng vấn kỹ thuật",
+    HR_INTERVIEW: "Phỏng vấn HR",
+    FINAL_INTERVIEW: "Phỏng vấn vòng cuối",
+    OFFER: "Đề nghị offer",
+    HIRED: "Đã tuyển",
+    REJECTED: "Từ chối",
+    CUSTOM: "Tùy chỉnh",
+};
+
 export function statusMeta(
     map: Record<string, StatusMeta>,
     status?: string | null

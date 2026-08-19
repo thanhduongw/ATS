@@ -85,3 +85,11 @@ export interface ApplicationHistoryResponse {
 export interface ApiMessageResponse {
   message: string;
 }
+
+export interface PageResponse<T> {
+  content: T[];
+  totalItems: number;
+  totalPages: number;
+  pageNumber: number;
+  pageSize: number;
+}

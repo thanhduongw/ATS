@@ -100,6 +100,8 @@ public class JobPostingService {
                 .title(title)
                 .employmentTypeId(req.employmentTypeId())
                 .workLocationId(req.workLocationId())
+                .workArrangement(req.workArrangement())
+                .experienceRequired(req.experienceRequired())
                 .pipelineId(req.pipelineId())
                 .salaryMin(salaryMin)
                 .salaryMax(salaryMax)
@@ -132,6 +134,8 @@ public class JobPostingService {
         posting.setTitle(req.title());
         posting.setEmploymentTypeId(req.employmentTypeId());
         posting.setWorkLocationId(req.workLocationId());
+        posting.setWorkArrangement(req.workArrangement());
+        posting.setExperienceRequired(req.experienceRequired());
         posting.setSalaryMin(req.salaryMin());
         posting.setSalaryMax(req.salaryMax());
         posting.setDescription(req.description());
@@ -194,7 +198,8 @@ public class JobPostingService {
     private JobPostingResponse toResponse(JobPosting p, Map<Long, String> empMap, Map<Long, String> locMap) {
         return new JobPostingResponse(
                 p.getId(), p.getRequisition().getId(), p.getTitle(),
-                p.getEmploymentTypeId(), p.getWorkLocationId(), p.getPipelineId(),
+                p.getEmploymentTypeId(), p.getWorkLocationId(), p.getWorkArrangement(), p.getExperienceRequired(),
+                p.getPipelineId(),
                 p.getSalaryMin(), p.getSalaryMax(),
                 p.getDescription(), p.getRequirements(), p.getBenefits(), p.getSkillIds(),
                 p.getStatus(), p.isPipelineLocked(), p.getPublishedAt(), p.getClosedAt(),

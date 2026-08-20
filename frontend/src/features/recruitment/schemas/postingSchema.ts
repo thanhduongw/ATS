@@ -5,6 +5,8 @@ export const postingSchema = z.object({
     title: z.string().min(1, "Tiêu đề không được để trống"),
     employmentTypeId: z.number({ error: "Vui lòng chọn loại hình làm việc" }),
     workLocationId: z.number({ error: "Vui lòng chọn địa điểm làm việc" }),
+    workArrangement: z.enum(["ONSITE", "HYBRID", "REMOTE"], { error: "Vui lòng chọn hình thức làm việc" }),
+    experienceRequired: z.string().optional().nullable(),
     pipelineId: z.number({ error: "Vui lòng chọn quy trình tuyển dụng" }),
     salaryMin: z.number().optional().nullable(),
     salaryMax: z.number().optional().nullable(),

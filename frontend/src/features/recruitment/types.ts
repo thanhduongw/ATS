@@ -1,5 +1,8 @@
 export type RequisitionStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
 export type PostingStatus = "OPEN" | "PAUSED" | "CLOSED";
+export type WorkArrangement = "ONSITE" | "HYBRID" | "REMOTE";
+export type RequisitionReason = "NEW" | "REPLACEMENT" | "EXPANSION" | "NEW_PROJECT" | "OTHER";
+export type RequisitionPriority = "NORMAL" | "HIGH" | "URGENT";
 
 export interface PageResponse<T> {
     content: T[];
@@ -16,6 +19,13 @@ export interface JobRequisitionResponse {
     jobTitleId: number;
     jobLevelId: number | null;
     quantity: number;
+    employmentTypeId: number | null;
+    workLocationId: number | null;
+    workArrangement: WorkArrangement | null;
+    experienceRequired: string | null;
+    reason: RequisitionReason | null;
+    priority: RequisitionPriority | null;
+    note: string | null;
     budget: number | null;
     expectedSalaryMin: number | null;
     expectedSalaryMax: number | null;
@@ -42,6 +52,13 @@ export interface JobRequisitionCreateRequest {
     jobTitleId: number;
     jobLevelId?: number | null;
     quantity: number;
+    employmentTypeId?: number | null;
+    workLocationId?: number | null;
+    workArrangement?: WorkArrangement | null;
+    experienceRequired?: string | null;
+    reason?: RequisitionReason | null;
+    priority?: RequisitionPriority | null;
+    note?: string | null;
     budget?: number | null;
     expectedSalaryMin?: number | null;
     expectedSalaryMax?: number | null;
@@ -75,6 +92,8 @@ export interface JobPostingResponse {
     title: string;
     employmentTypeId: number;
     workLocationId: number;
+    workArrangement: WorkArrangement | null;
+    experienceRequired: string | null;
     pipelineId: number;
     salaryMin: number | null;
     salaryMax: number | null;
@@ -93,6 +112,8 @@ export interface JobPostingCreateRequest {
     title: string;
     employmentTypeId: number;
     workLocationId: number;
+    workArrangement?: WorkArrangement | null;
+    experienceRequired?: string | null;
     pipelineId: number;
     salaryMin?: number | null;
     salaryMax?: number | null;

@@ -79,6 +79,13 @@ public class JobRequisitionService {
                 .jobTitleId(req.jobTitleId())
                 .jobLevelId(req.jobLevelId())
                 .quantity(req.quantity())
+                .employmentTypeId(req.employmentTypeId())
+                .workLocationId(req.workLocationId())
+                .workArrangement(req.workArrangement())
+                .experienceRequired(req.experienceRequired())
+                .reason(req.reason())
+                .priority(req.priority() != null ? req.priority() : RequisitionPriority.NORMAL)
+                .note(req.note())
                 .budget(req.budget())
                 .expectedSalaryMin(req.expectedSalaryMin())
                 .expectedSalaryMax(req.expectedSalaryMax())
@@ -112,6 +119,13 @@ public class JobRequisitionService {
         requisition.setJobTitleId(req.jobTitleId());
         requisition.setJobLevelId(req.jobLevelId());
         requisition.setQuantity(req.quantity());
+        requisition.setEmploymentTypeId(req.employmentTypeId());
+        requisition.setWorkLocationId(req.workLocationId());
+        requisition.setWorkArrangement(req.workArrangement());
+        requisition.setExperienceRequired(req.experienceRequired());
+        requisition.setReason(req.reason());
+        requisition.setPriority(req.priority() != null ? req.priority() : RequisitionPriority.NORMAL);
+        requisition.setNote(req.note());
         requisition.setBudget(req.budget());
         requisition.setExpectedSalaryMin(req.expectedSalaryMin());
         requisition.setExpectedSalaryMax(req.expectedSalaryMax());
@@ -260,7 +274,9 @@ public class JobRequisitionService {
     private JobRequisitionResponse toResponse(JobRequisition r, Map<Long, String> userNameMap) {
         return new JobRequisitionResponse(
                 r.getId(), r.getTitle(), r.getDepartmentId(), r.getJobTitleId(), r.getJobLevelId(),
-                r.getQuantity(), r.getBudget(), r.getExpectedSalaryMin(), r.getExpectedSalaryMax(),
+                r.getQuantity(), r.getEmploymentTypeId(), r.getWorkLocationId(), r.getWorkArrangement(),
+                r.getExperienceRequired(), r.getReason(), r.getPriority(), r.getNote(),
+                r.getBudget(), r.getExpectedSalaryMin(), r.getExpectedSalaryMax(),
                 r.getApprovedSalaryMin(), r.getApprovedSalaryMax(),
                 r.getExpectedStartDate(), r.getDescription(), r.getRequirements(), r.getBenefits(), r.getSkillIds(),
                 r.getRequesterId(), userNameMap.getOrDefault(r.getRequesterId(), "N/A"),

@@ -27,7 +27,7 @@ public class JobTitleController {
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody JobTitleRequest req) {
-        AccessGuard.requireCompanyAdmin(role);
+        AccessGuard.requireQuickAddRole(role);
         return ResponseEntity.ok(service.create(tenantId, req));
     }
 

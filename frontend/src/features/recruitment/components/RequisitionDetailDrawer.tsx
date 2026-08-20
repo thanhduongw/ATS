@@ -13,6 +13,7 @@ import { useAppSelector } from "../../../app/hooks";
 import { DEPARTMENT_ROLES, HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import StatusTag from "../../../components/ui/StatusTag";
+import { WORK_ARRANGEMENT_LABEL, REASON_LABEL, PRIORITY_LABEL } from "../requisitionOptions";
 
 interface Props {
     open: boolean;
@@ -21,6 +22,8 @@ interface Props {
     jobTitleMap: Record<number, string>;
     jobLevelMap: Record<number, string>;
     skillMap: Record<number, string>;
+    employmentTypeMap: Record<number, string>;
+    workLocationMap: Record<number, string>;
     onClose: () => void;
     onChanged: () => void;
     onEdit: (item: JobRequisitionResponse) => void;
@@ -38,6 +41,8 @@ export default function RequisitionDetailDrawer({
     jobTitleMap,
     jobLevelMap,
     skillMap,
+    employmentTypeMap,
+    workLocationMap,
     onClose,
     onChanged,
     onEdit,
@@ -171,11 +176,28 @@ export default function RequisitionDetailDrawer({
                     {requisition.jobLevelId ? jobLevelMap[requisition.jobLevelId] ?? "—" : "—"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Số lượng">{requisition.quantity}</Descriptions.Item>
+                <Descriptions.Item label="Loại hình làm việc">
+                    {requisition.employmentTypeId ? employmentTypeMap[requisition.employmentTypeId] ?? "—" : "—"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Hình thức làm việc">
+                    {requisition.workArrangement ? WORK_ARRANGEMENT_LABEL[requisition.workArrangement] : "—"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Địa điểm làm việc">
+                    {requisition.workLocationId ? workLocationMap[requisition.workLocationId] ?? "—" : "—"}
+                </Descriptions.Item>
                 <Descriptions.Item label="Ngân sách">{requisition.budget ?? "—"}</Descriptions.Item>
                 <Descriptions.Item label="Ngày cần tuyển">{requisition.expectedStartDate ?? "—"}</Descriptions.Item>
                 <Descriptions.Item label="Mô tả công việc">{requisition.description ?? "—"}</Descriptions.Item>
                 <Descriptions.Item label="Yêu cầu ứng viên">{requisition.requirements ?? "—"}</Descriptions.Item>
                 <Descriptions.Item label="Quyền lợi">{requisition.benefits ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Kinh nghiệm yêu cầu">{requisition.experienceRequired ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Lý do tuyển dụng">
+                    {requisition.reason ? REASON_LABEL[requisition.reason] : "—"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Mức độ ưu tiên">
+                    {requisition.priority ? PRIORITY_LABEL[requisition.priority] : "—"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Ghi chú gửi HR">{requisition.note ?? "—"}</Descriptions.Item>
                 <Descriptions.Item label="Kỹ năng yêu cầu">
                     {requisition.skillIds && requisition.skillIds.length > 0 ? (
                         <Space wrap>

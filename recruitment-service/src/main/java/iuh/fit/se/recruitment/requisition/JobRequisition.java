@@ -35,6 +35,30 @@ public class JobRequisition {
     @Column(nullable = false)
     private Integer quantity;
 
+    @Column(name = "employment_type_id")
+    private Long employmentTypeId;
+
+    @Column(name = "work_location_id")
+    private Long workLocationId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "work_arrangement")
+    private WorkArrangement workArrangement;
+
+    @Column(name = "experience_required")
+    private String experienceRequired;
+
+    @Enumerated(EnumType.STRING)
+    private RequisitionReason reason;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private RequisitionPriority priority = RequisitionPriority.NORMAL;
+
+    /** Ghi chú của phòng ban gửi kèm khi tạo/gửi yêu cầu (khác với hrNote của HR). */
+    @Column(columnDefinition = "TEXT")
+    private String note;
+
     private BigDecimal budget;
 
     @Column(name = "expected_salary_min")

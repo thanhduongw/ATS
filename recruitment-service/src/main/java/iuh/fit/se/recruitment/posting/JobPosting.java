@@ -1,6 +1,7 @@
 package iuh.fit.se.recruitment.posting;
 
 import iuh.fit.se.recruitment.requisition.JobRequisition;
+import iuh.fit.se.recruitment.requisition.WorkArrangement;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,6 +32,13 @@ public class JobPosting {
 
     @Column(name = "work_location_id", nullable = false)
     private Long workLocationId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "work_arrangement")
+    private WorkArrangement workArrangement;
+
+    @Column(name = "experience_required")
+    private String experienceRequired;
 
     @Column(name = "pipeline_id", nullable = false)
     private Long pipelineId;

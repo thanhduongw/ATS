@@ -1,6 +1,7 @@
 package iuh.fit.se.recruitment.posting.dto;
 
 import iuh.fit.se.recruitment.posting.PostingStatus;
+import iuh.fit.se.recruitment.requisition.WorkArrangement;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -12,6 +13,8 @@ public record JobPostingResponse(
         String title,
         Long employmentTypeId,
         Long workLocationId,
+        WorkArrangement workArrangement,
+        String experienceRequired,
         Long pipelineId,
         BigDecimal salaryMin,
         BigDecimal salaryMax,

@@ -9,7 +9,7 @@ public class AccessGuard {
     private static final String COMPANY_ADMIN = "COMPANY_ADMIN";
 
     /** HR + Phòng ban — các role được phép tạo/sửa Yêu cầu tuyển dụng hoặc Tin tuyển dụng. */
-    private static final Set<String> SKILL_CREATOR_ROLES = Set.of("COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER");
+    private static final Set<String> QUICK_ADD_ROLES = Set.of("COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER");
 
     public static void requireCompanyAdmin(String requesterRole) {
         if (!COMPANY_ADMIN.equals(requesterRole)) {
@@ -17,10 +17,10 @@ public class AccessGuard {
         }
     }
 
-    /** Cho phép quick-add skill mới ngay trong form Yêu cầu/Tin tuyển dụng, không chỉ Company Admin. */
-    public static void requireSkillCreator(String requesterRole) {
-        if (!SKILL_CREATOR_ROLES.contains(requesterRole)) {
-            throw new AccessDeniedException("Bạn không có quyền tạo kỹ năng mới");
+    /** Cho phép quick-add danh mục mới (kỹ năng, chức vụ...) ngay trong form Yêu cầu/Tin tuyển dụng, không chỉ Company Admin. */
+    public static void requireQuickAddRole(String requesterRole) {
+        if (!QUICK_ADD_ROLES.contains(requesterRole)) {
+            throw new AccessDeniedException("Bạn không có quyền tạo danh mục mới");
         }
     }
 }

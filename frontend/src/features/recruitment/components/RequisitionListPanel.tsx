@@ -40,6 +40,8 @@ export default function RequisitionListPanel() {
     const [jobTitleMap, setJobTitleMap] = useState<Record<number, string>>({});
     const [jobLevelMap, setJobLevelMap] = useState<Record<number, string>>({});
     const [skillMap, setSkillMap] = useState<Record<number, string>>({});
+    const [employmentTypeMap, setEmploymentTypeMap] = useState<Record<number, string>>({});
+    const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
     const [departments, setDepartments] = useState<CatalogItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [assignedToMeOnly, setAssignedToMeOnly] = useState(false);
@@ -70,7 +72,7 @@ export default function RequisitionListPanel() {
     const loadAll = useCallback(async () => {
         setLoading(true);
         try {
-            const [reqRes, deptRes, titleRes, levelRes, skillRes] = await Promise.all([
+            const [reqRes, deptRes, titleRes, levelRes, skillRes, empTypeRes, locationRes] = await Promise.all([
                 getRequisitions({
                     status: filters.status,
                     departmentId: filters.departmentId,
@@ -83,6 +85,8 @@ export default function RequisitionListPanel() {
                 getCatalogItems("/masterdata/job-titles"),
                 getCatalogItems("/masterdata/job-levels"),
                 getCatalogItems("/masterdata/skills"),
+                getCatalogItems("/masterdata/employment-types"),
+                getCatalogItems("/masterdata/work-locations"),
             ]);
             setRequisitions(reqRes.data.content);
             setTotalItems(reqRes.data.totalItems);
@@ -91,6 +95,8 @@ export default function RequisitionListPanel() {
             setJobTitleMap(buildMap(titleRes.data));
             setJobLevelMap(buildMap(levelRes.data));
             setSkillMap(buildMap(skillRes.data));
+            setEmploymentTypeMap(buildMap(empTypeRes.data));
+            setWorkLocationMap(buildMap(locationRes.data));
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             message.error(axiosErr.response?.data?.message ?? "Không tải được dữ liệu");
@@ -237,6 +243,8 @@ export default function RequisitionListPanel() {
                 jobTitleMap={jobTitleMap}
                 jobLevelMap={jobLevelMap}
                 skillMap={skillMap}
+                employmentTypeMap={employmentTypeMap}
+                workLocationMap={workLocationMap}
                 onClose={() => setDetailOpen(false)}
                 onChanged={loadAll}
                 onEdit={openEditFromDrawer}

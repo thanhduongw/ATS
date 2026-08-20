@@ -27,7 +27,7 @@ public class SkillController {
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody SkillRequest req) {
-        AccessGuard.requireSkillCreator(role);
+        AccessGuard.requireQuickAddRole(role);
         return ResponseEntity.ok(service.create(tenantId, req));
     }
 

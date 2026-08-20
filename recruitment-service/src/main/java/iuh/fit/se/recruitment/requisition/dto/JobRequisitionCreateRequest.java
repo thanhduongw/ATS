@@ -1,5 +1,8 @@
 package iuh.fit.se.recruitment.requisition.dto;
 
+import iuh.fit.se.recruitment.requisition.RequisitionPriority;
+import iuh.fit.se.recruitment.requisition.RequisitionReason;
+import iuh.fit.se.recruitment.requisition.WorkArrangement;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
@@ -12,6 +15,13 @@ public record JobRequisitionCreateRequest(
         @NotNull(message = "Vui lòng chọn chức vụ") Long jobTitleId,
         Long jobLevelId,
         @NotNull @Positive(message = "Số lượng phải lớn hơn 0") Integer quantity,
+        Long employmentTypeId,
+        Long workLocationId,
+        WorkArrangement workArrangement,
+        String experienceRequired,
+        RequisitionReason reason,
+        RequisitionPriority priority,
+        String note,
         BigDecimal budget,
         BigDecimal expectedSalaryMin,
         BigDecimal expectedSalaryMax,

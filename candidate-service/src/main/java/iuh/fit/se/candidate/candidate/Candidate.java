@@ -58,7 +58,8 @@ public class Candidate {
 
     /** GDPR: ứng viên đồng ý cho lưu trữ dữ liệu khi nộp hồ sơ (bắt buộc ở luồng public apply). */
     @Column(name = "consent_given")
-    private boolean consentGiven;
+    @Builder.Default
+    private Boolean consentGiven = false;
 
     @Column(name = "consent_at")
     private LocalDateTime consentAt;

@@ -12,7 +12,6 @@ import { COLORS } from "../../../app/theme";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
-import SavedFiltersBar from "../../../components/ui/SavedFiltersBar";
 
 const { RangePicker } = DatePicker;
 
@@ -260,11 +259,6 @@ export default function OffersList() {
                         }));
                         setPage(1);
                     }}
-                />
-                <SavedFiltersBar<Filters>
-                    storageKey="ats.savedFilters.offers"
-                    currentFilters={filters}
-                    onApply={(f) => { setFilters(f); setSearchInput(f.keyword); setPage(1); }}
                 />
             </div>
 

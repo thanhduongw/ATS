@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "job_posting")
@@ -41,6 +43,12 @@ public class JobPosting {
 
     @Column(columnDefinition = "TEXT")
     private String benefits;
+
+    @ElementCollection
+    @CollectionTable(name = "job_posting_skill", joinColumns = @JoinColumn(name = "posting_id"))
+    @Column(name = "skill_id")
+    @Builder.Default
+    private List<Long> skillIds = new ArrayList<>();
 
     @Column(name = "salary_min")
     private java.math.BigDecimal salaryMin;

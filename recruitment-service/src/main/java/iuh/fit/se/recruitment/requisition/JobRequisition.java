@@ -6,6 +6,8 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "job_requisition")
@@ -53,6 +55,18 @@ public class JobRequisition {
 
     @Column(columnDefinition = "TEXT")
     private String description;
+
+    @Column(columnDefinition = "TEXT")
+    private String requirements;
+
+    @Column(columnDefinition = "TEXT")
+    private String benefits;
+
+    @ElementCollection
+    @CollectionTable(name = "job_requisition_skill", joinColumns = @JoinColumn(name = "requisition_id"))
+    @Column(name = "skill_id")
+    @Builder.Default
+    private List<Long> skillIds = new ArrayList<>();
 
     @Column(name = "requester_id", nullable = false)
     private Long requesterId;

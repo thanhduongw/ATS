@@ -90,6 +90,9 @@ public class JobPostingService {
         String title = (req.title() != null && !req.title().isBlank())
                 ? req.title()
                 : requisition.getTitle();
+        List<Long> skillIds = (req.skillIds() != null && !req.skillIds().isEmpty())
+                ? new java.util.ArrayList<>(req.skillIds())
+                : new java.util.ArrayList<>(requisition.getSkillIds());
 
         JobPosting saved = repository.save(JobPosting.builder()
                 .tenantId(tenantId)
@@ -103,6 +106,7 @@ public class JobPostingService {
                 .description(description)
                 .requirements(req.requirements())
                 .benefits(req.benefits())
+                .skillIds(skillIds)
                 .status(PostingStatus.OPEN)
                 .pipelineLocked(false)
                 .publishedAt(LocalDateTime.now())
@@ -133,6 +137,7 @@ public class JobPostingService {
         posting.setDescription(req.description());
         posting.setRequirements(req.requirements());
         posting.setBenefits(req.benefits());
+        posting.setSkillIds(req.skillIds() != null ? new java.util.ArrayList<>(req.skillIds()) : new java.util.ArrayList<>());
 
         return toResponse(repository.save(posting));
     }
@@ -191,7 +196,7 @@ public class JobPostingService {
                 p.getId(), p.getRequisition().getId(), p.getTitle(),
                 p.getEmploymentTypeId(), p.getWorkLocationId(), p.getPipelineId(),
                 p.getSalaryMin(), p.getSalaryMax(),
-                p.getDescription(), p.getRequirements(), p.getBenefits(),
+                p.getDescription(), p.getRequirements(), p.getBenefits(), p.getSkillIds(),
                 p.getStatus(), p.isPipelineLocked(), p.getPublishedAt(), p.getClosedAt(),
                 empMap.get(p.getEmploymentTypeId()), locMap.get(p.getWorkLocationId())
         );

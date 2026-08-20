@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Modal, Form, Input, Select, Alert, App } from "antd";
+import { Modal, Form, Input, Select, Alert, Divider, App } from "antd";
 import type { AxiosError } from "axios";
 import { postingSchema, type PostingFormValues } from "../schemas/postingSchema";
 import { createPosting, updatePosting, getRequisitions } from "../recruitmentApi";
 import { getCatalogItems, getPipelines } from "../../masterdata/masterdataApi";
 import type { CatalogItem, PipelineResponse } from "../../masterdata/types";
+import SkillMultiSelect from "../../masterdata/components/SkillMultiSelect";
 import type { ApiMessageResponse, JobPostingResponse, JobRequisitionResponse } from "../types";
 
 interface Props {
@@ -64,6 +65,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 description: editingItem.description,
                 requirements: editingItem.requirements,
                 benefits: editingItem.benefits,
+                skillIds: editingItem.skillIds ?? [],
             });
         } else {
             reset({
@@ -77,6 +79,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 description: "",
                 requirements: "",
                 benefits: "",
+                skillIds: [],
             });
         }
     }, [editingItem, open, reset]);
@@ -97,6 +100,15 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
 
         if (req.description) {
             setValue("description", req.description);
+        }
+        if (req.requirements) {
+            setValue("requirements", req.requirements);
+        }
+        if (req.benefits) {
+            setValue("benefits", req.benefits);
+        }
+        if (req.skillIds && req.skillIds.length > 0) {
+            setValue("skillIds", req.skillIds);
         }
     }, [selectedRequisitionId, approvedRequisitions, editingItem, setValue]);
 
@@ -127,7 +139,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
             confirmLoading={isSubmitting}
             okText={editingItem ? "Cập nhật" : "Tạo mới"}
             cancelText="Hủy"
-            width={640}
+            width={720}
             destroyOnHidden
         >
             {editingItem?.pipelineLocked && (
@@ -147,6 +159,9 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 />
             )}
             <Form layout="vertical">
+                <Divider titlePlacement="start" plain style={{ marginTop: 0 }}>
+                    Nguồn gốc
+                </Divider>
                 <Form.Item
                     label="Yêu cầu tuyển dụng"
                     validateStatus={errors.requisitionId ? "error" : ""}
@@ -177,6 +192,9 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     />
                 </Form.Item>
 
+                <Divider titlePlacement="start" plain>
+                    Thông tin tin tuyển dụng
+                </Divider>
                 <Form.Item label="Tiêu đề tin" validateStatus={errors.title ? "error" : ""} help={errors.title?.message}>
                     <Controller name="title" control={control} render={({ field }) => <Input {...field} />} />
                 </Form.Item>
@@ -230,6 +248,9 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     />
                 </Form.Item>
 
+                <Divider titlePlacement="start" plain>
+                    Lương
+                </Divider>
                 <Form.Item label="Khoảng lương dự kiến (VNĐ)">
                     <div style={{ display: "flex", gap: 12 }}>
                         <Controller
@@ -261,6 +282,9 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     </div>
                 </Form.Item>
 
+                <Divider titlePlacement="start" plain>
+                    Mô tả &amp; Kỹ năng
+                </Divider>
                 <Form.Item label="Mô tả công việc">
                     <Controller
                         name="description"
@@ -280,6 +304,15 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                         name="benefits"
                         control={control}
                         render={({ field }) => <Input.TextArea {...field} value={field.value ?? ""} rows={3} />}
+                    />
+                </Form.Item>
+                <Form.Item label="Kỹ năng yêu cầu">
+                    <Controller
+                        name="skillIds"
+                        control={control}
+                        render={({ field }) => (
+                            <SkillMultiSelect value={field.value ?? []} onChange={field.onChange} />
+                        )}
                     />
                 </Form.Item>
             </Form>

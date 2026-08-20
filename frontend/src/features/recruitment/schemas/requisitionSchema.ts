@@ -13,6 +13,9 @@ export const requisitionSchema = z.object({
     expectedSalaryMax: z.number().optional().nullable(),
     expectedStartDate: z.string().optional().nullable(),
     description: z.string().optional().nullable(),
+    requirements: z.string().optional().nullable(),
+    benefits: z.string().optional().nullable(),
+    skillIds: z.array(z.number()).optional(),
     approverId: z.number({ error: "Vui lòng chọn người duyệt" }),
 });
 

@@ -413,7 +413,7 @@ public class CandidateService {
             candidate.setPhone(req.phone().trim());
             changed = true;
         }
-        if (!candidate.isConsentGiven()) {
+        if (!Boolean.TRUE.equals(candidate.getConsentGiven())) {
             candidate.setConsentGiven(true);
             candidate.setConsentAt(LocalDateTime.now());
             changed = true;

@@ -3,6 +3,7 @@ package iuh.fit.se.recruitment.posting.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
+import java.util.List;
 
 public record JobPostingUpdateRequest(
         @NotBlank(message = "Tiêu đề không được để trống") String title,
@@ -12,5 +13,6 @@ public record JobPostingUpdateRequest(
         BigDecimal salaryMax,
         String description,
         String requirements,
-        String benefits
+        String benefits,
+        List<Long> skillIds
 ) {}

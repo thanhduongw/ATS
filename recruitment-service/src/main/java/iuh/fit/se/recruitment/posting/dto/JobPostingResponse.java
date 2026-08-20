@@ -4,6 +4,7 @@ import iuh.fit.se.recruitment.posting.PostingStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record JobPostingResponse(
         Long id,
@@ -17,6 +18,7 @@ public record JobPostingResponse(
         String description,
         String requirements,
         String benefits,
+        List<Long> skillIds,
         PostingStatus status,
         boolean pipelineLocked,
         LocalDateTime publishedAt,

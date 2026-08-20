@@ -23,6 +23,9 @@ export interface JobRequisitionResponse {
     approvedSalaryMax: number | null;
     expectedStartDate: string | null; // "YYYY-MM-DD"
     description: string | null;
+    requirements: string | null;
+    benefits: string | null;
+    skillIds: number[];
     requesterId: number;
     requesterName: string;
     approverId: number;
@@ -44,6 +47,9 @@ export interface JobRequisitionCreateRequest {
     expectedSalaryMax?: number | null;
     expectedStartDate?: string | null;
     description?: string | null;
+    requirements?: string | null;
+    benefits?: string | null;
+    skillIds?: number[];
     approverId: number;
 }
 
@@ -75,6 +81,7 @@ export interface JobPostingResponse {
     description: string | null;
     requirements: string | null;
     benefits: string | null;
+    skillIds: number[];
     status: PostingStatus;
     pipelineLocked: boolean;
     publishedAt: string | null;
@@ -92,6 +99,7 @@ export interface JobPostingCreateRequest {
     description?: string | null;
     requirements?: string | null;
     benefits?: string | null;
+    skillIds?: number[];
 }
 
 export type JobPostingUpdateRequest = Omit<JobPostingCreateRequest, "requisitionId">;

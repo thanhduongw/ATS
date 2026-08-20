@@ -5,6 +5,7 @@ import iuh.fit.se.recruitment.requisition.RequisitionStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record JobRequisitionResponse(
         Long id,
@@ -20,6 +21,9 @@ public record JobRequisitionResponse(
         BigDecimal approvedSalaryMax,
         LocalDate expectedStartDate,
         String description,
+        String requirements,
+        String benefits,
+        List<Long> skillIds,
         Long requesterId,
         String requesterName,
         Long approverId,

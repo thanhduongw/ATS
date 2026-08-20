@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public record JobRequisitionCreateRequest(
         @NotBlank(message = "Tiêu đề không được để trống") String title,
@@ -16,5 +17,8 @@ public record JobRequisitionCreateRequest(
         BigDecimal expectedSalaryMax,
         LocalDate expectedStartDate,
         String description,
+        String requirements,
+        String benefits,
+        List<Long> skillIds,
         @NotNull(message = "Vui lòng chọn người phê duyệt") Long approverId
 ) {}

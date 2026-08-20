@@ -147,7 +147,7 @@ export default function EvaluationSummaryModal({ open, interviewId, onClose }: P
                           label={s.criteriaName || `Tiêu chí #${s.criteriaId}`}
                           key={s.criteriaId}
                         >
-                          <Space direction="vertical" size={0}>
+                          <Space orientation="vertical" size={0}>
                             <Space>
                               <Rate disabled value={s.score} count={5} style={{ fontSize: 14 }} />
                               <Text>

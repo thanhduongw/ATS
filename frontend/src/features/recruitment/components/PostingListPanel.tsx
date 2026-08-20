@@ -10,7 +10,6 @@ import PostingFormModal from "./PostingFormModal";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
-import SavedFiltersBar from "../../../components/ui/SavedFiltersBar";
 
 const STATUS_COLOR: Record<PostingStatus, string> = {
     OPEN: "green",
@@ -239,11 +238,6 @@ export default function PostingListPanel() {
                     value={filters.workLocationId}
                     onChange={(v) => { setFilters((f) => ({ ...f, workLocationId: v })); setPage(1); }}
                     options={workLocations.map((w) => ({ value: w.id, label: String(w.name) }))}
-                />
-                <SavedFiltersBar<Filters>
-                    storageKey="ats.savedFilters.postings"
-                    currentFilters={filters}
-                    onApply={(f) => { setFilters(f); setSearchInput(f.keyword); setPage(1); }}
                 />
             </div>
 

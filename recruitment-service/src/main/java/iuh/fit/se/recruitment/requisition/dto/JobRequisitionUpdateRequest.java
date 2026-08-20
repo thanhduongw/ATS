@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public record JobRequisitionUpdateRequest(
         @NotBlank String title,
@@ -16,5 +17,8 @@ public record JobRequisitionUpdateRequest(
         BigDecimal expectedSalaryMax,
         LocalDate expectedStartDate,
         String description,
+        String requirements,
+        String benefits,
+        List<Long> skillIds,
         @NotNull Long approverId
 ) {}

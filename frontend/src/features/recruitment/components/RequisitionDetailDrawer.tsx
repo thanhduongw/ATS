@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Drawer, Descriptions, Button, Space, Modal, Form, Input, InputNumber, App, Alert, Divider } from "antd";
+import { Drawer, Descriptions, Button, Space, Modal, Form, Input, InputNumber, App, Alert, Divider, Tag } from "antd";
 import type { AxiosError } from "axios";
 import {
     approveRequisition,
@@ -20,6 +20,7 @@ interface Props {
     departmentMap: Record<number, string>;
     jobTitleMap: Record<number, string>;
     jobLevelMap: Record<number, string>;
+    skillMap: Record<number, string>;
     onClose: () => void;
     onChanged: () => void;
     onEdit: (item: JobRequisitionResponse) => void;
@@ -36,6 +37,7 @@ export default function RequisitionDetailDrawer({
     departmentMap,
     jobTitleMap,
     jobLevelMap,
+    skillMap,
     onClose,
     onChanged,
     onEdit,
@@ -171,7 +173,20 @@ export default function RequisitionDetailDrawer({
                 <Descriptions.Item label="Số lượng">{requisition.quantity}</Descriptions.Item>
                 <Descriptions.Item label="Ngân sách">{requisition.budget ?? "—"}</Descriptions.Item>
                 <Descriptions.Item label="Ngày cần tuyển">{requisition.expectedStartDate ?? "—"}</Descriptions.Item>
-                <Descriptions.Item label="Mô tả">{requisition.description ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Mô tả công việc">{requisition.description ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Yêu cầu ứng viên">{requisition.requirements ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Quyền lợi">{requisition.benefits ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Kỹ năng yêu cầu">
+                    {requisition.skillIds && requisition.skillIds.length > 0 ? (
+                        <Space wrap>
+                            {requisition.skillIds.map((id) => (
+                                <Tag key={id}>{skillMap[id] ?? `#${id}`}</Tag>
+                            ))}
+                        </Space>
+                    ) : (
+                        "—"
+                    )}
+                </Descriptions.Item>
                 <Descriptions.Item label="Người tạo (phòng ban)">{requisition.requesterName}</Descriptions.Item>
                 <Descriptions.Item label="Người duyệt (HR)">{requisition.approverName}</Descriptions.Item>
                 {requisition.status === "REJECTED" && (

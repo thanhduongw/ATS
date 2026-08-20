@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Modal, Form, Input, InputNumber, Select, DatePicker, App } from "antd";
+import { Modal, Form, Input, InputNumber, Select, DatePicker, Divider, App } from "antd";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { requisitionSchema, type RequisitionFormValues } from "../schemas/requisitionSchema";
@@ -9,6 +9,7 @@ import { createRequisition, updateRequisition } from "../recruitmentApi";
 import { getUsers } from "../../auth/authApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
+import SkillMultiSelect from "../../masterdata/components/SkillMultiSelect";
 import type { UserSummaryResponse } from "../../auth/types";
 import type { ApiMessageResponse, JobRequisitionResponse } from "../types";
 
@@ -69,6 +70,9 @@ export default function RequisitionFormModal({
                 expectedSalaryMax: editingItem.expectedSalaryMax,
                 expectedStartDate: editingItem.expectedStartDate,
                 description: editingItem.description,
+                requirements: editingItem.requirements,
+                benefits: editingItem.benefits,
+                skillIds: editingItem.skillIds ?? [],
                 approverId: editingItem.approverId,
             });
         } else {
@@ -83,6 +87,9 @@ export default function RequisitionFormModal({
                 expectedSalaryMax: null,
                 expectedStartDate: null,
                 description: "",
+                requirements: "",
+                benefits: "",
+                skillIds: [],
                 approverId: undefined,
             });
         }
@@ -114,10 +121,13 @@ export default function RequisitionFormModal({
             confirmLoading={isSubmitting}
             okText={editingItem ? "Cập nhật" : "Tạo mới"}
             cancelText="Hủy"
-            width={640}
+            width={720}
             destroyOnHidden
         >
             <Form layout="vertical">
+                <Divider titlePlacement="start" plain style={{ marginTop: 0 }}>
+                    Thông tin chung
+                </Divider>
                 <Form.Item label="Tiêu đề" validateStatus={errors.title ? "error" : ""} help={errors.title?.message}>
                     <Controller name="title" control={control} render={({ field }) => <Input {...field} />} />
                 </Form.Item>
@@ -190,6 +200,9 @@ export default function RequisitionFormModal({
                     </Form.Item>
                 </div>
 
+                <Divider titlePlacement="start" plain>
+                    Ngân sách &amp; Mức lương
+                </Divider>
                 <div style={{ display: "flex", gap: 16 }}>
                     <Form.Item label="Lương đề xuất từ" style={{ flex: 1 }}>
                         <Controller
@@ -229,14 +242,47 @@ export default function RequisitionFormModal({
                     />
                 </Form.Item>
 
-                <Form.Item label="Mô tả ">
+                <Divider titlePlacement="start" plain>
+                    Mô tả chi tiết
+                </Divider>
+                <Form.Item label="Mô tả công việc">
                     <Controller
                         name="description"
                         control={control}
-                        render={({ field }) => <Input.TextArea {...field} value={field.value ?? ""} rows={3} />}
+                        render={({ field }) => <Input.TextArea {...field} value={field.value ?? ""} rows={3} placeholder="Trách nhiệm, đầu việc chính của vị trí này..." />}
+                    />
+                </Form.Item>
+                <Form.Item label="Yêu cầu ứng viên">
+                    <Controller
+                        name="requirements"
+                        control={control}
+                        render={({ field }) => <Input.TextArea {...field} value={field.value ?? ""} rows={3} placeholder="Kinh nghiệm, bằng cấp, năng lực cần có..." />}
+                    />
+                </Form.Item>
+                <Form.Item label="Quyền lợi">
+                    <Controller
+                        name="benefits"
+                        control={control}
+                        render={({ field }) => <Input.TextArea {...field} value={field.value ?? ""} rows={3} placeholder="Lương thưởng, phúc lợi, môi trường làm việc..." />}
                     />
                 </Form.Item>
 
+                <Divider titlePlacement="start" plain>
+                    Kỹ năng yêu cầu
+                </Divider>
+                <Form.Item label="Kỹ năng">
+                    <Controller
+                        name="skillIds"
+                        control={control}
+                        render={({ field }) => (
+                            <SkillMultiSelect value={field.value ?? []} onChange={field.onChange} />
+                        )}
+                    />
+                </Form.Item>
+
+                <Divider titlePlacement="start" plain>
+                    Phê duyệt
+                </Divider>
                 <Form.Item
                     label="Người duyệt (HR)"
                     validateStatus={errors.approverId ? "error" : ""}

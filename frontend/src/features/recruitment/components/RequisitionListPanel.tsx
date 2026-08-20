@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Segmented, App, Input, Select } from "antd";
+import { Table, Button, Checkbox, App, Input, Select } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getRequisitions } from "../recruitmentApi";
@@ -14,7 +14,6 @@ import RequisitionDetailDrawer from "./RequisitionDetailDrawer";
 import { REQUISITION_STATUS_COLOR, REQUISITION_STATUS_LABEL } from "../requisitionStatus";
 import StatusTag from "../../../components/ui/StatusTag";
 import EmptyState from "../../../components/ui/EmptyState";
-import SavedFiltersBar from "../../../components/ui/SavedFiltersBar";
 
 const STATUS_OPTIONS: RequisitionStatus[] = [
     "DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "CHANGES_REQUESTED",
@@ -40,9 +39,10 @@ export default function RequisitionListPanel() {
     const [departmentMap, setDepartmentMap] = useState<Record<number, string>>({});
     const [jobTitleMap, setJobTitleMap] = useState<Record<number, string>>({});
     const [jobLevelMap, setJobLevelMap] = useState<Record<number, string>>({});
+    const [skillMap, setSkillMap] = useState<Record<number, string>>({});
     const [departments, setDepartments] = useState<CatalogItem[]>([]);
     const [loading, setLoading] = useState(false);
-    const [filterMode, setFilterMode] = useState<"all" | "pendingForMe" | "needsMyEdit">("all");
+    const [assignedToMeOnly, setAssignedToMeOnly] = useState(false);
 
     const [searchInput, setSearchInput] = useState("");
     const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -70,18 +70,19 @@ export default function RequisitionListPanel() {
     const loadAll = useCallback(async () => {
         setLoading(true);
         try {
-            const [reqRes, deptRes, titleRes, levelRes] = await Promise.all([
+            const [reqRes, deptRes, titleRes, levelRes, skillRes] = await Promise.all([
                 getRequisitions({
-                    status: filterMode === "needsMyEdit" ? "CHANGES_REQUESTED" : filters.status,
+                    status: filters.status,
                     departmentId: filters.departmentId,
                     keyword: filters.keyword || undefined,
-                    assignedToMe: filterMode === "pendingForMe",
+                    assignedToMe: assignedToMeOnly,
                     page: page - 1,
                     size: pageSize,
                 }),
                 getCatalogItems("/masterdata/departments"),
                 getCatalogItems("/masterdata/job-titles"),
                 getCatalogItems("/masterdata/job-levels"),
+                getCatalogItems("/masterdata/skills"),
             ]);
             setRequisitions(reqRes.data.content);
             setTotalItems(reqRes.data.totalItems);
@@ -89,13 +90,14 @@ export default function RequisitionListPanel() {
             setDepartmentMap(buildMap(deptRes.data));
             setJobTitleMap(buildMap(titleRes.data));
             setJobLevelMap(buildMap(levelRes.data));
+            setSkillMap(buildMap(skillRes.data));
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             message.error(axiosErr.response?.data?.message ?? "Không tải được dữ liệu");
         } finally {
             setLoading(false);
         }
-    }, [message, filterMode, filters, page, pageSize]);
+    }, [message, assignedToMeOnly, filters, page, pageSize]);
 
     useEffect(() => {
         loadAll();
@@ -152,20 +154,7 @@ export default function RequisitionListPanel() {
 
     return (
         <div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
-                <Segmented
-                    value={filterMode}
-                    onChange={(value) => { setFilterMode(value as "all" | "pendingForMe" | "needsMyEdit"); setPage(1); }}
-                    options={[
-                        { label: "Tất cả", value: "all" },
-                        ...(isHr
-                            ? [{ label: "Chờ tôi duyệt", value: "pendingForMe" as const }]
-                            : []),
-                        ...(canCreateRequisition
-                            ? [{ label: "Cần tôi chỉnh sửa", value: "needsMyEdit" as const }]
-                            : []),
-                    ]}
-                />
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
                 {canCreateRequisition && (
                     <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                         Tạo yêu cầu tuyển dụng
@@ -189,7 +178,6 @@ export default function RequisitionListPanel() {
                     value={filters.status}
                     onChange={(v) => { setFilters((f) => ({ ...f, status: v })); setPage(1); }}
                     options={STATUS_OPTIONS.map((s) => ({ value: s, label: REQUISITION_STATUS_LABEL[s] }))}
-                    disabled={filterMode !== "all"}
                 />
                 <Select
                     allowClear
@@ -201,11 +189,14 @@ export default function RequisitionListPanel() {
                     onChange={(v) => { setFilters((f) => ({ ...f, departmentId: v })); setPage(1); }}
                     options={departments.map((d) => ({ value: d.id, label: String(d.name) }))}
                 />
-                <SavedFiltersBar<Filters>
-                    storageKey="ats.savedFilters.requisitions"
-                    currentFilters={filters}
-                    onApply={(f) => { setFilters(f); setSearchInput(f.keyword); setPage(1); }}
-                />
+                {/* {isHr && (
+                    <Checkbox
+                        checked={assignedToMeOnly}
+                        onChange={(e) => { setAssignedToMeOnly(e.target.checked); setPage(1); }}
+                    >
+                        Chỉ chờ tôi duyệt
+                    </Checkbox>
+                )} */}
             </div>
 
             <Table
@@ -245,6 +236,7 @@ export default function RequisitionListPanel() {
                 departmentMap={departmentMap}
                 jobTitleMap={jobTitleMap}
                 jobLevelMap={jobLevelMap}
+                skillMap={skillMap}
                 onClose={() => setDetailOpen(false)}
                 onChanged={loadAll}
                 onEdit={openEditFromDrawer}

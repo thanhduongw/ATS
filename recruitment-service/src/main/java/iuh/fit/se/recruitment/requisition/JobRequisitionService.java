@@ -84,6 +84,9 @@ public class JobRequisitionService {
                 .expectedSalaryMax(req.expectedSalaryMax())
                 .expectedStartDate(req.expectedStartDate())
                 .description(req.description())
+                .requirements(req.requirements())
+                .benefits(req.benefits())
+                .skillIds(req.skillIds() != null ? new java.util.ArrayList<>(req.skillIds()) : new java.util.ArrayList<>())
                 .requesterId(requesterId)
                 .approverId(req.approverId())
                 .status(RequisitionStatus.DRAFT)
@@ -114,6 +117,9 @@ public class JobRequisitionService {
         requisition.setExpectedSalaryMax(req.expectedSalaryMax());
         requisition.setExpectedStartDate(req.expectedStartDate());
         requisition.setDescription(req.description());
+        requisition.setRequirements(req.requirements());
+        requisition.setBenefits(req.benefits());
+        requisition.setSkillIds(req.skillIds() != null ? new java.util.ArrayList<>(req.skillIds()) : new java.util.ArrayList<>());
         requisition.setApproverId(req.approverId());
         // Chỉnh sửa lại sau khi HR yêu cầu chỉnh sửa -> đưa về Bản nháp, chờ phòng ban
         // gửi duyệt lại
@@ -256,7 +262,7 @@ public class JobRequisitionService {
                 r.getId(), r.getTitle(), r.getDepartmentId(), r.getJobTitleId(), r.getJobLevelId(),
                 r.getQuantity(), r.getBudget(), r.getExpectedSalaryMin(), r.getExpectedSalaryMax(),
                 r.getApprovedSalaryMin(), r.getApprovedSalaryMax(),
-                r.getExpectedStartDate(), r.getDescription(),
+                r.getExpectedStartDate(), r.getDescription(), r.getRequirements(), r.getBenefits(), r.getSkillIds(),
                 r.getRequesterId(), userNameMap.getOrDefault(r.getRequesterId(), "N/A"),
                 r.getApproverId(), userNameMap.getOrDefault(r.getApproverId(), "N/A"),
                 r.getStatus(), r.getRejectReason(), r.getHrNote(), r.getCreatedAt());

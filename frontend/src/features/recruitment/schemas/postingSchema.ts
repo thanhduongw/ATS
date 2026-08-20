@@ -11,6 +11,7 @@ export const postingSchema = z.object({
     description: z.string().optional().nullable(),
     requirements: z.string().optional().nullable(),
     benefits: z.string().optional().nullable(),
+    skillIds: z.array(z.number()).optional(),
 });
 
 export type PostingFormValues = z.infer<typeof postingSchema>;

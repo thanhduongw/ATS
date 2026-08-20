@@ -46,7 +46,7 @@ export default function CatalogPanel({ config }: CatalogPanelProps) {
         } finally {
             setLoading(false);
         }
-    }, [config.endpoint]);
+    }, [config.endpoint, message]);
 
     useEffect(() => {
         loadItems();

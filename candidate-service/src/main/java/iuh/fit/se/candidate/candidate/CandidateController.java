@@ -28,9 +28,10 @@ public class CandidateController {
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Boolean hasCv,
+            @RequestParam(required = false) PoolStatus poolStatus,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
-        return ResponseEntity.ok(service.getAll(tenantId, keyword, hasCv, page, size));
+        return ResponseEntity.ok(service.getAll(tenantId, keyword, hasCv, poolStatus, page, size));
     }
 
     @GetMapping("/{id}")
@@ -75,6 +76,46 @@ public class CandidateController {
         return ResponseEntity.ok(Map.of("message", "Xóa ứng viên thành công"));
     }
 
+    @PostMapping("/bulk-delete")
+    public ResponseEntity<iuh.fit.se.candidate.candidate.dto.BulkOperationResponse> bulkDelete(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody iuh.fit.se.candidate.candidate.dto.BulkDeleteRequest req) {
+        AccessGuard.requireRecruiterOrAbove(role);
+        return ResponseEntity.ok(service.bulkDelete(tenantId, actorUserId, req.ids()));
+    }
+
+    /** Internal / Feign — application-service gọi khi reject hồ sơ. */
+    @PatchMapping("/{id}/mark-pool")
+    public ResponseEntity<Map<String, String>> markPool(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        service.markPool(tenantId, id, body.get("tag"));
+        return ResponseEntity.ok(Map.of("message", "OK"));
+    }
+
+    @PostMapping("/{id}/tags")
+    public ResponseEntity<CandidateResponse> addTag(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        AccessGuard.requireRecruiterOrAbove(role);
+        return ResponseEntity.ok(service.addTag(tenantId, id, body.get("tag")));
+    }
+
+    @DeleteMapping("/{id}/tags/{tagId}")
+    public ResponseEntity<CandidateResponse> removeTag(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id,
+            @PathVariable Long tagId) {
+        AccessGuard.requireRecruiterOrAbove(role);
+        return ResponseEntity.ok(service.removeTag(tenantId, id, tagId));
+    }
+
     @GetMapping("/cv-file/{fileName}")
     public ResponseEntity<org.springframework.core.io.Resource> getCvFile(@PathVariable String fileName) {
         try {
@@ -99,6 +140,19 @@ public class CandidateController {
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @PathVariable Long userId) {
         return ResponseEntity.ok(service.getSummaryByUserId(tenantId, userId));
+    }
+
+    /** GDPR self-service: ứng viên tự yêu cầu xóa dữ liệu của mình. */
+    @PostMapping("/me/request-deletion")
+    public ResponseEntity<Map<String, String>> requestOwnDataDeletion(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role) {
+        if (!AccessGuard.isCandidate(role)) {
+            throw new AccessDeniedException("Chỉ ứng viên được thực hiện thao tác này");
+        }
+        service.requestOwnDataDeletion(tenantId, userId);
+        return ResponseEntity.ok(Map.of("message", "Yêu cầu xóa dữ liệu đã được xử lý"));
     }
 
     @PostMapping("/me/link")

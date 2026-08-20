@@ -66,6 +66,10 @@ export interface UpdateProfileRequest {
 
 export interface UpdateCompanyRequest {
     name: string;
+    description?: string | null;
+    logoUrl?: string | null;
+    bannerUrl?: string | null;
+    dataRetentionMonths?: number | null;
 }
 
 export interface UpdateUserStatusRequest {
@@ -96,6 +100,10 @@ export interface CompanyResponse {
     tenantId: number;
     name: string;
     tenantCode: string;
+    description: string | null;
+    logoUrl: string | null;
+    bannerUrl: string | null;
+    dataRetentionMonths: number | null;
 }
 
 // ===== Payload giải mã từ JWT =====

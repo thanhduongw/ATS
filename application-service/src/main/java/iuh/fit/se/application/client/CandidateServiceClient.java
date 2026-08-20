@@ -31,4 +31,11 @@ public interface CandidateServiceClient {
             @PathVariable("tenantCode") String tenantCode,
             @PathVariable("candidateId") Long candidateId,
             @RequestPart("file") MultipartFile file);
+
+    /** Talent Pool — đánh dấu ứng viên vào pool kèm tag lý do, khi hồ sơ bị từ chối. */
+    @PatchMapping("/api/candidate/candidates/{id}/mark-pool")
+    void markPool(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @PathVariable("id") Long id,
+            @RequestBody java.util.Map<String, String> body);
 }

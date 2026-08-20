@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type Key } from "react";
 import { Table, Button, Space, Select, Modal, Form, Input, App, Tag, DatePicker } from "antd";
 import type { AxiosError } from "axios";
 import type { Dayjs } from "dayjs";
@@ -6,17 +6,22 @@ import {
     getApplications,
     advanceApplicationStage,
     rejectApplication,
+    bulkAdvanceApplicationStage,
+    bulkRejectApplications,
+    bulkAssignApplicationRecruiter,
 } from "../applicationApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { getPostings } from "../../recruitment/recruitmentApi";
 import { getUsers } from "../../auth/authApi";
-import type { ApplicationResponse, ApiMessageResponse } from "../types";
+import type { ApplicationResponse, ApiMessageResponse, BulkOperationResponse } from "../types";
 import type { JobPostingResponse } from "../../recruitment/types";
 import type { CatalogItem, StageType } from "../../masterdata/types";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import type { UserRole, UserSummaryResponse } from "../../auth/types";
 import { STAGE_TYPE_LABEL } from "../../../app/statusLabels";
+import { exportToExcel } from "../../../app/exportExcel";
+import { DownloadOutlined } from "@ant-design/icons";
 
 const { RangePicker } = DatePicker;
 
@@ -34,7 +39,7 @@ const STAGE_TYPE_OPTIONS: StageType[] = [
 ];
 
 export default function ApplicationsPage() {
-    const { message } = App.useApp();
+    const { message, modal } = App.useApp();
     const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
     const isHr = !!role && HR_ROLES.includes(role);
 
@@ -60,8 +65,16 @@ export default function ApplicationsPage() {
 
     const [rejectOpen, setRejectOpen] = useState(false);
     const [selectedId, setSelectedId] = useState<number | null>(null);
-    const [reasons, setReasons] = useState<{ id: number; name: string }[]>([]);
+    const [reasons, setReasons] = useState<CatalogItem[]>([]);
     const [rejectForm] = Form.useForm();
+
+    // Bulk actions
+    const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
+    const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+    const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+    const [bulkForm] = Form.useForm();
+    const [bulkAssignForm] = Form.useForm();
+    const [bulkSubmitting, setBulkSubmitting] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -89,8 +102,8 @@ export default function ApplicationsPage() {
     useEffect(() => { load(); }, [load]);
 
     useEffect(() => {
-        getCatalogItems("/masterdata/rejection-reasons").then((r) => setReasons(r.data as any));
-        getPostings().then((r) => setPostings(r.data));
+        getCatalogItems("/masterdata/rejection-reasons").then((r) => setReasons(r.data));
+        getPostings().then((r) => setPostings(r.data.content));
         getUsers("RECRUITER").then((r) => setRecruiters(r.data));
         getCatalogItems("/masterdata/recruitment-sources").then((r) => setSources(r.data));
     }, []);
@@ -120,6 +133,64 @@ export default function ApplicationsPage() {
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
             message.error(e.response?.data?.message ?? "Thất bại");
+        }
+    };
+
+    const reportBulkResult = (result: BulkOperationResponse) => {
+        const failedCount = Object.keys(result.failedIds).length;
+        if (failedCount === 0) {
+            message.success(`Đã xử lý thành công ${result.succeededIds.length} hồ sơ`);
+        } else {
+            message.warning(
+                `Thành công ${result.succeededIds.length} hồ sơ, thất bại ${failedCount} hồ sơ (xem lý do trong console)`
+            );
+            console.warn("Bulk action failures:", result.failedIds);
+        }
+        setSelectedRowKeys([]);
+        load();
+    };
+
+    const handleBulkAdvance = () => {
+        modal.confirm({
+            title: `Chuyển vòng cho ${selectedRowKeys.length} hồ sơ đã chọn?`,
+            content: "Mỗi hồ sơ sẽ được chuyển sang giai đoạn kế tiếp trong quy trình tuyển dụng của nó.",
+            okText: "Chuyển vòng",
+            onOk: async () => {
+                const res = await bulkAdvanceApplicationStage(selectedRowKeys as number[], "Chuyển vòng hàng loạt");
+                reportBulkResult(res.data);
+            },
+        });
+    };
+
+    const handleBulkReject = async () => {
+        const values = await bulkForm.validateFields();
+        setBulkSubmitting(true);
+        try {
+            const res = await bulkRejectApplications(selectedRowKeys as number[], values.rejectionReasonId, values.note);
+            setBulkRejectOpen(false);
+            bulkForm.resetFields();
+            reportBulkResult(res.data);
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Thất bại");
+        } finally {
+            setBulkSubmitting(false);
+        }
+    };
+
+    const handleBulkAssign = async () => {
+        const values = await bulkAssignForm.validateFields();
+        setBulkSubmitting(true);
+        try {
+            const res = await bulkAssignApplicationRecruiter(selectedRowKeys as number[], values.assignedRecruiterId);
+            setBulkAssignOpen(false);
+            bulkAssignForm.resetFields();
+            reportBulkResult(res.data);
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Thất bại");
+        } finally {
+            setBulkSubmitting(false);
         }
     };
 
@@ -194,9 +265,29 @@ export default function ApplicationsPage() {
             : []),
     ];
 
+    const handleExportExcel = () => {
+        exportToExcel(
+            "ho-so-ung-tuyen",
+            [
+                { header: "Ứng viên", value: (r: ApplicationResponse) => r.candidateName },
+                { header: "Vị trí ứng tuyển", value: (r: ApplicationResponse) => r.jobTitle || `Job #${r.jobPostingId}` },
+                { header: "Giai đoạn", value: (r: ApplicationResponse) => r.currentStageName },
+                { header: "Người phụ trách", value: (r: ApplicationResponse) => r.assignedRecruiterName },
+                { header: "Nguồn", value: (r: ApplicationResponse) => r.recruitmentSourceName },
+                { header: "Ngày nộp", value: (r: ApplicationResponse) => new Date(r.appliedAt).toLocaleDateString("vi-VN") },
+            ],
+            rows,
+        );
+    };
+
     return (
         <div className="page-container">
-            <h2>Hồ sơ ứng tuyển</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2>Hồ sơ ứng tuyển</h2>
+                <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
+                    Xuất Excel
+                </Button>
+            </div>
 
             <Space wrap style={{ marginBottom: 16 }}>
                 <Select
@@ -242,11 +333,39 @@ export default function ApplicationsPage() {
                 />
             </Space>
 
+            {isHr && selectedRowKeys.length > 0 && (
+                <div
+                    style={{
+                        display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                        padding: "10px 16px", marginBottom: 12, background: "#EFF6FF",
+                        border: "1px solid #BFDBFE", borderRadius: 8,
+                    }}
+                >
+                    <span>Đã chọn {selectedRowKeys.length} hồ sơ</span>
+                    <Button size="small" type="primary" onClick={handleBulkAdvance}>
+                        Chuyển vòng hàng loạt
+                    </Button>
+                    <Button size="small" danger onClick={() => setBulkRejectOpen(true)}>
+                        Reject hàng loạt
+                    </Button>
+                    <Button size="small" onClick={() => setBulkAssignOpen(true)}>
+                        Gán người phụ trách hàng loạt
+                    </Button>
+                    <Button size="small" type="text" onClick={() => setSelectedRowKeys([])}>
+                        Bỏ chọn
+                    </Button>
+                </div>
+            )}
+
             <Table
                 rowKey="id"
                 loading={loading}
                 columns={columns}
                 dataSource={rows}
+                rowSelection={isHr ? {
+                    selectedRowKeys,
+                    onChange: setSelectedRowKeys,
+                } : undefined}
                 pagination={{
                     current: page,
                     pageSize,
@@ -272,11 +391,57 @@ export default function ApplicationsPage() {
                         rules={[{ required: true, message: "Chọn lý do" }]}
                     >
                         <Select
-                            options={reasons.map((r) => ({ value: r.id, label: r.name }))}
+                            options={reasons.map((r) => ({ value: r.id, label: String(r.name) }))}
                         />
                     </Form.Item>
                     <Form.Item name="note" label="Ghi chú">
                         <Input.TextArea rows={3} />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            <Modal
+                title={`Từ chối hàng loạt (${selectedRowKeys.length} hồ sơ)`}
+                open={bulkRejectOpen}
+                onOk={handleBulkReject}
+                onCancel={() => setBulkRejectOpen(false)}
+                okText="Từ chối"
+                confirmLoading={bulkSubmitting}
+                okButtonProps={{ danger: true }}
+            >
+                <Form form={bulkForm} layout="vertical">
+                    <Form.Item
+                        name="rejectionReasonId"
+                        label="Lý do"
+                        rules={[{ required: true, message: "Chọn lý do" }]}
+                    >
+                        <Select options={reasons.map((r) => ({ value: r.id, label: String(r.name) }))} />
+                    </Form.Item>
+                    <Form.Item name="note" label="Ghi chú">
+                        <Input.TextArea rows={3} />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            <Modal
+                title={`Gán người phụ trách hàng loạt (${selectedRowKeys.length} hồ sơ)`}
+                open={bulkAssignOpen}
+                onOk={handleBulkAssign}
+                onCancel={() => setBulkAssignOpen(false)}
+                okText="Gán"
+                confirmLoading={bulkSubmitting}
+            >
+                <Form form={bulkAssignForm} layout="vertical">
+                    <Form.Item
+                        name="assignedRecruiterId"
+                        label="Người phụ trách"
+                        rules={[{ required: true, message: "Chọn người phụ trách" }]}
+                    >
+                        <Select
+                            showSearch
+                            optionFilterProp="label"
+                            options={recruiters.map((r) => ({ value: r.id, label: r.fullName }))}
+                        />
                     </Form.Item>
                 </Form>
             </Modal>

@@ -6,8 +6,11 @@ import iuh.fit.se.recruitment.common.AccessGuard;
 import iuh.fit.se.recruitment.event.AuditEventPublisher;
 import iuh.fit.se.recruitment.event.RequisitionEventPublisher;
 import iuh.fit.se.recruitment.exception.BusinessException;
+import iuh.fit.se.recruitment.common.PageResponse;
 import iuh.fit.se.recruitment.requisition.dto.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,22 +29,38 @@ public class JobRequisitionService {
     private final RequisitionEventPublisher requisitionEventPublisher;
     private final AuditEventPublisher auditEventPublisher;
 
-    public List<JobRequisitionResponse> getAll(Long tenantId, Long userId, String role) {
-        List<JobRequisition> requisitions;
+    public PageResponse<JobRequisitionResponse> getAll(
+            Long tenantId, Long userId, String role,
+            RequisitionStatus status, Long departmentId, String keyword, Boolean assignedToMe,
+            Integer page, Integer size) {
 
+        Long requesterId;
         if (AccessGuard.isHr(role)) {
             // HR / Company Admin: xem toàn bộ requisition của tenant
-            requisitions = repository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
+            requesterId = null;
         } else if (AccessGuard.isDepartment(role)) {
             // Phòng ban: chỉ xem yêu cầu do mình tạo
-            requisitions = repository
-                    .findByTenantIdAndRequesterIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, userId);
+            requesterId = userId;
         } else {
             throw new AccessDeniedException("Bạn không có quyền xem danh sách yêu cầu tuyển dụng");
         }
 
+        // "Chờ tôi duyệt": chỉ có ý nghĩa với HR (approver), thu hẹp thêm theo approverId
+        Long approverId = (Boolean.TRUE.equals(assignedToMe) && AccessGuard.isHr(role)) ? userId : null;
+
+        var spec = JobRequisitionSpecifications.build(tenantId, requesterId, approverId, status, departmentId, keyword);
         Map<Long, String> userNameMap = buildUserNameMap();
-        return requisitions.stream().map(r -> toResponse(r, userNameMap)).toList();
+
+        if (page == null && size == null) {
+            List<JobRequisition> all = repository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+            return PageResponse.unpaged(all.stream().map(r -> toResponse(r, userNameMap)).toList());
+        }
+
+        var pageable = PageRequest.of(
+                page != null ? page : 0,
+                size != null ? size : 20,
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        return PageResponse.of(repository.findAll(spec, pageable).map(r -> toResponse(r, userNameMap)));
     }
 
     public JobRequisitionResponse getById(Long tenantId, Long id) {

@@ -10,11 +10,20 @@ import type {
     JobPostingCreateRequest,
     JobPostingUpdateRequest,
     JobPostingStatusRequest,
+    PageResponse,
+    RequisitionStatus,
+    PostingStatus,
 } from "./types";
 
 // ===== Job Requisition =====
-export const getRequisitions = () =>
-    axiosClient.get<JobRequisitionResponse[]>("/recruitment/requisitions");
+export const getRequisitions = (params?: {
+    status?: RequisitionStatus;
+    departmentId?: number;
+    keyword?: string;
+    assignedToMe?: boolean;
+    page?: number;
+    size?: number;
+}) => axiosClient.get<PageResponse<JobRequisitionResponse>>("/recruitment/requisitions", { params });
 
 export const getRequisitionById = (id: number) =>
     axiosClient.get<JobRequisitionResponse>(`/recruitment/requisitions/${id}`);
@@ -38,8 +47,14 @@ export const requestRequisitionChanges = (id: number, data: JobRequisitionReques
     axiosClient.post<JobRequisitionResponse>(`/recruitment/requisitions/${id}/request-changes`, data);
 
 // ===== Job Posting =====
-export const getPostings = () =>
-    axiosClient.get<JobPostingResponse[]>("/recruitment/postings");
+export const getPostings = (params?: {
+    status?: PostingStatus;
+    employmentTypeId?: number;
+    workLocationId?: number;
+    keyword?: string;
+    page?: number;
+    size?: number;
+}) => axiosClient.get<PageResponse<JobPostingResponse>>("/recruitment/postings", { params });
 
 export const getPostingById = (id: number) =>
     axiosClient.get<JobPostingResponse>(`/recruitment/postings/${id}`);

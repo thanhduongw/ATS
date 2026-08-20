@@ -1,18 +1,19 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
-import { App, Card, Table, Button, Tag, Space, Input, Select, Row, Col, Tooltip, Avatar } from "antd";
-import { PlusOutlined, UploadOutlined, SendOutlined, SearchOutlined, UserOutlined, FilePdfOutlined, FileUnknownOutlined } from "@ant-design/icons";
+import { useCallback, useEffect, useState, useMemo, type Key } from "react";
+import { App, Card, Table, Button, Tag, Space, Input, Select, Row, Col, Tooltip, Avatar, Segmented, Popover } from "antd";
+import { PlusOutlined, UploadOutlined, SendOutlined, SearchOutlined, UserOutlined, FilePdfOutlined, FileUnknownOutlined, DeleteOutlined, DownloadOutlined, TagOutlined, CloseOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import type { ColumnsType } from "antd/es/table";
-import { getCandidates } from "../candidateApi";
+import { getCandidates, bulkDeleteCandidates, addCandidateTag, removeCandidateTag } from "../candidateApi";
 import { getApplications } from "../applicationApi";
 import type { ApiMessageResponse, CandidateResponse, ApplicationResponse, CandidateWithApplications } from "../types";
 import CandidateFormModal from "../components/CandidateFormModal";
 import CvUploadModal from "../components/CvUploadModal";
 import ApplicationCreateModal from "../components/ApplicationCreateModal";
 import { COLORS, GRADIENTS } from "../../../app/theme";
+import { exportToExcel } from "../../../app/exportExcel";
 
 export default function CandidatesPage() {
-    const { notification } = App.useApp();
+    const { notification, message, modal } = App.useApp();
     const [candidates, setCandidates] = useState<CandidateResponse[]>([]);
     const [totalCandidates, setTotalCandidates] = useState(0);
     const [cvBreakdown, setCvBreakdown] = useState({ withCv: 0, withoutCv: 0 });
@@ -21,8 +22,11 @@ export default function CandidatesPage() {
     const [searchInput, setSearchInput] = useState("");
     const [keyword, setKeyword] = useState("");
     const [filterCvStatus, setFilterCvStatus] = useState<"all" | "has_cv" | "no_cv">("all");
+    const [poolFilter, setPoolFilter] = useState<"all" | "ACTIVE" | "IN_POOL">("all");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [newTagInput, setNewTagInput] = useState("");
+    const [tagPopoverCandidateId, setTagPopoverCandidateId] = useState<number | null>(null);
 
     const [formModalOpen, setFormModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<CandidateResponse | null>(null);
@@ -30,6 +34,8 @@ export default function CandidatesPage() {
     const [cvCandidateId, setCvCandidateId] = useState<number | null>(null);
     const [applyModalOpen, setApplyModalOpen] = useState(false);
     const [applyCandidateId, setApplyCandidateId] = useState<number | undefined>(undefined);
+
+    const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
 
     // Debounce ô tìm kiếm trước khi gọi API; đổi từ khóa thì quay về trang 1
     useEffect(() => {
@@ -49,8 +55,9 @@ export default function CandidatesPage() {
         setLoading(true);
         try {
             const hasCv = filterCvStatus === "all" ? undefined : filterCvStatus === "has_cv";
+            const poolStatus = poolFilter === "all" ? undefined : poolFilter;
             const [candRes, appRes] = await Promise.all([
-                getCandidates({ keyword: keyword || undefined, hasCv, page: page - 1, size: pageSize }),
+                getCandidates({ keyword: keyword || undefined, hasCv, poolStatus, page: page - 1, size: pageSize }),
                 getApplications(),          // lấy tất cả đơn ứng tuyển (không phân trang) để gộp vào từng ứng viên
             ]);
             setCandidates(candRes.data.content);
@@ -66,7 +73,7 @@ export default function CandidatesPage() {
         } finally {
             setLoading(false);
         }
-    }, [notification, keyword, filterCvStatus, page, pageSize]);
+    }, [notification, keyword, filterCvStatus, poolFilter, page, pageSize]);
 
     useEffect(() => { loadData(); }, [loadData]);
 
@@ -95,6 +102,68 @@ export default function CandidatesPage() {
             applications: appByCandidate[c.id] ?? [],
         }));
     }, [candidates, applications]);
+
+    const handleBulkDelete = () => {
+        modal.confirm({
+            title: `Xóa ${selectedRowKeys.length} ứng viên đã chọn?`,
+            content: "Hành động này không thể hoàn tác. Ứng viên đã có hồ sơ đang xử lý vẫn có thể bị lỗi khi xóa.",
+            okText: "Xóa",
+            okButtonProps: { danger: true },
+            onOk: async () => {
+                const res = await bulkDeleteCandidates(selectedRowKeys as number[]);
+                const failedCount = Object.keys(res.data.failedIds).length;
+                if (failedCount === 0) {
+                    message.success(`Đã xóa ${res.data.succeededIds.length} ứng viên`);
+                } else {
+                    message.warning(
+                        `Đã xóa ${res.data.succeededIds.length} ứng viên, ${failedCount} ứng viên không thể xóa`
+                    );
+                    console.warn("Bulk delete failures:", res.data.failedIds);
+                }
+                setSelectedRowKeys([]);
+                loadData();
+            },
+        });
+    };
+
+    const handleExportExcel = () => {
+        exportToExcel(
+            "ung-vien",
+            [
+                { header: "Họ tên", value: (c: CandidateWithApplications) => c.fullName },
+                { header: "Email", value: (c: CandidateWithApplications) => c.email },
+                { header: "Điện thoại", value: (c: CandidateWithApplications) => c.phone },
+                { header: "Học vấn", value: (c: CandidateWithApplications) => c.educationLevelName },
+                { header: "Kỹ năng", value: (c: CandidateWithApplications) => c.skillNames?.join(", ") },
+                { header: "Vị trí ứng tuyển", value: (c: CandidateWithApplications) => c.applications.map((a) => a.jobTitle).join(", ") },
+                { header: "Có CV", value: (c: CandidateWithApplications) => c.cvFileUrl ? "Có" : "Chưa có" },
+            ],
+            candidatesWithApps,
+        );
+    };
+
+    const handleAddTag = async (candidateId: number) => {
+        if (!newTagInput.trim()) return;
+        try {
+            await addCandidateTag(candidateId, newTagInput.trim());
+            setNewTagInput("");
+            setTagPopoverCandidateId(null);
+            loadData();
+        } catch (err) {
+            const axiosErr = err as AxiosError<ApiMessageResponse>;
+            message.error(axiosErr.response?.data?.message ?? "Không thêm được tag");
+        }
+    };
+
+    const handleRemoveTag = async (candidateId: number, tagId: number) => {
+        try {
+            await removeCandidateTag(candidateId, tagId);
+            loadData();
+        } catch (err) {
+            const axiosErr = err as AxiosError<ApiMessageResponse>;
+            message.error(axiosErr.response?.data?.message ?? "Không xóa được tag");
+        }
+    };
 
     const getInitials = (name: string) => {
         const parts = name.split(" ").filter(Boolean);
@@ -188,6 +257,53 @@ export default function CandidatesPage() {
             ),
         },
         {
+            title: "Talent Pool",
+            key: "pool",
+            width: 200,
+            render: (_, record) => (
+                <Space orientation="vertical" size={4}>
+                    {record.poolStatus === "IN_POOL" && (
+                        <Tag color="gold" style={{ borderRadius: 6, margin: 0 }}>Trong Pool</Tag>
+                    )}
+                    <Space wrap size={4}>
+                        {record.tags.map((t) => (
+                            <Tag
+                                key={t.id}
+                                style={{ borderRadius: 6, margin: 0, fontSize: 11 }}
+                                closeIcon={<CloseOutlined style={{ fontSize: 9 }} />}
+                                onClose={(e) => { e.preventDefault(); handleRemoveTag(record.id, t.id); }}
+                            >
+                                {t.tag}
+                            </Tag>
+                        ))}
+                        <Popover
+                            open={tagPopoverCandidateId === record.id}
+                            onOpenChange={(open) => { setTagPopoverCandidateId(open ? record.id : null); setNewTagInput(""); }}
+                            trigger="click"
+                            content={
+                                <Space>
+                                    <Input
+                                        size="small"
+                                        placeholder="Tên tag"
+                                        value={newTagInput}
+                                        onChange={(e) => setNewTagInput(e.target.value)}
+                                        onPressEnter={() => handleAddTag(record.id)}
+                                    />
+                                    <Button size="small" type="primary" onClick={() => handleAddTag(record.id)}>
+                                        Thêm
+                                    </Button>
+                                </Space>
+                            }
+                        >
+                            <Tag style={{ borderRadius: 6, margin: 0, fontSize: 11, cursor: "pointer" }} icon={<TagOutlined />}>
+                                + Tag
+                            </Tag>
+                        </Popover>
+                    </Space>
+                </Space>
+            ),
+        },
+        {
             title: "CV",
             dataIndex: "cvFileUrl",
             key: "cvFileUrl",
@@ -252,10 +368,15 @@ export default function CandidatesPage() {
                         <div className="page-header-subtitle">Talent Pool — kho dữ liệu ứng viên của công ty</div>
                     </div>
                 </div>
-                <Button type="primary" icon={<PlusOutlined />} size="large"
-                    onClick={() => { setEditingItem(null); setFormModalOpen(true); }}>
-                    Thêm ứng viên
-                </Button>
+                <Space>
+                    <Button icon={<DownloadOutlined />} size="large" onClick={handleExportExcel}>
+                        Xuất Excel
+                    </Button>
+                    <Button type="primary" icon={<PlusOutlined />} size="large"
+                        onClick={() => { setEditingItem(null); setFormModalOpen(true); }}>
+                        Thêm ứng viên
+                    </Button>
+                </Space>
             </div>
 
             {/* Summary cards giữ nguyên */}
@@ -275,6 +396,17 @@ export default function CandidatesPage() {
             </Row>
 
             <Card style={{ border: "none" }}>
+                <div style={{ marginBottom: 16 }}>
+                    <Segmented
+                        value={poolFilter}
+                        onChange={(v) => { setPoolFilter(v as "all" | "ACTIVE" | "IN_POOL"); setPage(1); }}
+                        options={[
+                            { label: "Tất cả ứng viên", value: "all" },
+                            { label: "Đang hoạt động", value: "ACTIVE" },
+                            { label: "Talent Pool", value: "IN_POOL" },
+                        ]}
+                    />
+                </div>
                 <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
                     <Input
                         prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
@@ -296,11 +428,33 @@ export default function CandidatesPage() {
                     />
                 </div>
 
+                {selectedRowKeys.length > 0 && (
+                    <div
+                        style={{
+                            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                            padding: "10px 16px", marginBottom: 16, background: "#EFF6FF",
+                            border: "1px solid #BFDBFE", borderRadius: 8,
+                        }}
+                    >
+                        <span>Đã chọn {selectedRowKeys.length} ứng viên</span>
+                        <Button size="small" danger icon={<DeleteOutlined />} onClick={handleBulkDelete}>
+                            Xóa hàng loạt
+                        </Button>
+                        <Button size="small" type="text" onClick={() => setSelectedRowKeys([])}>
+                            Bỏ chọn
+                        </Button>
+                    </div>
+                )}
+
                 <Table
                     rowKey="id"
                     loading={loading}
                     columns={columns}
                     dataSource={candidatesWithApps}
+                    rowSelection={{
+                        selectedRowKeys,
+                        onChange: setSelectedRowKeys,
+                    }}
                     pagination={{
                         current: page,
                         pageSize,

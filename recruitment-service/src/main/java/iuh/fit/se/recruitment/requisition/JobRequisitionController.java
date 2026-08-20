@@ -1,13 +1,13 @@
 package iuh.fit.se.recruitment.requisition;
 
 import iuh.fit.se.recruitment.common.AccessGuard;
+import iuh.fit.se.recruitment.common.PageResponse;
 import iuh.fit.se.recruitment.requisition.dto.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -18,12 +18,19 @@ public class JobRequisitionController {
     private final JobRequisitionService service;
 
     @GetMapping
-    public ResponseEntity<List<JobRequisitionResponse>> getAll(
+    public ResponseEntity<PageResponse<JobRequisitionResponse>> getAll(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Role") String role) {
+            @RequestHeader("X-User-Role") String role,
+            @RequestParam(required = false) RequisitionStatus status,
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean assignedToMe,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         AccessGuard.requireHrOrDepartment(role);
-        return ResponseEntity.ok(service.getAll(tenantId, userId, role));
+        return ResponseEntity.ok(service.getAll(
+                tenantId, userId, role, status, departmentId, keyword, assignedToMe, page, size));
     }
 
     @GetMapping("/{id}")

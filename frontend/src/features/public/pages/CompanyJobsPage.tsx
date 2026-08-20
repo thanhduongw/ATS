@@ -11,6 +11,7 @@ import {
     Space,
     App,
     Statistic,
+    Select,
 } from "antd";
 import {
     SendOutlined,
@@ -44,6 +45,8 @@ export default function CompanyJobsPage() {
     const [company, setCompany] = useState<PublicCompanyResponse | null>(null);
     const [jobs, setJobs] = useState<PublicJobPosting[]>([]);
     const [loading, setLoading] = useState(true);
+    const [employmentTypeFilter, setEmploymentTypeFilter] = useState<string | undefined>();
+    const [workLocationFilter, setWorkLocationFilter] = useState<string | undefined>();
 
     const load = useCallback(async () => {
         if (!tenantCode) return;
@@ -71,6 +74,19 @@ export default function CompanyJobsPage() {
         load();
     }, [load]);
 
+    // Lọc phía client theo tên loại hình/địa điểm (đã có sẵn trong danh sách job) — không cần gọi lại API
+    const employmentTypeOptions = Array.from(
+        new Set(jobs.map((j) => j.employmentTypeName).filter((n): n is string => !!n))
+    );
+    const workLocationOptions = Array.from(
+        new Set(jobs.map((j) => j.workLocationName).filter((n): n is string => !!n))
+    );
+    const filteredJobs = jobs.filter(
+        (j) =>
+            (!employmentTypeFilter || j.employmentTypeName === employmentTypeFilter) &&
+            (!workLocationFilter || j.workLocationName === workLocationFilter)
+    );
+
     if (loading) {
         return (
             <div style={{ textAlign: "center", padding: 80 }}>
@@ -96,28 +112,39 @@ export default function CompanyJobsPage() {
                 style={{
                     marginBottom: 28,
                     borderRadius: 16,
-                    background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)",
+                    background: company.bannerUrl
+                        ? `linear-gradient(135deg, rgba(240,253,244,0.9) 0%, rgba(236,253,245,0.9) 100%), url(${company.bannerUrl}) center/cover`
+                        : "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)",
                     border: `1px solid ${COLORS.borderLight}`,
                 }}
                 styles={{ body: { padding: "28px 32px" } }}
             >
                 <Space align="start" size={20}>
-                    <div
-                        style={{
-                            width: 64,
-                            height: 64,
-                            borderRadius: 14,
-                            background: COLORS.primary,
-                            color: "#fff",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 28,
-                            fontWeight: 700,
-                        }}
-                    >
-                        <BankOutlined />
-                    </div>
+                    {company.logoUrl ? (
+                        <img
+                            src={company.logoUrl}
+                            alt={company.name}
+                            style={{ width: 64, height: 64, borderRadius: 14, objectFit: "cover", flexShrink: 0 }}
+                        />
+                    ) : (
+                        <div
+                            style={{
+                                width: 64,
+                                height: 64,
+                                borderRadius: 14,
+                                background: COLORS.primary,
+                                color: "#fff",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 28,
+                                fontWeight: 700,
+                                flexShrink: 0,
+                            }}
+                        >
+                            <BankOutlined />
+                        </div>
+                    )}
                     <div>
                         <Title level={3} style={{ margin: 0 }}>
                             {company.name}
@@ -125,6 +152,11 @@ export default function CompanyJobsPage() {
                         <Text type="secondary">
                             Mã công ty: <Text code>{company.tenantCode}</Text>
                         </Text>
+                        {company.description && (
+                            <Paragraph style={{ marginTop: 8, marginBottom: 0, maxWidth: 640 }}>
+                                {company.description}
+                            </Paragraph>
+                        )}
                         <div style={{ marginTop: 12 }}>
                             <Statistic
                                 title="Vị trí đang tuyển"
@@ -136,16 +168,38 @@ export default function CompanyJobsPage() {
                 </Space>
             </Card>
 
-            <Title level={4} style={{ marginBottom: 16 }}>
-                Việc làm đang mở
-            </Title>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
+                <Title level={4} style={{ margin: 0 }}>
+                    Việc làm đang mở
+                </Title>
+                {jobs.length > 0 && (
+                    <Space wrap>
+                        <Select
+                            allowClear
+                            placeholder="Loại hình"
+                            style={{ width: 180 }}
+                            value={employmentTypeFilter}
+                            onChange={setEmploymentTypeFilter}
+                            options={employmentTypeOptions.map((n) => ({ value: n, label: n }))}
+                        />
+                        <Select
+                            allowClear
+                            placeholder="Địa điểm"
+                            style={{ width: 180 }}
+                            value={workLocationFilter}
+                            onChange={setWorkLocationFilter}
+                            options={workLocationOptions.map((n) => ({ value: n, label: n }))}
+                        />
+                    </Space>
+                )}
+            </div>
 
-            {jobs.length === 0 ? (
+            {filteredJobs.length === 0 ? (
                 <Empty description="Hiện chưa có tin tuyển dụng nào đang mở" />
             ) : (
                 <List
                     grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 2 }}
-                    dataSource={jobs}
+                    dataSource={filteredJobs}
                     renderItem={(job) => (
                         <List.Item>
                             <Card
@@ -176,6 +230,13 @@ export default function CompanyJobsPage() {
                                             </Text>
                                         )}
                                     </Space>
+
+                                    {(job.employmentTypeName || job.workLocationName) && (
+                                        <Space wrap size={4}>
+                                            {job.employmentTypeName && <Tag>{job.employmentTypeName}</Tag>}
+                                            {job.workLocationName && <Tag>{job.workLocationName}</Tag>}
+                                        </Space>
+                                    )}
 
                                     {job.description && (
                                         <Paragraph

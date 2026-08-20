@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { Card, Col, Row, Spin } from "antd";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Card, Col, Row, Spin, DatePicker, Button, Typography, Table, App } from "antd";
+import dayjs, { type Dayjs } from "dayjs";
 import {
     BarChart,
     Bar,
@@ -28,12 +29,21 @@ import {
     CalendarOutlined,
     FileTextOutlined,
     AppstoreOutlined,
+    FilterOutlined,
+    ClockCircleOutlined,
+    DownloadOutlined,
 } from "@ant-design/icons";
-import { getDashboardSummary } from "../dashboardApi";
+import { saveAs } from "file-saver";
+import { getDashboardSummary, getDashboardReportPdf } from "../dashboardApi";
 import type { DashboardSummaryResponse } from "../types";
 import { GRADIENTS, COLORS } from "../../../app/theme";
 import { useAppSelector } from "../../../app/hooks";
 import { useNavigate } from "react-router-dom";
+
+const { RangePicker } = DatePicker;
+const { Text } = Typography;
+
+const FUNNEL_COLORS = ["#0E7A5F", "#3B82F6", "#8B5CF6", "#F59E0B", "#EF4444", "#10B981"];
 
 interface StatCardProps {
     title: string;
@@ -197,21 +207,45 @@ const PIE_COLORS = [
 ];
 
 export default function DashboardPage() {
+    const { message } = App.useApp();
     const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
     const [loading, setLoading] = useState(false);
+    const [exporting, setExporting] = useState(false);
+    const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
     const user = useAppSelector((s) => s.auth.user);
     const navigate = useNavigate();
 
-    useEffect(() => {
+    const rangeParams = useMemo(() => ({
+        from: dateRange ? dateRange[0].format("YYYY-MM-DD") : undefined,
+        to: dateRange ? dateRange[1].format("YYYY-MM-DD") : undefined,
+    }), [dateRange]);
+
+    const loadSummary = useCallback(() => {
         setLoading(true);
-        getDashboardSummary()
+        getDashboardSummary(rangeParams)
             .then((res) => setSummary(res.data))
             .catch(() => {
                 // Không để Uncaught AxiosError; giữ summary = null → UI hiện 0
                 setSummary(null);
             })
             .finally(() => setLoading(false));
-    }, []);
+    }, [rangeParams]);
+
+    useEffect(() => {
+        loadSummary();
+    }, [loadSummary]);
+
+    const handleExportPdf = async () => {
+        setExporting(true);
+        try {
+            const res = await getDashboardReportPdf(rangeParams);
+            saveAs(res.data, "bao-cao-tuyen-dung.pdf");
+        } catch {
+            message.error("Không xuất được báo cáo PDF");
+        } finally {
+            setExporting(false);
+        }
+    };
 
     const hour = new Date().getHours();
     const greeting =
@@ -235,6 +269,18 @@ export default function DashboardPage() {
                 stage,
             }))
         : [];
+
+    const funnelSteps = summary?.funnel
+        ? [
+            { key: "requisitions", label: "Yêu cầu tuyển dụng", value: summary.funnel.requisitions },
+            { key: "postings", label: "Tin tuyển dụng", value: summary.funnel.postings },
+            { key: "applications", label: "Hồ sơ ứng tuyển", value: summary.funnel.applications },
+            { key: "interviews", label: "Phỏng vấn", value: summary.funnel.interviews },
+            { key: "offers", label: "Offer", value: summary.funnel.offers },
+            { key: "hired", label: "Đã tuyển", value: summary.funnel.hired },
+        ]
+        : [];
+    const funnelMax = Math.max(1, ...funnelSteps.map((s) => s.value));
 
     if (loading) {
         return (
@@ -291,6 +337,29 @@ export default function DashboardPage() {
                         })}
                     </div>
                 </div>
+            </div>
+
+            {/* Filter theo thời gian + xuất báo cáo */}
+            <div
+                style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    flexWrap: "wrap", gap: 12, marginBottom: 24,
+                }}
+            >
+                <RangePicker
+                    value={dateRange}
+                    onChange={(v) => setDateRange(v as [Dayjs, Dayjs] | null)}
+                    presets={[
+                        { label: "7 ngày qua", value: [dayjs().subtract(7, "day"), dayjs()] },
+                        { label: "30 ngày qua", value: [dayjs().subtract(30, "day"), dayjs()] },
+                        { label: "90 ngày qua", value: [dayjs().subtract(90, "day"), dayjs()] },
+                    ]}
+                    allowClear
+                    placeholder={["Từ ngày", "Đến ngày"]}
+                />
+                <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExportPdf}>
+                    Xuất báo cáo PDF
+                </Button>
             </div>
 
             {/* Stats */}
@@ -382,8 +451,31 @@ export default function DashboardPage() {
                 </Col>
             </Row>
 
+            {/* ── Time-to-Hire ── */}
+            {summary?.avgTimeToHireDays != null && (
+                <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                    <Col span={24}>
+                        <Card style={{ border: "none" }} className="stat-card">
+                            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                                <div className="stat-icon" style={{ background: GRADIENTS.stat3 }}>
+                                    <ClockCircleOutlined />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 13, color: COLORS.textSecondary, fontWeight: 500 }}>
+                                        Thời gian tuyển trung bình (Time-to-Hire)
+                                    </div>
+                                    <div style={{ fontSize: 28, fontWeight: 700, color: COLORS.textPrimary }}>
+                                        {summary.avgTimeToHireDays} <span style={{ fontSize: 14, fontWeight: 500 }}>ngày</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+                    </Col>
+                </Row>
+            )}
+
             {/* ── Recruitment Funnel ── */}
-            {/* {funnelSteps.length > 0 && (
+            {funnelSteps.length > 0 && (
                 <Card
                     title={
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -474,7 +566,98 @@ export default function DashboardPage() {
                         })}
                     </div>
                 </Card>
-            )} */}
+            )}
+
+            {/* ── Source Effectiveness / Pipeline Conversion / Recruiter Performance ── */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                <Col xs={24} lg={12}>
+                    <Card
+                        title={
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <FilterOutlined style={{ color: COLORS.primary }} />
+                                <span>Hiệu quả nguồn tuyển dụng</span>
+                            </div>
+                        }
+                        style={{ height: "100%", border: "none" }}
+                    >
+                        {summary?.sourceEffectiveness && summary.sourceEffectiveness.length > 0 ? (
+                            <Table
+                                size="small"
+                                pagination={false}
+                                rowKey="sourceName"
+                                dataSource={summary.sourceEffectiveness}
+                                columns={[
+                                    { title: "Nguồn", dataIndex: "sourceName" },
+                                    { title: "Tổng hồ sơ", dataIndex: "totalApplications", align: "right" },
+                                    { title: "Đã tuyển", dataIndex: "hiredCount", align: "right" },
+                                    { title: "Tỉ lệ", dataIndex: "hireRatePercent", align: "right", render: (v: number) => `${v}%` },
+                                ]}
+                            />
+                        ) : (
+                            <Text type="secondary">Chưa có dữ liệu</Text>
+                        )}
+                    </Card>
+                </Col>
+                <Col xs={24} lg={12}>
+                    <Card
+                        title={
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <TeamOutlined style={{ color: COLORS.primary }} />
+                                <span>Hiệu suất Recruiter</span>
+                            </div>
+                        }
+                        style={{ height: "100%", border: "none" }}
+                    >
+                        {summary?.recruiterPerformance && summary.recruiterPerformance.length > 0 ? (
+                            <Table
+                                size="small"
+                                pagination={false}
+                                rowKey="recruiterName"
+                                dataSource={summary.recruiterPerformance}
+                                columns={[
+                                    { title: "Recruiter", dataIndex: "recruiterName" },
+                                    { title: "Hồ sơ xử lý", dataIndex: "totalHandled", align: "right" },
+                                    { title: "Đã tuyển", dataIndex: "hiredCount", align: "right" },
+                                    { title: "Tỉ lệ", dataIndex: "hireRatePercent", align: "right", render: (v: number) => `${v}%` },
+                                ]}
+                            />
+                        ) : (
+                            <Text type="secondary">Chưa có dữ liệu</Text>
+                        )}
+                    </Card>
+                </Col>
+            </Row>
+
+            {summary?.pipelineConversion && summary.pipelineConversion.length > 0 && (
+                <Card
+                    title={
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <RiseOutlined style={{ color: COLORS.primary }} />
+                            <span>Tỉ lệ chuyển đổi Pipeline</span>
+                        </div>
+                    }
+                    style={{ marginBottom: 24, border: "none" }}
+                >
+                    {summary.pipelineConversion.map((s) => (
+                        <div key={s.stageName} style={{ marginBottom: 12 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                                <span>{s.stageName}</span>
+                                <span style={{ color: COLORS.textSecondary }}>{s.reachedCount} ({s.percentOfTotal}%)</span>
+                            </div>
+                            <div style={{ background: "#F3F4F6", borderRadius: 6, height: 10 }}>
+                                <div
+                                    style={{
+                                        width: `${s.percentOfTotal}%`,
+                                        background: COLORS.primary,
+                                        height: "100%",
+                                        borderRadius: 6,
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </Card>
+            )}
 
             {/* Charts */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>

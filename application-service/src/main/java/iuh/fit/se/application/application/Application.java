@@ -58,6 +58,10 @@ public class Application {
     @Column(name = "applied_at")
     private LocalDateTime appliedAt;
 
+    /** Thời điểm chuyển sang stage type HIRED — dùng tính Time-to-Hire. */
+    @Column(name = "hired_at")
+    private LocalDateTime hiredAt;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 

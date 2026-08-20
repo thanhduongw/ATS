@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Modal, Form, Input, Select, DatePicker, message } from "antd";
+import { Modal, Form, Input, InputNumber, Select, DatePicker, message, Divider } from "antd";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { candidateSchema, type CandidateFormValues } from "../schemas/candidateSchema";
 import { createCandidate, updateCandidate } from "../candidateApi";
+import { getCustomFieldDefinitions } from "../customFieldApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
-import type { ApiMessageResponse, CandidateResponse } from "../types";
+import type { ApiMessageResponse, CandidateResponse, CustomFieldDefinition } from "../types";
 
 interface Props {
   open: boolean;
@@ -20,6 +21,8 @@ interface Props {
 export default function CandidateFormModal({ open, editingItem, onClose, onSuccess }: Props) {
   const [educationLevels, setEducationLevels] = useState<CatalogItem[]>([]);
   const [skills, setSkills] = useState<CatalogItem[]>([]);
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
 
   const {
     control,
@@ -33,9 +36,11 @@ export default function CandidateFormModal({ open, editingItem, onClose, onSucce
     Promise.all([
       getCatalogItems("/masterdata/education-levels"),
       getCatalogItems("/masterdata/skills"),
-    ]).then(([eduRes, skillRes]) => {
+      getCustomFieldDefinitions(),
+    ]).then(([eduRes, skillRes, customFieldRes]) => {
       setEducationLevels(eduRes.data);
       setSkills(skillRes.data);
+      setCustomFieldDefs(customFieldRes.data.filter((d) => d.active));
     });
   }, [open]);
 
@@ -51,7 +56,9 @@ export default function CandidateFormModal({ open, editingItem, onClose, onSucce
         currentPosition: editingItem.currentPosition,
         educationLevelId: editingItem.educationLevelId,
         skillIds: editingItem.skillIds,
+        internalNote: editingItem.internalNote,
       });
+      setCustomFieldValues(editingItem.customFields ?? {});
     } else {
       reset({
         fullName: "",
@@ -63,17 +70,20 @@ export default function CandidateFormModal({ open, editingItem, onClose, onSucce
         currentPosition: "",
         educationLevelId: null,
         skillIds: [],
+        internalNote: "",
       });
+      setCustomFieldValues({});
     }
   }, [editingItem, open, reset]);
 
   const onSubmit = async (data: CandidateFormValues) => {
     try {
+      const payload = { ...data, customFields: customFieldValues };
       if (editingItem) {
-        await updateCandidate(editingItem.id, data);
+        await updateCandidate(editingItem.id, payload);
         message.success("Cập nhật thành công");
       } else {
-        await createCandidate(data);
+        await createCandidate(payload);
         message.success("Tạo ứng viên thành công");
       }
       onSuccess();
@@ -203,6 +213,47 @@ export default function CandidateFormModal({ open, editingItem, onClose, onSucce
             )}
           />
         </Form.Item>
+
+        <Form.Item
+          label="Ghi chú nội bộ (chỉ HR/Manager thấy)"
+          extra="Không hiển thị cho ứng viên hoặc trên career portal."
+        >
+          <Controller
+            name="internalNote"
+            control={control}
+            render={({ field }) => (
+              <Input.TextArea {...field} value={field.value ?? ""} rows={3} placeholder="Ghi chú riêng của đội tuyển dụng..." />
+            )}
+          />
+        </Form.Item>
+
+        {customFieldDefs.length > 0 && (
+          <>
+            <Divider titlePlacement="left" plain>Thông tin bổ sung</Divider>
+            {customFieldDefs.map((def) => (
+              <Form.Item key={def.fieldKey} label={def.fieldLabel}>
+                {def.fieldType === "NUMBER" ? (
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    value={customFieldValues[def.fieldKey] ? Number(customFieldValues[def.fieldKey]) : undefined}
+                    onChange={(v) => setCustomFieldValues((prev) => ({ ...prev, [def.fieldKey]: v != null ? String(v) : "" }))}
+                  />
+                ) : def.fieldType === "DATE" ? (
+                  <DatePicker
+                    style={{ width: "100%" }}
+                    value={customFieldValues[def.fieldKey] ? dayjs(customFieldValues[def.fieldKey]) : null}
+                    onChange={(date) => setCustomFieldValues((prev) => ({ ...prev, [def.fieldKey]: date ? date.format("YYYY-MM-DD") : "" }))}
+                  />
+                ) : (
+                  <Input
+                    value={customFieldValues[def.fieldKey] ?? ""}
+                    onChange={(e) => setCustomFieldValues((prev) => ({ ...prev, [def.fieldKey]: e.target.value }))}
+                  />
+                )}
+              </Form.Item>
+            ))}
+          </>
+        )}
       </Form>
     </Modal>
   );

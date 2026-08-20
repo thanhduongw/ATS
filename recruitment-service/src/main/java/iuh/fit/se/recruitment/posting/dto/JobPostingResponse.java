@@ -20,5 +20,8 @@ public record JobPostingResponse(
         PostingStatus status,
         boolean pipelineLocked,
         LocalDateTime publishedAt,
-        LocalDateTime closedAt
+        LocalDateTime closedAt,
+        /** Chỉ populate ở luồng public (career portal); null ở luồng nội bộ HR. */
+        String employmentTypeName,
+        String workLocationName
 ) {}

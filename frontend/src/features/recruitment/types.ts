@@ -1,6 +1,14 @@
 export type RequisitionStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
 export type PostingStatus = "OPEN" | "PAUSED" | "CLOSED";
 
+export interface PageResponse<T> {
+    content: T[];
+    totalItems: number;
+    totalPages: number;
+    pageNumber: number;
+    pageSize: number;
+}
+
 export interface JobRequisitionResponse {
     id: number;
     title: string;

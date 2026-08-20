@@ -20,5 +20,6 @@ public record ApplicationResponse(
         Long rejectionReasonId,
         String rejectionReasonName,
         String note,
-        LocalDateTime appliedAt
+        LocalDateTime appliedAt,
+        LocalDateTime hiredAt
 ) {}

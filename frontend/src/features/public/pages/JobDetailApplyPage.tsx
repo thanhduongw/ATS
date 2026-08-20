@@ -17,6 +17,7 @@ import {
     Col,
     Result,
     Descriptions,
+    Checkbox,
 } from "antd";
 import {
     SendOutlined,
@@ -94,6 +95,7 @@ interface ApplyFormValues {
     email: string;
     phone?: string;
     note?: string;
+    consentGiven?: boolean;
 }
 
 const APPLY_FORM_ANCHOR_ID = "apply-form-card";
@@ -172,6 +174,41 @@ export default function JobDetailApplyPage() {
     useEffect(() => {
         load();
     }, [load]);
+
+    // SEO cơ bản: cập nhật title + Open Graph meta tag theo tin tuyển dụng đang xem
+    useEffect(() => {
+        if (!job || !company) return;
+
+        const previousTitle = document.title;
+        document.title = `${job.title} — ${company.name}`;
+
+        const description = job.description
+            ? job.description.replace(/\s+/g, " ").trim().slice(0, 160)
+            : `Cơ hội việc làm ${job.title} tại ${company.name}`;
+
+        const metaTags: { property: string; content: string }[] = [
+            { property: "og:title", content: `${job.title} — ${company.name}` },
+            { property: "og:description", content: description },
+            { property: "og:type", content: "website" },
+        ];
+
+        const createdEls: HTMLMetaElement[] = [];
+        metaTags.forEach(({ property, content }) => {
+            let el = document.querySelector<HTMLMetaElement>(`meta[property="${property}"]`);
+            if (!el) {
+                el = document.createElement("meta");
+                el.setAttribute("property", property);
+                document.head.appendChild(el);
+                createdEls.push(el);
+            }
+            el.setAttribute("content", content);
+        });
+
+        return () => {
+            document.title = previousTitle;
+            createdEls.forEach((el) => el.remove());
+        };
+    }, [job, company]);
 
     /**
      * Upload CV configuration
@@ -272,6 +309,8 @@ export default function JobDetailApplyPage() {
                     note:
                         values.note?.trim() ||
                         undefined,
+
+                    consentGiven: !!values.consentGiven,
 
                     file: file as File,
                 }
@@ -813,6 +852,22 @@ export default function JobDetailApplyPage() {
                                     maxLength={1000}
                                     showCount
                                 />
+                            </Form.Item>
+
+                            {/* GDPR consent */}
+                            <Form.Item
+                                name="consentGiven"
+                                valuePropName="checked"
+                                rules={[
+                                    {
+                                        validator: (_, value) =>
+                                            value ? Promise.resolve() : Promise.reject(new Error("Vui lòng đồng ý để tiếp tục nộp hồ sơ")),
+                                    },
+                                ]}
+                            >
+                                <Checkbox>
+                                    Tôi đồng ý cho phép công ty lưu trữ và xử lý thông tin cá nhân của tôi cho mục đích tuyển dụng.
+                                </Checkbox>
                             </Form.Item>
 
                             <Divider style={{ margin: "8px 0 20px" }} />

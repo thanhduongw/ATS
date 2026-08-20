@@ -5,7 +5,9 @@ import type {
   ApplicationAdvanceStageRequest,
   ApplicationRejectRequest,
   ApplicationHistoryResponse,
+  ApplicationCommentResponse,
   PageResponse,
+  BulkOperationResponse,
 } from "./types";
 
 // ===== Application =====
@@ -27,6 +29,12 @@ export const getApplicationById = (id: number) =>
 export const getApplicationHistory = (id: number) =>
   axiosClient.get<ApplicationHistoryResponse[]>(`/application/applications/${id}/history`);
 
+export const getApplicationComments = (id: number) =>
+  axiosClient.get<ApplicationCommentResponse[]>(`/application/applications/${id}/comments`);
+
+export const addApplicationComment = (id: number, content: string) =>
+  axiosClient.post<ApplicationCommentResponse>(`/application/applications/${id}/comments`, { content });
+
 export const createApplication = (data: ApplicationCreateRequest) =>
   axiosClient.post<ApplicationResponse>("/application/applications", data);
 
@@ -43,3 +51,15 @@ export const advanceApplicationStage = (id: number, data: ApplicationAdvanceStag
 
 export const rejectApplication = (id: number, data: ApplicationRejectRequest) =>
   axiosClient.patch<ApplicationResponse>(`/application/applications/${id}/reject`, data);
+
+export const assignApplicationRecruiter = (id: number, assignedRecruiterId: number) =>
+  axiosClient.patch<ApplicationResponse>(`/application/applications/${id}/assign-recruiter`, { assignedRecruiterId });
+
+export const bulkAdvanceApplicationStage = (ids: number[], note?: string) =>
+  axiosClient.patch<BulkOperationResponse>("/application/applications/bulk-advance-stage", { ids, note });
+
+export const bulkRejectApplications = (ids: number[], rejectionReasonId: number, note?: string) =>
+  axiosClient.patch<BulkOperationResponse>("/application/applications/bulk-reject", { ids, rejectionReasonId, note });
+
+export const bulkAssignApplicationRecruiter = (ids: number[], assignedRecruiterId: number) =>
+  axiosClient.patch<BulkOperationResponse>("/application/applications/bulk-assign-recruiter", { ids, assignedRecruiterId });

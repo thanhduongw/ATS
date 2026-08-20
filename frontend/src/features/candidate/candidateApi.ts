@@ -4,6 +4,7 @@ import type {
   CandidateCreateRequest,
   CandidateUpdateRequest,
   PageResponse,
+  BulkOperationResponse,
 } from "./types";
 
 export * from "./applicationApi";
@@ -12,6 +13,7 @@ export * from "./applicationApi";
 export const getCandidates = (params?: {
   keyword?: string;
   hasCv?: boolean;
+  poolStatus?: "ACTIVE" | "IN_POOL";
   page?: number;
   size?: number;
 }) => axiosClient.get<PageResponse<CandidateResponse>>("/candidate/candidates", { params });
@@ -36,3 +38,17 @@ export const uploadCandidateCv = (id: number, file: File) => {
 /** Candidate tự tạo/lấy hồ sơ của mình — gọi 1 lần trước khi apply (idempotent). */
 export const ensureMyCandidateProfile = (data: { email: string; fullName: string }) =>
   axiosClient.post<CandidateResponse>("/candidate/candidates/me", data);
+
+export const bulkDeleteCandidates = (ids: number[]) =>
+  axiosClient.post<BulkOperationResponse>("/candidate/candidates/bulk-delete", { ids });
+
+// ===== Talent Pool tags =====
+export const addCandidateTag = (id: number, tag: string) =>
+  axiosClient.post<CandidateResponse>(`/candidate/candidates/${id}/tags`, { tag });
+
+export const removeCandidateTag = (id: number, tagId: number) =>
+  axiosClient.delete<CandidateResponse>(`/candidate/candidates/${id}/tags/${tagId}`);
+
+// ===== GDPR self-service =====
+export const requestOwnDataDeletion = () =>
+  axiosClient.post<{ message: string }>("/candidate/candidates/me/request-deletion");

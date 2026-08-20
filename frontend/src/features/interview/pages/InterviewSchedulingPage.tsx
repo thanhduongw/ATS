@@ -12,7 +12,7 @@ import { HR_ROLES } from "../../../app/roles";
 import { createSlots, getSlots, selectSlot } from "../schedulingApi";
 import type { InterviewSlotResponse } from "../schedulingTypes";
 import SlotConfirmationPanel from "../components/SlotConfirmationPanel";
-import { useI18n } from "../../../i18n/I18nProvider";
+import { useI18n } from "../../../i18n/useI18n";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 
 const { Text } = Typography;

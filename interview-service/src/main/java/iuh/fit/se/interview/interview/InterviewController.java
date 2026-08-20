@@ -5,9 +5,12 @@ import iuh.fit.se.interview.interview.dto.InterviewCreateRequest;
 import iuh.fit.se.interview.interview.dto.InterviewResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @RestController
@@ -24,6 +27,19 @@ public class InterviewController {
             @RequestHeader("X-User-Role") String role,
             @RequestParam(required = false) Long applicationId) {
         return ResponseEntity.ok(service.getAll(tenantId, userId, role, applicationId));
+    }
+
+    @GetMapping("/{id}/ics")
+    public ResponseEntity<byte[]> getIcs(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        String ics = service.generateIcs(tenantId, userId, role, id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/calendar;charset=UTF-8"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"interview-" + id + ".ics\"")
+                .body(ics.getBytes(StandardCharsets.UTF_8));
     }
 
     @GetMapping("/{id}")

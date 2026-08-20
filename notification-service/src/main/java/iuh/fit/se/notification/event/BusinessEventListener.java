@@ -142,6 +142,37 @@ public class BusinessEventListener {
         }
     }
 
+    // ===== Workflow automation: hồ sơ kẹt quá lâu ở 1 giai đoạn =====
+    @RabbitListener(queues = BusinessEventConfig.APPLICATION_STALE_QUEUE)
+    public void onApplicationStale(ApplicationStaleEvent event) {
+        log.info("Nhận event application.stale, applicationId={}, daysSinceUpdate={}",
+                event.applicationId(), event.daysSinceUpdate());
+        notificationService.createAndPush(
+                event.tenantId(),
+                event.assignedRecruiterId(),
+                NotificationType.APPLICATION_STALE_REMINDER,
+                "Hồ sơ chưa xử lý lâu ngày",
+                nullSafe(event.candidateName()) + " đang ở giai đoạn \"" + nullSafe(event.currentStageName())
+                        + "\" đã " + event.daysSinceUpdate() + " ngày, chưa được cập nhật.",
+                "APPLICATION",
+                event.applicationId());
+    }
+
+    // ===== Application comment @mention =====
+    @RabbitListener(queues = BusinessEventConfig.APPLICATION_COMMENT_MENTION_QUEUE)
+    public void onApplicationCommentMention(ApplicationCommentMentionEvent event) {
+        log.info("Nhận event application.comment_mention, applicationId={}, mentionedUserId={}",
+                event.applicationId(), event.mentionedUserId());
+        notificationService.createAndPush(
+                event.tenantId(),
+                event.mentionedUserId(),
+                NotificationType.APPLICATION_COMMENT_MENTION,
+                nullSafe(event.authorName()) + " đã nhắc đến bạn",
+                nullSafe(event.commentExcerpt()),
+                "APPLICATION",
+                event.applicationId());
+    }
+
     // ===== 4. Lịch phỏng vấn =====
     @RabbitListener(queues = BusinessEventConfig.INTERVIEW_SCHEDULED_QUEUE)
     public void onInterviewScheduled(InterviewScheduledEvent event) {

@@ -42,6 +42,7 @@ public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
     private final ApplicationHistoryRepository historyRepository;
+    private final ApplicationCommentRepository commentRepository;
     private final CandidateServiceClient candidateServiceClient;
     private final RecruitmentServiceClient recruitmentServiceClient;
     private final MasterDataServiceClient masterDataServiceClient;
@@ -151,7 +152,8 @@ public class ApplicationService {
                 a.getRejectionReasonId(),
                 a.getRejectionReasonId() == null ? null : reasonMap.get(a.getRejectionReasonId()),
                 a.getNote(),
-                a.getAppliedAt()
+                a.getAppliedAt(),
+                a.getHiredAt()
         );
     }
 
@@ -243,6 +245,9 @@ public class ApplicationService {
         application.setCurrentStageName(nextStage.name());
         application.setCurrentStageOrder(nextStage.stageOrder());
         application.setCurrentStageType(nextStage.stageType());
+        if (STAGE_TYPE_HIRED.equals(nextStage.stageType())) {
+            application.setHiredAt(LocalDateTime.now());
+        }
         applicationRepository.save(application);
 
         saveHistory(application, previousStageName, nextStage.name(), req.note(), actorUserId);
@@ -261,7 +266,7 @@ public class ApplicationService {
         Application application = findOwned(tenantId, id);
         ensureNotTerminal(application);
 
-        validateRejectionReason(tenantId, req.rejectionReasonId());
+        String reasonName = validateRejectionReason(tenantId, req.rejectionReasonId());
 
         JobPostingResponse posting = fetchPosting(tenantId, application.getJobPostingId());
         PipelineResponse pipeline = masterDataServiceClient.getPipelineById(tenantId, posting.pipelineId());
@@ -291,7 +296,60 @@ public class ApplicationService {
         auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_REJECTED", "APPLICATION", application.getId(),
                 "Từ chối hồ sơ: " + req.note());
 
+        // Talent Pool: đưa ứng viên vào pool kèm tag lý do — best-effort, không chặn luồng reject chính
+        try {
+            candidateServiceClient.markPool(tenantId, application.getCandidateId(), Map.of("tag", reasonName));
+        } catch (Exception e) {
+            // bỏ qua — Talent Pool là tính năng phụ trợ, không được làm fail thao tác reject
+        }
+
         return getById(tenantId, actorUserId, null, application.getId());
+    }
+
+    @Transactional
+    public ApplicationResponse assignRecruiter(Long tenantId, Long id, Long actorUserId, Long assignedRecruiterId) {
+        Application application = findOwned(tenantId, id);
+        validateAssignedRecruiter(tenantId, assignedRecruiterId);
+
+        application.setAssignedRecruiterId(assignedRecruiterId);
+        applicationRepository.save(application);
+
+        auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_RECRUITER_ASSIGNED", "APPLICATION",
+                application.getId(), null);
+
+        return getById(tenantId, actorUserId, null, application.getId());
+    }
+
+    @Transactional
+    public BulkOperationResponse bulkAdvanceStage(Long tenantId, Long actorUserId, BulkAdvanceStageRequest req) {
+        return runBulk(req.ids(), id ->
+                advanceStage(tenantId, id, actorUserId, new ApplicationAdvanceStageRequest(req.note())));
+    }
+
+    @Transactional
+    public BulkOperationResponse bulkReject(Long tenantId, Long actorUserId, BulkRejectRequest req) {
+        return runBulk(req.ids(), id ->
+                reject(tenantId, id, actorUserId, new ApplicationRejectRequest(req.rejectionReasonId(), req.note())));
+    }
+
+    @Transactional
+    public BulkOperationResponse bulkAssignRecruiter(Long tenantId, Long actorUserId, BulkAssignRecruiterRequest req) {
+        return runBulk(req.ids(), id -> assignRecruiter(tenantId, id, actorUserId, req.assignedRecruiterId()));
+    }
+
+    /** Chạy 1 thao tác cho từng id độc lập; lỗi ở 1 id không chặn các id còn lại. */
+    private BulkOperationResponse runBulk(List<Long> ids, java.util.function.Consumer<Long> action) {
+        List<Long> succeeded = new java.util.ArrayList<>();
+        Map<Long, String> failed = new java.util.LinkedHashMap<>();
+        for (Long id : ids) {
+            try {
+                action.accept(id);
+                succeeded.add(id);
+            } catch (BusinessException e) {
+                failed.put(id, e.getMessage());
+            }
+        }
+        return new BulkOperationResponse(succeeded, failed);
     }
 
     @Transactional
@@ -315,6 +373,46 @@ public class ApplicationService {
                         h.getId(), h.getFromStageName(), h.getToStageName(), h.getNote(),
                         h.getChangedByUserId(), userMap.getOrDefault(h.getChangedByUserId(), "N/A"), h.getChangedAt()))
                 .toList();
+    }
+
+    public List<ApplicationCommentResponse> getComments(Long tenantId, Long id) {
+        Application application = findOwned(tenantId, id);
+        Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
+                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
+
+        return commentRepository.findByApplicationIdOrderByCreatedAtAsc(application.getId()).stream()
+                .map(c -> new ApplicationCommentResponse(
+                        c.getId(), c.getContent(), c.getAuthorUserId(),
+                        userMap.getOrDefault(c.getAuthorUserId(), "N/A"), c.getCreatedAt()))
+                .toList();
+    }
+
+    @Transactional
+    public ApplicationCommentResponse addComment(Long tenantId, Long id, Long actorUserId, String content) {
+        Application application = findOwned(tenantId, id);
+        List<UserSummaryResponse> users = authServiceClient.getUsers(tenantId, null);
+        Map<Long, String> userMap = users.stream()
+                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
+
+        ApplicationComment saved = commentRepository.save(ApplicationComment.builder()
+                .application(application)
+                .tenantId(tenantId)
+                .authorUserId(actorUserId)
+                .content(content)
+                .build());
+
+        // @mention: khớp theo tên đầy đủ của user trong công ty, xuất hiện dạng "@Họ Tên" trong nội dung
+        String authorName = userMap.getOrDefault(actorUserId, "Người dùng");
+        String excerpt = content.length() > 140 ? content.substring(0, 140) + "..." : content;
+        for (UserSummaryResponse u : users) {
+            if (u.id().equals(actorUserId) || u.fullName() == null) continue;
+            if (content.contains("@" + u.fullName())) {
+                eventPublisher.publishCommentMention(
+                        tenantId, application.getId(), u.id(), actorUserId, authorName, excerpt);
+            }
+        }
+
+        return new ApplicationCommentResponse(saved.getId(), saved.getContent(), actorUserId, authorName, saved.getCreatedAt());
     }
 
     private void ensureNotTerminal(Application application) {
@@ -345,9 +443,12 @@ public class ApplicationService {
         if (!valid) throw new BusinessException("Nguồn tuyển dụng không hợp lệ");
     }
 
-    private void validateRejectionReason(Long tenantId, Long id) {
-        boolean valid = masterDataServiceClient.getRejectionReasons(tenantId).stream().anyMatch(r -> r.id().equals(id));
-        if (!valid) throw new BusinessException("Lý do từ chối không hợp lệ");
+    private String validateRejectionReason(Long tenantId, Long id) {
+        return masterDataServiceClient.getRejectionReasons(tenantId).stream()
+                .filter(r -> r.id().equals(id))
+                .map(CatalogItemResponse::name)
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("Lý do từ chối không hợp lệ"));
     }
 
     private void validateAssignedRecruiter(Long tenantId, Long id) {
@@ -389,6 +490,7 @@ public class ApplicationService {
             String email,
             String phone,
             String note,
+            boolean consentGiven,
             MultipartFile file) {
 
         if (file == null || file.isEmpty()) {
@@ -399,6 +501,9 @@ public class ApplicationService {
         }
         if (email == null || email.isBlank()) {
             throw new BusinessException("Email không được để trống");
+        }
+        if (!consentGiven) {
+            throw new BusinessException("Vui lòng đồng ý cho phép lưu trữ thông tin để nộp hồ sơ");
         }
 
         // 1. Resolve tenant
@@ -420,7 +525,7 @@ public class ApplicationService {
         CandidateSummaryResponse candidate = candidateServiceClient.findOrCreatePublic(
                 tenantCode,
                 new iuh.fit.se.application.client.dto.PublicCandidateCreateRequest(
-                        fullName.trim(), email.trim().toLowerCase(), phone)
+                        fullName.trim(), email.trim().toLowerCase(), phone, true)
         );
 
         // 4. Upload CV

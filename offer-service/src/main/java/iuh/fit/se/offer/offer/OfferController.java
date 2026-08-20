@@ -1,13 +1,17 @@
 package iuh.fit.se.offer.offer;
 
 import iuh.fit.se.offer.common.AccessGuard;
+import iuh.fit.se.offer.common.PageResponse;
 import iuh.fit.se.offer.offer.dto.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.time.LocalDate;
 import java.util.Map;
 
 @RestController
@@ -18,12 +22,31 @@ public class OfferController {
     private final OfferService service;
 
     @GetMapping
-    public ResponseEntity<List<OfferResponse>> getAll(
+    public ResponseEntity<PageResponse<OfferResponse>> getAll(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
-            @RequestParam(required = false) Long applicationId) {
-        return ResponseEntity.ok(service.getAll(tenantId, userId, role, applicationId));
+            @RequestParam(required = false) Long applicationId,
+            @RequestParam(required = false) OfferStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdTo,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ResponseEntity.ok(service.getAll(
+                tenantId, userId, role, applicationId, status, createdFrom, createdTo, page, size));
+    }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> getOfferPdf(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        byte[] pdf = service.generateOfferPdf(tenantId, userId, role, id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"offer-letter-" + id + ".pdf\"")
+                .body(pdf);
     }
 
     @GetMapping("/{id}")

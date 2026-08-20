@@ -41,6 +41,7 @@ public class InterviewService {
     private final AuthServiceClient authServiceClient;
     private final CandidateServiceClient candidateServiceClient;
     private final InterviewEventPublisher eventPublisher;
+    private final IcsService icsService;
 
     public List<InterviewResponse> getAll(
             Long tenantId, Long userId, String role, Long applicationId) {
@@ -81,6 +82,12 @@ public class InterviewService {
             assertCanView(interview, userId, role);
         }
         return toResponse(interview);
+    }
+
+    public String generateIcs(Long tenantId, Long userId, String role, Long id) {
+        Interview interview = findOwned(tenantId, id);
+        assertCanView(interview, userId, role);
+        return icsService.generate(interview);
     }
 
 

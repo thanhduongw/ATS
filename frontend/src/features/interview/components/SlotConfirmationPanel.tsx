@@ -6,7 +6,7 @@ import { useAppSelector } from "../../../app/hooks";
 import { DEPARTMENT_ROLES } from "../../../app/roles";
 import { confirmSlot, getMyPendingSlots } from "../schedulingApi";
 import type { InterviewSlotResponse } from "../schedulingTypes";
-import { useI18n } from "../../../i18n/I18nProvider";
+import { useI18n } from "../../../i18n/useI18n";
 
 export default function SlotConfirmationPanel() {
     const { message } = App.useApp();

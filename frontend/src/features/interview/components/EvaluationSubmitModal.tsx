@@ -88,7 +88,7 @@ export default function EvaluationSubmitModal({ open, interviewId, criteria, onC
 
         {fields.map((field, index) => (
           <Form.Item key={field.id} label={criteria[index]?.name as string}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <Controller
                 name={`scores.${index}.score`}
                 control={control}
@@ -104,7 +104,7 @@ export default function EvaluationSubmitModal({ open, interviewId, criteria, onC
                     {...commentField}
                     value={commentField.value ?? ""}
                     placeholder="Nhận xét "
-                    style={{ flex: 1 }}
+                    style={{ flex: "1 1 200px" }}
                   />
                 )}
               />

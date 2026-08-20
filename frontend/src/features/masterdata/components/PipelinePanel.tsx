@@ -98,7 +98,7 @@ export default function PipelinePanel() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [message]);
 
     useEffect(() => {
         loadPipelines();

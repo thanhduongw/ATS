@@ -4,5 +4,6 @@ public record CompanyResponse(
         Long id,
         Long tenantId,
         String name,
-        String tenantCode
+        String tenantCode,
+        Integer dataRetentionMonths
 ) {}

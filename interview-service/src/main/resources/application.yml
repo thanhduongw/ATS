@@ -29,3 +29,7 @@ services:
     url: ${SERVICES_CANDIDATE_SERVICE_URL:http://localhost:8084}
   application-service:
     url: ${SERVICES_APPLICATION_SERVICE_URL:http://localhost:8089}
+
+springdoc:
+  api-docs:
+    path: /api/interview/v3/api-docs

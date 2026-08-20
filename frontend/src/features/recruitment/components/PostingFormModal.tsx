@@ -44,7 +44,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
             getCatalogItems("/masterdata/work-locations"),
             getPipelines(),
         ]).then(([reqRes, empRes, locRes, pipeRes]) => {
-            setApprovedRequisitions(reqRes.data.filter((r) => r.status === "APPROVED"));
+            setApprovedRequisitions(reqRes.data.content.filter((r) => r.status === "APPROVED"));
             setEmploymentTypes(empRes.data);
             setWorkLocations(locRes.data);
             setPipelines(pipeRes.data.filter((p) => p.active));

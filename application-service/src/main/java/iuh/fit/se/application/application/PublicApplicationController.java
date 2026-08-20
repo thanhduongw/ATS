@@ -27,10 +27,11 @@ public class PublicApplicationController {
             @RequestParam("email") String email,
             @RequestParam(value = "phone", required = false) String phone,
             @RequestParam(value = "note", required = false) String note,
+            @RequestParam(value = "consentGiven", defaultValue = "false") boolean consentGiven,
             @RequestParam("file") MultipartFile file) {
 
         return ResponseEntity.ok(
-                applicationService.createPublicApply(tenantCode, jobId, fullName, email, phone, note, file)
+                applicationService.createPublicApply(tenantCode, jobId, fullName, email, phone, note, consentGiven, file)
         );
     }
 }

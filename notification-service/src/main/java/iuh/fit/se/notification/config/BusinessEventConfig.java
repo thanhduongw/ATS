@@ -19,6 +19,8 @@ public class BusinessEventConfig {
     public static final String OFFER_DECLINED_QUEUE = "notification.offer-declined.queue";
     public static final String APPLICATION_CREATED_QUEUE = "notification.application-created.queue";
     public static final String APPLICATION_STATUS_CHANGED_QUEUE = "notification.application-status-changed.queue";
+    public static final String APPLICATION_COMMENT_MENTION_QUEUE = "notification.application-comment-mention.queue";
+    public static final String APPLICATION_STALE_QUEUE = "notification.application-stale.queue";
     public static final String AUDIT_LOG_QUEUE = "notification.audit-log.queue";
 
     @Bean
@@ -109,6 +111,26 @@ public class BusinessEventConfig {
     @Bean
     public Binding applicationStatusChangedBinding(Queue applicationStatusChangedQueue, TopicExchange atsExchange) {
         return BindingBuilder.bind(applicationStatusChangedQueue).to(atsExchange).with("application.status_changed");
+    }
+
+    @Bean
+    public Queue applicationCommentMentionQueue() {
+        return new Queue(APPLICATION_COMMENT_MENTION_QUEUE, true);
+    }
+
+    @Bean
+    public Binding applicationCommentMentionBinding(Queue applicationCommentMentionQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(applicationCommentMentionQueue).to(atsExchange).with("application.comment_mention");
+    }
+
+    @Bean
+    public Queue applicationStaleQueue() {
+        return new Queue(APPLICATION_STALE_QUEUE, true);
+    }
+
+    @Bean
+    public Binding applicationStaleBinding(Queue applicationStaleQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(applicationStaleQueue).to(atsExchange).with("application.stale");
     }
 
     @Bean

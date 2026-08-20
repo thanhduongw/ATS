@@ -45,3 +45,7 @@ app:
   notification:
     interview-reminder-hours-before: 1
     evaluation-check-hours-after: 24
+
+springdoc:
+  api-docs:
+    path: /api/notification/v3/api-docs

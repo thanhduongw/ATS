@@ -8,4 +8,5 @@ public interface EmailTemplateRepository extends JpaRepository<EmailTemplate, Lo
     List<EmailTemplate> findByTenantIdOrderByCodeAsc(Long tenantId);
     Optional<EmailTemplate> findByIdAndTenantId(Long id, Long tenantId);
     boolean existsByTenantIdAndCodeIgnoreCase(Long tenantId, String code);
+    Optional<EmailTemplate> findByTenantIdAndCodeIgnoreCaseAndActiveTrue(Long tenantId, String code);
 }

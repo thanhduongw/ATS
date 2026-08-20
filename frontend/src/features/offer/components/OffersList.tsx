@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { App, Table, Tag, Button, Segmented, Card, Row, Col, Avatar, Space } from "antd";
+import { App, Table, Tag, Button, Segmented, Card, Row, Col, Avatar, Space, Input, DatePicker } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { PlusOutlined, } from "@ant-design/icons";
-import dayjs from "dayjs";
+import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import dayjs, { type Dayjs } from "dayjs";
 import type { AxiosError } from "axios";
 import { getOffers } from "../offerApi";
-import type { ApiMessageResponse, OfferResponse } from "../types";
+import type { ApiMessageResponse, OfferResponse, OfferStatus } from "../types";
 import OfferDetailDrawer from "./OfferDetailDrawer";
 import OfferCreateModal from "./OfferCreateModal";
 import { COLORS } from "../../../app/theme";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
+import SavedFiltersBar from "../../../components/ui/SavedFiltersBar";
+
+const { RangePicker } = DatePicker;
 
 const STATUS_LABEL: Record<string, string> = {
     ALL: "Tất cả",
@@ -38,6 +41,13 @@ function getInitials(name: string) {
     return name.substring(0, 2).toUpperCase();
 }
 
+interface Filters {
+    keyword: string;
+    dateRange: [string, string] | null;
+}
+
+const EMPTY_FILTERS: Filters = { keyword: "", dateRange: null };
+
 export default function OffersList() {
     const { notification } = App.useApp();
     const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
@@ -45,17 +55,38 @@ export default function OffersList() {
     const isDept = !!role && DEPARTMENT_ROLES.includes(role);
 
     const [offers, setOffers] = useState<OfferResponse[]>([]);
+    const [totalItems, setTotalItems] = useState(0);
     const [loading, setLoading] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string>("ALL");
     const [selectedOffer, setSelectedOffer] = useState<OfferResponse | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
 
+    const [searchInput, setSearchInput] = useState("");
+    const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+
+    useEffect(() => {
+        const t = setTimeout(() => {
+            setFilters((f) => ({ ...f, keyword: searchInput.trim() }));
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(t);
+    }, [searchInput]);
+
     const loadOffers = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await getOffers();
-            setOffers(res.data);
+            const res = await getOffers({
+                status: filterStatus === "ALL" ? undefined : (filterStatus as OfferStatus),
+                createdFrom: filters.dateRange?.[0],
+                createdTo: filters.dateRange?.[1],
+                page: page - 1,
+                size: pageSize,
+            });
+            setOffers(res.data.content);
+            setTotalItems(res.data.totalItems);
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             notification.error({
@@ -65,16 +96,16 @@ export default function OffersList() {
         } finally {
             setLoading(false);
         }
-    }, [notification]);
+    }, [notification, filterStatus, filters, page, pageSize]);
 
     useEffect(() => {
         loadOffers();
     }, [loadOffers]);
 
-    const displayed =
-        filterStatus === "ALL"
-            ? offers
-            : offers.filter((o) => o.status === filterStatus);
+    // Đơn giản: lọc theo từ khóa tên ứng viên trên trang hiện tại (server chưa hỗ trợ full-text theo tên offer)
+    const displayed = filters.keyword
+        ? offers.filter((o) => o.candidateName?.toLowerCase().includes(filters.keyword.toLowerCase()))
+        : offers;
 
     const counts = {
         draft: offers.filter((o) => o.status === "DRAFT").length,
@@ -186,7 +217,7 @@ export default function OffersList() {
             >
                 <Segmented
                     value={filterStatus}
-                    onChange={(v) => setFilterStatus(v as string)}
+                    onChange={(v) => { setFilterStatus(v as string); setPage(1); }}
                     options={Object.entries(STATUS_LABEL).map(([k, label]) => ({
                         label,
                         value: k,
@@ -210,12 +241,48 @@ export default function OffersList() {
                 )}
             </div>
 
+            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+                <Input
+                    prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
+                    placeholder="Tìm theo tên ứng viên..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    style={{ width: 240 }}
+                    allowClear
+                />
+                <RangePicker
+                    placeholder={["Tạo từ ngày", "Đến ngày"]}
+                    onChange={(v) => {
+                        const range = v as [Dayjs, Dayjs] | null;
+                        setFilters((f) => ({
+                            ...f,
+                            dateRange: range ? [range[0].format("YYYY-MM-DD"), range[1].format("YYYY-MM-DD")] : null,
+                        }));
+                        setPage(1);
+                    }}
+                />
+                <SavedFiltersBar<Filters>
+                    storageKey="ats.savedFilters.offers"
+                    currentFilters={filters}
+                    onApply={(f) => { setFilters(f); setSearchInput(f.keyword); setPage(1); }}
+                />
+            </div>
+
             <Table
                 rowKey="id"
                 loading={loading}
                 columns={columns}
                 dataSource={displayed}
-                pagination={{ pageSize: 10, size: "small" }}
+                pagination={{
+                    current: page,
+                    pageSize,
+                    total: totalItems,
+                    size: "small",
+                    showSizeChanger: true,
+                    pageSizeOptions: [10, 20, 50],
+                    showTotal: (total) => `Tổng ${total} offer`,
+                    onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                }}
             />
 
             <OfferDetailDrawer

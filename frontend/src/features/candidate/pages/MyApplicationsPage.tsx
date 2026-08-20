@@ -1,19 +1,44 @@
 import { useEffect, useState } from "react";
-import { Card, Tag, Timeline, Typography, Spin, Empty, Button, Space } from "antd";
+import { Card, Tag, Timeline, Typography, Spin, Empty, Button, Space, App } from "antd";
 import {
-    ScheduleOutlined, FileTextOutlined
+    ScheduleOutlined, FileTextOutlined, DeleteOutlined
 } from "@ant-design/icons";
+import type { AxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
 import { getApplications } from "../applicationApi";
-import type { ApplicationResponse } from "../types";
+import { requestOwnDataDeletion } from "../candidateApi";
+import type { ApplicationResponse, ApiMessageResponse } from "../types";
 import { COLORS } from "../../../app/theme";
+import { useAppDispatch } from "../../../app/hooks";
+import { logout } from "../../auth/authSlice";
 
 const { Title, Text } = Typography;
 
 export default function MyApplicationsPage() {
     const navigate = useNavigate();
+    const dispatch = useAppDispatch();
+    const { modal, message } = App.useApp();
     const [applications, setApplications] = useState<ApplicationResponse[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const handleRequestDeletion = () => {
+        modal.confirm({
+            title: "Yêu cầu xóa dữ liệu cá nhân?",
+            content: "Toàn bộ hồ sơ và lịch sử ứng tuyển của bạn sẽ bị xóa khỏi hệ thống. Hành động này không thể hoàn tác.",
+            okText: "Xóa dữ liệu của tôi",
+            okButtonProps: { danger: true },
+            onOk: async () => {
+                try {
+                    await requestOwnDataDeletion();
+                    message.success("Đã xóa dữ liệu của bạn. Đang đăng xuất...");
+                    setTimeout(() => dispatch(logout()), 1500);
+                } catch (err) {
+                    const e = err as AxiosError<ApiMessageResponse>;
+                    message.error(e.response?.data?.message ?? "Không thể xử lý yêu cầu, vui lòng thử lại");
+                }
+            },
+        });
+    };
 
     useEffect(() => {
         getApplications()
@@ -42,9 +67,14 @@ export default function MyApplicationsPage() {
 
     return (
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px" }}>
-            <div style={{ marginBottom: 24 }}>
-                <Title level={2} style={{ margin: 0 }}>Hồ sơ ứng tuyển của tôi</Title>
-                <Text type="secondary">Theo dõi tiến trình và trạng thái các vị trí bạn đã ứng tuyển</Text>
+            <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+                <div>
+                    <Title level={2} style={{ margin: 0 }}>Hồ sơ ứng tuyển của tôi</Title>
+                    <Text type="secondary">Theo dõi tiến trình và trạng thái các vị trí bạn đã ứng tuyển</Text>
+                </div>
+                <Button danger icon={<DeleteOutlined />} onClick={handleRequestDeletion}>
+                    Yêu cầu xóa dữ liệu của tôi
+                </Button>
             </div>
 
             {applications.length === 0 ? (

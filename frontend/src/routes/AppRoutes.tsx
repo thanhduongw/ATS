@@ -7,6 +7,7 @@ import PublicLayout from "../layouts/PublicLayout";
 import RegisterPage from "../features/auth/pages/RegisterPage";
 import VerifyEmailPage from "../features/auth/pages/VerifyEmailPage";
 import LoginPage from "../features/auth/pages/LoginPage";
+import OAuth2CallbackPage from "../features/auth/pages/OAuth2CallbackPage";
 import ForgotPasswordPage from "../features/auth/pages/ForgotPasswordPage";
 import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
 import DashboardPage from "../features/dashboard/pages/DashboardPage";
@@ -43,6 +44,7 @@ export default function AppRoutes() {
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/oauth2/callback" element={<OAuth2CallbackPage />} />
             </Route>
 
             {/* ===== Protected (nội bộ) ===== */}

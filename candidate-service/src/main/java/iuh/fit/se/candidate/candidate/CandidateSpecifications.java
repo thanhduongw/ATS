@@ -17,7 +17,7 @@ public final class CandidateSpecifications {
      * so name matching can't happen inside this DB-only Specification).
      */
     public static Specification<Candidate> build(
-            Long tenantId, String keyword, Boolean hasCv, List<Long> matchedSkillIds) {
+            Long tenantId, String keyword, Boolean hasCv, List<Long> matchedSkillIds, PoolStatus poolStatus) {
 
         return (root, query, cb) -> {
             query.distinct(true);
@@ -26,6 +26,9 @@ public final class CandidateSpecifications {
             predicates.add(cb.equal(root.get("tenantId"), tenantId));
             predicates.add(cb.isNull(root.get("deletedAt")));
 
+            if (poolStatus != null) {
+                predicates.add(cb.equal(root.get("poolStatus"), poolStatus));
+            }
             if (hasCv != null) {
                 predicates.add(hasCv
                         ? cb.isNotNull(root.get("cvFileUrl"))

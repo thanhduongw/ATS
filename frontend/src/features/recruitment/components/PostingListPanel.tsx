@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Tag, Segmented, App } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { Table, Button, Tag, Segmented, App, Input, Select } from "antd";
+import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getPostings, changePostingStatus } from "../recruitmentApi";
 import { getCatalogItems, getPipelines } from "../../masterdata/masterdataApi";
@@ -10,6 +10,7 @@ import PostingFormModal from "./PostingFormModal";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
+import SavedFiltersBar from "../../../components/ui/SavedFiltersBar";
 
 const STATUS_COLOR: Record<PostingStatus, string> = {
     OPEN: "green",
@@ -23,6 +24,15 @@ const STATUS_LABEL: Record<PostingStatus, string> = {
     CLOSED: "Đã đóng",
 };
 
+interface Filters {
+    keyword: string;
+    status?: PostingStatus;
+    employmentTypeId?: number;
+    workLocationId?: number;
+}
+
+const EMPTY_FILTERS: Filters = { keyword: "" };
+
 export default function PostingListPanel() {
     const { message } = App.useApp();
     const currentUser = useAppSelector((s) => s.auth.user);
@@ -30,13 +40,29 @@ export default function PostingListPanel() {
     const canManagePosting = !!role && HR_ROLES.includes(role);
 
     const [postings, setPostings] = useState<JobPostingResponse[]>([]);
+    const [totalItems, setTotalItems] = useState(0);
+    const [employmentTypes, setEmploymentTypes] = useState<CatalogItem[]>([]);
+    const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
     const [employmentTypeMap, setEmploymentTypeMap] = useState<Record<number, string>>({});
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
     const [pipelineMap, setPipelineMap] = useState<Record<number, string>>({});
     const [loading, setLoading] = useState(false);
 
+    const [searchInput, setSearchInput] = useState("");
+    const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+
     const [formModalOpen, setFormModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<JobPostingResponse | null>(null);
+
+    useEffect(() => {
+        const t = setTimeout(() => {
+            setFilters((f) => ({ ...f, keyword: searchInput.trim() }));
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(t);
+    }, [searchInput]);
 
     const buildMap = (items: CatalogItem[]): Record<number, string> =>
         Object.fromEntries(items.map((i) => [i.id, i.name as string]));
@@ -48,12 +74,22 @@ export default function PostingListPanel() {
         setLoading(true);
         try {
             const [postingRes, empRes, locRes, pipeRes] = await Promise.all([
-                getPostings(),
+                getPostings({
+                    status: filters.status,
+                    employmentTypeId: filters.employmentTypeId,
+                    workLocationId: filters.workLocationId,
+                    keyword: filters.keyword || undefined,
+                    page: page - 1,
+                    size: pageSize,
+                }),
                 getCatalogItems("/masterdata/employment-types"),
                 getCatalogItems("/masterdata/work-locations"),
                 getPipelines(),
             ]);
-            setPostings(postingRes.data);
+            setPostings(postingRes.data.content);
+            setTotalItems(postingRes.data.totalItems);
+            setEmploymentTypes(empRes.data);
+            setWorkLocations(locRes.data);
             setEmploymentTypeMap(buildMap(empRes.data));
             setWorkLocationMap(buildMap(locRes.data));
             setPipelineMap(buildPipelineMap(pipeRes.data));
@@ -63,7 +99,7 @@ export default function PostingListPanel() {
         } finally {
             setLoading(false);
         }
-    }, [message]);
+    }, [message, filters, page, pageSize]);
 
     useEffect(() => {
         loadAll();
@@ -167,7 +203,65 @@ export default function PostingListPanel() {
                 )}
             </div>
 
-            <Table rowKey="id" loading={loading} columns={columns} dataSource={postings} pagination={{ pageSize: 10 }} />
+            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+                <Input
+                    prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
+                    placeholder="Tìm theo tiêu đề..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    style={{ width: 240 }}
+                    allowClear
+                />
+                <Select
+                    allowClear
+                    placeholder="Trạng thái"
+                    style={{ width: 160 }}
+                    value={filters.status}
+                    onChange={(v) => { setFilters((f) => ({ ...f, status: v })); setPage(1); }}
+                    options={(Object.keys(STATUS_LABEL) as PostingStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
+                />
+                <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="Loại hình"
+                    style={{ width: 170 }}
+                    value={filters.employmentTypeId}
+                    onChange={(v) => { setFilters((f) => ({ ...f, employmentTypeId: v })); setPage(1); }}
+                    options={employmentTypes.map((e) => ({ value: e.id, label: String(e.name) }))}
+                />
+                <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="Địa điểm"
+                    style={{ width: 170 }}
+                    value={filters.workLocationId}
+                    onChange={(v) => { setFilters((f) => ({ ...f, workLocationId: v })); setPage(1); }}
+                    options={workLocations.map((w) => ({ value: w.id, label: String(w.name) }))}
+                />
+                <SavedFiltersBar<Filters>
+                    storageKey="ats.savedFilters.postings"
+                    currentFilters={filters}
+                    onApply={(f) => { setFilters(f); setSearchInput(f.keyword); setPage(1); }}
+                />
+            </div>
+
+            <Table
+                rowKey="id"
+                loading={loading}
+                columns={columns}
+                dataSource={postings}
+                pagination={{
+                    current: page,
+                    pageSize,
+                    total: totalItems,
+                    showSizeChanger: true,
+                    pageSizeOptions: [10, 20, 50],
+                    showTotal: (total) => `Tổng ${total} tin`,
+                    onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                }}
+            />
 
             {canManagePosting && (
                 <PostingFormModal

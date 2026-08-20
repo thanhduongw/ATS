@@ -29,6 +29,10 @@ export const verifyEmail = (data: VerifyEmailRequest) =>
 export const login = (data: LoginRequest) =>
     axiosClient.post<LoginResponse>("/auth/login", data);
 
+/** Đổi mã dùng-một-lần (sau khi Google SSO thành công) lấy access/refresh token thật. */
+export const exchangeOAuth2Code = (code: string) =>
+    axiosClient.post<LoginResponse>("/auth/oauth2/exchange", { code });
+
 export const refreshTokenRequest = (refreshToken: string) =>
     axiosClient.post<LoginResponse>("/auth/refresh-token", { refreshToken });
 

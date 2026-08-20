@@ -4,6 +4,10 @@ import iuh.fit.se.candidate.candidate.dto.*;
 import iuh.fit.se.candidate.client.MasterDataServiceClient;
 import iuh.fit.se.candidate.client.dto.CatalogItemResponse;
 import iuh.fit.se.candidate.common.PageResponse;
+import iuh.fit.se.candidate.customfield.CandidateCustomFieldValue;
+import iuh.fit.se.candidate.customfield.CandidateCustomFieldValueRepository;
+import iuh.fit.se.candidate.customfield.CustomFieldDefinition;
+import iuh.fit.se.candidate.customfield.CustomFieldDefinitionRepository;
 import iuh.fit.se.candidate.event.AuditEventPublisher;
 import iuh.fit.se.candidate.exception.BusinessException;
 import iuh.fit.se.candidate.storage.S3Service;
@@ -28,12 +32,15 @@ public class CandidateService {
 
     private final CandidateRepository candidateRepository;
     private final CandidateSkillRepository candidateSkillRepository;
+    private final CandidateTagRepository candidateTagRepository;
+    private final CustomFieldDefinitionRepository customFieldDefinitionRepository;
+    private final CandidateCustomFieldValueRepository customFieldValueRepository;
     private final MasterDataServiceClient masterDataServiceClient;
     private final S3Service s3Service;
     private final AuditEventPublisher auditEventPublisher;
 
     public PageResponse<CandidateResponse> getAll(
-            Long tenantId, String keyword, Boolean hasCv, Integer page, Integer size) {
+            Long tenantId, String keyword, Boolean hasCv, PoolStatus poolStatus, Integer page, Integer size) {
         Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels(tenantId));
         List<CatalogItemResponse> allSkills = masterDataServiceClient.getSkills(tenantId);
         Map<Long, String> skillMap = buildCatalogMap(allSkills);
@@ -45,7 +52,7 @@ public class CandidateService {
                         .map(CatalogItemResponse::id)
                         .toList();
 
-        Specification<Candidate> spec = CandidateSpecifications.build(tenantId, keyword, hasCv, matchedSkillIds);
+        Specification<Candidate> spec = CandidateSpecifications.build(tenantId, keyword, hasCv, matchedSkillIds, poolStatus);
 
         if (page == null && size == null) {
             List<Candidate> candidates = candidateRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -156,9 +163,11 @@ public class CandidateService {
                 .address(req.address())
                 .currentPosition(req.currentPosition())
                 .educationLevelId(req.educationLevelId())
+                .internalNote(req.internalNote())
                 .build());
 
         attachSkills(candidate, req.skillIds());
+        saveCustomFields(tenantId, candidate, req.customFields());
 
         return getById(tenantId, candidate.getId());
     }
@@ -177,10 +186,12 @@ public class CandidateService {
         candidate.setAddress(req.address());
         candidate.setCurrentPosition(req.currentPosition());
         candidate.setEducationLevelId(req.educationLevelId());
+        candidate.setInternalNote(req.internalNote());
 
         candidate.getSkills().clear();
         candidateRepository.save(candidate);
         attachSkills(candidate, req.skillIds());
+        saveCustomFields(tenantId, candidate, req.customFields());
 
         return getById(tenantId, id);
     }
@@ -194,12 +205,104 @@ public class CandidateService {
         return getById(tenantId, id);
     }
 
+    /** GDPR self-service: ứng viên tự yêu cầu xóa dữ liệu của mình. */
+    @Transactional
+    public void requestOwnDataDeletion(Long tenantId, Long userId) {
+        Candidate candidate = candidateRepository.findByTenantIdAndUserIdAndDeletedAtIsNull(tenantId, userId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy hồ sơ ứng viên của bạn"));
+        candidate.setDeletedAt(LocalDateTime.now());
+        candidateRepository.save(candidate);
+        auditEventPublisher.publish(tenantId, userId, "CANDIDATE_SELF_DELETION_REQUEST", "CANDIDATE", candidate.getId(), null);
+    }
+
     @Transactional
     public void softDelete(Long tenantId, Long id, Long actorUserId) {
         Candidate candidate = findOwned(tenantId, id);
         candidate.setDeletedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
         auditEventPublisher.publish(tenantId, actorUserId, "CANDIDATE_DELETED", "CANDIDATE", id, null);
+    }
+
+    @Transactional
+    public BulkOperationResponse bulkDelete(Long tenantId, Long actorUserId, List<Long> ids) {
+        List<Long> succeeded = new java.util.ArrayList<>();
+        Map<Long, String> failed = new java.util.LinkedHashMap<>();
+        for (Long id : ids) {
+            try {
+                softDelete(tenantId, id, actorUserId);
+                succeeded.add(id);
+            } catch (BusinessException e) {
+                failed.put(id, e.getMessage());
+            }
+        }
+        return new BulkOperationResponse(succeeded, failed);
+    }
+
+    /** Internal / Feign — application-service gọi khi reject hồ sơ, để đưa ứng viên vào Talent Pool. */
+    @Transactional
+    public void markPool(Long tenantId, Long id, String tag) {
+        Candidate candidate = findOwned(tenantId, id);
+        candidate.setPoolStatus(PoolStatus.IN_POOL);
+        candidateRepository.save(candidate);
+        addTagIfAbsent(candidate, tag);
+    }
+
+    @Transactional
+    public CandidateResponse addTag(Long tenantId, Long id, String tag) {
+        Candidate candidate = findOwned(tenantId, id);
+        addTagIfAbsent(candidate, tag);
+        return getById(tenantId, id);
+    }
+
+    @Transactional
+    public CandidateResponse removeTag(Long tenantId, Long id, Long tagId) {
+        Candidate candidate = findOwned(tenantId, id);
+        candidate.getTags().removeIf(t -> t.getId().equals(tagId));
+        candidateRepository.save(candidate);
+        return getById(tenantId, id);
+    }
+
+    private void addTagIfAbsent(Candidate candidate, String tag) {
+        if (tag == null || tag.isBlank()) return;
+        String trimmed = tag.trim();
+        if (candidateTagRepository.existsByCandidateIdAndTagIgnoreCase(candidate.getId(), trimmed)) return;
+        candidateTagRepository.save(CandidateTag.builder().candidate(candidate).tag(trimmed).build());
+    }
+
+    private void saveCustomFields(Long tenantId, Candidate candidate, Map<String, String> customFields) {
+        if (customFields == null || customFields.isEmpty()) return;
+
+        Map<String, CustomFieldDefinition> activeDefsByKey = customFieldDefinitionRepository
+                .findByTenantIdAndActiveTrue(tenantId).stream()
+                .collect(Collectors.toMap(CustomFieldDefinition::getFieldKey, d -> d));
+
+        customFields.forEach((key, value) -> {
+            CustomFieldDefinition def = activeDefsByKey.get(key);
+            if (def == null) {
+                throw new BusinessException("Trường tùy chỉnh không hợp lệ: " + key);
+            }
+            CandidateCustomFieldValue existing = customFieldValueRepository
+                    .findByCandidateIdAndFieldDefinitionId(candidate.getId(), def.getId())
+                    .orElse(null);
+            if (existing != null) {
+                existing.setValue(value);
+                customFieldValueRepository.save(existing);
+            } else {
+                customFieldValueRepository.save(CandidateCustomFieldValue.builder()
+                        .candidate(candidate)
+                        .fieldDefinition(def)
+                        .value(value)
+                        .build());
+            }
+        });
+    }
+
+    private Map<String, String> loadCustomFields(Long candidateId) {
+        return customFieldValueRepository.findByCandidateId(candidateId).stream()
+                .collect(Collectors.toMap(
+                        v -> v.getFieldDefinition().getFieldKey(),
+                        v -> v.getValue() != null ? v.getValue() : "",
+                        (a, b) -> a));
     }
 
     private void attachSkills(Candidate candidate, List<Long> skillIds) {
@@ -244,7 +347,11 @@ public class CandidateService {
                 c.getId(), c.getFullName(), c.getEmail(), c.getPhone(), c.getDateOfBirth(),
                 c.getGender(), c.getAddress(), c.getCurrentPosition(),
                 c.getEducationLevelId(), c.getEducationLevelId() == null ? null : educationMap.get(c.getEducationLevelId()),
-                skillIds, skillNames, c.getCvFileUrl(), c.getCreatedAt()
+                skillIds, skillNames, c.getCvFileUrl(), c.getInternalNote(),
+                c.getPoolStatus().name(),
+                c.getTags().stream().map(t -> new CandidateTagResponse(t.getId(), t.getTag())).toList(),
+                loadCustomFields(c.getId()),
+                c.getCreatedAt()
         );
     }
 
@@ -279,6 +386,10 @@ public class CandidateService {
      */
     @Transactional
     public CandidateSummaryResponse findOrCreatePublic(Long tenantId, PublicCandidateCreateRequest req) {
+        if (!req.consentGiven()) {
+            throw new BusinessException("Vui lòng đồng ý cho phép lưu trữ thông tin để nộp hồ sơ");
+        }
+
         Candidate candidate = candidateRepository
                 .findByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(tenantId, req.email().trim())
                 .orElseGet(() -> candidateRepository.save(Candidate.builder()
@@ -286,6 +397,8 @@ public class CandidateService {
                         .fullName(req.fullName().trim())
                         .email(req.email().trim().toLowerCase())
                         .phone(req.phone() != null ? req.phone().trim() : null)
+                        .consentGiven(true)
+                        .consentAt(LocalDateTime.now())
                         .build()));
 
         // Cập nhật tên/phone nếu đã tồn tại (ứng viên sửa lại)
@@ -298,6 +411,11 @@ public class CandidateService {
         if (req.phone() != null && !req.phone().isBlank()
                 && !req.phone().trim().equals(candidate.getPhone())) {
             candidate.setPhone(req.phone().trim());
+            changed = true;
+        }
+        if (!candidate.isConsentGiven()) {
+            candidate.setConsentGiven(true);
+            candidate.setConsentAt(LocalDateTime.now());
             changed = true;
         }
         if (changed) {

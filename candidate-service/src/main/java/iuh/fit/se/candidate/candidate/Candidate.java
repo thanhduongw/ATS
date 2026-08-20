@@ -46,6 +46,27 @@ public class Candidate {
     @Column(name = "cv_file_url")
     private String cvFileUrl;
 
+    /** Ghi chú nội bộ — chỉ HR/Manager thấy, không hiển thị cho candidate. */
+    @Column(name = "internal_note", columnDefinition = "TEXT")
+    private String internalNote;
+
+    /** Talent Pool: IN_POOL khi ứng viên bị từ chối ở 1 vị trí nhưng có thể phù hợp vị trí khác sau này. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pool_status", nullable = false)
+    @Builder.Default
+    private PoolStatus poolStatus = PoolStatus.ACTIVE;
+
+    /** GDPR: ứng viên đồng ý cho lưu trữ dữ liệu khi nộp hồ sơ (bắt buộc ở luồng public apply). */
+    @Column(name = "consent_given")
+    private boolean consentGiven;
+
+    @Column(name = "consent_at")
+    private LocalDateTime consentAt;
+
+    @OneToMany(mappedBy = "candidate", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<CandidateTag> tags = new ArrayList<>();
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 

@@ -1,6 +1,8 @@
 package iuh.fit.se.interview.evaluation;
 
+import iuh.fit.se.interview.client.ApplicationServiceClient;
 import iuh.fit.se.interview.client.MasterDataServiceClient;
+import iuh.fit.se.interview.client.dto.ApplicationAdvanceStageRequest;
 import iuh.fit.se.interview.client.dto.CatalogItemResponse;
 import iuh.fit.se.interview.common.AccessGuard;
 import iuh.fit.se.interview.evaluation.dto.EvaluationResponse;
@@ -25,9 +27,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class InterviewEvaluationService {
 
+    private static final java.util.Set<RecommendationType> POSITIVE_RECOMMENDATIONS =
+            java.util.Set.of(RecommendationType.STRONG_YES, RecommendationType.YES);
+
     private final InterviewEvaluationRepository evaluationRepository;
     private final InterviewRepository interviewRepository;
     private final MasterDataServiceClient masterDataServiceClient;
+    private final ApplicationServiceClient applicationServiceClient;
 
     @Transactional
     public EvaluationResponse submit(
@@ -72,13 +78,26 @@ public class InterviewEvaluationService {
         evaluationRepository.save(evaluation);
 
         // Tất cả interviewer đã nộp → COMPLETED
-        boolean allSubmitted = evaluationRepository.findByInterviewId(interviewId).stream()
-                .allMatch(e -> e.getSubmittedAt() != null);
+        List<InterviewEvaluation> allEvaluations = evaluationRepository.findByInterviewId(interviewId);
+        boolean allSubmitted = allEvaluations.stream().allMatch(e -> e.getSubmittedAt() != null);
         if (allSubmitted
                 && (interview.getStatus() == InterviewStatus.SCHEDULED
                 || interview.getStatus() == InterviewStatus.CONFIRMED)) {
             interview.setStatus(InterviewStatus.COMPLETED);
             interviewRepository.save(interview);
+        }
+
+        // Workflow automation: toàn bộ hội đồng đề xuất Hire/Strong Hire → tự động chuyển vòng
+        if (allSubmitted && allEvaluations.stream()
+                .allMatch(e -> POSITIVE_RECOMMENDATIONS.contains(e.getOverallRecommendation()))) {
+            try {
+                applicationServiceClient.advanceStage(tenantId, actorUserId, "SYSTEM", interview.getApplicationId(),
+                        new ApplicationAdvanceStageRequest(
+                                "Tự động chuyển vòng — toàn bộ hội đồng đề xuất Hire"));
+            } catch (Exception e) {
+                // Best-effort — không chặn việc nộp đánh giá nếu tự động chuyển vòng thất bại
+                // (vd: hồ sơ đã ở giai đoạn cuối, hoặc application-service tạm gián đoạn)
+            }
         }
 
         // Người nộp luôn thấy lương của chính mình

@@ -36,4 +36,8 @@ aws:
     region: ${AWS_S3_REGION:us-east-1}
     endpoint: ${AWS_S3_ENDPOINT:}
   access-key-id: ${AWS_ACCESS_KEY_ID:minioadmin}
-  secret-access-key: ${AWS_SECRET_ACCESS_KEY:minioadmin}
+  secret-access-key: ${AWS_SECRET_ACCESS_KEY:minioadmin}
+
+springdoc:
+  api-docs:
+    path: /api/candidate/v3/api-docs

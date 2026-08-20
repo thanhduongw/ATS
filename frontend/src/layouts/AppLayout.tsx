@@ -12,7 +12,7 @@ import NotificationBell from "../features/notification/components/NotificationBe
 import { COLORS } from "../app/theme";
 import type { UserRole } from "../features/auth/types";
 import { ROLE_LABELS } from "../app/roles";
-import { useI18n } from "../i18n/I18nProvider";
+import { useI18n } from "../i18n/useI18n";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;

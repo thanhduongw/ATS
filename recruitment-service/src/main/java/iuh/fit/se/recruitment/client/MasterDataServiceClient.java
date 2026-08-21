@@ -28,4 +28,7 @@ public interface MasterDataServiceClient {
 
     @GetMapping("/api/masterdata/pipelines/{id}")
     PipelineResponse getPipelineById(@PathVariable Long id);
+
+    @GetMapping("/api/masterdata/departments")
+    List<CatalogItemResponse> getDepartments(@RequestHeader("X-Tenant-Id") Long tenantId);
 }

@@ -99,3 +99,14 @@ export function statusMeta(
     if (!status) return { label: "—", color: "default" };
     return map[status] ?? { label: status, color: "default" };
 }
+
+/** Màu Antd Tag theo stageType của pipeline (APPLIED, CV_SCREENING, ...). */
+export function stageTypeTagColor(stageType?: string | null): string {
+    if (!stageType) return "default";
+    if (stageType === "HIRED") return "success";
+    if (stageType === "REJECTED") return "error";
+    if (stageType === "OFFER") return "gold";
+    if (stageType.includes("INTERVIEW")) return "purple";
+    if (stageType.includes("SCREENING")) return "processing";
+    return "blue"; // APPLIED, CUSTOM
+}

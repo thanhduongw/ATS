@@ -8,6 +8,8 @@ public record ApplicationResponse(
         String candidateName,
         Long jobPostingId,
         String jobTitle,
+        Long departmentId,
+        String departmentName,
         Long recruitmentSourceId,
         String recruitmentSourceName,
         Long assignedRecruiterId,

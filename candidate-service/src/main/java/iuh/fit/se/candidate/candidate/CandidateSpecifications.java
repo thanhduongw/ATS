@@ -41,6 +41,7 @@ public final class CandidateSpecifications {
                 keywordPredicates.add(cb.like(cb.lower(root.get("fullName")), like));
                 keywordPredicates.add(cb.like(cb.lower(root.get("email")), like));
                 keywordPredicates.add(cb.like(cb.lower(root.get("currentPosition")), like));
+                keywordPredicates.add(cb.like(cb.lower(root.get("phone")), like));
 
                 if (matchedSkillIds != null && !matchedSkillIds.isEmpty()) {
                     Join<Candidate, CandidateSkill> skillJoin = root.join("skills", JoinType.LEFT);

@@ -28,5 +28,7 @@ public record JobPostingResponse(
         LocalDateTime closedAt,
         /** Chỉ populate ở luồng public (career portal); null ở luồng nội bộ HR. */
         String employmentTypeName,
-        String workLocationName
+        String workLocationName,
+        Long departmentId,
+        String departmentName
 ) {}

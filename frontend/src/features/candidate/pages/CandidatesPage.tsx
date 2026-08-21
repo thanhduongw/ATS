@@ -1,41 +1,98 @@
-import { useCallback, useEffect, useState, useMemo, type Key } from "react";
-import { App, Card, Table, Button, Tag, Space, Input, Select, Row, Col, Tooltip, Avatar, Segmented, Popover } from "antd";
-import { PlusOutlined, UploadOutlined, SendOutlined, SearchOutlined, UserOutlined, FilePdfOutlined, FileUnknownOutlined, DeleteOutlined, DownloadOutlined, TagOutlined, CloseOutlined } from "@ant-design/icons";
+import { useCallback, useEffect, useState, useMemo, type Key, type ReactNode } from "react";
+import { App, Card, Table, Button, Space, Input, Select, Row, Col, Tooltip, Avatar, Modal, Form } from "antd";
+import {
+    PlusOutlined, SearchOutlined, UserOutlined, DownloadOutlined,
+    UserAddOutlined, FileSearchOutlined, CalendarOutlined, TrophyOutlined, MailOutlined, CloseCircleOutlined,
+} from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 import type { ColumnsType } from "antd/es/table";
-import { getCandidates, bulkDeleteCandidates, addCandidateTag, removeCandidateTag } from "../candidateApi";
-import { getApplications } from "../applicationApi";
-import type { ApiMessageResponse, CandidateResponse, ApplicationResponse, CandidateWithApplications } from "../types";
+import { getCandidates } from "../candidateApi";
+import { getApplications, bulkAdvanceApplicationStage, bulkRejectApplications } from "../applicationApi";
+import { getCatalogItems } from "../../masterdata/masterdataApi";
+import type { CatalogItem } from "../../masterdata/types";
+import type { ApiMessageResponse, CandidateResponse, ApplicationResponse, CandidateWithApplications, BulkOperationResponse } from "../types";
 import CandidateFormModal from "../components/CandidateFormModal";
-import CvUploadModal from "../components/CvUploadModal";
-import ApplicationCreateModal from "../components/ApplicationCreateModal";
+import AiScoreBadge from "../../../components/AiScoreBadge";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 import { exportToExcel } from "../../../app/exportExcel";
 
+interface StatCardProps {
+    title: string;
+    value: number | string;
+    subtitle?: string;
+    icon: ReactNode;
+    gradient: string;
+}
+
+function StatCard({ title, value, subtitle, icon, gradient }: StatCardProps) {
+    return (
+        <Card className="stat-card" style={{ border: "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div className="stat-icon" style={{ background: gradient }}>
+                    {icon}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 4, fontWeight: 500 }}>
+                        {title}
+                    </div>
+                    <div style={{ fontSize: 26, fontWeight: 700, color: COLORS.textPrimary, lineHeight: 1 }}>
+                        {value}
+                    </div>
+                    {subtitle && (
+                        <div style={{ marginTop: 6, fontSize: 12, color: COLORS.textMuted }}>{subtitle}</div>
+                    )}
+                </div>
+            </div>
+        </Card>
+    );
+}
+
+const INTERVIEW_STAGE_TYPES = ["TECHNICAL_INTERVIEW", "HR_INTERVIEW", "FINAL_INTERVIEW"];
+
+const DEPARTMENT_DOT_COLORS = ["#3B82F6", "#8B5CF6", "#F59E0B", "#10B981", "#EC4899", "#06B6D4"];
+function departmentDotColor(name: string) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+    return DEPARTMENT_DOT_COLORS[hash % DEPARTMENT_DOT_COLORS.length];
+}
+
+function stageDotColor(stageType: string) {
+    if (stageType === "HIRED") return COLORS.stageHired;
+    if (stageType === "REJECTED") return COLORS.stageRejected;
+    if (stageType === "OFFER") return COLORS.stageOffer;
+    if (stageType.includes("INTERVIEW")) return COLORS.stageInterview;
+    if (stageType.includes("SCREENING")) return COLORS.stageScreening;
+    return COLORS.stageNew;
+}
+
+/** Chưa có dữ liệu AI thật (tính năng đang phát triển) — giữ chỗ để bật sort ngay khi có điểm thật. */
+function getAiScore(_record: CandidateWithApplications): number | undefined {
+    return undefined;
+}
+
 export default function CandidatesPage() {
     const { notification, message, modal } = App.useApp();
+    const navigate = useNavigate();
     const [candidates, setCandidates] = useState<CandidateResponse[]>([]);
     const [totalCandidates, setTotalCandidates] = useState(0);
-    const [cvBreakdown, setCvBreakdown] = useState({ withCv: 0, withoutCv: 0 });
-    const [applications, setApplications] = useState<ApplicationResponse[]>([]);
+    const [allApplications, setAllApplications] = useState<ApplicationResponse[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchInput, setSearchInput] = useState("");
     const [keyword, setKeyword] = useState("");
-    const [filterCvStatus, setFilterCvStatus] = useState<"all" | "has_cv" | "no_cv">("all");
-    const [poolFilter, setPoolFilter] = useState<"all" | "ACTIVE" | "IN_POOL">("all");
+    const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
+    const [positionFilter, setPositionFilter] = useState<string | null>(null);
+    const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
-    const [newTagInput, setNewTagInput] = useState("");
-    const [tagPopoverCandidateId, setTagPopoverCandidateId] = useState<number | null>(null);
 
     const [formModalOpen, setFormModalOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState<CandidateResponse | null>(null);
-    const [cvModalOpen, setCvModalOpen] = useState(false);
-    const [cvCandidateId, setCvCandidateId] = useState<number | null>(null);
-    const [applyModalOpen, setApplyModalOpen] = useState(false);
-    const [applyCandidateId, setApplyCandidateId] = useState<number | undefined>(undefined);
 
     const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
+    const [rejectReasons, setRejectReasons] = useState<CatalogItem[]>([]);
+    const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+    const [bulkSubmitting, setBulkSubmitting] = useState(false);
+    const [bulkRejectForm] = Form.useForm();
 
     // Debounce ô tìm kiếm trước khi gọi API; đổi từ khóa thì quay về trang 1
     useEffect(() => {
@@ -46,23 +103,20 @@ export default function CandidatesPage() {
         return () => clearTimeout(t);
     }, [searchInput]);
 
-    const handleCvFilterChange = (v: "all" | "has_cv" | "no_cv") => {
-        setFilterCvStatus(v);
-        setPage(1);
-    };
+    useEffect(() => {
+        getCatalogItems("/masterdata/rejection-reasons").then((r) => setRejectReasons(r.data));
+    }, []);
 
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const hasCv = filterCvStatus === "all" ? undefined : filterCvStatus === "has_cv";
-            const poolStatus = poolFilter === "all" ? undefined : poolFilter;
             const [candRes, appRes] = await Promise.all([
-                getCandidates({ keyword: keyword || undefined, hasCv, poolStatus, page: page - 1, size: pageSize }),
-                getApplications(),          // lấy tất cả đơn ứng tuyển (không phân trang) để gộp vào từng ứng viên
+                getCandidates({ keyword: keyword || undefined, page: page - 1, size: pageSize }),
+                getApplications(),          // lấy tất cả đơn ứng tuyển (không phân trang) để gộp vào từng ứng viên + thống kê
             ]);
             setCandidates(candRes.data.content);
             setTotalCandidates(candRes.data.totalItems);
-            setApplications(appRes.data.content);
+            setAllApplications(appRes.data.content);
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             notification.error({
@@ -73,26 +127,13 @@ export default function CandidatesPage() {
         } finally {
             setLoading(false);
         }
-    }, [notification, keyword, filterCvStatus, poolFilter, page, pageSize]);
+    }, [notification, keyword, page, pageSize]);
 
     useEffect(() => { loadData(); }, [loadData]);
 
-    // Đếm ứng viên có/chưa có CV trên toàn bộ kết quả khớp từ khóa (độc lập với lựa chọn filter CV hiện tại)
-    useEffect(() => {
-        let cancelled = false;
-        Promise.all([
-            getCandidates({ keyword: keyword || undefined, hasCv: true, page: 0, size: 1 }),
-            getCandidates({ keyword: keyword || undefined, hasCv: false, page: 0, size: 1 }),
-        ]).then(([withCvRes, withoutCvRes]) => {
-            if (cancelled) return;
-            setCvBreakdown({ withCv: withCvRes.data.totalItems, withoutCv: withoutCvRes.data.totalItems });
-        }).catch(() => { /* không chặn trang chính nếu lỗi */ });
-        return () => { cancelled = true; };
-    }, [keyword]);
-
-    // Gộp ứng viên (trang hiện tại) + danh sách vị trí đã ứng tuyển
+    // Gộp ứng viên (trang hiện tại) + danh sách vị trí đã ứng tuyển, ứng tuyển gần nhất lên đầu
     const candidatesWithApps: CandidateWithApplications[] = useMemo(() => {
-        const appByCandidate = applications.reduce<Record<number, ApplicationResponse[]>>((acc, app) => {
+        const appByCandidate = allApplications.reduce<Record<number, ApplicationResponse[]>>((acc, app) => {
             (acc[app.candidateId] ??= []).push(app);
             return acc;
         }, {});
@@ -101,29 +142,125 @@ export default function CandidatesPage() {
             ...c,
             applications: appByCandidate[c.id] ?? [],
         }));
-    }, [candidates, applications]);
+    }, [candidates, allApplications]);
 
-    const handleBulkDelete = () => {
+    const visibleCandidates = useMemo(() => {
+        return candidatesWithApps.filter((c) => {
+            if (departmentFilter && !c.applications.some((a) => a.departmentName === departmentFilter)) return false;
+            if (positionFilter && !c.applications.some((a) => a.jobTitle === positionFilter)) return false;
+            if (statusFilter && !c.applications.some((a) => a.currentStageName === statusFilter)) return false;
+            return true;
+        });
+    }, [candidatesWithApps, departmentFilter, positionFilter, statusFilter]);
+
+    const hasActiveFilters = !!(keyword || departmentFilter || positionFilter || statusFilter);
+
+    const handleResetFilters = () => {
+        setSearchInput("");
+        setKeyword("");
+        setDepartmentFilter(null);
+        setPositionFilter(null);
+        setStatusFilter(null);
+        setPage(1);
+    };
+
+    // ── Thống kê KPI (dựa trên toàn bộ đơn ứng tuyển của công ty) ──
+    const kpiStats = useMemo(() => {
+        const now = new Date();
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const newApplications = allApplications.filter((a) => new Date(a.appliedAt) >= sevenDaysAgo).length;
+        const cvScreening = allApplications.filter((a) => a.currentStageType === "CV_SCREENING").length;
+        const interviews = allApplications.filter((a) => INTERVIEW_STAGE_TYPES.includes(a.currentStageType)).length;
+        const hiredThisMonth = allApplications.filter((a) => {
+            if (!a.hiredAt) return false;
+            const d = new Date(a.hiredAt);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        }).length;
+        return { newApplications, cvScreening, interviews, hiredThisMonth };
+    }, [allApplications]);
+
+    // ── Phân bổ ứng viên theo phòng ban (đếm ứng viên duy nhất theo departmentName) ──
+    const departmentBreakdown = useMemo(() => {
+        const candidateIdsByDept = new Map<string, Set<number>>();
+        for (const app of allApplications) {
+            if (!app.departmentName) continue;
+            if (!candidateIdsByDept.has(app.departmentName)) candidateIdsByDept.set(app.departmentName, new Set());
+            candidateIdsByDept.get(app.departmentName)!.add(app.candidateId);
+        }
+        return Array.from(candidateIdsByDept.entries())
+            .map(([name, ids]) => ({ name, count: ids.size }))
+            .sort((a, b) => b.count - a.count);
+    }, [allApplications]);
+
+    // ── Danh sách vị trí / trạng thái thực tế để đổ vào bộ lọc ──
+    const positionOptions = useMemo(() => {
+        return Array.from(new Set(allApplications.map((a) => a.jobTitle).filter((v): v is string => !!v))).sort();
+    }, [allApplications]);
+
+    const statusOptions = useMemo(() => {
+        return Array.from(new Set(allApplications.map((a) => a.currentStageName).filter(Boolean))).sort();
+    }, [allApplications]);
+
+    /** ID của đơn ứng tuyển gần nhất cho mỗi ứng viên đang được chọn (bỏ qua ứng viên chưa ứng tuyển). */
+    const getSelectedApplicationIds = () => {
+        const ids: number[] = [];
+        let skipped = 0;
+        for (const key of selectedRowKeys) {
+            const primary = candidatesWithApps.find((c) => c.id === key)?.applications[0];
+            if (primary) ids.push(primary.id); else skipped++;
+        }
+        return { ids, skipped };
+    };
+
+    const reportBulkResult = (res: BulkOperationResponse, verb: string) => {
+        const failedCount = Object.keys(res.failedIds).length;
+        if (failedCount === 0) {
+            message.success(`Đã ${verb} và gửi email cho ${res.succeededIds.length} hồ sơ`);
+        } else {
+            message.warning(`${res.succeededIds.length} hồ sơ thành công, ${failedCount} hồ sơ thất bại`);
+            console.warn("Bulk action failures:", res.failedIds);
+        }
+        setSelectedRowKeys([]);
+        loadData();
+    };
+
+    const handleBulkAdvance = () => {
+        const { ids, skipped } = getSelectedApplicationIds();
+        if (ids.length === 0) {
+            message.warning("Các ứng viên đã chọn chưa có hồ sơ ứng tuyển nào để chuyển trạng thái");
+            return;
+        }
         modal.confirm({
-            title: `Xóa ${selectedRowKeys.length} ứng viên đã chọn?`,
-            content: "Hành động này không thể hoàn tác. Ứng viên đã có hồ sơ đang xử lý vẫn có thể bị lỗi khi xóa.",
-            okText: "Xóa",
-            okButtonProps: { danger: true },
+            title: `Chuyển trạng thái cho ${ids.length} hồ sơ đã chọn?`,
+            content: `Mỗi hồ sơ sẽ chuyển sang giai đoạn kế tiếp trong quy trình tuyển dụng và ứng viên sẽ nhận email thông báo tự động.${skipped ? ` (${skipped} ứng viên chưa ứng tuyển sẽ được bỏ qua.)` : ""}`,
+            okText: "Chuyển & gửi email",
             onOk: async () => {
-                const res = await bulkDeleteCandidates(selectedRowKeys as number[]);
-                const failedCount = Object.keys(res.data.failedIds).length;
-                if (failedCount === 0) {
-                    message.success(`Đã xóa ${res.data.succeededIds.length} ứng viên`);
-                } else {
-                    message.warning(
-                        `Đã xóa ${res.data.succeededIds.length} ứng viên, ${failedCount} ứng viên không thể xóa`
-                    );
-                    console.warn("Bulk delete failures:", res.data.failedIds);
-                }
-                setSelectedRowKeys([]);
-                loadData();
+                const res = await bulkAdvanceApplicationStage(ids, "Chuyển trạng thái hàng loạt");
+                reportBulkResult(res.data, "chuyển trạng thái");
             },
         });
+    };
+
+    const handleBulkReject = async () => {
+        const values = await bulkRejectForm.validateFields();
+        const { ids, skipped } = getSelectedApplicationIds();
+        if (ids.length === 0) {
+            message.warning("Các ứng viên đã chọn chưa có hồ sơ ứng tuyển nào để từ chối");
+            return;
+        }
+        setBulkSubmitting(true);
+        try {
+            const res = await bulkRejectApplications(ids, values.rejectionReasonId, values.note);
+            setBulkRejectOpen(false);
+            bulkRejectForm.resetFields();
+            if (skipped) message.info(`Đã bỏ qua ${skipped} ứng viên chưa ứng tuyển`);
+            reportBulkResult(res.data, "từ chối");
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Thất bại");
+        } finally {
+            setBulkSubmitting(false);
+        }
     };
 
     const handleExportExcel = () => {
@@ -133,36 +270,13 @@ export default function CandidatesPage() {
                 { header: "Họ tên", value: (c: CandidateWithApplications) => c.fullName },
                 { header: "Email", value: (c: CandidateWithApplications) => c.email },
                 { header: "Điện thoại", value: (c: CandidateWithApplications) => c.phone },
-                { header: "Học vấn", value: (c: CandidateWithApplications) => c.educationLevelName },
-                { header: "Kỹ năng", value: (c: CandidateWithApplications) => c.skillNames?.join(", ") },
+                { header: "Phòng ban", value: (c: CandidateWithApplications) => Array.from(new Set(c.applications.map((a) => a.departmentName).filter(Boolean))).join(", ") },
                 { header: "Vị trí ứng tuyển", value: (c: CandidateWithApplications) => c.applications.map((a) => a.jobTitle).join(", ") },
-                { header: "Có CV", value: (c: CandidateWithApplications) => c.cvFileUrl ? "Có" : "Chưa có" },
+                { header: "Trạng thái", value: (c: CandidateWithApplications) => c.applications[0]?.currentStageName },
+                { header: "Ngày ứng tuyển", value: (c: CandidateWithApplications) => c.applications[0]?.appliedAt },
             ],
-            candidatesWithApps,
+            visibleCandidates,
         );
-    };
-
-    const handleAddTag = async (candidateId: number) => {
-        if (!newTagInput.trim()) return;
-        try {
-            await addCandidateTag(candidateId, newTagInput.trim());
-            setNewTagInput("");
-            setTagPopoverCandidateId(null);
-            loadData();
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Không thêm được tag");
-        }
-    };
-
-    const handleRemoveTag = async (candidateId: number, tagId: number) => {
-        try {
-            await removeCandidateTag(candidateId, tagId);
-            loadData();
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Không xóa được tag");
-        }
     };
 
     const getInitials = (name: string) => {
@@ -173,11 +287,15 @@ export default function CandidatesPage() {
 
     const AVATAR_COLORS = [GRADIENTS.stat1, GRADIENTS.stat2, GRADIENTS.stat3, GRADIENTS.stat4];
 
+    const goToApplication = (candidateId: number, applicationId: number) => {
+        navigate(`/candidates/${candidateId}/applications/${applicationId}`);
+    };
+
     const columns: ColumnsType<CandidateWithApplications> = [
         {
             title: "Ứng viên",
             key: "candidate",
-            width: 220,
+            width: 240,
             render: (_, record, index) => (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Avatar
@@ -189,7 +307,7 @@ export default function CandidatesPage() {
                     >
                         {getInitials(record.fullName)}
                     </Avatar>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 600, color: COLORS.textPrimary }}>{record.fullName}</div>
                         <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{record.email}</div>
                         {record.phone && (
@@ -200,159 +318,85 @@ export default function CandidatesPage() {
             ),
         },
         {
-            title: "Vị trí ứng tuyển",
-            key: "applications",
-            width: 280,
+            title: "Vị trí",
+            key: "position",
+            width: 200,
             render: (_, record) => {
-                if (!record.applications.length) {
-                    return <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Chưa ứng tuyển</span>;
-                }
+                const primary = record.applications[0];
+                if (!primary) return <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Chưa ứng tuyển</span>;
                 return (
-                    <Space orientation="vertical" size={4} style={{ width: "100%" }}>
-                        {record.applications.map((app) => (
-                            <div key={app.id} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                <Tag color="geekblue" style={{ borderRadius: 6, margin: 0, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
-                                    {app.jobTitle || `Job #${app.jobPostingId}`}
-                                </Tag>
-                                <Tag
-                                    color={
-                                        app.currentStageType === "REJECTED" ? "red" :
-                                            app.currentStageType === "HIRED" ? "green" : "processing"
-                                    }
-                                    style={{ borderRadius: 6, margin: 0, fontSize: 11 }}
-                                >
-                                    {app.currentStageName}
-                                </Tag>
-                            </div>
-                        ))}
-                    </Space>
+                    <div>
+                        <div style={{ fontWeight: 500, color: COLORS.textPrimary }}>{primary.jobTitle || `Job #${primary.jobPostingId}`}</div>
+                        {record.applications.length > 1 && (
+                            <Tooltip title={record.applications.slice(1).map((a) => a.jobTitle).join(", ")}>
+                                <div style={{ fontSize: 11, color: COLORS.textMuted }}>+{record.applications.length - 1} vị trí khác</div>
+                            </Tooltip>
+                        )}
+                    </div>
                 );
             },
         },
         {
-            title: "Học vấn",
-            dataIndex: "educationLevelName",
-            key: "educationLevelName",
-            width: 120,
-            render: (v) => v
-                ? <Tag style={{ borderRadius: 6 }}>{v}</Tag>
-                : <span style={{ color: COLORS.textMuted }}>—</span>,
+            title: "Phòng ban",
+            key: "department",
+            width: 150,
+            render: (_, record) => {
+                const name = record.applications[0]?.departmentName;
+                if (!name) return <span style={{ color: COLORS.textMuted }}>—</span>;
+                return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: departmentDotColor(name), flexShrink: 0 }} />
+                        <span style={{ fontSize: 13 }}>{name}</span>
+                    </div>
+                );
+            },
         },
         {
-            title: "Kỹ năng",
-            dataIndex: "skillNames",
-            key: "skillNames",
-            width: 180,
-            render: (names: string[]) => (
-                <Space wrap size={4}>
-                    {names?.slice(0, 3).map((n) => (
-                        <Tag key={n} color="blue" style={{ borderRadius: 6, fontSize: 11 }}>{n}</Tag>
-                    ))}
-                    {names?.length > 3 && (
-                        <Tooltip title={names.slice(3).join(", ")}>
-                            <Tag style={{ borderRadius: 6, fontSize: 11, cursor: "pointer" }}>+{names.length - 3}</Tag>
-                        </Tooltip>
-                    )}
-                </Space>
-            ),
-        },
-        {
-            title: "Talent Pool",
-            key: "pool",
-            width: 200,
-            render: (_, record) => (
-                <Space orientation="vertical" size={4}>
-                    {record.poolStatus === "IN_POOL" && (
-                        <Tag color="gold" style={{ borderRadius: 6, margin: 0 }}>Trong Pool</Tag>
-                    )}
-                    <Space wrap size={4}>
-                        {record.tags.map((t) => (
-                            <Tag
-                                key={t.id}
-                                style={{ borderRadius: 6, margin: 0, fontSize: 11 }}
-                                closeIcon={<CloseOutlined style={{ fontSize: 9 }} />}
-                                onClose={(e) => { e.preventDefault(); handleRemoveTag(record.id, t.id); }}
-                            >
-                                {t.tag}
-                            </Tag>
-                        ))}
-                        <Popover
-                            open={tagPopoverCandidateId === record.id}
-                            onOpenChange={(open) => { setTagPopoverCandidateId(open ? record.id : null); setNewTagInput(""); }}
-                            trigger="click"
-                            content={
-                                <Space>
-                                    <Input
-                                        size="small"
-                                        placeholder="Tên tag"
-                                        value={newTagInput}
-                                        onChange={(e) => setNewTagInput(e.target.value)}
-                                        onPressEnter={() => handleAddTag(record.id)}
-                                    />
-                                    <Button size="small" type="primary" onClick={() => handleAddTag(record.id)}>
-                                        Thêm
-                                    </Button>
-                                </Space>
-                            }
-                        >
-                            <Tag style={{ borderRadius: 6, margin: 0, fontSize: 11, cursor: "pointer" }} icon={<TagOutlined />}>
-                                + Tag
-                            </Tag>
-                        </Popover>
-                    </Space>
-                </Space>
-            ),
-        },
-        {
-            title: "CV",
-            dataIndex: "cvFileUrl",
-            key: "cvFileUrl",
-            width: 100,
-            render: (url: string | null) =>
-                url ? (
-                    <a href={url} target="_blank" rel="noopener noreferrer"
-                        style={{ display: "flex", alignItems: "center", gap: 4, color: COLORS.primary, fontWeight: 500 }}>
-                        <FilePdfOutlined /> Xem
-                    </a>
-                ) : (
-                    <span style={{ color: COLORS.textMuted, display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
-                        <FileUnknownOutlined /> Chưa có
+            title: "Ngày ứng tuyển",
+            key: "appliedAt",
+            width: 130,
+            sorter: (a, b) => {
+                const ta = a.applications[0] ? new Date(a.applications[0].appliedAt).getTime() : 0;
+                const tb = b.applications[0] ? new Date(b.applications[0].appliedAt).getTime() : 0;
+                return ta - tb;
+            },
+            render: (_, record) => {
+                const primary = record.applications[0];
+                if (!primary) return <span style={{ color: COLORS.textMuted }}>—</span>;
+                return (
+                    <span style={{ fontSize: 13 }}>
+                        {new Date(primary.appliedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </span>
-                ),
+                );
+            },
         },
         {
-            title: "Thao tác",
-            key: "actions",
-            fixed: "right",
-            width: 180,
-            render: (_, record) => (
-                <Space size={4}>
-                    <Tooltip title="Chỉnh sửa">
-                        <Button type="default" size="small" icon={<UserOutlined />}
-                            onClick={() => { setEditingItem(record); setFormModalOpen(true); }}>
-                            Sửa
-                        </Button>
-                    </Tooltip>
-                    <Tooltip title="Upload CV">
-                        <Button type="default" size="small" icon={<UploadOutlined />}
-                            onClick={() => { setCvCandidateId(record.id); setCvModalOpen(true); }}>
-                            CV
-                        </Button>
-                    </Tooltip>
-                    <Tooltip title="Tạo đơn ứng tuyển">
-                        <Button type="primary" size="small" icon={<SendOutlined />}
-                            onClick={() => { setApplyCandidateId(record.id); setApplyModalOpen(true); }}>
-                            Ứng tuyển
-                        </Button>
-                    </Tooltip>
-                </Space>
-            ),
+            title: "Trạng thái",
+            key: "status",
+            width: 150,
+            render: (_, record) => {
+                const primary = record.applications[0];
+                if (!primary) return <span style={{ color: COLORS.textMuted }}>—</span>;
+                return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: stageDotColor(primary.currentStageType), flexShrink: 0 }} />
+                        <span style={{ fontSize: 13 }}>{primary.currentStageName}</span>
+                    </div>
+                );
+            },
+        },
+        {
+            title: "AI Score",
+            key: "aiScore",
+            width: 130,
+            sorter: (a, b) => (getAiScore(a) ?? -1) - (getAiScore(b) ?? -1),
+            render: (_, record) => <AiScoreBadge score={getAiScore(record)} />,
         },
     ];
 
     return (
         <div className="page-container animate-fade-in">
-            {/* Header giữ nguyên */}
+            {/* Header */}
             <div className="page-header">
                 <div className="page-header-title">
                     <div style={{
@@ -365,7 +409,7 @@ export default function CandidatesPage() {
                     </div>
                     <div>
                         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Ứng viên</h2>
-                        <div className="page-header-subtitle">Talent Pool — kho dữ liệu ứng viên của công ty</div>
+                        <div className="page-header-subtitle">Quản lý, sàng lọc và đánh giá ứng viên trong quy trình tuyển dụng.</div>
                     </div>
                 </div>
                 <Space>
@@ -373,59 +417,70 @@ export default function CandidatesPage() {
                         Xuất Excel
                     </Button>
                     <Button type="primary" icon={<PlusOutlined />} size="large"
-                        onClick={() => { setEditingItem(null); setFormModalOpen(true); }}>
+                        onClick={() => setFormModalOpen(true)}>
                         Thêm ứng viên
                     </Button>
                 </Space>
             </div>
 
-            {/* Summary cards giữ nguyên */}
+            {/* KPI stat cards */}
             <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-                {[
-                    { label: "Tổng ứng viên", value: totalCandidates, color: COLORS.primary, bg: "#F0FDF4" },
-                    { label: "Đã có CV", value: cvBreakdown.withCv, color: "#3B82F6", bg: "#EFF6FF" },
-                    { label: "Chưa có CV", value: cvBreakdown.withoutCv, color: "#F59E0B", bg: "#FFFBEB" },
-                ].map((s) => (
-                    <Col xs={8} key={s.label}>
-                        <Card style={{ background: s.bg, border: `1px solid ${s.color}20`, borderRadius: 12 }}>
-                            <div style={{ fontSize: 26, fontWeight: 700, color: s.color }}>{s.value}</div>
-                            <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>{s.label}</div>
-                        </Card>
-                    </Col>
-                ))}
+                <Col xs={24} sm={12} md={8} lg={4}>
+                    <StatCard title="Tổng ứng viên" value={totalCandidates} icon={<UserOutlined />} gradient={GRADIENTS.stat1} />
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={5}>
+                    <StatCard title="Đơn mới" value={kpiStats.newApplications} subtitle="7 ngày qua" icon={<UserAddOutlined />} gradient={GRADIENTS.stat2} />
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={5}>
+                    <StatCard title="Sàng lọc CV" value={kpiStats.cvScreening} subtitle="đang chờ duyệt" icon={<FileSearchOutlined />} gradient={GRADIENTS.stat3} />
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={5}>
+                    <StatCard title="Phỏng vấn" value={kpiStats.interviews} subtitle="đang diễn ra" icon={<CalendarOutlined />} gradient={GRADIENTS.stat4} />
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={5}>
+                    <StatCard title="Đã tuyển" value={kpiStats.hiredThisMonth} subtitle="trong tháng" icon={<TrophyOutlined />} gradient={GRADIENTS.primary} />
+                </Col>
             </Row>
 
             <Card style={{ border: "none" }}>
-                <div style={{ marginBottom: 16 }}>
-                    <Segmented
-                        value={poolFilter}
-                        onChange={(v) => { setPoolFilter(v as "all" | "ACTIVE" | "IN_POOL"); setPage(1); }}
-                        options={[
-                            { label: "Tất cả ứng viên", value: "all" },
-                            { label: "Đang hoạt động", value: "ACTIVE" },
-                            { label: "Talent Pool", value: "IN_POOL" },
-                        ]}
-                    />
-                </div>
+                <Input
+                    prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
+                    placeholder="Tìm theo tên, email hoặc số điện thoại..."
+                    value={searchInput}
+                    onChange={e => setSearchInput(e.target.value)}
+                    style={{ marginBottom: 12 }}
+                    size="large"
+                    allowClear
+                />
                 <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                    <Input
-                        prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
-                        placeholder="Tìm theo tên, email, kỹ năng, vị trí..."
-                        value={searchInput}
-                        onChange={e => setSearchInput(e.target.value)}
-                        style={{ width: 300 }}
+                    <Select
                         allowClear
+                        placeholder="Tất cả phòng ban"
+                        style={{ width: 180 }}
+                        value={departmentFilter}
+                        onChange={(v) => { setDepartmentFilter(v ?? null); setPage(1); }}
+                        options={departmentBreakdown.map((d) => ({ value: d.name, label: `${d.name} (${d.count})` }))}
                     />
                     <Select
-                        value={filterCvStatus}
-                        onChange={handleCvFilterChange}
-                        style={{ width: 160 }}
-                        options={[
-                            { value: "all", label: "Tất cả CV" },
-                            { value: "has_cv", label: "Đã có CV" },
-                            { value: "no_cv", label: "Chưa có CV" },
-                        ]}
+                        allowClear
+                        showSearch
+                        placeholder="Tất cả vị trí"
+                        style={{ width: 180 }}
+                        value={positionFilter}
+                        onChange={(v) => { setPositionFilter(v ?? null); setPage(1); }}
+                        options={positionOptions.map((p) => ({ value: p, label: p }))}
                     />
+                    <Select
+                        allowClear
+                        placeholder="Tất cả trạng thái"
+                        style={{ width: 180 }}
+                        value={statusFilter}
+                        onChange={(v) => { setStatusFilter(v ?? null); setPage(1); }}
+                        options={statusOptions.map((s) => ({ value: s, label: s }))}
+                    />
+                    {hasActiveFilters && (
+                        <Button onClick={handleResetFilters}>Reset</Button>
+                    )}
                 </div>
 
                 {selectedRowKeys.length > 0 && (
@@ -437,8 +492,11 @@ export default function CandidatesPage() {
                         }}
                     >
                         <span>Đã chọn {selectedRowKeys.length} ứng viên</span>
-                        <Button size="small" danger icon={<DeleteOutlined />} onClick={handleBulkDelete}>
-                            Xóa hàng loạt
+                        <Button size="small" type="primary" icon={<MailOutlined />} onClick={handleBulkAdvance}>
+                            Chuyển trạng thái & gửi email
+                        </Button>
+                        <Button size="small" danger icon={<CloseCircleOutlined />} onClick={() => setBulkRejectOpen(true)}>
+                            Từ chối hàng loạt
                         </Button>
                         <Button size="small" type="text" onClick={() => setSelectedRowKeys([])}>
                             Bỏ chọn
@@ -450,10 +508,17 @@ export default function CandidatesPage() {
                     rowKey="id"
                     loading={loading}
                     columns={columns}
-                    dataSource={candidatesWithApps}
+                    dataSource={visibleCandidates}
                     rowSelection={{
                         selectedRowKeys,
                         onChange: setSelectedRowKeys,
+                    }}
+                    onRow={(record) => {
+                        const primary = record.applications[0];
+                        return {
+                            onClick: () => { if (primary) goToApplication(record.id, primary.id); },
+                            style: { cursor: primary ? "pointer" : "default" },
+                        };
                     }}
                     pagination={{
                         current: page,
@@ -465,17 +530,36 @@ export default function CandidatesPage() {
                         showTotal: (total) => `Tổng ${total} ứng viên`,
                         onChange: (p, ps) => { setPage(p); setPageSize(ps); },
                     }}
-                    scroll={{ x: 1000 }}
+                    scroll={{ x: 1050 }}
                     rowHoverable
                 />
             </Card>
 
-            <CandidateFormModal open={formModalOpen} editingItem={editingItem}
+            <CandidateFormModal open={formModalOpen} editingItem={null}
                 onClose={() => setFormModalOpen(false)} onSuccess={loadData} />
-            <CvUploadModal open={cvModalOpen} candidateId={cvCandidateId}
-                onClose={() => setCvModalOpen(false)} onSuccess={loadData} />
-            <ApplicationCreateModal open={applyModalOpen} presetCandidateId={applyCandidateId}
-                onClose={() => setApplyModalOpen(false)} onSuccess={loadData} />
+
+            <Modal
+                title={`Từ chối hàng loạt (${selectedRowKeys.length} ứng viên)`}
+                open={bulkRejectOpen}
+                onOk={handleBulkReject}
+                onCancel={() => setBulkRejectOpen(false)}
+                okText="Từ chối & gửi email"
+                confirmLoading={bulkSubmitting}
+                okButtonProps={{ danger: true }}
+            >
+                <Form form={bulkRejectForm} layout="vertical">
+                    <Form.Item
+                        name="rejectionReasonId"
+                        label="Lý do"
+                        rules={[{ required: true, message: "Chọn lý do" }]}
+                    >
+                        <Select options={rejectReasons.map((r) => ({ value: r.id, label: String(r.name) }))} />
+                    </Form.Item>
+                    <Form.Item name="note" label="Ghi chú">
+                        <Input.TextArea rows={3} />
+                    </Form.Item>
+                </Form>
+            </Modal>
         </div>
     );
 }

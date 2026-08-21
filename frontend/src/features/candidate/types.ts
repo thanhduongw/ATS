@@ -63,6 +63,8 @@ export interface ApplicationResponse {
   jobPostingId: number;
   jobTitle?: string;
   jobPostingTitle?: string;
+  departmentId: number | null;
+  departmentName: string | null;
   recruitmentSourceId: number;
   recruitmentSourceName: string;
   assignedRecruiterId: number | null;
@@ -76,6 +78,7 @@ export interface ApplicationResponse {
   rejectionReasonName: string | null;
   note: string | null;
   appliedAt: string;
+  hiredAt: string | null;
 }
 export interface CandidateWithApplications extends CandidateResponse {
   applications: ApplicationResponse[];

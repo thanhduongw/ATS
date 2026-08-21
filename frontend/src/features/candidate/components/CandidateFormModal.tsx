@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Modal, Form, Input, InputNumber, Select, DatePicker, message, Divider } from "antd";
+import { Modal, Form, Input, InputNumber, Select, DatePicker, Upload, message, Divider } from "antd";
+import { InboxOutlined, FileTextOutlined } from "@ant-design/icons";
+import type { UploadProps } from "antd";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { candidateSchema, type CandidateFormValues } from "../schemas/candidateSchema";
-import { createCandidate, updateCandidate } from "../candidateApi";
+import { createCandidate, updateCandidate, uploadCandidateCv } from "../candidateApi";
 import { getCustomFieldDefinitions } from "../customFieldApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
@@ -23,6 +25,8 @@ export default function CandidateFormModal({ open, editingItem, onClose, onSucce
   const [skills, setSkills] = useState<CatalogItem[]>([]);
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([]);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [cvError, setCvError] = useState<string | null>(null);
 
   const {
     control,
@@ -59,6 +63,8 @@ export default function CandidateFormModal({ open, editingItem, onClose, onSucce
         internalNote: editingItem.internalNote,
       });
       setCustomFieldValues(editingItem.customFields ?? {});
+      setCvFile(null);
+      setCvError(null);
     } else {
       reset({
         fullName: "",
@@ -73,19 +79,43 @@ export default function CandidateFormModal({ open, editingItem, onClose, onSucce
         internalNote: "",
       });
       setCustomFieldValues({});
+      setCvFile(null);
+      setCvError(null);
     }
   }, [editingItem, open, reset]);
 
+  const handleCvChange: UploadProps["onChange"] = (info) => {
+    const file = info.fileList[0]?.originFileObj as File | undefined;
+    setCvFile(file ?? null);
+    if (file) setCvError(null);
+  };
+
   const onSubmit = async (data: CandidateFormValues) => {
+    if (!editingItem && !cvFile) {
+      setCvError("Vui lòng tải lên CV của ứng viên");
+      return;
+    }
     try {
       const payload = { ...data, customFields: customFieldValues };
+      let candidateId: number;
       if (editingItem) {
         await updateCandidate(editingItem.id, payload);
-        message.success("Cập nhật thành công");
+        candidateId = editingItem.id;
       } else {
-        await createCandidate(payload);
-        message.success("Tạo ứng viên thành công");
+        const res = await createCandidate(payload);
+        candidateId = res.data.id;
       }
+      if (cvFile) {
+        try {
+          await uploadCandidateCv(candidateId, cvFile);
+        } catch {
+          message.warning("Đã lưu hồ sơ nhưng tải CV lên thất bại, vui lòng thử tải lại CV sau.");
+          onSuccess();
+          onClose();
+          return;
+        }
+      }
+      message.success(editingItem ? "Cập nhật thành công" : "Tạo ứng viên thành công");
       onSuccess();
       onClose();
     } catch (err) {
@@ -127,6 +157,41 @@ export default function CandidateFormModal({ open, editingItem, onClose, onSucce
             <Controller name="email" control={control} render={({ field }) => <Input {...field} />} />
           </Form.Item>
         </div>
+
+        <Form.Item
+          label={editingItem ? "CV / Hồ sơ đính kèm" : "CV / Hồ sơ đính kèm (bắt buộc)"}
+          validateStatus={cvError ? "error" : ""}
+          help={cvError}
+        >
+          {editingItem?.cvFileUrl && !cvFile && (
+            <div style={{ marginBottom: 8 }}>
+              <a href={editingItem.cvFileUrl} target="_blank" rel="noopener noreferrer">
+                <FileTextOutlined /> Xem CV hiện tại
+              </a>
+              <span style={{ color: "#9CA3AF", fontSize: 12, marginLeft: 8 }}>(tải file mới để thay thế)</span>
+            </div>
+          )}
+          <Upload.Dragger
+            beforeUpload={() => false}
+            onChange={handleCvChange}
+            maxCount={1}
+            accept=".pdf,.doc,.docx"
+          >
+            {cvFile ? (
+              <div style={{ padding: "8px 0" }}>
+                <FileTextOutlined style={{ fontSize: 20 }} /> <span>{cvFile.name}</span>
+              </div>
+            ) : (
+              <>
+                <p className="ant-upload-drag-icon">
+                  <InboxOutlined />
+                </p>
+                <p className="ant-upload-text">Kéo thả file CV vào đây hoặc bấm để chọn file</p>
+                <p className="ant-upload-hint">Hỗ trợ file PDF, DOC, DOCX</p>
+              </>
+            )}
+          </Upload.Dragger>
+        </Form.Item>
 
         <div style={{ display: "flex", gap: 16 }}>
           <Form.Item label="Số điện thoại" style={{ flex: 1 }}>

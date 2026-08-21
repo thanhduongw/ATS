@@ -69,9 +69,9 @@ public class ApplicationService {
 
         if (page == null && size == null) {
             List<Application> applications = applicationRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
-            Map<Long, String> jobTitleMap = buildJobTitleMap(tenantId, applications);
+            Map<Long, JobPostingResponse> postingMap = buildPostingMap(tenantId, applications);
             return PageResponse.unpaged(applications.stream()
-                    .map(a -> toResponse(a, sourceMap, reasonMap, userMap, jobTitleMap))
+                    .map(a -> toResponse(a, sourceMap, reasonMap, userMap, postingMap))
                     .toList());
         }
 
@@ -80,27 +80,16 @@ public class ApplicationService {
                 size != null ? size : 10,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Application> result = applicationRepository.findAll(spec, pageable);
-        Map<Long, String> jobTitleMap = buildJobTitleMap(tenantId, result.getContent());
-        return PageResponse.of(result.map(a -> toResponse(a, sourceMap, reasonMap, userMap, jobTitleMap)));
+        Map<Long, JobPostingResponse> postingMap = buildPostingMap(tenantId, result.getContent());
+        return PageResponse.of(result.map(a -> toResponse(a, sourceMap, reasonMap, userMap, postingMap)));
     }
 
-    /** Lấy title của tất cả job posting liên quan (tránh N+1). */
-    private Map<Long, String> buildJobTitleMap(Long tenantId, List<Application> applications) {
+    /** Lấy thông tin (title, department) của tất cả job posting liên quan (tránh N+1). */
+    private Map<Long, JobPostingResponse> buildPostingMap(Long tenantId, List<Application> applications) {
         return applications.stream()
                 .map(Application::getJobPostingId)
                 .distinct()
-                .collect(Collectors.toMap(
-                        id -> id,
-                        id -> {
-                            try {
-                                JobPostingResponse p = recruitmentServiceClient.getPostingById(tenantId, id);
-                                return p.title() != null ? p.title() : "Job #" + id;
-                            } catch (Exception e) {
-                                return "Job #" + id;
-                            }
-                        },
-                        (a, b) -> a
-                ));
+                .collect(Collectors.toMap(id -> id, id -> safeGetPosting(tenantId, id), (a, b) -> a));
     }
 
     public ApplicationResponse getById(Long tenantId, Long userId, String role, Long id) {
@@ -110,20 +99,19 @@ public class ApplicationService {
         Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
 
-        Map<Long, String> jobTitleMap = Map.of(
+        Map<Long, JobPostingResponse> postingMap = Map.of(
                 application.getJobPostingId(),
-                safeGetJobTitle(tenantId, application.getJobPostingId())
+                safeGetPosting(tenantId, application.getJobPostingId())
         );
 
-        return toResponse(application, sourceMap, reasonMap, userMap, jobTitleMap);
+        return toResponse(application, sourceMap, reasonMap, userMap, postingMap);
     }
 
-    private String safeGetJobTitle(Long tenantId, Long jobPostingId) {
+    private JobPostingResponse safeGetPosting(Long tenantId, Long jobPostingId) {
         try {
-            JobPostingResponse p = recruitmentServiceClient.getPostingById(tenantId, jobPostingId);
-            return p.title() != null ? p.title() : "Job #" + jobPostingId;
+            return recruitmentServiceClient.getPostingById(tenantId, jobPostingId);
         } catch (Exception e) {
-            return "Job #" + jobPostingId;
+            return new JobPostingResponse(jobPostingId, null, null, "Job #" + jobPostingId, null, null);
         }
     }
 
@@ -132,14 +120,19 @@ public class ApplicationService {
             Map<Long, String> sourceMap,
             Map<Long, String> reasonMap,
             Map<Long, String> userMap,
-            Map<Long, String> jobTitleMap) {
+            Map<Long, JobPostingResponse> postingMap) {
+
+        JobPostingResponse posting = postingMap.get(a.getJobPostingId());
+        String jobTitle = posting != null && posting.title() != null ? posting.title() : "Job #" + a.getJobPostingId();
 
         return new ApplicationResponse(
                 a.getId(),
                 a.getCandidateId(),
                 a.getCandidateNameSnapshot(),
                 a.getJobPostingId(),
-                jobTitleMap.getOrDefault(a.getJobPostingId(), "Job #" + a.getJobPostingId()),  // ← title ở đây
+                jobTitle,
+                posting != null ? posting.departmentId() : null,
+                posting != null ? posting.departmentName() : null,
                 a.getRecruitmentSourceId(),
                 sourceMap.getOrDefault(a.getRecruitmentSourceId(), "N/A"),
                 a.getAssignedRecruiterId(),

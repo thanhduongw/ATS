@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Typography, Tag, Empty, Spin, message, Tooltip } from "antd";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { CalendarOutlined, UserOutlined, InboxOutlined } from "@ant-design/icons";
@@ -8,7 +9,6 @@ import { getPostingById } from "../../recruitment/recruitmentApi";
 import { getPipelines } from "../../masterdata/masterdataApi";
 import type { PipelineStageResponse } from "../../masterdata/types";
 import type { ApiMessageResponse, ApplicationResponse } from "../types";
-import ApplicationDetailDrawer from "./ApplicationDetailDrawer";
 import RejectApplicationModal from "./RejectApplicationModal";
 import dayjs from "dayjs";
 
@@ -42,13 +42,11 @@ function getInitials(name: string) {
 }
 
 export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
+    const navigate = useNavigate();
     const [stages, setStages] = useState<PipelineStageResponse[]>([]);
     const [applications, setApplications] = useState<ApplicationResponse[]>([]);
     const [loading, setLoading] = useState(false);
     const [draggingOver, setDraggingOver] = useState<string | null>(null);
-
-    const [detailOpen, setDetailOpen] = useState(false);
-    const [selectedApplication, setSelectedApplication] = useState<ApplicationResponse | null>(null);
 
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
     const [pendingRejectId, setPendingRejectId] = useState<number | null>(null);
@@ -182,8 +180,7 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
                                                                     ...dragProvided.draggableProps.style,
                                                                 }}
                                                                 onClick={() => {
-                                                                    setSelectedApplication(app);
-                                                                    setDetailOpen(true);
+                                                                    navigate(`/candidates/${app.candidateId}/applications/${app.id}`);
                                                                 }}
                                                             >
                                                                 {/* Card Header: avatar + name */}
@@ -245,11 +242,6 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
                 </div>
             </DragDropContext>
 
-            <ApplicationDetailDrawer
-                open={detailOpen}
-                application={selectedApplication}
-                onClose={() => setDetailOpen(false)}
-            />
             <RejectApplicationModal
                 open={rejectModalOpen}
                 applicationId={pendingRejectId}

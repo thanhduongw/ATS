@@ -35,17 +35,18 @@ public class JobPostingService {
             String keyword, Integer page, Integer size) {
 
         var spec = JobPostingSpecifications.build(tenantId, status, employmentTypeId, workLocationId, keyword);
+        Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments(tenantId));
 
         if (page == null && size == null) {
             List<JobPosting> all = repository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
-            return PageResponse.unpaged(all.stream().map(this::toResponse).toList());
+            return PageResponse.unpaged(all.stream().map(p -> toResponse(p, Map.of(), Map.of(), deptMap)).toList());
         }
 
         var pageable = PageRequest.of(
                 page != null ? page : 0,
                 size != null ? size : 20,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
-        return PageResponse.of(repository.findAll(spec, pageable).map(this::toResponse));
+        return PageResponse.of(repository.findAll(spec, pageable).map(p -> toResponse(p, Map.of(), Map.of(), deptMap)));
     }
 
     public JobPostingResponse getById(Long tenantId, Long id) {
@@ -192,10 +193,12 @@ public class JobPostingService {
     }
 
     private JobPostingResponse toResponse(JobPosting p) {
-        return toResponse(p, Map.of(), Map.of());
+        Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments(p.getTenantId()));
+        return toResponse(p, Map.of(), Map.of(), deptMap);
     }
 
-    private JobPostingResponse toResponse(JobPosting p, Map<Long, String> empMap, Map<Long, String> locMap) {
+    private JobPostingResponse toResponse(JobPosting p, Map<Long, String> empMap, Map<Long, String> locMap, Map<Long, String> deptMap) {
+        Long departmentId = p.getRequisition().getDepartmentId();
         return new JobPostingResponse(
                 p.getId(), p.getRequisition().getId(), p.getTitle(),
                 p.getEmploymentTypeId(), p.getWorkLocationId(), p.getWorkArrangement(), p.getExperienceRequired(),
@@ -203,7 +206,8 @@ public class JobPostingService {
                 p.getSalaryMin(), p.getSalaryMax(),
                 p.getDescription(), p.getRequirements(), p.getBenefits(), p.getSkillIds(),
                 p.getStatus(), p.isPipelineLocked(), p.getPublishedAt(), p.getClosedAt(),
-                empMap.get(p.getEmploymentTypeId()), locMap.get(p.getWorkLocationId())
+                empMap.get(p.getEmploymentTypeId()), locMap.get(p.getWorkLocationId()),
+                departmentId, deptMap.get(departmentId)
         );
     }
 
@@ -211,12 +215,13 @@ public class JobPostingService {
     public List<JobPostingResponse> getOpen(Long tenantId, Long employmentTypeId, Long workLocationId) {
         Map<Long, String> empMap = buildCatalogMap(masterDataServiceClient.getEmploymentTypes(tenantId));
         Map<Long, String> locMap = buildCatalogMap(masterDataServiceClient.getWorkLocations(tenantId));
+        Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments(tenantId));
         return repository
                 .findByTenantIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, PostingStatus.OPEN)
                 .stream()
                 .filter(p -> employmentTypeId == null || employmentTypeId.equals(p.getEmploymentTypeId()))
                 .filter(p -> workLocationId == null || workLocationId.equals(p.getWorkLocationId()))
-                .map(p -> toResponse(p, empMap, locMap))
+                .map(p -> toResponse(p, empMap, locMap, deptMap))
                 .toList();
     }
 
@@ -228,7 +233,8 @@ public class JobPostingService {
         }
         Map<Long, String> empMap = buildCatalogMap(masterDataServiceClient.getEmploymentTypes(tenantId));
         Map<Long, String> locMap = buildCatalogMap(masterDataServiceClient.getWorkLocations(tenantId));
-        return toResponse(posting, empMap, locMap);
+        Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments(tenantId));
+        return toResponse(posting, empMap, locMap, deptMap);
     }
 
     private Map<Long, String> buildCatalogMap(List<CatalogItemResponse> items) {

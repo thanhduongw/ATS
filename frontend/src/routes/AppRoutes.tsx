@@ -14,6 +14,7 @@ import DashboardPage from "../features/dashboard/pages/DashboardPage";
 import MasterDataPage from "../features/masterdata/pages/MasterDataPage";
 import RecruitmentPage from "../features/recruitment/pages/RecruitmentPage";
 import CandidatesPage from "../features/candidate/pages/CandidatesPage";
+import CandidateApplicationDetailPage from "../features/candidate/pages/CandidateApplicationDetailPage";
 import ApplicationsPage from "../features/candidate/pages/ApplicationsPage";
 import InterviewsPage from "../features/interview/pages/InterviewsPage";
 import InterviewSchedulingPage from "../features/interview/pages/InterviewSchedulingPage";
@@ -59,6 +60,7 @@ export default function AppRoutes() {
                     </Route>
 
                     <Route element={<RoleRoute allow={[...HR_ROLES, ...DEPARTMENT_ROLES]} />}>
+                        <Route path="/candidates/:candidateId/applications/:applicationId" element={<CandidateApplicationDetailPage />} />
                         <Route path="/recruitment" element={<RecruitmentPage />} />
                         <Route path="/applications" element={<ApplicationsPage />} />
                         <Route path="/interviews" element={<InterviewsPage />} />

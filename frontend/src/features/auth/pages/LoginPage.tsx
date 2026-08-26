@@ -1,14 +1,17 @@
+import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, Input, Button, App } from "antd";
+import { Form, Input, Button, App, Divider } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MailOutlined, LockOutlined, BankOutlined, TeamOutlined, CalendarOutlined, FileTextOutlined, CheckCircleOutlined } from "@ant-design/icons";
+import { MailOutlined, LockOutlined, BankOutlined, TeamOutlined, CalendarOutlined, FileTextOutlined, CheckCircleOutlined, GoogleOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { loginSchema, type LoginFormValues } from "../schemas/loginSchema";
 import { login as loginApi } from "../authApi";
 import { setCredentials } from "../authSlice";
 import { useAppDispatch } from "../../../app/hooks";
 import type { ApiMessageResponse } from "../types";
+
+const AUTH_SERVICE_URL = import.meta.env.VITE_AUTH_SERVICE_URL || "http://localhost:8081";
 
 interface LocationState {
     tenantCode?: string;
@@ -25,6 +28,7 @@ export default function LoginPage() {
     const {
         control,
         handleSubmit,
+        getValues,
         formState: { errors, isSubmitting },
     } = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
@@ -34,6 +38,24 @@ export default function LoginPage() {
             password: "",
         },
     });
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const ssoError = params.get("ssoError");
+        if (ssoError) {
+            message.error(ssoError);
+            navigate("/login", { replace: true });
+        }
+    }, [location.search, message, navigate]);
+
+    const handleGoogleLogin = () => {
+        const tenantCode = getValues("tenantCode")?.trim();
+        if (!tenantCode) {
+            message.warning("Vui lòng nhập mã công ty trước khi đăng nhập bằng Google");
+            return;
+        }
+        window.location.href = `${AUTH_SERVICE_URL}/oauth2/pre-login?tenantCode=${encodeURIComponent(tenantCode)}`;
+    };
 
     const onSubmit = async (data: LoginFormValues) => {
         try {
@@ -164,6 +186,18 @@ export default function LoginPage() {
                             Đăng nhập
                         </Button>
                     </Form>
+
+                    <Divider plain style={{ fontSize: 12, color: "#9CA3AF" }}>hoặc</Divider>
+
+                    <Button
+                        icon={<GoogleOutlined />}
+                        block
+                        size="large"
+                        onClick={handleGoogleLogin}
+                        style={{ height: 48, fontWeight: 500 }}
+                    >
+                        Đăng nhập bằng Google
+                    </Button>
 
                     <div className="auth-form-footer">
                         Chưa có tài khoản?{" "}

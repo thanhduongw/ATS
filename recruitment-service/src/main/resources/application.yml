@@ -23,3 +23,7 @@ services:
     url: ${SERVICES_AUTH_SERVICE_URL:http://localhost:8081}
   masterdata-service:
     url: ${SERVICES_MASTERDATA_SERVICE_URL:http://localhost:8082}
+
+springdoc:
+  api-docs:
+    path: /api/recruitment/v3/api-docs

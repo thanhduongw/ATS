@@ -1,17 +1,27 @@
-import { Card, Tabs } from "antd";
+import { Card, Tabs, Grid } from "antd";
 import type { TabsProps } from "antd";
-import { DatabaseOutlined, ApartmentOutlined } from "@ant-design/icons";
+import { DatabaseOutlined, ApartmentOutlined, FormOutlined } from "@ant-design/icons";
 import CatalogPanel from "../components/CatalogPanel";
+import EmailTemplatePanel from "../components/EmailTemplatePanel";
 import PipelinePanel from "../components/PipelinePanel";
+import CustomFieldDefinitionPanel from "../components/CustomFieldDefinitionPanel";
 import { catalogConfigs } from "../catalogConfigs";
 import { GRADIENTS } from "../../../app/theme";
 
+const { useBreakpoint } = Grid;
+
 export default function MasterDataPage() {
+    const screens = useBreakpoint();
+    // Tabs dọc bên trái chiếm nhiều bề ngang trên màn hình nhỏ — chuyển sang tabs ngang khi < md
+    const tabPlacement = screens.md ? "start" : "top";
+
     const items: TabsProps["items"] = [
         ...catalogConfigs.map((config) => ({
             key: config.key,
             label: config.tabLabel,
-            children: <CatalogPanel config={config} />,
+            children: config.key === "emailTemplates"
+                ? <EmailTemplatePanel config={config} />
+                : <CatalogPanel config={config} />,
         })),
         {
             key: "pipelines",
@@ -21,6 +31,15 @@ export default function MasterDataPage() {
                 </span>
             ),
             children: <PipelinePanel />,
+        },
+        {
+            key: "customFields",
+            label: (
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <FormOutlined />Trường tùy chỉnh
+                </span>
+            ),
+            children: <CustomFieldDefinitionPanel />,
         },
     ];
 
@@ -46,7 +65,7 @@ export default function MasterDataPage() {
 
             <Card style={{ border: "none" }}>
                 <Tabs
-                    tabPlacement="start"
+                    tabPlacement={tabPlacement}
                     items={items}
                     style={{ minHeight: 560 }}
                     size="large"

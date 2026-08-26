@@ -79,10 +79,34 @@ export const RESOURCE_TYPE_LABEL: Record<string, string> = {
     USER: "Người dùng",
 };
 
+export const STAGE_TYPE_LABEL: Record<string, string> = {
+    APPLIED: "Mới ứng tuyển",
+    CV_SCREENING: "Sàng lọc CV",
+    HR_SCREENING: "Sàng lọc HR",
+    TECHNICAL_INTERVIEW: "Phỏng vấn kỹ thuật",
+    HR_INTERVIEW: "Phỏng vấn HR",
+    FINAL_INTERVIEW: "Phỏng vấn vòng cuối",
+    OFFER: "Đề nghị offer",
+    HIRED: "Đã tuyển",
+    REJECTED: "Từ chối",
+    CUSTOM: "Tùy chỉnh",
+};
+
 export function statusMeta(
     map: Record<string, StatusMeta>,
     status?: string | null
 ): StatusMeta {
     if (!status) return { label: "—", color: "default" };
     return map[status] ?? { label: status, color: "default" };
+}
+
+/** Màu Antd Tag theo stageType của pipeline (APPLIED, CV_SCREENING, ...). */
+export function stageTypeTagColor(stageType?: string | null): string {
+    if (!stageType) return "default";
+    if (stageType === "HIRED") return "success";
+    if (stageType === "REJECTED") return "error";
+    if (stageType === "OFFER") return "gold";
+    if (stageType.includes("INTERVIEW")) return "purple";
+    if (stageType.includes("SCREENING")) return "processing";
+    return "blue"; // APPLIED, CUSTOM
 }

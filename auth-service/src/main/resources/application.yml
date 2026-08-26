@@ -35,3 +35,14 @@ app:
     refresh-token-expiration-ms: 604800000
   otp:
     expiration-minutes: 10
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  # Google SSO — để trống thì tính năng "Đăng nhập bằng Google" tự tắt, không ảnh hưởng khởi động service
+  # (cố ý KHÔNG khai báo dưới spring.security.oauth2.client.registration.* — property đó bắt buộc
+  # client-id non-blank, để trống sẽ làm service crash lúc start).
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+
+springdoc:
+  api-docs:
+    path: /api/auth/v3/api-docs

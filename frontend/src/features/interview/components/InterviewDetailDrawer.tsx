@@ -9,9 +9,11 @@ import {
   message,
   Popconfirm,
 } from "antd";
+import { CalendarOutlined, GoogleOutlined } from "@ant-design/icons";
+import { saveAs } from "file-saver";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
-import { cancelInterview, confirmInterview } from "../interviewApi";
+import { cancelInterview, confirmInterview, getInterviewIcs } from "../interviewApi";
 import type { ApiMessageResponse, InterviewResponse } from "../types";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
@@ -84,6 +86,34 @@ export default function InterviewDetailDrawer({
     isCandidate &&
     (interview.status === "SCHEDULED" || interview.candidateConfirmed === false);
 
+  const handleDownloadIcs = async () => {
+    try {
+      const res = await getInterviewIcs(interview.id);
+      saveAs(res.data, `interview-${interview.id}.ics`);
+    } catch (err) {
+      const axiosErr = err as AxiosError<ApiMessageResponse>;
+      message.error(axiosErr.response?.data?.message ?? "Không tải được file lịch");
+    }
+  };
+
+  const googleCalendarUrl = (() => {
+    const start = dayjs(interview.scheduledAt);
+    const end = start.add(interview.durationMinutes ?? 60, "minute");
+    // Không dùng dayjs UTC plugin (chưa cài) — tự format từ Date.toISOString() (đã là UTC)
+    const fmt = (d: dayjs.Dayjs) => d.toDate().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const details = interview.format === "ONLINE" && interview.meetingLink
+      ? `Link họp: ${interview.meetingLink}`
+      : interview.location ?? "";
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: `Phỏng vấn — ${interview.candidateName}`,
+      dates: `${fmt(start)}/${fmt(end)}`,
+      details,
+      location: interview.format === "OFFLINE" ? (interview.location ?? "") : (interview.meetingLink ?? ""),
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  })();
+
   return (
     <Drawer
       title={interview.candidateName}
@@ -150,6 +180,13 @@ export default function InterviewDetailDrawer({
       />
 
       <Space style={{ marginTop: 24 }} wrap>
+        <Button icon={<CalendarOutlined />} onClick={handleDownloadIcs}>
+          Thêm vào Calendar
+        </Button>
+        <Button icon={<GoogleOutlined />} href={googleCalendarUrl} target="_blank" rel="noopener noreferrer">
+          Google Calendar
+        </Button>
+
         {canConfirm && (
           <Button type="primary" loading={confirming} onClick={handleConfirm}>
             Xác nhận lịch

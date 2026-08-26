@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Drawer, Descriptions, Button, Space, Modal, Form, Input, InputNumber, App, Alert, Divider } from "antd";
+import { Drawer, Descriptions, Button, Space, Modal, Form, Input, InputNumber, App, Alert, Divider, Tag } from "antd";
 import type { AxiosError } from "axios";
 import {
     approveRequisition,
@@ -13,6 +13,7 @@ import { useAppSelector } from "../../../app/hooks";
 import { DEPARTMENT_ROLES, HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import StatusTag from "../../../components/ui/StatusTag";
+import { WORK_ARRANGEMENT_LABEL, REASON_LABEL, PRIORITY_LABEL } from "../requisitionOptions";
 
 interface Props {
     open: boolean;
@@ -20,6 +21,9 @@ interface Props {
     departmentMap: Record<number, string>;
     jobTitleMap: Record<number, string>;
     jobLevelMap: Record<number, string>;
+    skillMap: Record<number, string>;
+    employmentTypeMap: Record<number, string>;
+    workLocationMap: Record<number, string>;
     onClose: () => void;
     onChanged: () => void;
     onEdit: (item: JobRequisitionResponse) => void;
@@ -36,6 +40,9 @@ export default function RequisitionDetailDrawer({
     departmentMap,
     jobTitleMap,
     jobLevelMap,
+    skillMap,
+    employmentTypeMap,
+    workLocationMap,
     onClose,
     onChanged,
     onEdit,
@@ -169,9 +176,39 @@ export default function RequisitionDetailDrawer({
                     {requisition.jobLevelId ? jobLevelMap[requisition.jobLevelId] ?? "—" : "—"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Số lượng">{requisition.quantity}</Descriptions.Item>
+                <Descriptions.Item label="Loại hình làm việc">
+                    {requisition.employmentTypeId ? employmentTypeMap[requisition.employmentTypeId] ?? "—" : "—"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Hình thức làm việc">
+                    {requisition.workArrangement ? WORK_ARRANGEMENT_LABEL[requisition.workArrangement] : "—"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Địa điểm làm việc">
+                    {requisition.workLocationId ? workLocationMap[requisition.workLocationId] ?? "—" : "—"}
+                </Descriptions.Item>
                 <Descriptions.Item label="Ngân sách">{requisition.budget ?? "—"}</Descriptions.Item>
                 <Descriptions.Item label="Ngày cần tuyển">{requisition.expectedStartDate ?? "—"}</Descriptions.Item>
-                <Descriptions.Item label="Mô tả">{requisition.description ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Mô tả công việc">{requisition.description ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Yêu cầu ứng viên">{requisition.requirements ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Quyền lợi">{requisition.benefits ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Kinh nghiệm yêu cầu">{requisition.experienceRequired ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Lý do tuyển dụng">
+                    {requisition.reason ? REASON_LABEL[requisition.reason] : "—"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Mức độ ưu tiên">
+                    {requisition.priority ? PRIORITY_LABEL[requisition.priority] : "—"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Ghi chú gửi HR">{requisition.note ?? "—"}</Descriptions.Item>
+                <Descriptions.Item label="Kỹ năng yêu cầu">
+                    {requisition.skillIds && requisition.skillIds.length > 0 ? (
+                        <Space wrap>
+                            {requisition.skillIds.map((id) => (
+                                <Tag key={id}>{skillMap[id] ?? `#${id}`}</Tag>
+                            ))}
+                        </Space>
+                    ) : (
+                        "—"
+                    )}
+                </Descriptions.Item>
                 <Descriptions.Item label="Người tạo (phòng ban)">{requisition.requesterName}</Descriptions.Item>
                 <Descriptions.Item label="Người duyệt (HR)">{requisition.approverName}</Descriptions.Item>
                 {requisition.status === "REJECTED" && (
@@ -246,7 +283,7 @@ export default function RequisitionDetailDrawer({
                             <InputNumber style={{ width: "100%" }} min={0} placeholder={String(requisition.expectedSalaryMax ?? "")} />
                         </Form.Item>
                     </div>
-                    <Form.Item label="Ghi chú (không bắt buộc)" name="note">
+                    <Form.Item label="Ghi chú " name="note">
                         <Input.TextArea rows={2} placeholder="Ví dụ: duyệt theo ngân sách quý này" />
                     </Form.Item>
                 </Form>

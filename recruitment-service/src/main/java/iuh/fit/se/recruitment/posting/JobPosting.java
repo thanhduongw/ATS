@@ -1,10 +1,13 @@
 package iuh.fit.se.recruitment.posting;
 
 import iuh.fit.se.recruitment.requisition.JobRequisition;
+import iuh.fit.se.recruitment.requisition.WorkArrangement;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "job_posting")
@@ -30,6 +33,13 @@ public class JobPosting {
     @Column(name = "work_location_id", nullable = false)
     private Long workLocationId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "work_arrangement")
+    private WorkArrangement workArrangement;
+
+    @Column(name = "experience_required")
+    private String experienceRequired;
+
     @Column(name = "pipeline_id", nullable = false)
     private Long pipelineId;
 
@@ -41,6 +51,12 @@ public class JobPosting {
 
     @Column(columnDefinition = "TEXT")
     private String benefits;
+
+    @ElementCollection
+    @CollectionTable(name = "job_posting_skill", joinColumns = @JoinColumn(name = "posting_id"))
+    @Column(name = "skill_id")
+    @Builder.Default
+    private List<Long> skillIds = new ArrayList<>();
 
     @Column(name = "salary_min")
     private java.math.BigDecimal salaryMin;

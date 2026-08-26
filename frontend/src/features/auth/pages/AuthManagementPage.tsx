@@ -114,9 +114,20 @@ export default function AuthManagementPage() {
         }
     };
 
-    const handleUpdateCompany = async (values: { name: string }) => {
+    const handleUpdateCompany = async (values: {
+        name: string;
+        description?: string;
+        logoUrl?: string;
+        bannerUrl?: string;
+        dataRetentionMonths?: string | number;
+    }) => {
         try {
-            const res = await updateCompany(values);
+            const res = await updateCompany({
+                ...values,
+                dataRetentionMonths: values.dataRetentionMonths
+                    ? Number(values.dataRetentionMonths)
+                    : null,
+            });
             setCompany(res.data);
             message.success("Cập nhật thông tin công ty thành công");
         } catch (err) {
@@ -339,7 +350,13 @@ export default function AuthManagementPage() {
                         <Form
                             layout="vertical"
                             onFinish={handleUpdateCompany}
-                            initialValues={{ name: company?.name }}
+                            initialValues={{
+                                name: company?.name,
+                                description: company?.description,
+                                logoUrl: company?.logoUrl,
+                                bannerUrl: company?.bannerUrl,
+                                dataRetentionMonths: company?.dataRetentionMonths,
+                            }}
                         >
                             <Form.Item label="Tên công ty" name="name" rules={[{ required: true }]}>
                                 <Input
@@ -347,6 +364,42 @@ export default function AuthManagementPage() {
                                     size="large"
                                     disabled={currentUserRole !== "COMPANY_ADMIN"}
                                     placeholder="Tên đầy đủ công ty"
+                                />
+                            </Form.Item>
+                            <Form.Item
+                                label="Giới thiệu công ty (hiển thị trên trang tuyển dụng công khai)"
+                                name="description"
+                            >
+                                <Input.TextArea
+                                    rows={4}
+                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
+                                    placeholder="Về chúng tôi, văn hóa, phúc lợi chung..."
+                                />
+                            </Form.Item>
+                            <Form.Item label="URL logo công ty" name="logoUrl">
+                                <Input
+                                    size="large"
+                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
+                                    placeholder="https://.../logo.png"
+                                />
+                            </Form.Item>
+                            <Form.Item label="URL ảnh banner trang tuyển dụng" name="bannerUrl">
+                                <Input
+                                    size="large"
+                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
+                                    placeholder="https://.../banner.jpg"
+                                />
+                            </Form.Item>
+                            <Form.Item
+                                label="Thời gian lưu trữ hồ sơ ứng viên (tháng, để trống = không giới hạn)"
+                                name="dataRetentionMonths"
+                            >
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    size="large"
+                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
+                                    placeholder="VD: 24"
                                 />
                             </Form.Item>
                             {currentUserRole === "COMPANY_ADMIN" ? (

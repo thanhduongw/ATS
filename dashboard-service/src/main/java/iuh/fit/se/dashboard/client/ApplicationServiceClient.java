@@ -1,12 +1,15 @@
 package iuh.fit.se.dashboard.client;
 
 import iuh.fit.se.dashboard.client.dto.ApplicationSummary;
+import iuh.fit.se.dashboard.client.dto.PageResponse;
 import iuh.fit.se.dashboard.config.FeignClientConfig;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.List;
+import java.time.LocalDate;
 
 @FeignClient(
         name = "application-service",
@@ -15,9 +18,12 @@ import java.util.List;
 )
 public interface ApplicationServiceClient {
 
+    /** No page/size sent on purpose: dashboard aggregation needs the full tenant dataset, not one page. */
     @GetMapping("/api/application/applications")
-    List<ApplicationSummary> getApplications(
+    PageResponse<ApplicationSummary> getApplications(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Role") String role);
+            @RequestHeader("X-User-Role") String role,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedTo);
 }

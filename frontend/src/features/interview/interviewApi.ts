@@ -24,6 +24,9 @@ export const cancelInterview = (id: number) =>
 export const confirmInterview = (id: number) =>
   axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/confirm`);
 
+export const getInterviewIcs = (id: number) =>
+  axiosClient.get<Blob>(`/interview/interviews/${id}/ics`, { responseType: "blob" });
+
 export const submitEvaluation = (interviewId: number, data: EvaluationSubmitRequest) =>
   axiosClient.post<EvaluationResponse>(
     `/interview/interviews/${interviewId}/evaluations`,

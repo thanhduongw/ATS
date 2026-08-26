@@ -14,11 +14,11 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo [2/3] Starting Backend Services...
-call start-backend.bat
+call "%~dp0start-backend.bat"
 
 echo.
 echo [3/3] Starting Frontend SPA...
-start "ATS - Frontend SPA (5173)" cmd /k "cd /d d:\KLTN\ATS\frontend && npm run dev"
+start "ATS - Frontend SPA (5173)" cmd /k "cd /d "%~dp0frontend" && npm run dev"
 
 echo.
 echo ====================================================

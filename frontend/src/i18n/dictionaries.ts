@@ -2,7 +2,7 @@ export const viVN: Record<string, string> = {
     "common.comingSoon": "Sắp ra mắt",
     "ai.tooltip": "AI chấm điểm phù hợp CV — sẽ tích hợp ở giai đoạn sau",
     "menu.dashboard": "Tổng quan", "menu.masterdata": "Danh mục", "menu.recruitment": "Tuyển dụng",
-    "menu.candidates": "Ứng viên", "menu.applications": "Việc làm của tôi", "menu.interviews": "Phỏng vấn",
+    "menu.candidates": "Ứng viên", "menu.applications": "Hồ sơ ứng tuyển", "menu.interviews": "Phỏng vấn",
     "menu.scheduling": "Xếp lịch PV", "menu.offers": "Offer", "menu.audit": "Nhật ký hệ thống",
     "scheduling.title": "Xếp lịch phỏng vấn (3 bên)",
     "scheduling.createSlots": "Tạo khung giờ", "scheduling.slotTime": "Khung giờ",

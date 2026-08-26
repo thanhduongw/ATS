@@ -11,15 +11,23 @@ import iuh.fit.se.application.client.dto.JobPostingResponse;
 import iuh.fit.se.application.client.dto.PipelineResponse;
 import iuh.fit.se.application.client.dto.PipelineStageResponse;
 import iuh.fit.se.application.client.dto.UserSummaryResponse;
+import iuh.fit.se.application.common.PageResponse;
 import iuh.fit.se.application.event.ApplicationEventPublisher;
 import iuh.fit.se.application.event.AuditEventPublisher;
 import iuh.fit.se.application.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +42,7 @@ public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
     private final ApplicationHistoryRepository historyRepository;
+    private final ApplicationCommentRepository commentRepository;
     private final CandidateServiceClient candidateServiceClient;
     private final RecruitmentServiceClient recruitmentServiceClient;
     private final MasterDataServiceClient masterDataServiceClient;
@@ -41,22 +50,46 @@ public class ApplicationService {
     private final ApplicationEventPublisher eventPublisher;
     private final AuditEventPublisher auditEventPublisher;
 
-    public List<ApplicationResponse> getAll(Long tenantId, Long userId, String role, Long jobPostingId, Long candidateId) {
-        List<Application> applications;
-        if (jobPostingId != null) {
-            applications = applicationRepository.findByTenantIdAndJobPostingIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, jobPostingId);
-        } else if (candidateId != null) {
-            applications = applicationRepository.findByTenantIdAndCandidateIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, candidateId);
-        } else {
-            applications = applicationRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
-        }
+    public PageResponse<ApplicationResponse> getAll(
+            Long tenantId, Long userId, String role,
+            Long jobPostingId, Long candidateId,
+            Long assignedRecruiterId, Long recruitmentSourceId, String stageType,
+            LocalDate appliedFrom, LocalDate appliedTo,
+            Integer page, Integer size) {
+
+        Specification<Application> spec = ApplicationSpecifications.build(
+                tenantId, jobPostingId, candidateId, assignedRecruiterId, recruitmentSourceId, stageType,
+                appliedFrom != null ? appliedFrom.atStartOfDay() : null,
+                appliedTo != null ? appliedTo.atTime(LocalTime.MAX) : null);
 
         Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources(tenantId));
         Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons(tenantId));
         Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
 
-        return applications.stream().map(a -> toResponse(a, sourceMap, reasonMap, userMap)).toList();
+        if (page == null && size == null) {
+            List<Application> applications = applicationRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+            Map<Long, JobPostingResponse> postingMap = buildPostingMap(tenantId, applications);
+            return PageResponse.unpaged(applications.stream()
+                    .map(a -> toResponse(a, sourceMap, reasonMap, userMap, postingMap))
+                    .toList());
+        }
+
+        Pageable pageable = PageRequest.of(
+                page != null ? page : 0,
+                size != null ? size : 10,
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Application> result = applicationRepository.findAll(spec, pageable);
+        Map<Long, JobPostingResponse> postingMap = buildPostingMap(tenantId, result.getContent());
+        return PageResponse.of(result.map(a -> toResponse(a, sourceMap, reasonMap, userMap, postingMap)));
+    }
+
+    /** Lấy thông tin (title, department) của tất cả job posting liên quan (tránh N+1). */
+    private Map<Long, JobPostingResponse> buildPostingMap(Long tenantId, List<Application> applications) {
+        return applications.stream()
+                .map(Application::getJobPostingId)
+                .distinct()
+                .collect(Collectors.toMap(id -> id, id -> safeGetPosting(tenantId, id), (a, b) -> a));
     }
 
     public ApplicationResponse getById(Long tenantId, Long userId, String role, Long id) {
@@ -65,7 +98,56 @@ public class ApplicationService {
         Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons(tenantId));
         Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
-        return toResponse(application, sourceMap, reasonMap, userMap);
+
+        Map<Long, JobPostingResponse> postingMap = Map.of(
+                application.getJobPostingId(),
+                safeGetPosting(tenantId, application.getJobPostingId())
+        );
+
+        return toResponse(application, sourceMap, reasonMap, userMap, postingMap);
+    }
+
+    private JobPostingResponse safeGetPosting(Long tenantId, Long jobPostingId) {
+        try {
+            return recruitmentServiceClient.getPostingById(tenantId, jobPostingId);
+        } catch (Exception e) {
+            return new JobPostingResponse(jobPostingId, null, null, "Job #" + jobPostingId, null, null);
+        }
+    }
+
+    private ApplicationResponse toResponse(
+            Application a,
+            Map<Long, String> sourceMap,
+            Map<Long, String> reasonMap,
+            Map<Long, String> userMap,
+            Map<Long, JobPostingResponse> postingMap) {
+
+        JobPostingResponse posting = postingMap.get(a.getJobPostingId());
+        String jobTitle = posting != null && posting.title() != null ? posting.title() : "Job #" + a.getJobPostingId();
+
+        return new ApplicationResponse(
+                a.getId(),
+                a.getCandidateId(),
+                a.getCandidateNameSnapshot(),
+                a.getJobPostingId(),
+                jobTitle,
+                posting != null ? posting.departmentId() : null,
+                posting != null ? posting.departmentName() : null,
+                a.getRecruitmentSourceId(),
+                sourceMap.getOrDefault(a.getRecruitmentSourceId(), "N/A"),
+                a.getAssignedRecruiterId(),
+                a.getAssignedRecruiterId() == null ? null : userMap.get(a.getAssignedRecruiterId()),
+                a.getResumeUrl(),
+                a.getCurrentStageId(),
+                a.getCurrentStageName(),
+                a.getCurrentStageOrder(),
+                a.getCurrentStageType(),
+                a.getRejectionReasonId(),
+                a.getRejectionReasonId() == null ? null : reasonMap.get(a.getRejectionReasonId()),
+                a.getNote(),
+                a.getAppliedAt(),
+                a.getHiredAt()
+        );
     }
 
     public ApplicationSummaryResponse getSummaryById(Long tenantId, Long id) {
@@ -156,6 +238,9 @@ public class ApplicationService {
         application.setCurrentStageName(nextStage.name());
         application.setCurrentStageOrder(nextStage.stageOrder());
         application.setCurrentStageType(nextStage.stageType());
+        if (STAGE_TYPE_HIRED.equals(nextStage.stageType())) {
+            application.setHiredAt(LocalDateTime.now());
+        }
         applicationRepository.save(application);
 
         saveHistory(application, previousStageName, nextStage.name(), req.note(), actorUserId);
@@ -174,7 +259,7 @@ public class ApplicationService {
         Application application = findOwned(tenantId, id);
         ensureNotTerminal(application);
 
-        validateRejectionReason(tenantId, req.rejectionReasonId());
+        String reasonName = validateRejectionReason(tenantId, req.rejectionReasonId());
 
         JobPostingResponse posting = fetchPosting(tenantId, application.getJobPostingId());
         PipelineResponse pipeline = masterDataServiceClient.getPipelineById(tenantId, posting.pipelineId());
@@ -204,7 +289,60 @@ public class ApplicationService {
         auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_REJECTED", "APPLICATION", application.getId(),
                 "Từ chối hồ sơ: " + req.note());
 
+        // Talent Pool: đưa ứng viên vào pool kèm tag lý do — best-effort, không chặn luồng reject chính
+        try {
+            candidateServiceClient.markPool(tenantId, application.getCandidateId(), Map.of("tag", reasonName));
+        } catch (Exception e) {
+            // bỏ qua — Talent Pool là tính năng phụ trợ, không được làm fail thao tác reject
+        }
+
         return getById(tenantId, actorUserId, null, application.getId());
+    }
+
+    @Transactional
+    public ApplicationResponse assignRecruiter(Long tenantId, Long id, Long actorUserId, Long assignedRecruiterId) {
+        Application application = findOwned(tenantId, id);
+        validateAssignedRecruiter(tenantId, assignedRecruiterId);
+
+        application.setAssignedRecruiterId(assignedRecruiterId);
+        applicationRepository.save(application);
+
+        auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_RECRUITER_ASSIGNED", "APPLICATION",
+                application.getId(), null);
+
+        return getById(tenantId, actorUserId, null, application.getId());
+    }
+
+    @Transactional
+    public BulkOperationResponse bulkAdvanceStage(Long tenantId, Long actorUserId, BulkAdvanceStageRequest req) {
+        return runBulk(req.ids(), id ->
+                advanceStage(tenantId, id, actorUserId, new ApplicationAdvanceStageRequest(req.note())));
+    }
+
+    @Transactional
+    public BulkOperationResponse bulkReject(Long tenantId, Long actorUserId, BulkRejectRequest req) {
+        return runBulk(req.ids(), id ->
+                reject(tenantId, id, actorUserId, new ApplicationRejectRequest(req.rejectionReasonId(), req.note())));
+    }
+
+    @Transactional
+    public BulkOperationResponse bulkAssignRecruiter(Long tenantId, Long actorUserId, BulkAssignRecruiterRequest req) {
+        return runBulk(req.ids(), id -> assignRecruiter(tenantId, id, actorUserId, req.assignedRecruiterId()));
+    }
+
+    /** Chạy 1 thao tác cho từng id độc lập; lỗi ở 1 id không chặn các id còn lại. */
+    private BulkOperationResponse runBulk(List<Long> ids, java.util.function.Consumer<Long> action) {
+        List<Long> succeeded = new java.util.ArrayList<>();
+        Map<Long, String> failed = new java.util.LinkedHashMap<>();
+        for (Long id : ids) {
+            try {
+                action.accept(id);
+                succeeded.add(id);
+            } catch (BusinessException e) {
+                failed.put(id, e.getMessage());
+            }
+        }
+        return new BulkOperationResponse(succeeded, failed);
     }
 
     @Transactional
@@ -228,6 +366,46 @@ public class ApplicationService {
                         h.getId(), h.getFromStageName(), h.getToStageName(), h.getNote(),
                         h.getChangedByUserId(), userMap.getOrDefault(h.getChangedByUserId(), "N/A"), h.getChangedAt()))
                 .toList();
+    }
+
+    public List<ApplicationCommentResponse> getComments(Long tenantId, Long id) {
+        Application application = findOwned(tenantId, id);
+        Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
+                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
+
+        return commentRepository.findByApplicationIdOrderByCreatedAtAsc(application.getId()).stream()
+                .map(c -> new ApplicationCommentResponse(
+                        c.getId(), c.getContent(), c.getAuthorUserId(),
+                        userMap.getOrDefault(c.getAuthorUserId(), "N/A"), c.getCreatedAt()))
+                .toList();
+    }
+
+    @Transactional
+    public ApplicationCommentResponse addComment(Long tenantId, Long id, Long actorUserId, String content) {
+        Application application = findOwned(tenantId, id);
+        List<UserSummaryResponse> users = authServiceClient.getUsers(tenantId, null);
+        Map<Long, String> userMap = users.stream()
+                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
+
+        ApplicationComment saved = commentRepository.save(ApplicationComment.builder()
+                .application(application)
+                .tenantId(tenantId)
+                .authorUserId(actorUserId)
+                .content(content)
+                .build());
+
+        // @mention: khớp theo tên đầy đủ của user trong công ty, xuất hiện dạng "@Họ Tên" trong nội dung
+        String authorName = userMap.getOrDefault(actorUserId, "Người dùng");
+        String excerpt = content.length() > 140 ? content.substring(0, 140) + "..." : content;
+        for (UserSummaryResponse u : users) {
+            if (u.id().equals(actorUserId) || u.fullName() == null) continue;
+            if (content.contains("@" + u.fullName())) {
+                eventPublisher.publishCommentMention(
+                        tenantId, application.getId(), u.id(), actorUserId, authorName, excerpt);
+            }
+        }
+
+        return new ApplicationCommentResponse(saved.getId(), saved.getContent(), actorUserId, authorName, saved.getCreatedAt());
     }
 
     private void ensureNotTerminal(Application application) {
@@ -258,9 +436,12 @@ public class ApplicationService {
         if (!valid) throw new BusinessException("Nguồn tuyển dụng không hợp lệ");
     }
 
-    private void validateRejectionReason(Long tenantId, Long id) {
-        boolean valid = masterDataServiceClient.getRejectionReasons(tenantId).stream().anyMatch(r -> r.id().equals(id));
-        if (!valid) throw new BusinessException("Lý do từ chối không hợp lệ");
+    private String validateRejectionReason(Long tenantId, Long id) {
+        return masterDataServiceClient.getRejectionReasons(tenantId).stream()
+                .filter(r -> r.id().equals(id))
+                .map(CatalogItemResponse::name)
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("Lý do từ chối không hợp lệ"));
     }
 
     private void validateAssignedRecruiter(Long tenantId, Long id) {
@@ -291,18 +472,6 @@ public class ApplicationService {
                 .orElseThrow(() -> new BusinessException("Không tìm thấy hồ sơ ứng tuyển"));
     }
 
-    private ApplicationResponse toResponse(
-            Application a, Map<Long, String> sourceMap, Map<Long, String> reasonMap, Map<Long, String> userMap) {
-        return new ApplicationResponse(
-                a.getId(), a.getCandidateId(), a.getCandidateNameSnapshot(),
-                a.getJobPostingId(), a.getRecruitmentSourceId(), sourceMap.getOrDefault(a.getRecruitmentSourceId(), "N/A"),
-                a.getAssignedRecruiterId(), a.getAssignedRecruiterId() == null ? null : userMap.get(a.getAssignedRecruiterId()),
-                a.getResumeUrl(), a.getCurrentStageId(), a.getCurrentStageName(), a.getCurrentStageOrder(), a.getCurrentStageType(),
-                a.getRejectionReasonId(), a.getRejectionReasonId() == null ? null : reasonMap.get(a.getRejectionReasonId()),
-                a.getNote(), a.getAppliedAt()
-        );
-    }
-
     /**
      * Public Career Portal apply.
      */
@@ -314,6 +483,7 @@ public class ApplicationService {
             String email,
             String phone,
             String note,
+            boolean consentGiven,
             MultipartFile file) {
 
         if (file == null || file.isEmpty()) {
@@ -324,6 +494,9 @@ public class ApplicationService {
         }
         if (email == null || email.isBlank()) {
             throw new BusinessException("Email không được để trống");
+        }
+        if (!consentGiven) {
+            throw new BusinessException("Vui lòng đồng ý cho phép lưu trữ thông tin để nộp hồ sơ");
         }
 
         // 1. Resolve tenant
@@ -345,7 +518,7 @@ public class ApplicationService {
         CandidateSummaryResponse candidate = candidateServiceClient.findOrCreatePublic(
                 tenantCode,
                 new iuh.fit.se.application.client.dto.PublicCandidateCreateRequest(
-                        fullName.trim(), email.trim().toLowerCase(), phone)
+                        fullName.trim(), email.trim().toLowerCase(), phone, true)
         );
 
         // 4. Upload CV

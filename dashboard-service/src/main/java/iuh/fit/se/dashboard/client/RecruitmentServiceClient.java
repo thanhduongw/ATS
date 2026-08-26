@@ -1,13 +1,12 @@
 package iuh.fit.se.dashboard.client;
 
+import iuh.fit.se.dashboard.client.dto.PageResponse;
 import iuh.fit.se.dashboard.client.dto.PostingSummary;
 import iuh.fit.se.dashboard.client.dto.RequisitionSummary;
 import iuh.fit.se.dashboard.config.FeignClientConfig;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
-
-import java.util.List;
 
 @FeignClient(
         name = "recruitment-service",
@@ -16,13 +15,16 @@ import java.util.List;
 )
 public interface RecruitmentServiceClient {
 
+    /** No page/size sent on purpose: dashboard aggregation needs the full tenant dataset, not one page. */
     @GetMapping("/api/recruitment/requisitions")
-    List<RequisitionSummary> getRequisitions(
+    PageResponse<RequisitionSummary> getRequisitions(
             @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role);
 
+    /** No page/size sent on purpose: dashboard aggregation needs the full tenant dataset, not one page. */
     @GetMapping("/api/recruitment/postings")
-    List<PostingSummary> getPostings(
+    PageResponse<PostingSummary> getPostings(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Role") String role);
 }

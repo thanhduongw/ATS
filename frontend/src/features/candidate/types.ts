@@ -12,7 +12,32 @@ export interface CandidateResponse {
   skillIds: number[];
   skillNames: string[];
   cvFileUrl: string | null;
+  internalNote: string | null;
+  poolStatus: "ACTIVE" | "IN_POOL";
+  tags: CandidateTag[];
+  customFields: Record<string, string>;
   createdAt: string;
+}
+
+export interface CandidateTag {
+  id: number;
+  tag: string;
+}
+
+export type CustomFieldType = "TEXT" | "NUMBER" | "DATE";
+
+export interface CustomFieldDefinition {
+  id: number;
+  fieldKey: string;
+  fieldLabel: string;
+  fieldType: CustomFieldType;
+  active: boolean;
+}
+
+export interface CustomFieldDefinitionRequest {
+  fieldKey: string;
+  fieldLabel: string;
+  fieldType: CustomFieldType;
 }
 
 export interface CandidateCreateRequest {
@@ -25,6 +50,8 @@ export interface CandidateCreateRequest {
   currentPosition?: string | null;
   educationLevelId?: number | null;
   skillIds?: number[] | null;
+  internalNote?: string | null;
+  customFields?: Record<string, string> | null;
 }
 
 export type CandidateUpdateRequest = CandidateCreateRequest;
@@ -34,6 +61,10 @@ export interface ApplicationResponse {
   candidateId: number;
   candidateName: string;
   jobPostingId: number;
+  jobTitle?: string;
+  jobPostingTitle?: string;
+  departmentId: number | null;
+  departmentName: string | null;
   recruitmentSourceId: number;
   recruitmentSourceName: string;
   assignedRecruiterId: number | null;
@@ -47,6 +78,10 @@ export interface ApplicationResponse {
   rejectionReasonName: string | null;
   note: string | null;
   appliedAt: string;
+  hiredAt: string | null;
+}
+export interface CandidateWithApplications extends CandidateResponse {
+  applications: ApplicationResponse[];
 }
 
 export interface ApplicationCreateRequest {
@@ -77,6 +112,27 @@ export interface ApplicationHistoryResponse {
   changedAt: string;
 }
 
+export interface ApplicationCommentResponse {
+  id: number;
+  content: string;
+  authorUserId: number;
+  authorUserName: string;
+  createdAt: string;
+}
+
 export interface ApiMessageResponse {
   message: string;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  totalItems: number;
+  totalPages: number;
+  pageNumber: number;
+  pageSize: number;
+}
+
+export interface BulkOperationResponse {
+  succeededIds: number[];
+  failedIds: Record<number, string>;
 }

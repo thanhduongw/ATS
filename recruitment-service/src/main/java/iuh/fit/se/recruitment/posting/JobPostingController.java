@@ -1,6 +1,7 @@
 package iuh.fit.se.recruitment.posting;
 
 import iuh.fit.se.recruitment.common.AccessGuard;
+import iuh.fit.se.recruitment.common.PageResponse;
 import iuh.fit.se.recruitment.posting.dto.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,11 +20,17 @@ public class JobPostingController {
 
     /** HR + Phòng ban: mọi status */
     @GetMapping
-    public ResponseEntity<List<JobPostingResponse>> getAll(
+    public ResponseEntity<PageResponse<JobPostingResponse>> getAll(
             @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role) {
+            @RequestHeader("X-User-Role") String role,
+            @RequestParam(required = false) PostingStatus status,
+            @RequestParam(required = false) Long employmentTypeId,
+            @RequestParam(required = false) Long workLocationId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         AccessGuard.requireHrOrDepartment(role);
-        return ResponseEntity.ok(service.getAll(tenantId));
+        return ResponseEntity.ok(service.getAll(tenantId, status, employmentTypeId, workLocationId, keyword, page, size));
     }
 
     /**
@@ -33,7 +40,7 @@ public class JobPostingController {
     @GetMapping("/open")
     public ResponseEntity<List<JobPostingResponse>> getOpen(
             @RequestHeader("X-Tenant-Id") Long tenantId) {
-        return ResponseEntity.ok(service.getOpen(tenantId));
+        return ResponseEntity.ok(service.getOpen(tenantId, null, null));
     }
 
     @GetMapping("/{id}")

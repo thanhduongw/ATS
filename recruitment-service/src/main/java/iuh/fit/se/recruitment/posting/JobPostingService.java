@@ -3,6 +3,7 @@ package iuh.fit.se.recruitment.posting;
 import iuh.fit.se.recruitment.client.MasterDataServiceClient;
 import iuh.fit.se.recruitment.client.dto.CatalogItemResponse;
 import iuh.fit.se.recruitment.client.dto.PipelineResponse;
+import iuh.fit.se.recruitment.common.PageResponse;
 import iuh.fit.se.recruitment.event.AuditEventPublisher;
 import iuh.fit.se.recruitment.exception.BusinessException;
 import iuh.fit.se.recruitment.posting.dto.*;
@@ -10,12 +11,15 @@ import iuh.fit.se.recruitment.requisition.JobRequisition;
 import iuh.fit.se.recruitment.requisition.JobRequisitionRepository;
 import iuh.fit.se.recruitment.requisition.RequisitionStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -26,9 +30,23 @@ public class JobPostingService {
     private final MasterDataServiceClient masterDataServiceClient;
     private final AuditEventPublisher auditEventPublisher;
 
-    public List<JobPostingResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId)
-                .stream().map(this::toResponse).toList();
+    public PageResponse<JobPostingResponse> getAll(
+            Long tenantId, PostingStatus status, Long employmentTypeId, Long workLocationId,
+            String keyword, Integer page, Integer size) {
+
+        var spec = JobPostingSpecifications.build(tenantId, status, employmentTypeId, workLocationId, keyword);
+        Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments(tenantId));
+
+        if (page == null && size == null) {
+            List<JobPosting> all = repository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+            return PageResponse.unpaged(all.stream().map(p -> toResponse(p, Map.of(), Map.of(), deptMap)).toList());
+        }
+
+        var pageable = PageRequest.of(
+                page != null ? page : 0,
+                size != null ? size : 20,
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        return PageResponse.of(repository.findAll(spec, pageable).map(p -> toResponse(p, Map.of(), Map.of(), deptMap)));
     }
 
     public JobPostingResponse getById(Long tenantId, Long id) {
@@ -73,6 +91,9 @@ public class JobPostingService {
         String title = (req.title() != null && !req.title().isBlank())
                 ? req.title()
                 : requisition.getTitle();
+        List<Long> skillIds = (req.skillIds() != null && !req.skillIds().isEmpty())
+                ? new java.util.ArrayList<>(req.skillIds())
+                : new java.util.ArrayList<>(requisition.getSkillIds());
 
         JobPosting saved = repository.save(JobPosting.builder()
                 .tenantId(tenantId)
@@ -80,12 +101,15 @@ public class JobPostingService {
                 .title(title)
                 .employmentTypeId(req.employmentTypeId())
                 .workLocationId(req.workLocationId())
+                .workArrangement(req.workArrangement())
+                .experienceRequired(req.experienceRequired())
                 .pipelineId(req.pipelineId())
                 .salaryMin(salaryMin)
                 .salaryMax(salaryMax)
                 .description(description)
                 .requirements(req.requirements())
                 .benefits(req.benefits())
+                .skillIds(skillIds)
                 .status(PostingStatus.OPEN)
                 .pipelineLocked(false)
                 .publishedAt(LocalDateTime.now())
@@ -111,11 +135,14 @@ public class JobPostingService {
         posting.setTitle(req.title());
         posting.setEmploymentTypeId(req.employmentTypeId());
         posting.setWorkLocationId(req.workLocationId());
+        posting.setWorkArrangement(req.workArrangement());
+        posting.setExperienceRequired(req.experienceRequired());
         posting.setSalaryMin(req.salaryMin());
         posting.setSalaryMax(req.salaryMax());
         posting.setDescription(req.description());
         posting.setRequirements(req.requirements());
         posting.setBenefits(req.benefits());
+        posting.setSkillIds(req.skillIds() != null ? new java.util.ArrayList<>(req.skillIds()) : new java.util.ArrayList<>());
 
         return toResponse(repository.save(posting));
     }
@@ -166,21 +193,35 @@ public class JobPostingService {
     }
 
     private JobPostingResponse toResponse(JobPosting p) {
+        Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments(p.getTenantId()));
+        return toResponse(p, Map.of(), Map.of(), deptMap);
+    }
+
+    private JobPostingResponse toResponse(JobPosting p, Map<Long, String> empMap, Map<Long, String> locMap, Map<Long, String> deptMap) {
+        Long departmentId = p.getRequisition().getDepartmentId();
         return new JobPostingResponse(
                 p.getId(), p.getRequisition().getId(), p.getTitle(),
-                p.getEmploymentTypeId(), p.getWorkLocationId(), p.getPipelineId(),
+                p.getEmploymentTypeId(), p.getWorkLocationId(), p.getWorkArrangement(), p.getExperienceRequired(),
+                p.getPipelineId(),
                 p.getSalaryMin(), p.getSalaryMax(),
-                p.getDescription(), p.getRequirements(), p.getBenefits(),
-                p.getStatus(), p.isPipelineLocked(), p.getPublishedAt(), p.getClosedAt()
+                p.getDescription(), p.getRequirements(), p.getBenefits(), p.getSkillIds(),
+                p.getStatus(), p.isPipelineLocked(), p.getPublishedAt(), p.getClosedAt(),
+                empMap.get(p.getEmploymentTypeId()), locMap.get(p.getWorkLocationId()),
+                departmentId, deptMap.get(departmentId)
         );
     }
 
-    /** Danh sách tin OPEN cho Candidate. */
-    public List<JobPostingResponse> getOpen(Long tenantId) {
+    /** Danh sách tin OPEN cho Candidate (career portal — kèm tên loại hình/địa điểm, lọc tùy chọn). */
+    public List<JobPostingResponse> getOpen(Long tenantId, Long employmentTypeId, Long workLocationId) {
+        Map<Long, String> empMap = buildCatalogMap(masterDataServiceClient.getEmploymentTypes(tenantId));
+        Map<Long, String> locMap = buildCatalogMap(masterDataServiceClient.getWorkLocations(tenantId));
+        Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments(tenantId));
         return repository
                 .findByTenantIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, PostingStatus.OPEN)
                 .stream()
-                .map(this::toResponse)
+                .filter(p -> employmentTypeId == null || employmentTypeId.equals(p.getEmploymentTypeId()))
+                .filter(p -> workLocationId == null || workLocationId.equals(p.getWorkLocationId()))
+                .map(p -> toResponse(p, empMap, locMap, deptMap))
                 .toList();
     }
 
@@ -190,6 +231,15 @@ public class JobPostingService {
         if (posting.getStatus() != PostingStatus.OPEN) {
             throw new BusinessException("Tin tuyển dụng không còn mở hoặc không tồn tại");
         }
-        return toResponse(posting);
+        Map<Long, String> empMap = buildCatalogMap(masterDataServiceClient.getEmploymentTypes(tenantId));
+        Map<Long, String> locMap = buildCatalogMap(masterDataServiceClient.getWorkLocations(tenantId));
+        Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments(tenantId));
+        return toResponse(posting, empMap, locMap, deptMap);
+    }
+
+    private Map<Long, String> buildCatalogMap(List<CatalogItemResponse> items) {
+        if (items == null) return Map.of();
+        return items.stream().collect(java.util.stream.Collectors.toMap(
+                CatalogItemResponse::id, CatalogItemResponse::name, (a, b) -> a));
     }
 }

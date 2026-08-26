@@ -9,9 +9,11 @@ import {
   Popconfirm,
   Typography,
 } from "antd";
+import { DownloadOutlined } from "@ant-design/icons";
+import { saveAs } from "file-saver";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
-import { submitOffer, approveOffer, deleteOffer } from "../offerApi";
+import { submitOffer, approveOffer, deleteOffer, getOfferPdf } from "../offerApi";
 import type { ApiMessageResponse, OfferResponse } from "../types";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../../../app/roles";
@@ -97,6 +99,16 @@ export default function OfferDetailDrawer({
     }
   };
 
+  const handleDownloadPdf = async () => {
+    try {
+      const res = await getOfferPdf(offer.id);
+      saveAs(res.data, `offer-letter-${offer.id}.pdf`);
+    } catch (err) {
+      const e = err as AxiosError<ApiMessageResponse>;
+      message.error(e.response?.data?.message ?? "Không tải được file PDF");
+    }
+  };
+
   const handleDelete = async () => {
     try {
       await deleteOffer(offer.id);
@@ -174,6 +186,10 @@ export default function OfferDetailDrawer({
       </Descriptions>
 
       <Space style={{ marginTop: 24 }} wrap>
+        <Button icon={<DownloadOutlined />} onClick={handleDownloadPdf}>
+          Tải PDF
+        </Button>
+
         {isHr && isOwner && offer.status === "DRAFT" && (
           <Button type="primary" loading={loading} onClick={handleSubmit}>
             Gửi duyệt

@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 public record CandidateUpdateRequest(
         @NotBlank String fullName,
@@ -16,5 +17,7 @@ public record CandidateUpdateRequest(
         String address,
         String currentPosition,
         Long educationLevelId,
-        List<Long> skillIds
+        List<Long> skillIds,
+        String internalNote,
+        Map<String, String> customFields
 ) {}

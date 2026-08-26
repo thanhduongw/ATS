@@ -52,8 +52,8 @@ export default function ApplicationCreateModal({
       getCatalogItems("/masterdata/recruitment-sources"),
       getUsers("RECRUITER"),
     ]).then(([candRes, postRes, srcRes, recRes]) => {
-      setCandidates(candRes.data);
-      setPostings(postRes.data.filter((p) => p.status === "OPEN"));
+      setCandidates(candRes.data.content);
+      setPostings(postRes.data.content.filter((p) => p.status === "OPEN"));
       setSources(srcRes.data);
       setRecruiters(recRes.data);
     });
@@ -143,7 +143,7 @@ export default function ApplicationCreateModal({
           />
         </Form.Item>
 
-        <Form.Item label="Người phụ trách (không bắt buộc)">
+        <Form.Item label="Người phụ trách ">
           <Controller
             name="assignedRecruiterId"
             control={control}
@@ -153,7 +153,7 @@ export default function ApplicationCreateModal({
           />
         </Form.Item>
 
-        <Form.Item label="Ghi chú (không bắt buộc)">
+        <Form.Item label="Ghi chú ">
           <Controller
             name="note"
             control={control}

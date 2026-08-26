@@ -5,7 +5,7 @@
 ---
 
 ## 🔑 Tài Khoản Thử Nghiệm Nhanh (Preset Test Accounts)
-> 📄 Danh sách chi tiết và kịch bản test đầy đủ tại: **[TEST_ACCOUNTS.md](file:///d:/KLTN/ATS/TEST_ACCOUNTS.md)**
+> 📄 Danh sách chi tiết và kịch bản test đầy đủ tại: **[TEST_ACCOUNTS.md](TEST_ACCOUNTS.md)**
 
 | Mã Công Ty | Email | Mật khẩu | Vai trò | Quyền |
 |---|---|---|---|---|

@@ -153,10 +153,13 @@ services:
     container_name: ats-notification-service
     ports:
       - "8086:8086"
+    env_file:
+      - ./notification-service/.env
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_notification
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATA_REDIS_HOST: redis
+      APP_NOTIFICATION_EMAIL_ENABLED: "true"
     depends_on:
       postgres:
         condition: service_healthy

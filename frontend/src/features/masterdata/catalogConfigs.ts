@@ -126,7 +126,7 @@ export const catalogConfigs: CatalogConfig[] = [
         endpoint: "/masterdata/email-templates",
         primaryField: "code",
         fields: [
-            { name: "code", label: "Mã mẫu (vd: INTERVIEW_INVITATION)", type: "text", required: true },
+            { name: "code", label: "Loại thông báo", type: "text", required: true },
             { name: "subject", label: "Tiêu đề email", type: "text", required: true },
             { name: "body", label: "Nội dung email", type: "textarea", required: true, hideInTable: true },
         ],

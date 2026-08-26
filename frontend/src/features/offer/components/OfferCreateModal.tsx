@@ -73,7 +73,7 @@ export default function OfferCreateModal({
 
     getApplications()
       .then((r) =>
-        setApplications(r.data.filter((a) => a.currentStageType === "OFFER"))
+        setApplications(r.data.content.filter((a) => a.currentStageType === "OFFER"))
       )
       .catch(() => setApplications([]));
 

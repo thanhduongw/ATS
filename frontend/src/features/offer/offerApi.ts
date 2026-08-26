@@ -6,12 +6,18 @@ import type {
   OfferRejectRequest,
   OfferDeclineRequest,
   ApiMessageResponse,
+  PageResponse,
+  OfferStatus,
 } from "./types";
 
-export const getOffers = (applicationId?: number) =>
-  axiosClient.get<OfferResponse[]>("/offer/offers", {
-    params: applicationId ? { applicationId } : {},
-  });
+export const getOffers = (params?: {
+  applicationId?: number;
+  status?: OfferStatus;
+  createdFrom?: string;
+  createdTo?: string;
+  page?: number;
+  size?: number;
+}) => axiosClient.get<PageResponse<OfferResponse>>("/offer/offers", { params });
 
 export const getOfferById = (id: number) =>
   axiosClient.get<OfferResponse>(`/offer/offers/${id}`);
@@ -39,3 +45,6 @@ export const declineOffer = (id: number, data: OfferDeclineRequest) =>
 
 export const deleteOffer = (id: number) =>
   axiosClient.delete<ApiMessageResponse>(`/offer/offers/${id}`);
+
+export const getOfferPdf = (id: number) =>
+  axiosClient.get<Blob>(`/offer/offers/${id}/pdf`, { responseType: "blob" });

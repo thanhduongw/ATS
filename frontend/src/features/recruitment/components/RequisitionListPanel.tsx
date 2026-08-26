@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Segmented, App } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { Table, Button, Checkbox, App, Input, Select } from "antd";
+import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getRequisitions } from "../recruitmentApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
@@ -15,6 +15,18 @@ import { REQUISITION_STATUS_COLOR, REQUISITION_STATUS_LABEL } from "../requisiti
 import StatusTag from "../../../components/ui/StatusTag";
 import EmptyState from "../../../components/ui/EmptyState";
 
+const STATUS_OPTIONS: RequisitionStatus[] = [
+    "DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "CHANGES_REQUESTED",
+];
+
+interface Filters {
+    keyword: string;
+    status?: RequisitionStatus;
+    departmentId?: number;
+}
+
+const EMPTY_FILTERS: Filters = { keyword: "" };
+
 export default function RequisitionListPanel() {
     const { message } = App.useApp();
     const currentUser = useAppSelector((state) => state.auth.user);
@@ -23,11 +35,21 @@ export default function RequisitionListPanel() {
     const isHr = !!role && HR_ROLES.includes(role);
 
     const [requisitions, setRequisitions] = useState<JobRequisitionResponse[]>([]);
+    const [totalItems, setTotalItems] = useState(0);
     const [departmentMap, setDepartmentMap] = useState<Record<number, string>>({});
     const [jobTitleMap, setJobTitleMap] = useState<Record<number, string>>({});
     const [jobLevelMap, setJobLevelMap] = useState<Record<number, string>>({});
+    const [skillMap, setSkillMap] = useState<Record<number, string>>({});
+    const [employmentTypeMap, setEmploymentTypeMap] = useState<Record<number, string>>({});
+    const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
+    const [departments, setDepartments] = useState<CatalogItem[]>([]);
     const [loading, setLoading] = useState(false);
-    const [filterMode, setFilterMode] = useState<"all" | "pendingForMe" | "needsMyEdit">("all");
+    const [assignedToMeOnly, setAssignedToMeOnly] = useState(false);
+
+    const [searchInput, setSearchInput] = useState("");
+    const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     const [formModalOpen, setFormModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<JobRequisitionResponse | null>(null);
@@ -35,44 +57,57 @@ export default function RequisitionListPanel() {
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<JobRequisitionResponse | null>(null);
 
+    // Debounce ô tìm kiếm
+    useEffect(() => {
+        const t = setTimeout(() => {
+            setFilters((f) => ({ ...f, keyword: searchInput.trim() }));
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(t);
+    }, [searchInput]);
+
     const buildMap = (items: CatalogItem[]): Record<number, string> =>
         Object.fromEntries(items.map((i) => [i.id, i.name as string]));
 
     const loadAll = useCallback(async () => {
         setLoading(true);
         try {
-            const [reqRes, deptRes, titleRes, levelRes] = await Promise.all([
-                getRequisitions(),
+            const [reqRes, deptRes, titleRes, levelRes, skillRes, empTypeRes, locationRes] = await Promise.all([
+                getRequisitions({
+                    status: filters.status,
+                    departmentId: filters.departmentId,
+                    keyword: filters.keyword || undefined,
+                    assignedToMe: assignedToMeOnly,
+                    page: page - 1,
+                    size: pageSize,
+                }),
                 getCatalogItems("/masterdata/departments"),
                 getCatalogItems("/masterdata/job-titles"),
                 getCatalogItems("/masterdata/job-levels"),
+                getCatalogItems("/masterdata/skills"),
+                getCatalogItems("/masterdata/employment-types"),
+                getCatalogItems("/masterdata/work-locations"),
             ]);
-            setRequisitions(reqRes.data);
+            setRequisitions(reqRes.data.content);
+            setTotalItems(reqRes.data.totalItems);
+            setDepartments(deptRes.data);
             setDepartmentMap(buildMap(deptRes.data));
             setJobTitleMap(buildMap(titleRes.data));
             setJobLevelMap(buildMap(levelRes.data));
+            setSkillMap(buildMap(skillRes.data));
+            setEmploymentTypeMap(buildMap(empTypeRes.data));
+            setWorkLocationMap(buildMap(locationRes.data));
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             message.error(axiosErr.response?.data?.message ?? "Không tải được dữ liệu");
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [message, assignedToMeOnly, filters, page, pageSize]);
 
     useEffect(() => {
         loadAll();
     }, [loadAll]);
-
-    const displayedData =
-        filterMode === "pendingForMe"
-            ? requisitions.filter(
-                (r) => r.status === "PENDING_APPROVAL" && currentUser?.userId === String(r.approverId)
-            )
-            : filterMode === "needsMyEdit"
-                ? requisitions.filter(
-                    (r) => r.status === "CHANGES_REQUESTED" && currentUser?.userId === String(r.requesterId)
-                )
-                : requisitions;
 
     const openCreate = () => {
         setEditingItem(null);
@@ -125,20 +160,7 @@ export default function RequisitionListPanel() {
 
     return (
         <div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-                <Segmented
-                    value={filterMode}
-                    onChange={(value) => setFilterMode(value as "all" | "pendingForMe" | "needsMyEdit")}
-                    options={[
-                        { label: "Tất cả", value: "all" },
-                        ...(isHr
-                            ? [{ label: "Chờ tôi duyệt", value: "pendingForMe" as const }]
-                            : []),
-                        ...(canCreateRequisition
-                            ? [{ label: "Cần tôi chỉnh sửa", value: "needsMyEdit" as const }]
-                            : []),
-                    ]}
-                />
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
                 {canCreateRequisition && (
                     <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                         Tạo yêu cầu tuyển dụng
@@ -146,12 +168,57 @@ export default function RequisitionListPanel() {
                 )}
             </div>
 
+            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+                <Input
+                    prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
+                    placeholder="Tìm theo tiêu đề..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    style={{ width: 240 }}
+                    allowClear
+                />
+                <Select
+                    allowClear
+                    placeholder="Trạng thái"
+                    style={{ width: 180 }}
+                    value={filters.status}
+                    onChange={(v) => { setFilters((f) => ({ ...f, status: v })); setPage(1); }}
+                    options={STATUS_OPTIONS.map((s) => ({ value: s, label: REQUISITION_STATUS_LABEL[s] }))}
+                />
+                <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="Phòng ban"
+                    style={{ width: 180 }}
+                    value={filters.departmentId}
+                    onChange={(v) => { setFilters((f) => ({ ...f, departmentId: v })); setPage(1); }}
+                    options={departments.map((d) => ({ value: d.id, label: String(d.name) }))}
+                />
+                {/* {isHr && (
+                    <Checkbox
+                        checked={assignedToMeOnly}
+                        onChange={(e) => { setAssignedToMeOnly(e.target.checked); setPage(1); }}
+                    >
+                        Chỉ chờ tôi duyệt
+                    </Checkbox>
+                )} */}
+            </div>
+
             <Table
                 rowKey="id"
                 loading={loading}
                 columns={columns}
-                dataSource={displayedData}
-                pagination={{ pageSize: 10 }}
+                dataSource={requisitions}
+                pagination={{
+                    current: page,
+                    pageSize,
+                    total: totalItems,
+                    showSizeChanger: true,
+                    pageSizeOptions: [10, 20, 50],
+                    showTotal: (total) => `Tổng ${total} yêu cầu`,
+                    onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                }}
                 locale={{
                     emptyText: (
                         <EmptyState
@@ -175,6 +242,9 @@ export default function RequisitionListPanel() {
                 departmentMap={departmentMap}
                 jobTitleMap={jobTitleMap}
                 jobLevelMap={jobLevelMap}
+                skillMap={skillMap}
+                employmentTypeMap={employmentTypeMap}
+                workLocationMap={workLocationMap}
                 onClose={() => setDetailOpen(false)}
                 onChanged={loadAll}
                 onEdit={openEditFromDrawer}

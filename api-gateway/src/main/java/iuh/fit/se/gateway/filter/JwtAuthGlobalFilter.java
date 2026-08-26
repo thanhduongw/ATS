@@ -29,7 +29,8 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
             "/api/auth/login",
             "/api/auth/refresh-token",
             "/api/auth/forgot-password",
-            "/api/auth/reset-password"
+            "/api/auth/reset-password",
+            "/api/auth/oauth2/exchange"
     );
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JwtAuthGlobalFilter.class);
@@ -90,6 +91,9 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
         if (path.startsWith("/api/recruitment/public/")) return true;
         if (path.startsWith("/api/candidate/public/")) return true;
         if (path.startsWith("/api/application/public/")) return true;
+        // API Documentation (Swagger UI tổng hợp tại gateway + api-docs của từng service)
+        if (path.startsWith("/swagger-ui")) return true;
+        if (path.contains("/v3/api-docs")) return true;
         return false;
     }
 

@@ -11,7 +11,7 @@ public record InterviewCreateRequest(
         @NotNull(message = "Vui lòng chọn thời gian phỏng vấn") LocalDateTime scheduledAt,
         @NotNull @Positive(message = "Thời lượng phải lớn hơn 0") Integer durationMinutes,
         @NotNull(message = "Vui lòng chọn hình thức phỏng vấn") InterviewFormat format,
-        String location,
+        Long workLocationId,
         String meetingLink,
         String note,
         @NotEmpty(message = "Phải chọn ít nhất 1 người phỏng vấn") List<Long> interviewerIds

@@ -1,27 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Tag, Segmented, App, Input, Select } from "antd";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { Table, Button, Tag, App, Input, Select, Space, Tooltip } from "antd";
+import { PlusOutlined, SearchOutlined, FileSearchOutlined } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
-import { getPostings, changePostingStatus } from "../recruitmentApi";
-import { getCatalogItems, getPipelines } from "../../masterdata/masterdataApi";
-import type { CatalogItem, PipelineResponse } from "../../masterdata/types";
-import type { ApiMessageResponse, JobPostingResponse, PostingStatus } from "../types";
+import {
+    getPostings, changePostingStatus, submitPostingForReview, requestPostingEdit, publishPosting,
+} from "../recruitmentApi";
+import { getRequisitionById } from "../recruitmentApi";
+import { getCatalogItems } from "../../masterdata/masterdataApi";
+import { getApplications } from "../../candidate/applicationApi";
+import type { CatalogItem } from "../../masterdata/types";
+import type { ApiMessageResponse, JobPostingResponse, JobRequisitionResponse, PostingStatus } from "../types";
 import PostingFormModal from "./PostingFormModal";
+import RequisitionDetailModal from "./RequisitionDetailModal";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
-
-const STATUS_COLOR: Record<PostingStatus, string> = {
-    OPEN: "green",
-    PAUSED: "gold",
-    CLOSED: "default",
-};
-
-const STATUS_LABEL: Record<PostingStatus, string> = {
-    OPEN: "Đang mở",
-    PAUSED: "Tạm dừng",
-    CLOSED: "Đã đóng",
-};
+import { POSTING_STATUS, statusMeta } from "../../../app/statusLabels";
+import { useTableScrollY } from "../../../app/useTableScrollY";
 
 interface Filters {
     keyword: string;
@@ -34,6 +30,7 @@ const EMPTY_FILTERS: Filters = { keyword: "" };
 
 export default function PostingListPanel() {
     const { message } = App.useApp();
+    const navigate = useNavigate();
     const currentUser = useAppSelector((s) => s.auth.user);
     const role = currentUser?.role as UserRole | undefined;
     const canManagePosting = !!role && HR_ROLES.includes(role);
@@ -44,8 +41,15 @@ export default function PostingListPanel() {
     const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
     const [employmentTypeMap, setEmploymentTypeMap] = useState<Record<number, string>>({});
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
-    const [pipelineMap, setPipelineMap] = useState<Record<number, string>>({});
+    const [applicationCountMap, setApplicationCountMap] = useState<Record<number, number>>({});
     const [loading, setLoading] = useState(false);
+    const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+
+    // Maps phục vụ RequisitionDetailModal ("Xem yêu cầu đăng tin")
+    const [departmentMap, setDepartmentMap] = useState<Record<number, string>>({});
+    const [jobTitleMap, setJobTitleMap] = useState<Record<number, string>>({});
+    const [jobLevelMap, setJobLevelMap] = useState<Record<number, string>>({});
+    const [skillMap, setSkillMap] = useState<Record<number, string>>({});
 
     const [searchInput, setSearchInput] = useState("");
     const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -54,6 +58,12 @@ export default function PostingListPanel() {
 
     const [formModalOpen, setFormModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<JobPostingResponse | null>(null);
+
+    const [requisitionModalOpen, setRequisitionModalOpen] = useState(false);
+    const [selectedRequisition, setSelectedRequisition] = useState<JobRequisitionResponse | null>(null);
+    const [requisitionLoading, setRequisitionLoading] = useState(false);
+
+    const { wrapRef, scrollY } = useTableScrollY([loading, postings.length]);
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -66,13 +76,10 @@ export default function PostingListPanel() {
     const buildMap = (items: CatalogItem[]): Record<number, string> =>
         Object.fromEntries(items.map((i) => [i.id, i.name as string]));
 
-    const buildPipelineMap = (items: PipelineResponse[]): Record<number, string> =>
-        Object.fromEntries(items.map((i) => [i.id, i.name]));
-
     const loadAll = useCallback(async () => {
         setLoading(true);
         try {
-            const [postingRes, empRes, locRes, pipeRes] = await Promise.all([
+            const [postingRes, empRes, locRes, deptRes, titleRes, levelRes, skillRes, allAppsRes] = await Promise.all([
                 getPostings({
                     status: filters.status,
                     employmentTypeId: filters.employmentTypeId,
@@ -83,7 +90,11 @@ export default function PostingListPanel() {
                 }),
                 getCatalogItems("/masterdata/employment-types"),
                 getCatalogItems("/masterdata/work-locations"),
-                getPipelines(),
+                getCatalogItems("/masterdata/departments"),
+                getCatalogItems("/masterdata/job-titles"),
+                getCatalogItems("/masterdata/job-levels"),
+                getCatalogItems("/masterdata/skills"),
+                getApplications(),
             ]);
             setPostings(postingRes.data.content);
             setTotalItems(postingRes.data.totalItems);
@@ -91,7 +102,16 @@ export default function PostingListPanel() {
             setWorkLocations(locRes.data);
             setEmploymentTypeMap(buildMap(empRes.data));
             setWorkLocationMap(buildMap(locRes.data));
-            setPipelineMap(buildPipelineMap(pipeRes.data));
+            setDepartmentMap(buildMap(deptRes.data));
+            setJobTitleMap(buildMap(titleRes.data));
+            setJobLevelMap(buildMap(levelRes.data));
+            setSkillMap(buildMap(skillRes.data));
+
+            const counts: Record<number, number> = {};
+            for (const app of allAppsRes.data.content) {
+                counts[app.jobPostingId] = (counts[app.jobPostingId] ?? 0) + 1;
+            }
+            setApplicationCountMap(counts);
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             message.error(axiosErr.response?.data?.message ?? "Không tải được dữ liệu");
@@ -114,87 +134,172 @@ export default function PostingListPanel() {
         setFormModalOpen(true);
     };
 
-    const handleStatusChange = async (id: number, status: PostingStatus) => {
+    const openRequisitionModal = async (requisitionId: number) => {
+        setRequisitionModalOpen(true);
+        setRequisitionLoading(true);
         try {
-            await changePostingStatus(id, { status });
-            message.success("Cập nhật trạng thái thành công");
+            const res = await getRequisitionById(requisitionId);
+            setSelectedRequisition(res.data);
+        } catch (err) {
+            const axiosErr = err as AxiosError<ApiMessageResponse>;
+            message.error(axiosErr.response?.data?.message ?? "Không tải được yêu cầu tuyển dụng");
+            setRequisitionModalOpen(false);
+        } finally {
+            setRequisitionLoading(false);
+        }
+    };
+
+    const runAction = async (id: number, action: () => Promise<unknown>, successMsg: string) => {
+        setActionLoadingId(id);
+        try {
+            await action();
+            message.success(successMsg);
             loadAll();
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Cập nhật thất bại");
+            message.error(axiosErr.response?.data?.message ?? "Thao tác thất bại");
+        } finally {
+            setActionLoadingId(null);
+        }
+    };
+
+    const handleStatusChange = (id: number, status: PostingStatus) =>
+        runAction(id, () => changePostingStatus(id, { status }), "Cập nhật trạng thái thành công");
+
+    const handleSubmitReview = (id: number) =>
+        runAction(id, () => submitPostingForReview(id), "Đã gửi duyệt tin tuyển dụng");
+
+    const handleRequestEdit = (id: number) =>
+        runAction(id, () => requestPostingEdit(id), "Đã chuyển tin về trạng thái chỉnh sửa");
+
+    const handlePublish = (id: number) =>
+        runAction(id, () => publishPosting(id), "Đã đăng tin tuyển dụng");
+
+    const renderStatusActions = (record: JobPostingResponse) => {
+        const busy = actionLoadingId === record.id;
+        switch (record.status) {
+            case "DRAFT":
+            case "EDITING":
+                return (
+                    <Button size="small" type="primary" loading={busy} onClick={() => handleSubmitReview(record.id)}>
+                        Gửi duyệt
+                    </Button>
+                );
+            case "APPROVED":
+                return (
+                    <>
+                        <Button size="small" loading={busy} onClick={() => handleRequestEdit(record.id)}>
+                            Sửa lại
+                        </Button>
+                        <Button size="small" type="primary" loading={busy} onClick={() => handlePublish(record.id)}>
+                            Đăng tin
+                        </Button>
+                    </>
+                );
+            case "OPEN":
+                return (
+                    <>
+                        <Button size="small" loading={busy} onClick={() => handleStatusChange(record.id, "PAUSED")}>
+                            Tạm dừng
+                        </Button>
+                        <Button size="small" danger loading={busy} onClick={() => handleStatusChange(record.id, "CLOSED")}>
+                            Đóng
+                        </Button>
+                    </>
+                );
+            case "PAUSED":
+                return (
+                    <>
+                        <Button size="small" type="primary" loading={busy} onClick={() => handleStatusChange(record.id, "OPEN")}>
+                            Mở lại
+                        </Button>
+                        <Button size="small" danger loading={busy} onClick={() => handleStatusChange(record.id, "CLOSED")}>
+                            Đóng
+                        </Button>
+                    </>
+                );
+            default:
+                return null;
         }
     };
 
     const columns = [
-        { title: "Tiêu đề", dataIndex: "title", key: "title" },
         {
-            title: "Loại hình",
-            dataIndex: "employmentTypeId",
-            key: "employmentTypeId",
-            render: (id: number) => employmentTypeMap[id] ?? "—",
+            title: "Tiêu đề",
+            dataIndex: "title",
+            key: "title",
+            ellipsis: true,
+            render: (title: string, record: JobPostingResponse) => (
+                <a onClick={() => navigate(`/recruitment/postings/${record.id}`)}>{title}</a>
+            ),
         },
         {
-            title: "Địa điểm",
-            dataIndex: "workLocationId",
-            key: "workLocationId",
-            render: (id: number) => workLocationMap[id] ?? "—",
-        },
-        {
-            title: "Quy trình",
-            dataIndex: "pipelineId",
-            key: "pipelineId",
-            render: (id: number) => pipelineMap[id] ?? "—",
+            title: "Loại hình / Địa điểm",
+            key: "typeLocation",
+            width: 180,
+            render: (_: unknown, record: JobPostingResponse) => (
+                <div style={{ lineHeight: 1.4 }}>
+                    <div style={{ fontSize: 12 }}>{employmentTypeMap[record.employmentTypeId] ?? "—"}</div>
+                    <div style={{ fontSize: 12, color: "#9CA3AF" }}>{workLocationMap[record.workLocationId] ?? "—"}</div>
+                </div>
+            ),
         },
         {
             title: "Mức lương",
             key: "salaryRange",
+            width: 130,
             render: (_: unknown, record: JobPostingResponse) => {
                 if (!record.salaryMin && !record.salaryMax) return "Thỏa thuận";
-                if (record.salaryMin && record.salaryMax) return `${(record.salaryMin / 1000000).toFixed(0)} - ${(record.salaryMax / 1000000).toFixed(0)} triệu`;
-                if (record.salaryMin) return `Từ ${(record.salaryMin / 1000000).toFixed(0)} triệu`;
-                return `Đến ${(record.salaryMax! / 1000000).toFixed(0)} triệu`;
+                if (record.salaryMin && record.salaryMax) return `${(record.salaryMin / 1000000).toFixed(0)} - ${(record.salaryMax / 1000000).toFixed(0)} tr`;
+                if (record.salaryMin) return `Từ ${(record.salaryMin / 1000000).toFixed(0)} tr`;
+                return `Đến ${(record.salaryMax! / 1000000).toFixed(0)} tr`;
             },
+        },
+        {
+            title: "SL ứng viên",
+            key: "applicationCount",
+            width: 90,
+            align: "center" as const,
+            render: (_: unknown, record: JobPostingResponse) => applicationCountMap[record.id] ?? 0,
         },
         {
             title: "Trạng thái",
             dataIndex: "status",
             key: "status",
-            render: (status: PostingStatus) => <Tag color={STATUS_COLOR[status]}>{STATUS_LABEL[status]}</Tag>,
+            width: 110,
+            render: (status: PostingStatus) => {
+                const meta = statusMeta(POSTING_STATUS, status);
+                return <Tag color={meta.color}>{meta.label}</Tag>;
+            },
         },
-        ...(canManagePosting
-            ? [
-                {
-                    title: "Đổi trạng thái",
-                    key: "statusAction",
-                    render: (_: unknown, record: JobPostingResponse) => (
-                        <Segmented
+        {
+            title: "Thao tác",
+            key: "actions",
+            width: canManagePosting ? 260 : 60,
+            render: (_: unknown, record: JobPostingResponse) => (
+                <Space size={4} wrap>
+                    <Tooltip title="Xem yêu cầu đăng tin">
+                        <Button
                             size="small"
-                            value={record.status}
-                            onChange={(value) => handleStatusChange(record.id, value as PostingStatus)}
-                            options={[
-                                { label: "Mở", value: "OPEN" },
-                                { label: "Tạm dừng", value: "PAUSED" },
-                                { label: "Đóng", value: "CLOSED" },
-                            ]}
+                            type="text"
+                            icon={<FileSearchOutlined />}
+                            onClick={() => openRequisitionModal(record.requisitionId)}
                         />
-                    ),
-                },
-                {
-                    title: "",
-                    key: "edit",
-                    render: (_: unknown, record: JobPostingResponse) => (
-                        <Button type="link" onClick={() => openEdit(record)}>
+                    </Tooltip>
+                    {canManagePosting && renderStatusActions(record)}
+                    {canManagePosting && (
+                        <Button size="small" type="link" onClick={() => openEdit(record)}>
                             Sửa
                         </Button>
-                    ),
-                },
-            ]
-            : []),
+                    )}
+                </Space>
+            ),
+        },
     ];
 
     return (
-        <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12, flexShrink: 0 }}>
                 {canManagePosting && (
                     <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                         Tạo tin tuyển dụng
@@ -202,7 +307,7 @@ export default function PostingListPanel() {
                 )}
             </div>
 
-            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
                 <Input
                     prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
                     placeholder="Tìm theo tiêu đề..."
@@ -214,10 +319,12 @@ export default function PostingListPanel() {
                 <Select
                     allowClear
                     placeholder="Trạng thái"
-                    style={{ width: 160 }}
+                    style={{ width: 170 }}
                     value={filters.status}
                     onChange={(v) => { setFilters((f) => ({ ...f, status: v })); setPage(1); }}
-                    options={(Object.keys(STATUS_LABEL) as PostingStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
+                    options={(Object.keys(POSTING_STATUS) as PostingStatus[]).map((s) => ({
+                        value: s, label: POSTING_STATUS[s].label,
+                    }))}
                 />
                 <Select
                     allowClear
@@ -241,21 +348,27 @@ export default function PostingListPanel() {
                 />
             </div>
 
-            <Table
-                rowKey="id"
-                loading={loading}
-                columns={columns}
-                dataSource={postings}
-                pagination={{
-                    current: page,
-                    pageSize,
-                    total: totalItems,
-                    showSizeChanger: true,
-                    pageSizeOptions: [10, 20, 50],
-                    showTotal: (total) => `Tổng ${total} tin`,
-                    onChange: (p, ps) => { setPage(p); setPageSize(ps); },
-                }}
-            />
+            <div ref={wrapRef} className="table-scroll-wrap">
+                <Table
+                    rowKey="id"
+                    size="small"
+                    loading={loading}
+                    columns={columns}
+                    dataSource={postings}
+                    sticky
+                    scroll={{ y: scrollY }}
+                    pagination={{
+                        current: page,
+                        pageSize,
+                        total: totalItems,
+                        size: "small",
+                        showSizeChanger: true,
+                        pageSizeOptions: [10, 20, 50],
+                        showTotal: (total) => `Tổng ${total} tin`,
+                        onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                    }}
+                />
+            </div>
 
             {canManagePosting && (
                 <PostingFormModal
@@ -265,6 +378,20 @@ export default function PostingListPanel() {
                     onSuccess={loadAll}
                 />
             )}
+
+            <RequisitionDetailModal
+                open={requisitionModalOpen}
+                requisition={requisitionLoading ? null : selectedRequisition}
+                departmentMap={departmentMap}
+                jobTitleMap={jobTitleMap}
+                jobLevelMap={jobLevelMap}
+                skillMap={skillMap}
+                employmentTypeMap={employmentTypeMap}
+                workLocationMap={workLocationMap}
+                onClose={() => setRequisitionModalOpen(false)}
+                onChanged={loadAll}
+                onEdit={() => setRequisitionModalOpen(false)}
+            />
         </div>
     );
 }

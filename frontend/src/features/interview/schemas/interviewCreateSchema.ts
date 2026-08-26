@@ -5,7 +5,7 @@ export const interviewCreateSchema = z
     scheduledAt: z.string().min(1, "Vui lòng chọn thời gian phỏng vấn"),
     durationMinutes: z.number().positive("Thời lượng phải lớn hơn 0"),
     format: z.enum(["ONLINE", "OFFLINE"]),
-    location: z.string().optional().nullable(),
+    workLocationId: z.number().optional().nullable(),
     meetingLink: z.string().optional().nullable(),
     note: z.string().optional().nullable(),
     interviewerIds: z.array(z.number()).min(1, "Phải chọn ít nhất 1 người phỏng vấn"),
@@ -18,11 +18,11 @@ export const interviewCreateSchema = z
         message: "Phỏng vấn Online cần nhập link họp",
       });
     }
-    if (data.format === "OFFLINE" && (!data.location || data.location.trim() === "")) {
+    if (data.format === "OFFLINE" && !data.workLocationId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["location"],
-        message: "Phỏng vấn Offline cần nhập địa điểm",
+        path: ["workLocationId"],
+        message: "Phỏng vấn Offline cần chọn địa điểm",
       });
     }
   });

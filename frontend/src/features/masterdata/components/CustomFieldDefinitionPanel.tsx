@@ -137,7 +137,7 @@ export default function CustomFieldDefinitionPanel() {
                 </Button>
             </div>
 
-            <Table rowKey="id" loading={loading} columns={columns} dataSource={items} pagination={{ pageSize: 10 }} />
+            <Table rowKey="id" size="small" loading={loading} columns={columns} dataSource={items} pagination={{ pageSize: 10, size: "small" }} />
 
             <Modal
                 title={editingItem ? "Sửa trường tùy chỉnh" : "Thêm trường tùy chỉnh"}

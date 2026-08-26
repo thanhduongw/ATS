@@ -18,8 +18,8 @@ export default function OffersPage() {
             : "Quản lý Offer";
 
     return (
-        <div className="page-container animate-fade-in">
-            <div className="page-header" style={{ marginBottom: 20 }}>
+        <div className="page-shell animate-fade-in">
+            <div className="page-header page-shell-fixed" style={{ marginBottom: 16 }}>
                 <div className="page-header-title">
                     <div
                         style={{
@@ -45,7 +45,11 @@ export default function OffersPage() {
                 </div>
             </div>
 
-            <Card style={{ border: "none" }}>
+            <Card
+                className="table-card-fill"
+                style={{ border: "none", flex: 1, minHeight: 0 }}
+                styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
+            >
                 <OffersList />
             </Card>
         </div>

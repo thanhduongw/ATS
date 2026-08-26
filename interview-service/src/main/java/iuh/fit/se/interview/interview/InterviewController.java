@@ -25,8 +25,9 @@ public class InterviewController {
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
-            @RequestParam(required = false) Long applicationId) {
-        return ResponseEntity.ok(service.getAll(tenantId, userId, role, applicationId));
+            @RequestParam(required = false) Long applicationId,
+            @RequestParam(required = false) Long jobPostingId) {
+        return ResponseEntity.ok(service.getAll(tenantId, userId, role, applicationId, jobPostingId));
     }
 
     @GetMapping("/{id}/ics")

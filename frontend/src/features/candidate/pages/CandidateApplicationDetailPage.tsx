@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-    App, Card, Row, Col, Tag, Button, Space, Spin, Avatar, Timeline, Empty, Popconfirm,
+    App, Card, Row, Col, Tag, Button, Space, Spin, Avatar, Timeline, Empty, Popconfirm, Tabs,
 } from "antd";
 import {
     ArrowLeftOutlined, CalendarOutlined, DollarOutlined, CommentOutlined, SwapOutlined,
@@ -15,7 +15,7 @@ import {
 } from "../applicationApi";
 import { getCandidateById } from "../candidateApi";
 import { getPostingById } from "../../recruitment/recruitmentApi";
-import { getPipelines } from "../../masterdata/masterdataApi";
+import { getPipelines, getCatalogItems } from "../../masterdata/masterdataApi";
 import type { PipelineStageResponse } from "../../masterdata/types";
 import type {
     ApiMessageResponse, ApplicationResponse, CandidateResponse,
@@ -109,6 +109,7 @@ export default function CandidateApplicationDetailPage() {
     const [history, setHistory] = useState<ApplicationHistoryResponse[]>([]);
     const [comments, setComments] = useState<ApplicationCommentResponse[]>([]);
     const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
+    const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [cancelingInterviewId, setCancelingInterviewId] = useState<number | null>(null);
@@ -125,13 +126,14 @@ export default function CandidateApplicationDetailPage() {
         try {
             const appRes = await getApplicationById(applicationId);
             setApplication(appRes.data);
-            const [candRes, postingRes, pipelineListRes, historyRes, commentsRes, interviewsRes] = await Promise.all([
+            const [candRes, postingRes, pipelineListRes, historyRes, commentsRes, interviewsRes, workLocationRes] = await Promise.all([
                 getCandidateById(appRes.data.candidateId),
                 getPostingById(appRes.data.jobPostingId),
                 getPipelines(),
                 getApplicationHistory(applicationId),
                 getApplicationComments(applicationId),
                 getInterviews(applicationId),
+                getCatalogItems("/masterdata/work-locations"),
             ]);
             setCandidate(candRes.data);
             const pipeline = pipelineListRes.data.find((p) => p.id === postingRes.data.pipelineId);
@@ -139,6 +141,7 @@ export default function CandidateApplicationDetailPage() {
             setHistory(historyRes.data);
             setComments(commentsRes.data);
             setInterviews([...interviewsRes.data].sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()));
+            setWorkLocationMap(Object.fromEntries(workLocationRes.data.map((w) => [w.id, String(w.name)])));
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
             message.error(e.response?.data?.message ?? "Không tải được hồ sơ ứng tuyển");
@@ -242,14 +245,13 @@ export default function CandidateApplicationDetailPage() {
     };
 
     return (
-        <div className="page-container animate-fade-in">
-            {/* Header — dính lại trên cùng khi cuộn trang. Trái: định danh ứng viên. Phải: thanh hành động xếp 2 hàng theo mức ưu tiên. */}
-            <div style={{
-                position: "sticky", top: 0, zIndex: 2,
+        <div className="page-shell animate-fade-in">
+            {/* Header — cố định trên cùng, trang không cuộn toàn bộ. Trái: định danh ứng viên. Phải: thanh hành động xếp 2 hàng theo mức ưu tiên. */}
+            <div className="page-shell-fixed" style={{
                 background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 16,
                 boxShadow: SHADOWS.card,
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                gap: 16, flexWrap: "wrap", padding: "16px 20px", marginBottom: 20,
+                gap: 16, flexWrap: "wrap", padding: "16px 20px", marginBottom: 14,
             }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Quay lại</Button>
@@ -309,13 +311,17 @@ export default function CandidateApplicationDetailPage() {
 
             {/* Pipeline stepper */}
             {mainStages.length > 0 && (
-                <Card style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 20 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, marginBottom: 16, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                <Card size="small" className="page-shell-fixed" style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.4 }}>
                         Quy trình tuyển dụng
                     </div>
                     <PipelineStepper stages={mainStages} currentStageId={application.currentStageId} rejected={isRejected} />
                 </Card>
             )}
+
+            {/* Nội dung chính — 2 cột, mỗi cột tự cuộn riêng trong phần còn lại của màn hình. */}
+            <Row gutter={20} style={{ flex: 1, minHeight: 0 }}>
+                <Col xs={24} lg={13} style={{ height: "100%", overflowY: "auto", paddingBottom: 4 }}>
 
             {/* Lịch phỏng vấn — hiện lại ngay sau khi tạo, không còn "biến mất" sau khi đóng modal */}
             <SectionCard title="Lịch phỏng vấn">
@@ -353,9 +359,9 @@ export default function CandidateApplicationDetailPage() {
                                                 <a href={iv.meetingLink} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5 }}>
                                                     <LinkOutlined /> Link họp
                                                 </a>
-                                            ) : iv.location ? (
+                                            ) : iv.workLocationId ? (
                                                 <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                    <EnvironmentOutlined /> {iv.location}
+                                                    <EnvironmentOutlined /> {workLocationMap[iv.workLocationId] ?? "—"}
                                                 </span>
                                             ) : null}
                                             {iv.interviewers.length > 0 && (
@@ -389,58 +395,53 @@ export default function CandidateApplicationDetailPage() {
                 )}
             </SectionCard>
 
-            <Row gutter={20}>
-                <Col xs={24} lg={12}>
-                    <SectionCard title="Thông tin ứng viên">
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <InfoRow icon={<IdcardOutlined />} label="Họ và tên" value={candidate.fullName} />
-                                <InfoRow icon={<PhoneOutlined />} label="Điện thoại" value={candidate.phone} />
-                                <InfoRow icon={<MailOutlined />} label="Email" value={candidate.email} />
-                            </Col>
-                            <Col span={12}>
-                                <InfoRow icon={<EnvironmentOutlined />} label="Địa chỉ" value={candidate.address} />
-                                <InfoRow icon={<IdcardOutlined />} label="Vị trí hiện tại" value={candidate.currentPosition} />
-                                <InfoRow icon={<IdcardOutlined />} label="Học vấn" value={candidate.educationLevelName} />
-                            </Col>
-                        </Row>
-                        {candidate.skillNames?.length > 0 && (
-                            <div style={{ marginTop: 4 }}>
-                                <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 6 }}>Kỹ năng</div>
-                                <Space wrap size={4}>
-                                    {candidate.skillNames.map((s) => (
-                                        <Tag key={s} color="blue" style={{ borderRadius: 6 }}>{s}</Tag>
-                                    ))}
-                                </Space>
-                            </div>
+            <SectionCard title="Thông tin ứng viên">
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <InfoRow icon={<IdcardOutlined />} label="Họ và tên" value={candidate.fullName} />
+                        <InfoRow icon={<PhoneOutlined />} label="Điện thoại" value={candidate.phone} />
+                        <InfoRow icon={<MailOutlined />} label="Email" value={candidate.email} />
+                    </Col>
+                    <Col span={12}>
+                        <InfoRow icon={<EnvironmentOutlined />} label="Địa chỉ" value={candidate.address} />
+                        <InfoRow icon={<IdcardOutlined />} label="Vị trí hiện tại" value={candidate.currentPosition} />
+                        <InfoRow icon={<IdcardOutlined />} label="Học vấn" value={candidate.educationLevelName} />
+                    </Col>
+                </Row>
+                {candidate.skillNames?.length > 0 && (
+                    <div style={{ marginTop: 4 }}>
+                        <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 6 }}>Kỹ năng</div>
+                        <Space wrap size={4}>
+                            {candidate.skillNames.map((s) => (
+                                <Tag key={s} color="blue" style={{ borderRadius: 6 }}>{s}</Tag>
+                            ))}
+                        </Space>
+                    </div>
+                )}
+            </SectionCard>
+
+            <SectionCard title="Đơn ứng tuyển">
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <InfoRow icon={<IdcardOutlined />} label="Phòng ban" value={application.departmentName} />
+                        <InfoRow icon={<IdcardOutlined />} label="Vị trí" value={application.jobTitle} />
+                        <InfoRow icon={<IdcardOutlined />} label="Người phụ trách" value={application.assignedRecruiterName} />
+                    </Col>
+                    <Col span={12}>
+                        <InfoRow icon={<IdcardOutlined />} label="Nguồn ứng tuyển" value={application.recruitmentSourceName} />
+                        <InfoRow icon={<CalendarOutlined />} label="Ngày ứng tuyển" value={new Date(application.appliedAt).toLocaleDateString("vi-VN")} />
+                        {application.rejectionReasonName && (
+                            <InfoRow icon={<CloseCircleOutlined />} label="Lý do từ chối" value={application.rejectionReasonName} />
                         )}
-                    </SectionCard>
-                </Col>
-                <Col xs={24} lg={12}>
-                    <SectionCard title="Đơn ứng tuyển">
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <InfoRow icon={<IdcardOutlined />} label="Phòng ban" value={application.departmentName} />
-                                <InfoRow icon={<IdcardOutlined />} label="Vị trí" value={application.jobTitle} />
-                                <InfoRow icon={<IdcardOutlined />} label="Người phụ trách" value={application.assignedRecruiterName} />
-                            </Col>
-                            <Col span={12}>
-                                <InfoRow icon={<IdcardOutlined />} label="Nguồn ứng tuyển" value={application.recruitmentSourceName} />
-                                <InfoRow icon={<CalendarOutlined />} label="Ngày ứng tuyển" value={new Date(application.appliedAt).toLocaleDateString("vi-VN")} />
-                                {application.rejectionReasonName && (
-                                    <InfoRow icon={<CloseCircleOutlined />} label="Lý do từ chối" value={application.rejectionReasonName} />
-                                )}
-                            </Col>
-                        </Row>
-                        {application.note && (
-                            <div style={{ marginTop: 4 }}>
-                                <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>Ghi chú ứng tuyển</div>
-                                <div style={{ fontSize: 13 }}>{application.note}</div>
-                            </div>
-                        )}
-                    </SectionCard>
-                </Col>
-            </Row>
+                    </Col>
+                </Row>
+                {application.note && (
+                    <div style={{ marginTop: 4 }}>
+                        <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>Ghi chú ứng tuyển</div>
+                        <div style={{ fontSize: 13 }}>{application.note}</div>
+                    </div>
+                )}
+            </SectionCard>
 
             {/* AI CV Screening — placeholder, chưa có dữ liệu thật */}
             <SectionCard
@@ -468,44 +469,69 @@ export default function CandidateApplicationDetailPage() {
                     <Button disabled icon={<RobotOutlined />}>Chạy phân tích AI</Button>
                 </div>
             </SectionCard>
+                </Col>
 
-            {/* CV viewer */}
-            <SectionCard
-                title="Hồ sơ / CV"
-                extra={application.resumeUrl && (
-                    <Space>
-                        <a href={application.resumeUrl} target="_blank" rel="noopener noreferrer">
-                            <Button size="small" icon={<DownloadOutlined />}>Tải xuống</Button>
-                        </a>
-                        <a href={application.resumeUrl} target="_blank" rel="noopener noreferrer">
-                            <Button size="small" icon={<ExpandOutlined />}>Toàn màn hình</Button>
-                        </a>
-                    </Space>
-                )}
-            >
-                {application.resumeUrl ? (
-                    <iframe
-                        src={application.resumeUrl}
-                        title="CV"
-                        style={{ width: "100%", height: 560, border: `1px solid ${COLORS.border}`, borderRadius: 8, background: "#F8FAFC" }}
-                    />
-                ) : (
-                    <Empty image={<FileUnknownOutlined style={{ fontSize: 40, color: COLORS.textMuted }} />} description="Ứng viên chưa có CV" />
-                )}
-            </SectionCard>
-
-            <SectionCard title="Lịch sử hoạt động">
-                {activity.length === 0 ? (
-                    <Empty description="Chưa có hoạt động nào" />
-                ) : (
-                    <Timeline
-                        items={activity.map((item) => ({
-                            dot: item.kind === "comment" ? <CommentOutlined /> : <SwapOutlined />,
-                            children: item.content,
-                        }))}
-                    />
-                )}
-            </SectionCard>
+                {/* Cột phải — CV & lịch sử hoạt động, mỗi tab tự cuộn trong phần còn lại. */}
+                <Col xs={24} lg={11} style={{ height: "100%" }}>
+                    <Card
+                        className="table-card-fill"
+                        style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, height: "100%" }}
+                        styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 } }}
+                    >
+                        <Tabs
+                            className="tabs-fill"
+                            style={{ padding: "0 16px" }}
+                            items={[
+                                {
+                                    key: "cv",
+                                    label: "Hồ sơ / CV",
+                                    children: (
+                                        <div style={{ height: "100%", display: "flex", flexDirection: "column", paddingBottom: 12 }}>
+                                            {application.resumeUrl && (
+                                                <Space style={{ marginBottom: 10, flexShrink: 0 }}>
+                                                    <a href={application.resumeUrl} target="_blank" rel="noopener noreferrer">
+                                                        <Button size="small" icon={<DownloadOutlined />}>Tải xuống</Button>
+                                                    </a>
+                                                    <a href={application.resumeUrl} target="_blank" rel="noopener noreferrer">
+                                                        <Button size="small" icon={<ExpandOutlined />}>Toàn màn hình</Button>
+                                                    </a>
+                                                </Space>
+                                            )}
+                                            {application.resumeUrl ? (
+                                                <iframe
+                                                    src={application.resumeUrl}
+                                                    title="CV"
+                                                    style={{ width: "100%", flex: 1, minHeight: 0, border: `1px solid ${COLORS.border}`, borderRadius: 8, background: "#F8FAFC" }}
+                                                />
+                                            ) : (
+                                                <Empty image={<FileUnknownOutlined style={{ fontSize: 40, color: COLORS.textMuted }} />} description="Ứng viên chưa có CV" />
+                                            )}
+                                        </div>
+                                    ),
+                                },
+                                {
+                                    key: "activity",
+                                    label: "Lịch sử hoạt động",
+                                    children: (
+                                        <div style={{ height: "100%", overflowY: "auto", paddingBottom: 12 }}>
+                                            {activity.length === 0 ? (
+                                                <Empty description="Chưa có hoạt động nào" />
+                                            ) : (
+                                                <Timeline
+                                                    items={activity.map((item) => ({
+                                                        dot: item.kind === "comment" ? <CommentOutlined /> : <SwapOutlined />,
+                                                        children: item.content,
+                                                    }))}
+                                                />
+                                            )}
+                                        </div>
+                                    ),
+                                },
+                            ]}
+                        />
+                    </Card>
+                </Col>
+            </Row>
 
             <InterviewCreateModal
                 open={interviewModalOpen}

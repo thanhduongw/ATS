@@ -44,7 +44,7 @@ public class InterviewService {
     private final IcsService icsService;
 
     public List<InterviewResponse> getAll(
-            Long tenantId, Long userId, String role, Long applicationId) {
+            Long tenantId, Long userId, String role, Long applicationId, Long jobPostingId) {
 
         List<Interview> interviews;
 
@@ -52,25 +52,26 @@ public class InterviewService {
             long candidateId = resolveCandidateId(tenantId, userId);
             interviews = interviewRepository
                     .findByTenantIdAndCandidateIdOrderByScheduledAtDesc(tenantId, candidateId);
-            if (applicationId != null) {
-                interviews = interviews.stream()
-                        .filter(i -> i.getApplicationId().equals(applicationId))
-                        .toList();
-            }
         } else if (AccessGuard.isDepartment(role)) {
             interviews = interviewRepository
                     .findByTenantIdAndInterviewers_InterviewerIdOrderByScheduledAtDesc(tenantId, userId);
-            if (applicationId != null) {
-                interviews = interviews.stream()
-                        .filter(i -> i.getApplicationId().equals(applicationId))
-                        .toList();
-            }
         } else if (AccessGuard.isHr(role)) {
-            interviews = applicationId != null
-                    ? interviewRepository.findByTenantIdAndApplicationIdOrderByScheduledAtDesc(tenantId, applicationId)
-                    : interviewRepository.findByTenantIdOrderByScheduledAtDesc(tenantId);
+            if (jobPostingId != null) {
+                interviews = interviewRepository.findByTenantIdAndJobPostingIdOrderByScheduledAtDesc(tenantId, jobPostingId);
+            } else if (applicationId != null) {
+                interviews = interviewRepository.findByTenantIdAndApplicationIdOrderByScheduledAtDesc(tenantId, applicationId);
+            } else {
+                interviews = interviewRepository.findByTenantIdOrderByScheduledAtDesc(tenantId);
+            }
         } else {
             throw new AccessDeniedException("Bạn không có quyền xem lịch phỏng vấn");
+        }
+
+        if (applicationId != null) {
+            interviews = interviews.stream().filter(i -> i.getApplicationId().equals(applicationId)).toList();
+        }
+        if (jobPostingId != null) {
+            interviews = interviews.stream().filter(i -> i.getJobPostingId().equals(jobPostingId)).toList();
         }
 
         return interviews.stream().map(this::toResponse).toList();
@@ -87,7 +88,7 @@ public class InterviewService {
     public String generateIcs(Long tenantId, Long userId, String role, Long id) {
         Interview interview = findOwned(tenantId, id);
         assertCanView(interview, userId, role);
-        return icsService.generate(interview);
+        return icsService.generate(interview, resolveWorkLocationName(interview.getWorkLocationId()));
     }
 
 
@@ -118,9 +119,11 @@ public class InterviewService {
                 && (req.meetingLink() == null || req.meetingLink().isBlank())) {
             throw new BusinessException("Phỏng vấn Online cần nhập link họp");
         }
-        if (req.format() == InterviewFormat.OFFLINE
-                && (req.location() == null || req.location().isBlank())) {
-            throw new BusinessException("Phỏng vấn Offline cần nhập địa điểm");
+        if (req.format() == InterviewFormat.OFFLINE && req.workLocationId() == null) {
+            throw new BusinessException("Phỏng vấn Offline cần chọn địa điểm");
+        }
+        if (req.workLocationId() != null) {
+            validateWorkLocation(req.workLocationId());
         }
 
         List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers(tenantId, "HIRING_MANAGER");
@@ -143,7 +146,7 @@ public class InterviewService {
                 .scheduledAt(req.scheduledAt())
                 .durationMinutes(req.durationMinutes())
                 .format(req.format())
-                .location(req.location())
+                .workLocationId(req.workLocationId())
                 .meetingLink(req.meetingLink())
                 .note(req.note())
                 .status(InterviewStatus.SCHEDULED)
@@ -227,6 +230,21 @@ public class InterviewService {
         return interview.getTenantId();
     }
 
+    private void validateWorkLocation(Long workLocationId) {
+        boolean valid = masterDataServiceClient.getWorkLocations().stream()
+                .anyMatch(w -> w.id().equals(workLocationId) && w.active());
+        if (!valid) throw new BusinessException("Địa điểm phỏng vấn không hợp lệ");
+    }
+
+    private String resolveWorkLocationName(Long workLocationId) {
+        if (workLocationId == null) return null;
+        return masterDataServiceClient.getWorkLocations().stream()
+                .filter(w -> w.id().equals(workLocationId))
+                .findFirst()
+                .map(w -> w.name())
+                .orElse(null);
+    }
+
     private long resolveCandidateId(Long tenantId, Long userId) {
         try {
             return candidateServiceClient.getByUserId(tenantId, userId).id();
@@ -269,7 +287,7 @@ public class InterviewService {
                 interview.getScheduledAt(),
                 interview.getDurationMinutes(),
                 interview.getFormat(),
-                interview.getLocation(),
+                interview.getWorkLocationId(),
                 interview.getMeetingLink(),
                 interview.getNote(),
                 interview.getStatus(),

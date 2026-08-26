@@ -6,12 +6,13 @@ import dayjs, { type Dayjs } from "dayjs";
 import type { AxiosError } from "axios";
 import { getOffers } from "../offerApi";
 import type { ApiMessageResponse, OfferResponse, OfferStatus } from "../types";
-import OfferDetailDrawer from "./OfferDetailDrawer";
+import OfferDetailModal from "./OfferDetailModal";
 import OfferCreateModal from "./OfferCreateModal";
 import { COLORS } from "../../../app/theme";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
+import { useTableScrollY } from "../../../app/useTableScrollY";
 
 const { RangePicker } = DatePicker;
 
@@ -66,6 +67,8 @@ export default function OffersList() {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
+    const { wrapRef, scrollY } = useTableScrollY([loading, offers.length]);
+
     useEffect(() => {
         const t = setTimeout(() => {
             setFilters((f) => ({ ...f, keyword: searchInput.trim() }));
@@ -118,6 +121,8 @@ export default function OffersList() {
             title: "Ứng viên",
             dataIndex: "candidateName",
             key: "candidateName",
+            width: 180,
+            ellipsis: true,
             render: (name: string) => (
                 <Space>
                     <Avatar size="small" style={{ background: COLORS.primary }}>
@@ -131,6 +136,7 @@ export default function OffersList() {
             title: "Mức lương",
             dataIndex: "salaryOffered",
             key: "salaryOffered",
+            width: 140,
             render: (v: number) =>
                 v != null ? `${Number(v).toLocaleString("vi-VN")} đ` : "—",
         },
@@ -138,17 +144,21 @@ export default function OffersList() {
             title: "Loại HĐ",
             dataIndex: "contractTypeName",
             key: "contractTypeName",
+            width: 120,
+            ellipsis: true,
         },
         {
             title: "Ngày bắt đầu",
             dataIndex: "startDate",
             key: "startDate",
+            width: 110,
             render: (d: string) => (d ? dayjs(d).format("DD/MM/YYYY") : "—"),
         },
         {
             title: "Trạng thái",
             dataIndex: "status",
             key: "status",
+            width: 150,
             render: (s: string) => (
                 <Tag color={STATUS_COLOR[s] ?? "default"}>{STATUS_LABEL[s] ?? s}</Tag>
             ),
@@ -157,10 +167,13 @@ export default function OffersList() {
             title: "Người duyệt",
             dataIndex: "approverName",
             key: "approverName",
+            width: 130,
+            ellipsis: true,
         },
         {
             title: "",
             key: "action",
+            width: 90,
             render: (_: unknown, record: OfferResponse) => (
                 <Button
                     type="link"
@@ -176,8 +189,8 @@ export default function OffersList() {
     ];
 
     return (
-        <>
-            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 16, flexShrink: 0 }}>
                 {[
                     { label: "Bản nháp", value: counts.draft, color: "#6B7280" },
                     { label: "Chờ duyệt", value: counts.pending, color: "#F59E0B" },
@@ -212,6 +225,7 @@ export default function OffersList() {
                     marginBottom: 16,
                     flexWrap: "wrap",
                     gap: 12,
+                    flexShrink: 0,
                 }}
             >
                 <Segmented
@@ -240,7 +254,7 @@ export default function OffersList() {
                 )}
             </div>
 
-            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
                 <Input
                     prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
                     placeholder="Tìm theo tên ứng viên..."
@@ -262,24 +276,29 @@ export default function OffersList() {
                 />
             </div>
 
-            <Table
-                rowKey="id"
-                loading={loading}
-                columns={columns}
-                dataSource={displayed}
-                pagination={{
-                    current: page,
-                    pageSize,
-                    total: totalItems,
-                    size: "small",
-                    showSizeChanger: true,
-                    pageSizeOptions: [10, 20, 50],
-                    showTotal: (total) => `Tổng ${total} offer`,
-                    onChange: (p, ps) => { setPage(p); setPageSize(ps); },
-                }}
-            />
+            <div ref={wrapRef} className="table-scroll-wrap">
+                <Table
+                    rowKey="id"
+                    size="small"
+                    loading={loading}
+                    columns={columns}
+                    dataSource={displayed}
+                    sticky
+                    scroll={{ y: scrollY }}
+                    pagination={{
+                        current: page,
+                        pageSize,
+                        total: totalItems,
+                        size: "small",
+                        showSizeChanger: true,
+                        pageSizeOptions: [10, 20, 50],
+                        showTotal: (total) => `Tổng ${total} offer`,
+                        onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                    }}
+                />
+            </div>
 
-            <OfferDetailDrawer
+            <OfferDetailModal
                 open={drawerOpen}
                 offer={selectedOffer}
                 onClose={() => setDrawerOpen(false)}
@@ -296,6 +315,6 @@ export default function OffersList() {
                     }}
                 />
             )}
-        </>
+        </div>
     );
 }

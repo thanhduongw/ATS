@@ -12,7 +12,7 @@ public record InterviewSlotResponse(
         LocalDateTime startTime,
         LocalDateTime endTime,
         InterviewFormat format,
-        String location,
+        Long workLocationId,
         String meetingLink,
         InterviewSlotStatus status,
         boolean departmentConfirmed,

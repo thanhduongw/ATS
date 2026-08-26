@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Drawer, Descriptions, Button, Space, Modal, Form, Input, InputNumber, App, Alert, Divider, Tag } from "antd";
+import { Modal, Button, Space, Form, Input, InputNumber, App, Alert, Divider, Tag } from "antd";
 import type { AxiosError } from "axios";
 import {
     approveRequisition,
@@ -14,6 +14,7 @@ import { DEPARTMENT_ROLES, HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import StatusTag from "../../../components/ui/StatusTag";
 import { WORK_ARRANGEMENT_LABEL, REASON_LABEL, PRIORITY_LABEL } from "../requisitionOptions";
+import { COLORS, RADIUS } from "../../../app/theme";
 
 interface Props {
     open: boolean;
@@ -34,7 +35,35 @@ function formatMoney(value: number | null | undefined) {
     return new Intl.NumberFormat("vi-VN").format(value) + " đ";
 }
 
-export default function RequisitionDetailDrawer({
+function InfoField({ label, value }: { label: string; value: React.ReactNode }) {
+    return (
+        <div>
+            <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>{label}</div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.textPrimary }}>{value ?? "—"}</div>
+        </div>
+    );
+}
+
+function TextBlock({ label, value }: { label: string; value: React.ReactNode }) {
+    return (
+        <div
+            style={{
+                border: `1px solid ${COLORS.borderLight}`,
+                borderRadius: RADIUS.md,
+                padding: "10px 12px",
+                background: "#FAFBFC",
+                minHeight: 60,
+            }}
+        >
+            <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4, fontWeight: 600 }}>{label}</div>
+            <div style={{ fontSize: 13, color: COLORS.textPrimary, whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto" }}>
+                {value || "—"}
+            </div>
+        </div>
+    );
+}
+
+export default function RequisitionDetailModal({
     open,
     requisition,
     departmentMap,
@@ -156,108 +185,129 @@ export default function RequisitionDetailDrawer({
     const hasApprovedSalary = requisition.status === "APPROVED";
 
     return (
-        <Drawer title={requisition.title} open={open} onClose={onClose} width={520}>
-            <StatusTag color={REQUISITION_STATUS_COLOR[requisition.status]} label={REQUISITION_STATUS_LABEL[requisition.status]} style={{ marginBottom: 16 }} />
-
+        <Modal
+            title={
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span>{requisition.title}</span>
+                    <StatusTag color={REQUISITION_STATUS_COLOR[requisition.status]} label={REQUISITION_STATUS_LABEL[requisition.status]} />
+                </div>
+            }
+            open={open}
+            onCancel={onClose}
+            width={880}
+            destroyOnHidden
+            styles={{ body: { maxHeight: "72vh", overflowY: "auto", paddingRight: 4 } }}
+            footer={
+                <Space wrap>
+                    {isOwner && (requisition.status === "DRAFT" || requisition.status === "CHANGES_REQUESTED") && (
+                        <>
+                            <Button onClick={() => onEdit(requisition)}>Sửa</Button>
+                            <Button type="primary" loading={actionLoading} onClick={handleSubmit}>
+                                Gửi HR duyệt
+                            </Button>
+                        </>
+                    )}
+                    {isApprover && requisition.status === "PENDING_APPROVAL" && (
+                        <>
+                            <Button type="primary" onClick={() => setApproveModalOpen(true)}>
+                                Phê duyệt
+                            </Button>
+                            <Button onClick={() => setChangesModalOpen(true)}>Yêu cầu chỉnh sửa</Button>
+                            <Button danger onClick={() => setRejectModalOpen(true)}>
+                                Từ chối
+                            </Button>
+                        </>
+                    )}
+                    <Button onClick={onClose}>Đóng</Button>
+                </Space>
+            }
+        >
             {requisition.status === "CHANGES_REQUESTED" && requisition.hrNote && (
                 <Alert
                     type="warning"
                     showIcon
-                    title="HR yêu cầu chỉnh sửa lại"
+                    message="HR yêu cầu chỉnh sửa lại"
                     description={requisition.hrNote}
                     style={{ marginBottom: 16 }}
                 />
             )}
+            {requisition.status === "REJECTED" && (
+                <Alert type="error" showIcon message="Lý do từ chối" description={requisition.rejectReason} style={{ marginBottom: 16 }} />
+            )}
+            {requisition.status === "APPROVED" && requisition.hrNote && (
+                <Alert type="info" showIcon message="Ghi chú của HR" description={requisition.hrNote} style={{ marginBottom: 16 }} />
+            )}
 
-            <Descriptions column={1} bordered size="small">
-                <Descriptions.Item label="Phòng ban">{departmentMap[requisition.departmentId] ?? "—"}</Descriptions.Item>
-                <Descriptions.Item label="Chức vụ">{jobTitleMap[requisition.jobTitleId] ?? "—"}</Descriptions.Item>
-                <Descriptions.Item label="Cấp bậc">
-                    {requisition.jobLevelId ? jobLevelMap[requisition.jobLevelId] ?? "—" : "—"}
-                </Descriptions.Item>
-                <Descriptions.Item label="Số lượng">{requisition.quantity}</Descriptions.Item>
-                <Descriptions.Item label="Loại hình làm việc">
-                    {requisition.employmentTypeId ? employmentTypeMap[requisition.employmentTypeId] ?? "—" : "—"}
-                </Descriptions.Item>
-                <Descriptions.Item label="Hình thức làm việc">
-                    {requisition.workArrangement ? WORK_ARRANGEMENT_LABEL[requisition.workArrangement] : "—"}
-                </Descriptions.Item>
-                <Descriptions.Item label="Địa điểm làm việc">
-                    {requisition.workLocationId ? workLocationMap[requisition.workLocationId] ?? "—" : "—"}
-                </Descriptions.Item>
-                <Descriptions.Item label="Ngân sách">{requisition.budget ?? "—"}</Descriptions.Item>
-                <Descriptions.Item label="Ngày cần tuyển">{requisition.expectedStartDate ?? "—"}</Descriptions.Item>
-                <Descriptions.Item label="Mô tả công việc">{requisition.description ?? "—"}</Descriptions.Item>
-                <Descriptions.Item label="Yêu cầu ứng viên">{requisition.requirements ?? "—"}</Descriptions.Item>
-                <Descriptions.Item label="Quyền lợi">{requisition.benefits ?? "—"}</Descriptions.Item>
-                <Descriptions.Item label="Kinh nghiệm yêu cầu">{requisition.experienceRequired ?? "—"}</Descriptions.Item>
-                <Descriptions.Item label="Lý do tuyển dụng">
-                    {requisition.reason ? REASON_LABEL[requisition.reason] : "—"}
-                </Descriptions.Item>
-                <Descriptions.Item label="Mức độ ưu tiên">
-                    {requisition.priority ? PRIORITY_LABEL[requisition.priority] : "—"}
-                </Descriptions.Item>
-                <Descriptions.Item label="Ghi chú gửi HR">{requisition.note ?? "—"}</Descriptions.Item>
-                <Descriptions.Item label="Kỹ năng yêu cầu">
-                    {requisition.skillIds && requisition.skillIds.length > 0 ? (
-                        <Space wrap>
-                            {requisition.skillIds.map((id) => (
-                                <Tag key={id}>{skillMap[id] ?? `#${id}`}</Tag>
-                            ))}
-                        </Space>
-                    ) : (
-                        "—"
-                    )}
-                </Descriptions.Item>
-                <Descriptions.Item label="Người tạo (phòng ban)">{requisition.requesterName}</Descriptions.Item>
-                <Descriptions.Item label="Người duyệt (HR)">{requisition.approverName}</Descriptions.Item>
-                {requisition.status === "REJECTED" && (
-                    <Descriptions.Item label="Lý do từ chối">{requisition.rejectReason}</Descriptions.Item>
-                )}
-                {requisition.status === "APPROVED" && requisition.hrNote && (
-                    <Descriptions.Item label="Ghi chú của HR">{requisition.hrNote}</Descriptions.Item>
-                )}
-            </Descriptions>
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, 1fr)",
+                    rowGap: 14,
+                    columnGap: 16,
+                    padding: "14px 16px",
+                    background: "#FAFBFC",
+                    border: `1px solid ${COLORS.borderLight}`,
+                    borderRadius: RADIUS.md,
+                    marginBottom: 16,
+                }}
+            >
+                <InfoField label="Phòng ban" value={departmentMap[requisition.departmentId]} />
+                <InfoField label="Chức vụ" value={jobTitleMap[requisition.jobTitleId]} />
+                <InfoField label="Cấp bậc" value={requisition.jobLevelId ? jobLevelMap[requisition.jobLevelId] : null} />
+                <InfoField label="Số lượng" value={requisition.quantity} />
+                <InfoField label="Loại hình làm việc" value={requisition.employmentTypeId ? employmentTypeMap[requisition.employmentTypeId] : null} />
+                <InfoField label="Hình thức làm việc" value={requisition.workArrangement ? WORK_ARRANGEMENT_LABEL[requisition.workArrangement] : null} />
+                <InfoField label="Địa điểm làm việc" value={requisition.workLocationId ? workLocationMap[requisition.workLocationId] : null} />
+                <InfoField label="Kinh nghiệm yêu cầu" value={requisition.experienceRequired} />
+                <InfoField label="Ngân sách" value={requisition.budget} />
+                <InfoField label="Ngày cần tuyển" value={requisition.expectedStartDate} />
+                <InfoField label="Lý do tuyển dụng" value={requisition.reason ? REASON_LABEL[requisition.reason] : null} />
+                <InfoField label="Mức độ ưu tiên" value={requisition.priority ? PRIORITY_LABEL[requisition.priority] : null} />
+                <InfoField label="Người tạo (phòng ban)" value={requisition.requesterName} />
+                <InfoField label="Người duyệt (HR)" value={requisition.approverName} />
+            </div>
 
-            <Divider titlePlacement="start" plain>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <TextBlock label="Mô tả công việc" value={requisition.description} />
+                <TextBlock label="Yêu cầu ứng viên" value={requisition.requirements} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                <TextBlock label="Quyền lợi" value={requisition.benefits} />
+                <TextBlock label="Ghi chú gửi HR" value={requisition.note} />
+            </div>
+
+            {requisition.skillIds && requisition.skillIds.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 6, fontWeight: 600 }}>Kỹ năng yêu cầu</div>
+                    <Space wrap size={4}>
+                        {requisition.skillIds.map((id) => (
+                            <Tag key={id}>{skillMap[id] ?? `#${id}`}</Tag>
+                        ))}
+                    </Space>
+                </div>
+            )}
+
+            <Divider titlePlacement="start" plain style={{ marginTop: 0 }}>
                 So sánh mức lương
             </Divider>
-            <Descriptions column={1} bordered size="small">
-                <Descriptions.Item label="Phòng ban đề xuất">
-                    {formatMoney(requisition.expectedSalaryMin)} — {formatMoney(requisition.expectedSalaryMax)}
-                </Descriptions.Item>
-                <Descriptions.Item label="HR chốt duyệt">
-                    {hasApprovedSalary ? (
-                        <span style={{ color: "#0E7A5F", fontWeight: 600 }}>
-                            {formatMoney(requisition.approvedSalaryMin)} — {formatMoney(requisition.approvedSalaryMax)}
-                        </span>
-                    ) : (
-                        "— (chưa duyệt)"
-                    )}
-                </Descriptions.Item>
-            </Descriptions>
-
-            <Space style={{ marginTop: 24 }} wrap>
-                {isOwner && (requisition.status === "DRAFT" || requisition.status === "CHANGES_REQUESTED") && (
-                    <>
-                        <Button onClick={() => onEdit(requisition)}>Sửa</Button>
-                        <Button type="primary" loading={actionLoading} onClick={handleSubmit}>
-                            Gửi HR duyệt
-                        </Button>
-                    </>
-                )}
-                {isApprover && requisition.status === "PENDING_APPROVAL" && (
-                    <>
-                        <Button type="primary" onClick={() => setApproveModalOpen(true)}>
-                            Phê duyệt
-                        </Button>
-                        <Button onClick={() => setChangesModalOpen(true)}>Yêu cầu chỉnh sửa</Button>
-                        <Button danger onClick={() => setRejectModalOpen(true)}>
-                            Từ chối
-                        </Button>
-                    </>
-                )}
-            </Space>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <InfoField
+                    label="Phòng ban đề xuất"
+                    value={`${formatMoney(requisition.expectedSalaryMin)} — ${formatMoney(requisition.expectedSalaryMax)}`}
+                />
+                <InfoField
+                    label="HR chốt duyệt"
+                    value={
+                        hasApprovedSalary ? (
+                            <span style={{ color: "#0E7A5F", fontWeight: 600 }}>
+                                {formatMoney(requisition.approvedSalaryMin)} — {formatMoney(requisition.approvedSalaryMax)}
+                            </span>
+                        ) : (
+                            "— (chưa duyệt)"
+                        )
+                    }
+                />
+            </div>
 
             <Modal
                 title="Phê duyệt yêu cầu tuyển dụng"
@@ -271,7 +321,7 @@ export default function RequisitionDetailDrawer({
                 <Alert
                     type="info"
                     showIcon
-                    title="Bạn có thể chốt lại mức lương khác với đề xuất của phòng ban trước khi duyệt."
+                    message="Bạn có thể chốt lại mức lương khác với đề xuất của phòng ban trước khi duyệt."
                     style={{ marginBottom: 16 }}
                 />
                 <Form form={approveForm} layout="vertical">
@@ -328,6 +378,6 @@ export default function RequisitionDetailDrawer({
                     </Form.Item>
                 </Form>
             </Modal>
-        </Drawer>
+        </Modal>
     );
 }

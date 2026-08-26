@@ -8,6 +8,7 @@ import java.util.Optional;
 public interface InterviewRepository extends JpaRepository<Interview, Long> {
     List<Interview> findByTenantIdOrderByScheduledAtDesc(Long tenantId);
     List<Interview> findByTenantIdAndApplicationIdOrderByScheduledAtDesc(Long tenantId, Long applicationId);
+    List<Interview> findByTenantIdAndJobPostingIdOrderByScheduledAtDesc(Long tenantId, Long jobPostingId);
     List<Interview> findByTenantIdAndCandidateIdOrderByScheduledAtDesc(Long tenantId, Long candidateId);
     List<Interview> findByTenantIdAndInterviewers_InterviewerIdOrderByScheduledAtDesc(Long tenantId, Long interviewerId);
     Optional<Interview> findByIdAndTenantId(Long id, Long tenantId);

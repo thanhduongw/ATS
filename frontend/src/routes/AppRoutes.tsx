@@ -13,6 +13,7 @@ import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
 import DashboardPage from "../features/dashboard/pages/DashboardPage";
 import MasterDataPage from "../features/masterdata/pages/MasterDataPage";
 import RecruitmentPage from "../features/recruitment/pages/RecruitmentPage";
+import PostingHubPage from "../features/recruitment/pages/PostingHubPage";
 import CandidatesPage from "../features/candidate/pages/CandidatesPage";
 import CandidateApplicationDetailPage from "../features/candidate/pages/CandidateApplicationDetailPage";
 import ApplicationsPage from "../features/candidate/pages/ApplicationsPage";
@@ -63,6 +64,7 @@ export default function AppRoutes() {
                         <Route path="/candidates" element={<CandidatesPage />} />
                         <Route path="/candidates/:candidateId/applications/:applicationId" element={<CandidateApplicationDetailPage />} />
                         <Route path="/recruitment" element={<RecruitmentPage />} />
+                        <Route path="/recruitment/postings/:id" element={<PostingHubPage />} />
                         <Route path="/applications" element={<ApplicationsPage />} />
                         <Route path="/interviews" element={<InterviewCalendar />} />
                         <Route path="/interviews/:interviewId/result" element={<InterviewsPage />} />

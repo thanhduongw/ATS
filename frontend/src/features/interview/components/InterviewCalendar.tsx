@@ -7,7 +7,7 @@ import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { getInterviews } from "../interviewApi";
 import type { ApiMessageResponse, InterviewResponse } from "../types";
-import InterviewDetailDrawer from "./InterviewDetailDrawer";
+import InterviewDetailModal from "./InterviewDetailModal";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 
 const STATUS_BADGE: Record<string, "success" | "processing" | "default" | "error"> = {
@@ -67,8 +67,8 @@ export default function InterviewCalendar() {
     interviews.filter((i) => dayjs(i.scheduledAt).format("YYYY-MM-DD") === date.format("YYYY-MM-DD"));
 
   return (
-    <div className="page-container animate-fade-in">
-      <div className="page-header" style={{ marginBottom: 20 }}>
+    <div className="page-shell animate-fade-in">
+      <div className="page-header page-shell-fixed" style={{ marginBottom: 16 }}>
         <div className="page-header-title">
           <div style={{
             width: 44, height: 44, borderRadius: 12,
@@ -85,7 +85,11 @@ export default function InterviewCalendar() {
         </div>
       </div>
 
-      <Card style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12 }}>
+      <Card
+        className="table-card-fill"
+        style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, flex: 1, minHeight: 0 }}
+        styles={{ body: { flex: 1, minHeight: 0, overflowY: "auto" } }}
+      >
         <Calendar
           value={panelDate}
           onPanelChange={(date) => setPanelDate(date)}
@@ -113,7 +117,7 @@ export default function InterviewCalendar() {
         />
       </Card>
 
-      <InterviewDetailDrawer open={detailOpen} interview={selected} onClose={() => setDetailOpen(false)} onChanged={loadInterviews} />
+      <InterviewDetailModal open={detailOpen} interview={selected} onClose={() => setDetailOpen(false)} onChanged={loadInterviews} />
     </div>
   );
 }

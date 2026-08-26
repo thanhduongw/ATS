@@ -70,3 +70,13 @@ export const changePostingStatus = (id: number, data: JobPostingStatusRequest) =
 /** Tin OPEN — Candidate (JobsPage) */
 export const getOpenPostings = () =>
     axiosClient.get<JobPostingResponse[]>("/recruitment/postings/open");
+
+// ===== Vòng đời duyệt tin (DRAFT/EDITING → APPROVED → OPEN) =====
+export const submitPostingForReview = (id: number) =>
+    axiosClient.patch<JobPostingResponse>(`/recruitment/postings/${id}/submit-review`);
+
+export const requestPostingEdit = (id: number) =>
+    axiosClient.patch<JobPostingResponse>(`/recruitment/postings/${id}/request-edit`);
+
+export const publishPosting = (id: number) =>
+    axiosClient.patch<JobPostingResponse>(`/recruitment/postings/${id}/publish`);

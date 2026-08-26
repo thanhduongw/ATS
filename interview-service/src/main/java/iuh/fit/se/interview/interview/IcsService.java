@@ -13,7 +13,7 @@ import java.util.Date;
 @Service
 public class IcsService {
 
-    public String generate(Interview interview) {
+    public String generate(Interview interview, String resolvedLocationName) {
         ICalendar ical = new ICalendar();
         ical.setProductId("-//ATS//Interview Scheduling//VI");
 
@@ -30,8 +30,8 @@ public class IcsService {
         }
         event.setDescription(description.toString());
 
-        if (interview.getLocation() != null && !interview.getLocation().isBlank()) {
-            event.setLocation(interview.getLocation());
+        if (resolvedLocationName != null && !resolvedLocationName.isBlank()) {
+            event.setLocation(resolvedLocationName);
         } else if (interview.getMeetingLink() != null) {
             event.setLocation(interview.getMeetingLink());
         }

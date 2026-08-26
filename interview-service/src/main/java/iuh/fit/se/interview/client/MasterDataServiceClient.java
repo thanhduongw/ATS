@@ -15,4 +15,7 @@ public interface MasterDataServiceClient {
 
     @GetMapping("/api/masterdata/interview-criteria")
     List<CatalogItemResponse> getInterviewCriteria();
+
+    @GetMapping("/api/masterdata/work-locations")
+    List<CatalogItemResponse> getWorkLocations();
 }

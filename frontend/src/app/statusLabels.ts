@@ -9,7 +9,9 @@ export const REQUISITION_STATUS: Record<string, StatusMeta> = {
 };
 
 export const POSTING_STATUS: Record<string, StatusMeta> = {
-    DRAFT: { label: "Nháp", color: "default" },
+    DRAFT: { label: "Bản nháp", color: "default" },
+    EDITING: { label: "Đang chỉnh sửa", color: "blue" },
+    APPROVED: { label: "Đã duyệt", color: "cyan" },
     OPEN: { label: "Đang mở", color: "success" },
     PAUSED: { label: "Tạm dừng", color: "warning" },
     CLOSED: { label: "Đã đóng", color: "default" },

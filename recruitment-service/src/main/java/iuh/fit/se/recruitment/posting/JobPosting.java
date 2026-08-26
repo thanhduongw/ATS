@@ -71,6 +71,15 @@ public class JobPosting {
     @Column(name = "pipeline_locked", nullable = false)
     private boolean pipelineLocked;
 
+    @Column(name = "submitted_at")
+    private LocalDateTime submittedAt;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "approved_by")
+    private Long approvedBy;
+
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 

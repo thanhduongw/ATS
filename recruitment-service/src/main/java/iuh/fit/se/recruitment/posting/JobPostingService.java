@@ -1,8 +1,10 @@
 package iuh.fit.se.recruitment.posting;
 
+import iuh.fit.se.recruitment.client.AuthServiceClient;
 import iuh.fit.se.recruitment.client.MasterDataServiceClient;
 import iuh.fit.se.recruitment.client.dto.CatalogItemResponse;
 import iuh.fit.se.recruitment.client.dto.PipelineResponse;
+import iuh.fit.se.recruitment.client.dto.UserSummaryResponse;
 import iuh.fit.se.recruitment.common.PageResponse;
 import iuh.fit.se.recruitment.event.AuditEventPublisher;
 import iuh.fit.se.recruitment.exception.BusinessException;
@@ -20,14 +22,27 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class JobPostingService {
 
+    /** Trạng thái trước khi đăng — không được set thẳng qua endpoint /status hậu-publish. */
+    private static final Set<PostingStatus> PRE_PUBLISH_STATUSES =
+            Set.of(PostingStatus.DRAFT, PostingStatus.EDITING, PostingStatus.APPROVED);
+
+    /** Các chuyển đổi hậu-publish hợp lệ cho endpoint /status. */
+    private static final Map<PostingStatus, Set<PostingStatus>> POST_PUBLISH_TRANSITIONS = Map.of(
+            PostingStatus.OPEN, Set.of(PostingStatus.PAUSED, PostingStatus.CLOSED),
+            PostingStatus.PAUSED, Set.of(PostingStatus.OPEN, PostingStatus.CLOSED),
+            PostingStatus.CLOSED, Set.of()
+    );
+
     private final JobPostingRepository repository;
     private final JobRequisitionRepository requisitionRepository;
     private final MasterDataServiceClient masterDataServiceClient;
+    private final AuthServiceClient authServiceClient;
     private final AuditEventPublisher auditEventPublisher;
 
     public PageResponse<JobPostingResponse> getAll(
@@ -36,17 +51,18 @@ public class JobPostingService {
 
         var spec = JobPostingSpecifications.build(tenantId, status, employmentTypeId, workLocationId, keyword);
         Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments(tenantId));
+        Map<Long, String> userNameMap = buildUserNameMap();
 
         if (page == null && size == null) {
             List<JobPosting> all = repository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
-            return PageResponse.unpaged(all.stream().map(p -> toResponse(p, Map.of(), Map.of(), deptMap)).toList());
+            return PageResponse.unpaged(all.stream().map(p -> toResponse(p, Map.of(), Map.of(), deptMap, userNameMap)).toList());
         }
 
         var pageable = PageRequest.of(
                 page != null ? page : 0,
                 size != null ? size : 20,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
-        return PageResponse.of(repository.findAll(spec, pageable).map(p -> toResponse(p, Map.of(), Map.of(), deptMap)));
+        return PageResponse.of(repository.findAll(spec, pageable).map(p -> toResponse(p, Map.of(), Map.of(), deptMap, userNameMap)));
     }
 
     public JobPostingResponse getById(Long tenantId, Long id) {
@@ -110,9 +126,8 @@ public class JobPostingService {
                 .requirements(req.requirements())
                 .benefits(req.benefits())
                 .skillIds(skillIds)
-                .status(PostingStatus.OPEN)
+                .status(PostingStatus.DRAFT)
                 .pipelineLocked(false)
-                .publishedAt(LocalDateTime.now())
                 .build());
 
         auditEventPublisher.publish(
@@ -150,11 +165,79 @@ public class JobPostingService {
     @Transactional
     public JobPostingResponse changeStatus(Long tenantId, Long id, JobPostingStatusRequest req) {
         JobPosting posting = findOwned(tenantId, id);
+
+        if (PRE_PUBLISH_STATUSES.contains(req.status())) {
+            throw new BusinessException(
+                    "Không thể chuyển thẳng về trạng thái này — dùng luồng Gửi duyệt / Sửa lại / Đăng tin");
+        }
+        if (PRE_PUBLISH_STATUSES.contains(posting.getStatus())) {
+            throw new BusinessException("Tin chưa được đăng — hãy Gửi duyệt và Đăng tin trước");
+        }
+        if (!POST_PUBLISH_TRANSITIONS.getOrDefault(posting.getStatus(), Set.of()).contains(req.status())) {
+            throw new BusinessException("Không thể chuyển từ trạng thái hiện tại sang trạng thái này");
+        }
+
         posting.setStatus(req.status());
         if (req.status() == PostingStatus.CLOSED) {
             posting.setClosedAt(LocalDateTime.now());
         }
         return toResponse(repository.save(posting));
+    }
+
+    /** DRAFT/EDITING → APPROVED. HR tự xác nhận nội dung đã sẵn sàng (không có role duyệt thứ 2). */
+    @Transactional
+    public JobPostingResponse submitReview(Long tenantId, Long actorUserId, Long id) {
+        JobPosting posting = findOwned(tenantId, id);
+        if (posting.getStatus() != PostingStatus.DRAFT && posting.getStatus() != PostingStatus.EDITING) {
+            throw new BusinessException("Chỉ gửi duyệt được tin đang ở trạng thái Bản nháp hoặc Đang chỉnh sửa");
+        }
+        validateReadyForApproval(posting);
+
+        LocalDateTime now = LocalDateTime.now();
+        posting.setSubmittedAt(now);
+        posting.setApprovedAt(now);
+        posting.setApprovedBy(actorUserId);
+        posting.setStatus(PostingStatus.APPROVED);
+        return toResponse(repository.save(posting));
+    }
+
+    /** APPROVED → EDITING. HR tự thu hồi tin đã duyệt để sửa tiếp trước khi đăng. */
+    @Transactional
+    public JobPostingResponse requestEdit(Long tenantId, Long id) {
+        JobPosting posting = findOwned(tenantId, id);
+        if (posting.getStatus() != PostingStatus.APPROVED) {
+            throw new BusinessException("Chỉ sửa lại được tin đang ở trạng thái Đã duyệt");
+        }
+        posting.setStatus(PostingStatus.EDITING);
+        return toResponse(repository.save(posting));
+    }
+
+    /** APPROVED → OPEN (đăng công khai). */
+    @Transactional
+    public JobPostingResponse publish(Long tenantId, Long actorUserId, Long id) {
+        JobPosting posting = findOwned(tenantId, id);
+        if (posting.getStatus() != PostingStatus.APPROVED) {
+            throw new BusinessException("Chỉ đăng được tin đang ở trạng thái Đã duyệt");
+        }
+        posting.setStatus(PostingStatus.OPEN);
+        posting.setPublishedAt(LocalDateTime.now());
+        JobPosting saved = repository.save(posting);
+
+        auditEventPublisher.publish(tenantId, actorUserId, "POSTING_PUBLISHED", "JOB_POSTING", saved.getId(), null);
+
+        return toResponse(saved);
+    }
+
+    private void validateReadyForApproval(JobPosting posting) {
+        if (posting.getTitle() == null || posting.getTitle().isBlank()
+                || posting.getDescription() == null || posting.getDescription().isBlank()
+                || posting.getRequirements() == null || posting.getRequirements().isBlank()
+                || posting.getEmploymentTypeId() == null
+                || posting.getWorkLocationId() == null
+                || posting.getPipelineId() == null) {
+            throw new BusinessException(
+                    "Tin tuyển dụng chưa đủ thông tin bắt buộc (tiêu đề, mô tả, yêu cầu, loại hình, địa điểm, quy trình)");
+        }
     }
 
     @Transactional
@@ -194,10 +277,12 @@ public class JobPostingService {
 
     private JobPostingResponse toResponse(JobPosting p) {
         Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments(p.getTenantId()));
-        return toResponse(p, Map.of(), Map.of(), deptMap);
+        return toResponse(p, Map.of(), Map.of(), deptMap, buildUserNameMap());
     }
 
-    private JobPostingResponse toResponse(JobPosting p, Map<Long, String> empMap, Map<Long, String> locMap, Map<Long, String> deptMap) {
+    private JobPostingResponse toResponse(
+            JobPosting p, Map<Long, String> empMap, Map<Long, String> locMap,
+            Map<Long, String> deptMap, Map<Long, String> userNameMap) {
         Long departmentId = p.getRequisition().getDepartmentId();
         return new JobPostingResponse(
                 p.getId(), p.getRequisition().getId(), p.getTitle(),
@@ -205,10 +290,19 @@ public class JobPostingService {
                 p.getPipelineId(),
                 p.getSalaryMin(), p.getSalaryMax(),
                 p.getDescription(), p.getRequirements(), p.getBenefits(), p.getSkillIds(),
-                p.getStatus(), p.isPipelineLocked(), p.getPublishedAt(), p.getClosedAt(),
+                p.getStatus(), p.isPipelineLocked(), p.getCreatedAt(),
+                p.getSubmittedAt(), p.getApprovedAt(), p.getApprovedBy(),
+                p.getApprovedBy() != null ? userNameMap.get(p.getApprovedBy()) : null,
+                p.getPublishedAt(), p.getClosedAt(),
                 empMap.get(p.getEmploymentTypeId()), locMap.get(p.getWorkLocationId()),
                 departmentId, deptMap.get(departmentId)
         );
+    }
+
+    private Map<Long, String> buildUserNameMap() {
+        return authServiceClient.getUsers(null).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
     }
 
     /** Danh sách tin OPEN cho Candidate (career portal — kèm tên loại hình/địa điểm, lọc tùy chọn). */
@@ -221,7 +315,7 @@ public class JobPostingService {
                 .stream()
                 .filter(p -> employmentTypeId == null || employmentTypeId.equals(p.getEmploymentTypeId()))
                 .filter(p -> workLocationId == null || workLocationId.equals(p.getWorkLocationId()))
-                .map(p -> toResponse(p, empMap, locMap, deptMap))
+                .map(p -> toResponse(p, empMap, locMap, deptMap, Map.of()))
                 .toList();
     }
 
@@ -234,7 +328,7 @@ public class JobPostingService {
         Map<Long, String> empMap = buildCatalogMap(masterDataServiceClient.getEmploymentTypes(tenantId));
         Map<Long, String> locMap = buildCatalogMap(masterDataServiceClient.getWorkLocations(tenantId));
         Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments(tenantId));
-        return toResponse(posting, empMap, locMap, deptMap);
+        return toResponse(posting, empMap, locMap, deptMap, Map.of());
     }
 
     private Map<Long, String> buildCatalogMap(List<CatalogItemResponse> items) {

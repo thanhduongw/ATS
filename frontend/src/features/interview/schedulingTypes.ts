@@ -9,7 +9,7 @@ export interface InterviewSlotResponse {
     startTime: string;           // ISO
     endTime: string;
     format: InterviewFormat;
-    location: string | null;
+    workLocationId: number | null;
     meetingLink: string | null;
     status: SlotStatus;
     departmentConfirmed: boolean;
@@ -20,7 +20,7 @@ export interface InterviewSlotResponse {
 export interface SlotBatchCreateRequest {
     applicationId: number;
     format: InterviewFormat;
-    location?: string | null;
+    workLocationId?: number | null;
     meetingLink?: string | null;
     slots: { startTime: string; endTime: string }[];
 }

@@ -11,7 +11,9 @@ import type { AxiosError } from "axios";
 import { interviewCreateSchema, type InterviewCreateFormValues } from "../schemas/interviewCreateSchema";
 import { createInterview } from "../interviewApi";
 import { getUsers } from "../../auth/authApi";
+import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { UserSummaryResponse } from "../../auth/types";
+import type { CatalogItem } from "../../masterdata/types";
 import type { ApiMessageResponse } from "../types";
 import { COLORS } from "../../../app/theme";
 
@@ -33,6 +35,7 @@ function FieldLabel({ icon, text }: { icon: ReactNode; text: string }) {
 
 export default function InterviewCreateModal({ open, applicationId, onClose, onSuccess }: Props) {
   const [interviewers, setInterviewers] = useState<UserSummaryResponse[]>([]);
+  const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
 
   const {
     control,
@@ -47,11 +50,12 @@ export default function InterviewCreateModal({ open, applicationId, onClose, onS
   useEffect(() => {
     if (!open) return;
     getUsers("HIRING_MANAGER").then((res) => setInterviewers(res.data));
+    getCatalogItems("/masterdata/work-locations").then((res) => setWorkLocations(res.data));
     reset({
       scheduledAt: "",
       durationMinutes: 60,
       format: "ONLINE",
-      location: "",
+      workLocationId: null,
       meetingLink: "",
       note: "",
       interviewerIds: [],
@@ -168,11 +172,18 @@ export default function InterviewCreateModal({ open, applicationId, onClose, onS
                 />
               </Form.Item>
             ) : (
-              <Form.Item label={<FieldLabel icon={<EnvironmentOutlined />} text="Địa điểm" />} validateStatus={errors.location ? "error" : ""} help={errors.location?.message}>
+              <Form.Item label={<FieldLabel icon={<EnvironmentOutlined />} text="Địa điểm" />} validateStatus={errors.workLocationId ? "error" : ""} help={errors.workLocationId?.message}>
                 <Controller
-                  name="location"
+                  name="workLocationId"
                   control={control}
-                  render={({ field }) => <Input {...field} value={field.value ?? ""} placeholder="Địa chỉ văn phòng / phòng họp..." />}
+                  render={({ field }) => (
+                    <Select
+                      {...field}
+                      value={field.value ?? undefined}
+                      placeholder="Chọn địa điểm phỏng vấn"
+                      options={workLocations.map((w) => ({ value: w.id, label: String(w.name) }))}
+                    />
+                  )}
                 />
               </Form.Item>
             )}

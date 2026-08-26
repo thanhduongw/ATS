@@ -63,6 +63,14 @@ export default function MasterDataPage() {
                 </div>
             </div>
 
+            {/*
+              Ghi chú: trang này CHỦ ĐỘNG không dùng bố cục "1 màn hình không cuộn" như các
+              trang khác — tabPlacement="start" có thể tới 16 mục dọc, cao hơn vùng hiển thị
+              trên nhiều màn hình. antd tự quản lý scroll của thanh tab dọc bằng JS nội bộ,
+              ép CSS overflow lên đó gây xung đột (tab không chọn được — xem index.css).
+              Nên vẫn giữ cuộn trang tự nhiên; các bảng bên trong vẫn dùng size="small" để
+              hiện được nhiều dòng hơn.
+            */}
             <Card style={{ border: "none" }}>
                 <Tabs
                     tabPlacement={tabPlacement}

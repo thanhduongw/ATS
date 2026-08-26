@@ -19,6 +19,7 @@ import { COLORS, GRADIENTS } from "../../../app/theme";
 import { exportToExcel } from "../../../app/exportExcel";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
+import { useTableScrollY } from "../../../app/useTableScrollY";
 
 interface StatCardProps {
     title: string;
@@ -165,6 +166,8 @@ export default function CandidatesPage() {
             return true;
         });
     }, [candidatesWithApps, departmentFilter, positionFilter, statusFilter]);
+
+    const { wrapRef, scrollY } = useTableScrollY([loading, visibleCandidates.length]);
 
     const hasActiveFilters = !!(keyword || departmentFilter || positionFilter || statusFilter);
 
@@ -319,24 +322,25 @@ export default function CandidatesPage() {
         {
             title: "Ứng viên",
             key: "candidate",
-            width: 240,
+            width: 230,
             render: (_, record, index) => (
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                     <Avatar
-                        size={36}
+                        size={30}
                         style={{
                             background: AVATAR_COLORS[index % AVATAR_COLORS.length],
-                            color: "#fff", fontWeight: 600, fontSize: 13, flexShrink: 0,
+                            color: "#fff", fontWeight: 600, fontSize: 12, flexShrink: 0,
                         }}
                     >
                         {getInitials(record.fullName)}
                     </Avatar>
-                    <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, color: COLORS.textPrimary }}>{record.fullName}</div>
-                        <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{record.email}</div>
-                        {record.phone && (
-                            <div style={{ fontSize: 12, color: COLORS.textMuted }}>{record.phone}</div>
-                        )}
+                    <div style={{ minWidth: 0, lineHeight: 1.3 }}>
+                        <div style={{ fontWeight: 600, color: COLORS.textPrimary, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {record.fullName}
+                        </div>
+                        <div style={{ fontSize: 11, color: COLORS.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {record.email}{record.phone ? ` · ${record.phone}` : ""}
+                        </div>
                     </div>
                 </div>
             ),
@@ -344,7 +348,7 @@ export default function CandidatesPage() {
         {
             title: "Vị trí",
             key: "position",
-            width: 200,
+            width: 170,
             render: (_, record) => {
                 const primary = record.applications[0];
                 if (!primary) return <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Chưa ứng tuyển</span>;
@@ -363,7 +367,7 @@ export default function CandidatesPage() {
         {
             title: "Phòng ban",
             key: "department",
-            width: 150,
+            width: 130,
             render: (_, record) => {
                 const name = record.applications[0]?.departmentName;
                 if (!name) return <span style={{ color: COLORS.textMuted }}>—</span>;
@@ -378,7 +382,7 @@ export default function CandidatesPage() {
         {
             title: "Ngày ứng tuyển",
             key: "appliedAt",
-            width: 130,
+            width: 115,
             sorter: (a, b) => {
                 const ta = a.applications[0] ? new Date(a.applications[0].appliedAt).getTime() : 0;
                 const tb = b.applications[0] ? new Date(b.applications[0].appliedAt).getTime() : 0;
@@ -397,7 +401,7 @@ export default function CandidatesPage() {
         {
             title: "Trạng thái",
             key: "status",
-            width: 150,
+            width: 130,
             render: (_, record) => {
                 const primary = record.applications[0];
                 if (!primary) return <span style={{ color: COLORS.textMuted }}>—</span>;
@@ -412,16 +416,16 @@ export default function CandidatesPage() {
         {
             title: "AI Score",
             key: "aiScore",
-            width: 130,
+            width: 110,
             sorter: (a, b) => (getAiScore(a) ?? -1) - (getAiScore(b) ?? -1),
             render: (_, record) => <AiScoreBadge score={getAiScore(record)} />,
         },
     ];
 
     return (
-        <div className="page-container animate-fade-in">
+        <div className="page-shell animate-fade-in">
             {/* Header */}
-            <div className="page-header">
+            <div className="page-header page-shell-fixed" style={{ marginBottom: 16 }}>
                 <div className="page-header-title">
                     <div style={{
                         width: 44, height: 44, borderRadius: 12,
@@ -450,7 +454,7 @@ export default function CandidatesPage() {
             </div>
 
             {/* KPI stat cards */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+            <Row gutter={[16, 16]} className="page-shell-fixed" style={{ marginBottom: 16 }}>
                 <Col xs={24} sm={12} md={8} lg={4}>
                     <StatCard title="Tổng ứng viên" value={totalCandidates} icon={<UserOutlined />} gradient={GRADIENTS.stat1} />
                 </Col>
@@ -468,17 +472,21 @@ export default function CandidatesPage() {
                 </Col>
             </Row>
 
-            <Card style={{ border: "none" }}>
+            <Card
+                className="table-card-fill"
+                style={{ border: "none", flex: 1, minHeight: 0 }}
+                styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
+            >
                 <Input
                     prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
                     placeholder="Tìm theo tên, email hoặc số điện thoại..."
                     value={searchInput}
                     onChange={e => setSearchInput(e.target.value)}
-                    style={{ marginBottom: 12 }}
+                    style={{ marginBottom: 12, flexShrink: 0 }}
                     size="large"
                     allowClear
                 />
-                <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", flexShrink: 0 }}>
                     <Select
                         allowClear
                         placeholder="Tất cả phòng ban"
@@ -514,7 +522,7 @@ export default function CandidatesPage() {
                         style={{
                             display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
                             padding: "10px 16px", marginBottom: 16, background: "#EFF6FF",
-                            border: "1px solid #BFDBFE", borderRadius: 8,
+                            border: "1px solid #BFDBFE", borderRadius: 8, flexShrink: 0,
                         }}
                     >
                         <span>Đã chọn {selectedRowKeys.length} ứng viên</span>
@@ -530,35 +538,39 @@ export default function CandidatesPage() {
                     </div>
                 )}
 
-                <Table
-                    rowKey="id"
-                    loading={loading}
-                    columns={columns}
-                    dataSource={visibleCandidates}
-                    rowSelection={isHr ? {
-                        selectedRowKeys,
-                        onChange: setSelectedRowKeys,
-                    } : undefined}
-                    onRow={(record) => {
-                        const primary = record.applications[0];
-                        return {
-                            onClick: () => { if (primary) goToApplication(record.id, primary.id); },
-                            style: { cursor: primary ? "pointer" : "default" },
-                        };
-                    }}
-                    pagination={{
-                        current: page,
-                        pageSize,
-                        total: totalCandidates,
-                        size: "small",
-                        showSizeChanger: true,
-                        pageSizeOptions: [10, 20, 50],
-                        showTotal: (total) => `Tổng ${total} ứng viên`,
-                        onChange: (p, ps) => { setPage(p); setPageSize(ps); },
-                    }}
-                    scroll={{ x: 1050 }}
-                    rowHoverable
-                />
+                <div ref={wrapRef} className="table-scroll-wrap">
+                    <Table
+                        rowKey="id"
+                        size="small"
+                        loading={loading}
+                        columns={columns}
+                        dataSource={visibleCandidates}
+                        sticky
+                        scroll={{ y: scrollY }}
+                        rowSelection={isHr ? {
+                            selectedRowKeys,
+                            onChange: setSelectedRowKeys,
+                        } : undefined}
+                        onRow={(record) => {
+                            const primary = record.applications[0];
+                            return {
+                                onClick: () => { if (primary) goToApplication(record.id, primary.id); },
+                                style: { cursor: primary ? "pointer" : "default" },
+                            };
+                        }}
+                        pagination={{
+                            current: page,
+                            pageSize,
+                            total: totalCandidates,
+                            size: "small",
+                            showSizeChanger: true,
+                            pageSizeOptions: [10, 20, 50],
+                            showTotal: (total) => `Tổng ${total} ứng viên`,
+                            onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                        }}
+                        rowHoverable
+                    />
+                </div>
             </Card>
 
             <CandidateFormModal open={formModalOpen} editingItem={null}

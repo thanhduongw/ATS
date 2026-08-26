@@ -58,7 +58,7 @@ public class InterviewSlotService {
                         .startTime(s.startTime())
                         .endTime(s.endTime())
                         .format(req.format())
-                        .location(req.location())
+                        .workLocationId(req.workLocationId())
                         .meetingLink(req.meetingLink())
                         .status(InterviewSlotStatus.PROPOSED)
                         .departmentConfirmed(false)
@@ -173,7 +173,7 @@ public class InterviewSlotService {
                 .scheduledAt(slot.getStartTime())
                 .durationMinutes(durationMinutes)
                 .format(slot.getFormat())
-                .location(slot.getLocation())
+                .workLocationId(slot.getWorkLocationId())
                 .meetingLink(slot.getMeetingLink())
                 .status(InterviewStatus.SCHEDULED)
                 .note("Tạo tự động từ khung giờ xếp lịch 3 bên #" + slot.getId())
@@ -232,7 +232,7 @@ public class InterviewSlotService {
                 slot.getStartTime(),
                 slot.getEndTime(),
                 slot.getFormat(),
-                slot.getLocation(),
+                slot.getWorkLocationId(),
                 slot.getMeetingLink(),
                 slot.getStatus(),
                 slot.isDepartmentConfirmed(),
@@ -255,7 +255,7 @@ public class InterviewSlotService {
                 interview.getScheduledAt(),
                 interview.getDurationMinutes(),
                 interview.getFormat(),
-                interview.getLocation(),
+                interview.getWorkLocationId(),
                 interview.getMeetingLink(),
                 interview.getNote(),
                 interview.getStatus(),

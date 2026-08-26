@@ -6,9 +6,9 @@ import { GRADIENTS } from "../../../app/theme";
 
 export default function RecruitmentPage() {
     return (
-        <div className="page-container animate-fade-in">
+        <div className="page-shell animate-fade-in">
             {/* ── Page Header ──────────────────── */}
-            <div className="page-header" style={{ marginBottom: 20 }}>
+            <div className="page-header page-shell-fixed" style={{ marginBottom: 16 }}>
                 <div className="page-header-title">
                     <div style={{
                         width: 44, height: 44, borderRadius: 12,
@@ -25,9 +25,10 @@ export default function RecruitmentPage() {
                 </div>
             </div>
 
-            <Card style={{ border: "none" }}>
+            <Card style={{ border: "none", flex: 1, minHeight: 0 }} className="table-card-fill" styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}>
                 <Tabs
                     size="large"
+                    className="tabs-fill"
                     items={[
                         {
                             key: "requisitions",

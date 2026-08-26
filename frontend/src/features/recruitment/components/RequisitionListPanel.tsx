@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Checkbox, App, Input, Select } from "antd";
+import { Table, Button, App, Input, Select } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getRequisitions } from "../recruitmentApi";
@@ -7,13 +7,14 @@ import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import type { ApiMessageResponse, JobRequisitionResponse, RequisitionStatus } from "../types";
 import { useAppSelector } from "../../../app/hooks";
-import { DEPARTMENT_ROLES, HR_ROLES } from "../../../app/roles";
+import { DEPARTMENT_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import RequisitionFormModal from "./RequisitionFormModal";
-import RequisitionDetailDrawer from "./RequisitionDetailDrawer";
+import RequisitionDetailModal from "./RequisitionDetailModal";
 import { REQUISITION_STATUS_COLOR, REQUISITION_STATUS_LABEL } from "../requisitionStatus";
 import StatusTag from "../../../components/ui/StatusTag";
 import EmptyState from "../../../components/ui/EmptyState";
+import { useTableScrollY } from "../../../app/useTableScrollY";
 
 const STATUS_OPTIONS: RequisitionStatus[] = [
     "DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "CHANGES_REQUESTED",
@@ -32,7 +33,6 @@ export default function RequisitionListPanel() {
     const currentUser = useAppSelector((state) => state.auth.user);
     const role = currentUser?.role as UserRole | undefined;
     const canCreateRequisition = !!role && DEPARTMENT_ROLES.includes(role);
-    const isHr = !!role && HR_ROLES.includes(role);
 
     const [requisitions, setRequisitions] = useState<JobRequisitionResponse[]>([]);
     const [totalItems, setTotalItems] = useState(0);
@@ -44,7 +44,6 @@ export default function RequisitionListPanel() {
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
     const [departments, setDepartments] = useState<CatalogItem[]>([]);
     const [loading, setLoading] = useState(false);
-    const [assignedToMeOnly, setAssignedToMeOnly] = useState(false);
 
     const [searchInput, setSearchInput] = useState("");
     const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -56,6 +55,8 @@ export default function RequisitionListPanel() {
 
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<JobRequisitionResponse | null>(null);
+
+    const { wrapRef, scrollY } = useTableScrollY([loading, requisitions.length]);
 
     // Debounce ô tìm kiếm
     useEffect(() => {
@@ -77,7 +78,6 @@ export default function RequisitionListPanel() {
                     status: filters.status,
                     departmentId: filters.departmentId,
                     keyword: filters.keyword || undefined,
-                    assignedToMe: assignedToMeOnly,
                     page: page - 1,
                     size: pageSize,
                 }),
@@ -103,7 +103,7 @@ export default function RequisitionListPanel() {
         } finally {
             setLoading(false);
         }
-    }, [message, assignedToMeOnly, filters, page, pageSize]);
+    }, [message, filters, page, pageSize]);
 
     useEffect(() => {
         loadAll();
@@ -119,48 +119,52 @@ export default function RequisitionListPanel() {
         setDetailOpen(true);
     };
 
-    const openEditFromDrawer = (item: JobRequisitionResponse) => {
+    const openEditFromModal = (item: JobRequisitionResponse) => {
         setDetailOpen(false);
         setEditingItem(item);
         setFormModalOpen(true);
     };
 
     const columns = [
-        { title: "Tiêu đề", dataIndex: "title", key: "title" },
+        { title: "Tiêu đề", dataIndex: "title", key: "title", ellipsis: true },
         {
             title: "Phòng ban",
             dataIndex: "departmentId",
             key: "departmentId",
+            width: 150,
             render: (id: number) => departmentMap[id] ?? "—",
         },
         {
             title: "Chức vụ",
             dataIndex: "jobTitleId",
             key: "jobTitleId",
+            width: 150,
             render: (id: number) => jobTitleMap[id] ?? "—",
         },
-        { title: "Số lượng", dataIndex: "quantity", key: "quantity" },
-        { title: "Người duyệt", dataIndex: "approverName", key: "approverName" },
+        { title: "SL", dataIndex: "quantity", key: "quantity", width: 60 },
+        { title: "Người duyệt", dataIndex: "approverName", key: "approverName", width: 150, ellipsis: true },
         {
             title: "Trạng thái",
             dataIndex: "status",
             key: "status",
+            width: 140,
             render: (status: RequisitionStatus) => <StatusTag color={REQUISITION_STATUS_COLOR[status]} label={REQUISITION_STATUS_LABEL[status]} />,
         },
         {
             title: "",
             key: "actions",
+            width: 100,
             render: (_: unknown, record: JobRequisitionResponse) => (
                 <Button type="link" onClick={() => openDetail(record)}>
-                    Xem chi tiết
+                    Chi tiết
                 </Button>
             ),
         },
     ];
 
     return (
-        <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12, flexShrink: 0 }}>
                 {canCreateRequisition && (
                     <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                         Tạo yêu cầu tuyển dụng
@@ -168,7 +172,7 @@ export default function RequisitionListPanel() {
                 )}
             </div>
 
-            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
                 <Input
                     prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
                     placeholder="Tìm theo tiêu đề..."
@@ -195,39 +199,37 @@ export default function RequisitionListPanel() {
                     onChange={(v) => { setFilters((f) => ({ ...f, departmentId: v })); setPage(1); }}
                     options={departments.map((d) => ({ value: d.id, label: String(d.name) }))}
                 />
-                {/* {isHr && (
-                    <Checkbox
-                        checked={assignedToMeOnly}
-                        onChange={(e) => { setAssignedToMeOnly(e.target.checked); setPage(1); }}
-                    >
-                        Chỉ chờ tôi duyệt
-                    </Checkbox>
-                )} */}
             </div>
 
-            <Table
-                rowKey="id"
-                loading={loading}
-                columns={columns}
-                dataSource={requisitions}
-                pagination={{
-                    current: page,
-                    pageSize,
-                    total: totalItems,
-                    showSizeChanger: true,
-                    pageSizeOptions: [10, 20, 50],
-                    showTotal: (total) => `Tổng ${total} yêu cầu`,
-                    onChange: (p, ps) => { setPage(p); setPageSize(ps); },
-                }}
-                locale={{
-                    emptyText: (
-                        <EmptyState
-                            title="Chưa có yêu cầu tuyển dụng nào"
-                            description="Tạo yêu cầu đầu tiên để gửi HR duyệt và mở tin tuyển dụng."
-                        />
-                    ),
-                }}
-            />
+            <div ref={wrapRef} className="table-scroll-wrap">
+                <Table
+                    rowKey="id"
+                    size="small"
+                    loading={loading}
+                    columns={columns}
+                    dataSource={requisitions}
+                    sticky
+                    scroll={{ y: scrollY }}
+                    pagination={{
+                        current: page,
+                        pageSize,
+                        total: totalItems,
+                        size: "small",
+                        showSizeChanger: true,
+                        pageSizeOptions: [10, 20, 50],
+                        showTotal: (total) => `Tổng ${total} yêu cầu`,
+                        onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                    }}
+                    locale={{
+                        emptyText: (
+                            <EmptyState
+                                title="Chưa có yêu cầu tuyển dụng nào"
+                                description="Tạo yêu cầu đầu tiên để gửi HR duyệt và mở tin tuyển dụng."
+                            />
+                        ),
+                    }}
+                />
+            </div>
 
             <RequisitionFormModal
                 open={formModalOpen}
@@ -236,7 +238,7 @@ export default function RequisitionListPanel() {
                 onSuccess={loadAll}
             />
 
-            <RequisitionDetailDrawer
+            <RequisitionDetailModal
                 open={detailOpen}
                 requisition={selectedItem}
                 departmentMap={departmentMap}
@@ -247,7 +249,7 @@ export default function RequisitionListPanel() {
                 workLocationMap={workLocationMap}
                 onClose={() => setDetailOpen(false)}
                 onChanged={loadAll}
-                onEdit={openEditFromDrawer}
+                onEdit={openEditFromModal}
             />
         </div>
     );

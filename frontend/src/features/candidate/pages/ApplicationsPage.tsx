@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type Key, type ReactNode } from "react";
-import { Table, Button, Space, Select, Modal, Form, Input, App, DatePicker, Card, Row, Col, Avatar } from "antd";
+import { Table, Button, Space, Select, Modal, Form, Input, App, DatePicker, Card, Row, Col, Avatar, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { AxiosError } from "axios";
 import type { Dayjs } from "dayjs";
@@ -19,6 +19,7 @@ import type { JobPostingResponse } from "../../recruitment/types";
 import type { CatalogItem, StageType } from "../../masterdata/types";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
+import { useTableScrollY } from "../../../app/useTableScrollY";
 import type { UserRole, UserSummaryResponse } from "../../auth/types";
 import { STAGE_TYPE_LABEL } from "../../../app/statusLabels";
 import { exportToExcel } from "../../../app/exportExcel";
@@ -133,6 +134,8 @@ export default function ApplicationsPage() {
     const [bulkForm] = Form.useForm();
     const [bulkAssignForm] = Form.useForm();
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
+    const { wrapRef, scrollY } = useTableScrollY([loading, rows.length]);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -283,7 +286,7 @@ export default function ApplicationsPage() {
         {
             title: "Ứng viên",
             key: "candidateName",
-            width: 200,
+            width: 170,
             render: (_, r, index) => (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Avatar
@@ -299,11 +302,14 @@ export default function ApplicationsPage() {
         {
             title: "Vị trí ứng tuyển",
             key: "jobTitle",
+            width: 150,
+            ellipsis: true,
             render: (_, r) => <span style={{ fontWeight: 500 }}>{r.jobTitle || `Job #${r.jobPostingId}`}</span>,
         },
         {
             title: "Giai đoạn",
             key: "stage",
+            width: 140,
             render: (_, r) => (
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: stageDotColor(r.currentStageType), flexShrink: 0 }} />
@@ -315,17 +321,22 @@ export default function ApplicationsPage() {
             title: "Người phụ trách",
             dataIndex: "assignedRecruiterName",
             key: "assignedRecruiterName",
+            width: 120,
+            ellipsis: true,
             render: (v: string | null) => v || <span style={{ color: COLORS.textMuted }}>—</span>,
         },
         {
             title: "Nguồn",
             dataIndex: "recruitmentSourceName",
             key: "recruitmentSourceName",
+            width: 100,
+            ellipsis: true,
         },
         {
             title: "Ngày nộp",
             dataIndex: "appliedAt",
             key: "appliedAt",
+            width: 95,
             render: (v: string) => (
                 <span style={{ fontSize: 13 }}>{new Date(v).toLocaleDateString("vi-VN")}</span>
             ),
@@ -334,11 +345,14 @@ export default function ApplicationsPage() {
             title: "CV",
             dataIndex: "resumeUrl",
             key: "resumeUrl",
+            width: 75,
             render: (url: string) =>
                 url ? (
-                    <a href={url} target="_blank" rel="noreferrer">
-                        <Button size="small" icon={<FileTextOutlined />}>Xem CV</Button>
-                    </a>
+                    <Tooltip title="Xem CV">
+                        <a href={url} target="_blank" rel="noreferrer">
+                            <Button size="small" icon={<FileTextOutlined />} />
+                        </a>
+                    </Tooltip>
                 ) : (
                     <span style={{ color: COLORS.textMuted }}>—</span>
                 ),
@@ -348,6 +362,7 @@ export default function ApplicationsPage() {
                 {
                     title: "Thao tác",
                     key: "actions",
+                    width: 140,
                     render: (_: unknown, r: ApplicationResponse) =>
                         r.currentStageType === "REJECTED" || r.currentStageType === "HIRED" ? null : (
                             <Space>
@@ -387,9 +402,9 @@ export default function ApplicationsPage() {
     };
 
     return (
-        <div className="page-container animate-fade-in">
+        <div className="page-shell animate-fade-in">
             {/* Header */}
-            <div className="page-header">
+            <div className="page-header page-shell-fixed" style={{ marginBottom: 16 }}>
                 <div className="page-header-title">
                     <div style={{
                         width: 44, height: 44, borderRadius: 12,
@@ -410,7 +425,7 @@ export default function ApplicationsPage() {
             </div>
 
             {/* KPI stat cards */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+            <Row gutter={[16, 16]} className="page-shell-fixed" style={{ marginBottom: 16 }}>
                 <Col xs={24} sm={12} md={8} lg={4}>
                     <StatCard title="Tổng hồ sơ" value={kpiStats.total} icon={<FolderOpenOutlined />} gradient={GRADIENTS.stat1} />
                 </Col>
@@ -428,8 +443,12 @@ export default function ApplicationsPage() {
                 </Col>
             </Row>
 
-            <Card style={{ border: "none" }}>
-                <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+            <Card
+                className="table-card-fill"
+                style={{ border: "none", flex: 1, minHeight: 0 }}
+                styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
+            >
+                <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", flexShrink: 0 }}>
                     <Select
                         allowClear
                         showSearch
@@ -481,7 +500,7 @@ export default function ApplicationsPage() {
                         style={{
                             display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
                             padding: "10px 16px", marginBottom: 16, background: "#EFF6FF",
-                            border: "1px solid #BFDBFE", borderRadius: 8,
+                            border: "1px solid #BFDBFE", borderRadius: 8, flexShrink: 0,
                         }}
                     >
                         <span>Đã chọn {selectedRowKeys.length} hồ sơ</span>
@@ -500,28 +519,32 @@ export default function ApplicationsPage() {
                     </div>
                 )}
 
-                <Table
-                    rowKey="id"
-                    loading={loading}
-                    columns={columns}
-                    dataSource={rows}
-                    rowSelection={isHr ? {
-                        selectedRowKeys,
-                        onChange: setSelectedRowKeys,
-                    } : undefined}
-                    pagination={{
-                        current: page,
-                        pageSize,
-                        total: totalItems,
-                        size: "small",
-                        showSizeChanger: true,
-                        pageSizeOptions: [10, 20, 50],
-                        showTotal: (total) => `Tổng ${total} hồ sơ`,
-                        onChange: (p, ps) => { setPage(p); setPageSize(ps); },
-                    }}
-                    scroll={{ x: 1000 }}
-                    rowHoverable
-                />
+                <div ref={wrapRef} className="table-scroll-wrap">
+                    <Table
+                        rowKey="id"
+                        size="small"
+                        loading={loading}
+                        columns={columns}
+                        dataSource={rows}
+                        sticky
+                        scroll={{ y: scrollY }}
+                        rowSelection={isHr ? {
+                            selectedRowKeys,
+                            onChange: setSelectedRowKeys,
+                        } : undefined}
+                        pagination={{
+                            current: page,
+                            pageSize,
+                            total: totalItems,
+                            size: "small",
+                            showSizeChanger: true,
+                            pageSizeOptions: [10, 20, 50],
+                            showTotal: (total) => `Tổng ${total} hồ sơ`,
+                            onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                        }}
+                        rowHoverable
+                    />
+                </div>
             </Card>
 
             <Modal

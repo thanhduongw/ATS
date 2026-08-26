@@ -15,7 +15,7 @@ export interface InterviewResponse {
   scheduledAt: string;
   durationMinutes: number;
   format: InterviewFormat;
-  location: string | null;
+  workLocationId: number | null;
   meetingLink: string | null;
   note: string | null;
   status: InterviewStatus;
@@ -28,7 +28,7 @@ export interface InterviewCreateRequest {
   scheduledAt: string;
   durationMinutes: number;
   format: InterviewFormat;
-  location?: string | null;
+  workLocationId?: number | null;
   meetingLink?: string | null;
   note?: string | null;
   interviewerIds: number[];

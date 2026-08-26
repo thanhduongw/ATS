@@ -37,8 +37,9 @@ export default function NotificationsPage() {
     }, [load]);
 
     return (
-        <div className="page-container">
+        <div className="page-shell">
             <div
+                className="page-shell-fixed"
                 style={{
                     display: "flex",
                     justifyContent: "space-between",
@@ -57,7 +58,10 @@ export default function NotificationsPage() {
                     Đánh dấu tất cả đã đọc
                 </Button>
             </div>
-            <Card>
+            <Card
+                style={{ flex: 1, minHeight: 0 }}
+                styles={{ body: { height: "100%", overflowY: "auto" } }}
+            >
                 <List
                     loading={loading}
                     dataSource={items}

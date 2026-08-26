@@ -6,6 +6,7 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { confirmSlot, getMyPendingSlots } from "../schedulingApi";
+import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { InterviewSlotResponse } from "../schedulingTypes";
 import { useI18n } from "../../../i18n/useI18n";
 import { COLORS, GRADIENTS } from "../../../app/theme";
@@ -19,11 +20,12 @@ function formatDateHeading(iso: string) {
     return `${VI_WEEKDAYS[d.day()]}, ${d.format("DD/MM/YYYY")}`;
 }
 
-function SlotItem({ slot, onConfirm, busy, t }: {
+function SlotItem({ slot, onConfirm, busy, t, workLocationMap }: {
     slot: InterviewSlotResponse;
     onConfirm: (id: number, available: boolean) => void;
     busy: boolean;
     t: (key: string) => string;
+    workLocationMap: Record<number, string>;
 }) {
     return (
         <div style={{
@@ -59,8 +61,8 @@ function SlotItem({ slot, onConfirm, busy, t }: {
                     </span>
                     {slot.format === "ONLINE" && slot.meetingLink ? (
                         <a href={slot.meetingLink} target="_blank" rel="noopener noreferrer">Link họp</a>
-                    ) : slot.location ? (
-                        <span>{slot.location}</span>
+                    ) : slot.workLocationId ? (
+                        <span>{workLocationMap[slot.workLocationId] ?? "—"}</span>
                     ) : null}
                     <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
                         {slot.candidateConfirmed
@@ -98,12 +100,19 @@ export default function SlotConfirmationPanel() {
     const [slots, setSlots] = useState<InterviewSlotResponse[]>([]);
     const [loading, setLoading] = useState(false);
     const [confirmingId, setConfirmingId] = useState<number | null>(null);
+    const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
 
     const load = () => {
         setLoading(true);
         getMyPendingSlots().then((r) => setSlots(r.data)).finally(() => setLoading(false));
     };
     useEffect(load, []);
+
+    useEffect(() => {
+        getCatalogItems("/masterdata/work-locations").then((res) => {
+            setWorkLocationMap(Object.fromEntries(res.data.map((w) => [w.id, String(w.name)])));
+        });
+    }, []);
 
     const handleConfirm = async (id: number, available: boolean) => {
         setConfirmingId(id);
@@ -176,7 +185,7 @@ export default function SlotConfirmationPanel() {
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {daySlots.map((s) => (
-                            <SlotItem key={s.id} slot={s} onConfirm={handleConfirm} busy={confirmingId === s.id} t={t} />
+                            <SlotItem key={s.id} slot={s} onConfirm={handleConfirm} busy={confirmingId === s.id} t={t} workLocationMap={workLocationMap} />
                         ))}
                     </div>
                 </div>

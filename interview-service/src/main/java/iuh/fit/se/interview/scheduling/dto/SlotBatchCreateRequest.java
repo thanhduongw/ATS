@@ -12,7 +12,7 @@ public record SlotBatchCreateRequest(
         Long applicationId,
         @NotNull(message = "Hình thức phỏng vấn không được để trống")
         InterviewFormat format,
-        String location,
+        Long workLocationId,
         String meetingLink,
         @NotEmpty(message = "Danh sách khung giờ không được để trống")
         List<@Valid SlotTimeDto> slots

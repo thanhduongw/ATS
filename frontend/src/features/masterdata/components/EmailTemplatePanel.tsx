@@ -218,7 +218,7 @@ export default function EmailTemplatePanel({ config }: Props) {
                 }
             />
 
-            <Table rowKey="id" loading={loading} columns={columns} dataSource={items} pagination={{ pageSize: 10 }} />
+            <Table rowKey="id" size="small" loading={loading} columns={columns} dataSource={items} pagination={{ pageSize: 10, size: "small" }} />
 
             <Modal
                 title={editingItem ? `Sửa ${config.title.toLowerCase()}` : `Thêm ${config.title.toLowerCase()}`}

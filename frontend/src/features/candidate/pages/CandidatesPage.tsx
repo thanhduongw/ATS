@@ -9,13 +9,16 @@ import type { AxiosError } from "axios";
 import type { ColumnsType } from "antd/es/table";
 import { getCandidates } from "../candidateApi";
 import { getApplications, bulkAdvanceApplicationStage, bulkRejectApplications } from "../applicationApi";
-import { getCatalogItems } from "../../masterdata/masterdataApi";
+import { getCatalogItems, getPipelines } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
+import { getPostings } from "../../recruitment/recruitmentApi";
 import type { ApiMessageResponse, CandidateResponse, ApplicationResponse, CandidateWithApplications, BulkOperationResponse } from "../types";
 import CandidateFormModal from "../components/CandidateFormModal";
 import AiScoreBadge from "../../../components/AiScoreBadge";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 import { exportToExcel } from "../../../app/exportExcel";
+import { useAppSelector } from "../../../app/hooks";
+import { HR_ROLES } from "../../../app/roles";
 
 interface StatCardProps {
     title: string;
@@ -74,6 +77,8 @@ function getAiScore(_record: CandidateWithApplications): number | undefined {
 export default function CandidatesPage() {
     const { notification, message, modal } = App.useApp();
     const navigate = useNavigate();
+    const role = useAppSelector((s) => s.auth.user?.role);
+    const isHr = !!role && HR_ROLES.includes(role);
     const [candidates, setCandidates] = useState<CandidateResponse[]>([]);
     const [totalCandidates, setTotalCandidates] = useState(0);
     const [allApplications, setAllApplications] = useState<ApplicationResponse[]>([]);
@@ -90,6 +95,9 @@ export default function CandidatesPage() {
 
     const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
     const [rejectReasons, setRejectReasons] = useState<CatalogItem[]>([]);
+    const [allDepartments, setAllDepartments] = useState<CatalogItem[]>([]);
+    const [allPositions, setAllPositions] = useState<string[]>([]);
+    const [allStatuses, setAllStatuses] = useState<string[]>([]);
     const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
     const [bulkRejectForm] = Form.useForm();
@@ -105,6 +113,11 @@ export default function CandidatesPage() {
 
     useEffect(() => {
         getCatalogItems("/masterdata/rejection-reasons").then((r) => setRejectReasons(r.data));
+        getCatalogItems("/masterdata/departments").then((r) => setAllDepartments(r.data));
+        getPostings({ size: 1000 }).then((r) =>
+            setAllPositions(Array.from(new Set(r.data.content.map((p) => p.title))).sort()));
+        getPipelines().then((r) =>
+            setAllStatuses(Array.from(new Set(r.data.flatMap((p) => p.stages.map((s) => s.name)))).sort()));
     }, []);
 
     const loadData = useCallback(async () => {
@@ -187,19 +200,30 @@ export default function CandidatesPage() {
             if (!candidateIdsByDept.has(app.departmentName)) candidateIdsByDept.set(app.departmentName, new Set());
             candidateIdsByDept.get(app.departmentName)!.add(app.candidateId);
         }
-        return Array.from(candidateIdsByDept.entries())
-            .map(([name, ids]) => ({ name, count: ids.size }))
-            .sort((a, b) => b.count - a.count);
+        return candidateIdsByDept;
     }, [allApplications]);
 
-    // ── Danh sách vị trí / trạng thái thực tế để đổ vào bộ lọc ──
+    // ── Tùy chọn bộ lọc: đầy đủ tất cả phòng ban / vị trí / trạng thái đang có của công ty,
+    // kể cả những mục chưa có ứng viên nào ứng tuyển ──
+    const departmentOptions = useMemo(() => {
+        const names = new Set<string>(allDepartments.map((d) => String(d.name)));
+        for (const name of departmentBreakdown.keys()) names.add(name);
+        return Array.from(names)
+            .map((name) => ({ name, count: departmentBreakdown.get(name)?.size ?? 0 }))
+            .sort((a, b) => b.count - a.count);
+    }, [allDepartments, departmentBreakdown]);
+
     const positionOptions = useMemo(() => {
-        return Array.from(new Set(allApplications.map((a) => a.jobTitle).filter((v): v is string => !!v))).sort();
-    }, [allApplications]);
+        const names = new Set(allPositions);
+        for (const a of allApplications) if (a.jobTitle) names.add(a.jobTitle);
+        return Array.from(names).sort();
+    }, [allPositions, allApplications]);
 
     const statusOptions = useMemo(() => {
-        return Array.from(new Set(allApplications.map((a) => a.currentStageName).filter(Boolean))).sort();
-    }, [allApplications]);
+        const names = new Set(allStatuses);
+        for (const a of allApplications) if (a.currentStageName) names.add(a.currentStageName);
+        return Array.from(names).sort();
+    }, [allStatuses, allApplications]);
 
     /** ID của đơn ứng tuyển gần nhất cho mỗi ứng viên đang được chọn (bỏ qua ứng viên chưa ứng tuyển). */
     const getSelectedApplicationIds = () => {
@@ -416,10 +440,12 @@ export default function CandidatesPage() {
                     <Button icon={<DownloadOutlined />} size="large" onClick={handleExportExcel}>
                         Xuất Excel
                     </Button>
-                    <Button type="primary" icon={<PlusOutlined />} size="large"
-                        onClick={() => setFormModalOpen(true)}>
-                        Thêm ứng viên
-                    </Button>
+                    {isHr && (
+                        <Button type="primary" icon={<PlusOutlined />} size="large"
+                            onClick={() => setFormModalOpen(true)}>
+                            Thêm ứng viên
+                        </Button>
+                    )}
                 </Space>
             </div>
 
@@ -459,7 +485,7 @@ export default function CandidatesPage() {
                         style={{ width: 180 }}
                         value={departmentFilter}
                         onChange={(v) => { setDepartmentFilter(v ?? null); setPage(1); }}
-                        options={departmentBreakdown.map((d) => ({ value: d.name, label: `${d.name} (${d.count})` }))}
+                        options={departmentOptions.map((d) => ({ value: d.name, label: `${d.name} (${d.count})` }))}
                     />
                     <Select
                         allowClear
@@ -483,7 +509,7 @@ export default function CandidatesPage() {
                     )}
                 </div>
 
-                {selectedRowKeys.length > 0 && (
+                {isHr && selectedRowKeys.length > 0 && (
                     <div
                         style={{
                             display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
@@ -509,10 +535,10 @@ export default function CandidatesPage() {
                     loading={loading}
                     columns={columns}
                     dataSource={visibleCandidates}
-                    rowSelection={{
+                    rowSelection={isHr ? {
                         selectedRowKeys,
                         onChange: setSelectedRowKeys,
-                    }}
+                    } : undefined}
                     onRow={(record) => {
                         const primary = record.applications[0];
                         return {

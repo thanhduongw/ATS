@@ -59,8 +59,8 @@ export default function AppLayout() {
         COMPANY_ADMIN: [all.dashboard, all.masterdata, all.recruitment, all.candidates, all.applications, all.scheduling, all.interviews, all.offers, all.audit, all.settings],
         RECRUITER: [all.dashboard, all.masterdata, all.recruitment, all.candidates,
         // all.applications,
-        all.scheduling, all.interviews, all.offers, all.settings],
-        HIRING_MANAGER: [all.dashboard, all.recruitment, all.applications, all.scheduling, all.interviews, all.offers, all.settings,],
+        all.interviews, all.offers, all.settings],
+        HIRING_MANAGER: [all.dashboard, all.recruitment, all.candidates, all.interviews, all.offers, all.settings,],
         CANDIDATE: [all.jobs, all.myApplications, all.scheduling],
     };
 

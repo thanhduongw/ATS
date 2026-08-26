@@ -17,6 +17,7 @@ import CandidatesPage from "../features/candidate/pages/CandidatesPage";
 import CandidateApplicationDetailPage from "../features/candidate/pages/CandidateApplicationDetailPage";
 import ApplicationsPage from "../features/candidate/pages/ApplicationsPage";
 import InterviewsPage from "../features/interview/pages/InterviewsPage";
+import InterviewCalendar from "../features/interview/components/InterviewCalendar";
 import InterviewSchedulingPage from "../features/interview/pages/InterviewSchedulingPage";
 import OffersPage from "../features/offer/pages/OffersPage";
 import OfferCandidateViewPage from "../features/offer/pages/OfferCandidateViewPage";
@@ -56,14 +57,14 @@ export default function AppRoutes() {
 
                     <Route element={<RoleRoute allow={[...HR_ROLES]} />}>
                         <Route path="/masterdata" element={<MasterDataPage />} />
-                        <Route path="/candidates" element={<CandidatesPage />} />
                     </Route>
 
                     <Route element={<RoleRoute allow={[...HR_ROLES, ...DEPARTMENT_ROLES]} />}>
+                        <Route path="/candidates" element={<CandidatesPage />} />
                         <Route path="/candidates/:candidateId/applications/:applicationId" element={<CandidateApplicationDetailPage />} />
                         <Route path="/recruitment" element={<RecruitmentPage />} />
                         <Route path="/applications" element={<ApplicationsPage />} />
-                        <Route path="/interviews" element={<InterviewsPage />} />
+                        <Route path="/interviews" element={<InterviewCalendar />} />
                         <Route path="/interviews/:interviewId/result" element={<InterviewsPage />} />
                         <Route path="/offers" element={<OffersPage />} />
                     </Route>

@@ -5,6 +5,7 @@ import {
     Modal,
     Form,
     Input,
+    Select,
     Tag,
     Popconfirm,
     Typography,
@@ -26,6 +27,24 @@ import {
 const { Title, Text, Paragraph } = Typography;
 
 const SAMPLE_KEYS = ["title", "message", "recipientName", "resourceType", "resourceId"];
+
+/** Phải khớp CHÍNH XÁC enum NotificationType bên notification-service — đây là khóa tra cứu template khi gửi email thật. */
+const NOTIFICATION_TYPE_CODES = [
+    "REQUISITION_PENDING_APPROVAL",
+    "APPLICATION_CREATED",
+    "APPLICATION_STAGE_CHANGED",
+    "APPLICATION_REJECTED",
+    "INTERVIEW_SCHEDULED",
+    "INTERVIEW_CONFIRMED",
+    "INTERVIEW_REMINDER",
+    "EVALUATION_INCOMPLETE_REMINDER",
+    "OFFER_PENDING_CONFIRMATION",
+    "OFFER_READY_FOR_CANDIDATE",
+    "OFFER_ACCEPTED",
+    "OFFER_DECLINED",
+    "APPLICATION_COMMENT_MENTION",
+    "APPLICATION_STALE_REMINDER",
+];
 
 interface Props {
     config: CatalogConfig;
@@ -218,7 +237,16 @@ export default function EmailTemplatePanel({ config }: Props) {
                             label={field.label}
                             rules={field.required ? [{ required: true, message: `${field.label} không được để trống` }] : []}
                         >
-                            {field.type === "textarea" ? <Input.TextArea rows={4} /> : <Input />}
+                            {field.name === "code" ? (
+                                <Select
+                                    placeholder="Chọn loại thông báo cần gửi email"
+                                    options={NOTIFICATION_TYPE_CODES.map((c) => ({ value: c, label: c }))}
+                                />
+                            ) : field.type === "textarea" ? (
+                                <Input.TextArea rows={4} />
+                            ) : (
+                                <Input />
+                            )}
                         </Form.Item>
                     ))}
                 </Form>

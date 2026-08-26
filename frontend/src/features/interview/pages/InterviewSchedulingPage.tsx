@@ -198,9 +198,7 @@ export default function InterviewSchedulingPage() {
                         </div>
                     </div>
                 </div>
-                <Card style={{ border: "none" }}>
-                    <SlotConfirmationPanel />
-                </Card>
+                <SlotConfirmationPanel />
             </div>
         );
     }

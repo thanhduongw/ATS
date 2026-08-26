@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-    App, Card, Row, Col, Tag, Button, Space, Input, Spin, Avatar, Timeline, Empty,
+    App, Card, Row, Col, Tag, Button, Space, Spin, Avatar, Timeline, Empty, Popconfirm,
 } from "antd";
 import {
-    ArrowLeftOutlined, CalendarOutlined, DollarOutlined, CommentOutlined, SwapOutlined, SendOutlined,
+    ArrowLeftOutlined, CalendarOutlined, DollarOutlined, CommentOutlined, SwapOutlined,
     DownloadOutlined, ExpandOutlined, RobotOutlined, CheckCircleOutlined, CloseCircleOutlined,
     FileUnknownOutlined, MailOutlined, PhoneOutlined, EnvironmentOutlined, IdcardOutlined,
+    VideoCameraOutlined, LinkOutlined, TeamOutlined, ClockCircleOutlined, StopOutlined,
 } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import {
-    getApplicationById, advanceApplicationStage, getApplicationHistory, getApplicationComments, addApplicationComment,
+    getApplicationById, advanceApplicationStage, getApplicationHistory, getApplicationComments,
 } from "../applicationApi";
-import { getCandidateById, updateCandidate } from "../candidateApi";
+import { getCandidateById } from "../candidateApi";
+import { getPostingById } from "../../recruitment/recruitmentApi";
+import { getPipelines } from "../../masterdata/masterdataApi";
+import type { PipelineStageResponse } from "../../masterdata/types";
 import type {
     ApiMessageResponse, ApplicationResponse, CandidateResponse,
     ApplicationHistoryResponse, ApplicationCommentResponse,
@@ -20,10 +24,12 @@ import type {
 import RejectApplicationModal from "../components/RejectApplicationModal";
 import InterviewCreateModal from "../../interview/components/InterviewCreateModal";
 import OfferCreateModal from "../../offer/components/OfferCreateModal";
-import { COLORS } from "../../../app/theme";
-import { stageTypeTagColor } from "../../../app/statusLabels";
-
-const { TextArea } = Input;
+import { getInterviews, cancelInterview } from "../../interview/interviewApi";
+import type { InterviewResponse } from "../../interview/types";
+import { COLORS, SHADOWS } from "../../../app/theme";
+import { stageTypeTagColor, INTERVIEW_STATUS, statusMeta } from "../../../app/statusLabels";
+import { useAppSelector } from "../../../app/hooks";
+import { HR_ROLES } from "../../../app/roles";
 
 interface ActivityItem {
     kind: "history" | "comment";
@@ -54,27 +60,62 @@ function SectionCard({ title, extra, children }: { title: ReactNode; extra?: Rea
     );
 }
 
+/** Thanh tiến trình quy trình tuyển dụng — bước đã qua (xanh nhạt), bước hiện tại (xanh đậm, nổi bật), bước sau (xám). */
+function PipelineStepper({ stages, currentStageId, rejected }: {
+    stages: PipelineStageResponse[]; currentStageId: number; rejected: boolean;
+}) {
+    const currentIndex = stages.findIndex((s) => s.id === currentStageId);
+    return (
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+            {stages.map((stage, index) => {
+                const isPast = !rejected && currentIndex >= 0 && index < currentIndex;
+                const isActive = !rejected && index === currentIndex;
+                return (
+                    <div key={stage.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+                        <div style={{
+                            width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 13, fontWeight: 700, border: "2px solid #fff",
+                            background: rejected ? "#FEE2E2" : isActive ? COLORS.primaryLight : isPast ? "#DCFCE7" : "#E5E7EB",
+                            color: rejected ? COLORS.error : isActive ? "#fff" : isPast ? COLORS.primaryDark : COLORS.textMuted,
+                            boxShadow: isActive ? `0 0 0 4px rgba(16, 185, 129, 0.15)` : undefined,
+                        }}>
+                            {rejected ? <CloseCircleOutlined /> : isPast ? <CheckCircleOutlined /> : index + 1}
+                        </div>
+                        <div style={{
+                            fontSize: 12, textAlign: "center", lineHeight: 1.3,
+                            fontWeight: isActive ? 700 : isPast ? 600 : 500,
+                            color: rejected ? COLORS.error : isActive ? COLORS.primaryLight : isPast ? COLORS.primaryDark : COLORS.textMuted,
+                        }}>
+                            {stage.name}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 export default function CandidateApplicationDetailPage() {
     const { applicationId: applicationIdParam } = useParams();
     const navigate = useNavigate();
     const { message } = App.useApp();
+    const role = useAppSelector((s) => s.auth.user?.role);
+    const isHr = !!role && HR_ROLES.includes(role);
 
     const [application, setApplication] = useState<ApplicationResponse | null>(null);
     const [candidate, setCandidate] = useState<CandidateResponse | null>(null);
+    const [stages, setStages] = useState<PipelineStageResponse[]>([]);
     const [history, setHistory] = useState<ApplicationHistoryResponse[]>([]);
     const [comments, setComments] = useState<ApplicationCommentResponse[]>([]);
+    const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
+    const [cancelingInterviewId, setCancelingInterviewId] = useState<number | null>(null);
 
     const [interviewModalOpen, setInterviewModalOpen] = useState(false);
     const [offerModalOpen, setOfferModalOpen] = useState(false);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
-
-    const [noteDraft, setNoteDraft] = useState("");
-    const [savingNote, setSavingNote] = useState(false);
-
-    const [newComment, setNewComment] = useState("");
-    const [postingComment, setPostingComment] = useState(false);
 
     const applicationId = Number(applicationIdParam);
 
@@ -84,15 +125,20 @@ export default function CandidateApplicationDetailPage() {
         try {
             const appRes = await getApplicationById(applicationId);
             setApplication(appRes.data);
-            const candRes = await getCandidateById(appRes.data.candidateId);
-            setCandidate(candRes.data);
-            setNoteDraft(candRes.data.internalNote ?? "");
-            const [historyRes, commentsRes] = await Promise.all([
+            const [candRes, postingRes, pipelineListRes, historyRes, commentsRes, interviewsRes] = await Promise.all([
+                getCandidateById(appRes.data.candidateId),
+                getPostingById(appRes.data.jobPostingId),
+                getPipelines(),
                 getApplicationHistory(applicationId),
                 getApplicationComments(applicationId),
+                getInterviews(applicationId),
             ]);
+            setCandidate(candRes.data);
+            const pipeline = pipelineListRes.data.find((p) => p.id === postingRes.data.pipelineId);
+            setStages(pipeline ? [...pipeline.stages].sort((a, b) => a.stageOrder - b.stageOrder) : []);
             setHistory(historyRes.data);
             setComments(commentsRes.data);
+            setInterviews([...interviewsRes.data].sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()));
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
             message.error(e.response?.data?.message ?? "Không tải được hồ sơ ứng tuyển");
@@ -118,45 +164,17 @@ export default function CandidateApplicationDetailPage() {
         }
     };
 
-    const handleSaveNote = async () => {
-        if (!candidate) return;
-        setSavingNote(true);
+    const handleCancelInterview = async (interviewId: number) => {
+        setCancelingInterviewId(interviewId);
         try {
-            await updateCandidate(candidate.id, {
-                fullName: candidate.fullName,
-                email: candidate.email,
-                phone: candidate.phone,
-                dateOfBirth: candidate.dateOfBirth,
-                gender: candidate.gender,
-                address: candidate.address,
-                currentPosition: candidate.currentPosition,
-                educationLevelId: candidate.educationLevelId,
-                skillIds: candidate.skillIds,
-                internalNote: noteDraft,
-                customFields: candidate.customFields,
-            });
-            message.success("Đã lưu ghi chú");
+            await cancelInterview(interviewId);
+            message.success("Đã hủy lịch phỏng vấn");
             loadAll();
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
-            message.error(e.response?.data?.message ?? "Không lưu được ghi chú");
+            message.error(e.response?.data?.message ?? "Không hủy được lịch phỏng vấn");
         } finally {
-            setSavingNote(false);
-        }
-    };
-
-    const handlePostComment = async () => {
-        if (!application || !newComment.trim()) return;
-        setPostingComment(true);
-        try {
-            await addApplicationComment(application.id, newComment.trim());
-            setNewComment("");
-            loadAll();
-        } catch (err) {
-            const e = err as AxiosError<ApiMessageResponse>;
-            message.error(e.response?.data?.message ?? "Không gửi được bình luận");
-        } finally {
-            setPostingComment(false);
+            setCancelingInterviewId(null);
         }
     };
 
@@ -176,7 +194,18 @@ export default function CandidateApplicationDetailPage() {
         );
     }
 
-    const isTerminal = application.currentStageType === "HIRED" || application.currentStageType === "REJECTED";
+    const isRejected = application.currentStageType === "REJECTED";
+    const isHired = application.currentStageType === "HIRED";
+    const isTerminal = isHired || isRejected;
+
+    const mainStages = stages.filter((s) => s.stageType !== "REJECTED");
+    const currentStageIndex = mainStages.findIndex((s) => s.id === application.currentStageId);
+    const nextStage = currentStageIndex >= 0 && currentStageIndex < mainStages.length - 1
+        ? mainStages[currentStageIndex + 1] : null;
+
+    // Nút hành động chỉ hiện đúng theo trạng thái hồ sơ: PV khi chưa tới vòng Offer, Offer chỉ khi đang ở vòng Offer.
+    const showInterviewBtn = !isTerminal && application.currentStageType !== "OFFER";
+    const showOfferBtn = application.currentStageType === "OFFER";
 
     const activity: ActivityItem[] = [
         ...history.map((h) => ({
@@ -214,15 +243,21 @@ export default function CandidateApplicationDetailPage() {
 
     return (
         <div className="page-container animate-fade-in">
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, gap: 16, flexWrap: "wrap" }}>
+            {/* Header — dính lại trên cùng khi cuộn trang. Trái: định danh ứng viên. Phải: thanh hành động xếp 2 hàng theo mức ưu tiên. */}
+            <div style={{
+                position: "sticky", top: 0, zIndex: 2,
+                background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 16,
+                boxShadow: SHADOWS.card,
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                gap: 16, flexWrap: "wrap", padding: "16px 20px", marginBottom: 20,
+            }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Quay lại</Button>
-                    <Avatar size={48} style={{ background: COLORS.primary, color: "#fff", fontWeight: 600, fontSize: 16 }}>
+                    <Avatar size={48} style={{ background: COLORS.primary, color: "#fff", fontWeight: 600, fontSize: 16, flexShrink: 0 }}>
                         {getInitials(candidate.fullName)}
                     </Avatar>
                     <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{candidate.fullName}</h2>
                             <Tag color={stageTypeTagColor(application.currentStageType)} style={{ borderRadius: 6 }}>
                                 {application.currentStageName}
@@ -234,16 +269,125 @@ export default function CandidateApplicationDetailPage() {
                         </div>
                     </div>
                 </div>
-                <Space wrap>
-                    <Button type="primary" icon={<CalendarOutlined />} onClick={() => setInterviewModalOpen(true)}>
-                        Lên lịch phỏng vấn
-                    </Button>
-                    <Button icon={<DollarOutlined />} style={{ background: "#722ed1", color: "#fff", borderColor: "#722ed1" }}
-                        onClick={() => setOfferModalOpen(true)}>
-                        Tạo Offer
-                    </Button>
-                </Space>
+
+                {isHired ? (
+                    <Tag color="success" style={{ borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, margin: 0 }}>
+                        <CheckCircleOutlined /> Đã tuyển dụng thành công
+                    </Tag>
+                ) : isRejected ? (
+                    <Tag color="error" style={{ borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, margin: 0 }}>
+                        <CloseCircleOutlined /> Hồ sơ đã bị từ chối
+                    </Tag>
+                ) : isHr ? (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                        <Space wrap size={8}>
+                            <Button type="text" danger icon={<CloseCircleOutlined />} onClick={() => setRejectModalOpen(true)}>
+                                Từ chối hồ sơ
+                            </Button>
+                            <Button type="primary" icon={<CheckCircleOutlined />} loading={actionLoading} onClick={handlePass}>
+                                {nextStage ? `Chuyển sang "${nextStage.name}"` : "Chuyển vòng tiếp theo"}
+                            </Button>
+                        </Space>
+                        {(showInterviewBtn || showOfferBtn) && (
+                            <Space wrap size={8}>
+                                {showInterviewBtn && (
+                                    <Button icon={<CalendarOutlined />} onClick={() => setInterviewModalOpen(true)}>
+                                        Lên lịch phỏng vấn
+                                    </Button>
+                                )}
+                                {showOfferBtn && (
+                                    <Button icon={<DollarOutlined />} style={{ background: "#722ed1", color: "#fff", borderColor: "#722ed1" }}
+                                        onClick={() => setOfferModalOpen(true)}>
+                                        Tạo Offer
+                                    </Button>
+                                )}
+                            </Space>
+                        )}
+                    </div>
+                ) : null}
             </div>
+
+            {/* Pipeline stepper */}
+            {mainStages.length > 0 && (
+                <Card style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 20 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, marginBottom: 16, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                        Quy trình tuyển dụng
+                    </div>
+                    <PipelineStepper stages={mainStages} currentStageId={application.currentStageId} rejected={isRejected} />
+                </Card>
+            )}
+
+            {/* Lịch phỏng vấn — hiện lại ngay sau khi tạo, không còn "biến mất" sau khi đóng modal */}
+            <SectionCard title="Lịch phỏng vấn">
+                {interviews.length === 0 ? (
+                    <div style={{ color: COLORS.textMuted, fontSize: 13, textAlign: "center", padding: "16px 0" }}>
+                        Chưa có lịch phỏng vấn nào cho hồ sơ này.
+                    </div>
+                ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {interviews.map((iv) => {
+                            const meta = statusMeta(INTERVIEW_STATUS, iv.status);
+                            const cancellable = iv.status === "SCHEDULED" || iv.status === "CONFIRMED";
+                            const scheduled = new Date(iv.scheduledAt);
+                            return (
+                                <div key={iv.id} style={{
+                                    display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16,
+                                    padding: "14px 16px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: "#F9FAFB",
+                                }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                                            <span style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
+                                                <CalendarOutlined style={{ color: COLORS.textMuted }} />
+                                                {scheduled.toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}
+                                            </span>
+                                            <Tag color={meta.color} style={{ borderRadius: 6, margin: 0 }}>{meta.label}</Tag>
+                                        </div>
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 13, color: COLORS.textSecondary }}>
+                                            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                <ClockCircleOutlined /> {iv.durationMinutes} phút
+                                            </span>
+                                            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                <VideoCameraOutlined /> {iv.format === "ONLINE" ? "Online" : "Offline"}
+                                            </span>
+                                            {iv.format === "ONLINE" && iv.meetingLink ? (
+                                                <a href={iv.meetingLink} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                    <LinkOutlined /> Link họp
+                                                </a>
+                                            ) : iv.location ? (
+                                                <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                    <EnvironmentOutlined /> {iv.location}
+                                                </span>
+                                            ) : null}
+                                            {iv.interviewers.length > 0 && (
+                                                <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                    <TeamOutlined /> {iv.interviewers.map((p) => p.fullName).join(", ")}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {iv.note && (
+                                            <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 6 }}>{iv.note}</div>
+                                        )}
+                                    </div>
+                                    {isHr && cancellable && (
+                                        <Popconfirm
+                                            title="Hủy lịch phỏng vấn này?"
+                                            description="Ứng viên và người phỏng vấn sẽ nhận được thông báo hủy."
+                                            okText="Hủy lịch"
+                                            cancelText="Đóng"
+                                            okButtonProps={{ danger: true }}
+                                            onConfirm={() => handleCancelInterview(iv.id)}
+                                        >
+                                            <Button size="small" danger icon={<StopOutlined />} loading={cancelingInterviewId === iv.id}>
+                                                Hủy lịch
+                                            </Button>
+                                        </Popconfirm>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </SectionCard>
 
             <Row gutter={20}>
                 <Col xs={24} lg={12}>
@@ -350,69 +494,7 @@ export default function CandidateApplicationDetailPage() {
                 )}
             </SectionCard>
 
-            <Row gutter={20}>
-                <Col xs={24} lg={12}>
-                    <SectionCard title="Ghi chú của Recruiter">
-                        <TextArea
-                            rows={4}
-                            placeholder="Ghi chú nội bộ về ứng viên..."
-                            value={noteDraft}
-                            onChange={(e) => setNoteDraft(e.target.value)}
-                        />
-                        <Button
-                            type="primary"
-                            style={{ marginTop: 12 }}
-                            loading={savingNote}
-                            onClick={handleSaveNote}
-                        >
-                            Lưu ghi chú
-                        </Button>
-                    </SectionCard>
-                </Col>
-                <Col xs={24} lg={12}>
-                    <SectionCard title="Cập nhật đơn ứng tuyển">
-                        {isTerminal ? (
-                            <div style={{ color: COLORS.textMuted, fontSize: 13 }}>
-                                Hồ sơ đã kết thúc quy trình tuyển dụng ({application.currentStageName}).
-                            </div>
-                        ) : (
-                            <>
-                                <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 12 }}>
-                                    Thay đổi trạng thái sẽ tự động gửi email thông báo cho ứng viên.
-                                </div>
-                                <Space wrap>
-                                    <Button type="primary" icon={<CheckCircleOutlined />} loading={actionLoading} onClick={handlePass}>
-                                        Chuyển vòng & thông báo
-                                    </Button>
-                                    <Button danger icon={<CloseCircleOutlined />} onClick={() => setRejectModalOpen(true)}>
-                                        Từ chối hồ sơ
-                                    </Button>
-                                </Space>
-                            </>
-                        )}
-                    </SectionCard>
-                </Col>
-            </Row>
-
             <SectionCard title="Lịch sử hoạt động">
-                <Space.Compact style={{ width: "100%", marginBottom: 20 }}>
-                    <TextArea
-                        rows={2}
-                        placeholder="Viết bình luận... (dùng @Họ Tên để nhắc đồng nghiệp)"
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                    />
-                    <Button
-                        type="primary"
-                        icon={<SendOutlined />}
-                        loading={postingComment}
-                        disabled={!newComment.trim()}
-                        onClick={handlePostComment}
-                    >
-                        Gửi
-                    </Button>
-                </Space.Compact>
-
                 {activity.length === 0 ? (
                     <Empty description="Chưa có hoạt động nào" />
                 ) : (
@@ -429,7 +511,7 @@ export default function CandidateApplicationDetailPage() {
                 open={interviewModalOpen}
                 applicationId={application.id}
                 onClose={() => setInterviewModalOpen(false)}
-                onSuccess={() => setInterviewModalOpen(false)}
+                onSuccess={() => { setInterviewModalOpen(false); loadAll(); }}
             />
             <OfferCreateModal
                 open={offerModalOpen}

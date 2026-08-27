@@ -19,6 +19,7 @@ import { useAppSelector } from "../../../app/hooks";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 import { ROLE_LABELS } from "../../../app/roles";
 import { useTableScrollY } from "../../../app/useTableScrollY";
+import { listCardStyle } from "../../../components/ui/listStyles";
 
 const ROLE_COLORS: Record<string, string> = {
     COMPANY_ADMIN: "purple",
@@ -457,7 +458,7 @@ export default function AuthManagementPage() {
         <div className="page-shell animate-fade-in">
             <Card
                 className="table-card-fill"
-                style={{ border: "none", flex: 1, minHeight: 0 }}
+                style={listCardStyle}
                 styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
             >
                 <Tabs items={tabItems} size="large" className="tabs-fill" />

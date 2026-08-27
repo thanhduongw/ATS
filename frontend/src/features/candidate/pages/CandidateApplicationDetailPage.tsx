@@ -22,7 +22,7 @@ import type {
     ApplicationHistoryResponse, ApplicationCommentResponse,
 } from "../types";
 import RejectApplicationModal from "../components/RejectApplicationModal";
-import InterviewCreateModal from "../../interview/components/InterviewCreateModal";
+import InterviewQuickCreateModal from "../../interview/components/InterviewQuickCreateModal";
 import OfferCreateModal from "../../offer/components/OfferCreateModal";
 import { getInterviews, cancelInterview } from "../../interview/interviewApi";
 import type { InterviewResponse } from "../../interview/types";
@@ -30,6 +30,7 @@ import { COLORS, SHADOWS } from "../../../app/theme";
 import { stageTypeTagColor, INTERVIEW_STATUS, statusMeta } from "../../../app/statusLabels";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
+import EmptyState from "../../../components/ui/EmptyState";
 
 interface ActivityItem {
     kind: "history" | "comment";
@@ -51,7 +52,7 @@ function InfoRow({ icon, label, value }: { icon: ReactNode; label: string; value
 function SectionCard({ title, extra, children }: { title: ReactNode; extra?: ReactNode; children: ReactNode }) {
     return (
         <Card
-            style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 20 }}
+            style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, marginBottom: 20 }}
             title={<span style={{ fontSize: 15, fontWeight: 600 }}>{title}</span>}
             extra={extra}
         >
@@ -192,7 +193,7 @@ export default function CandidateApplicationDetailPage() {
     if (!application || !candidate) {
         return (
             <div className="page-container">
-                <Empty description="Không tìm thấy hồ sơ ứng tuyển" />
+                <EmptyState title="Không tìm thấy hồ sơ ứng tuyển" description="Hồ sơ có thể đã bị xóa hoặc bạn không có quyền xem." />
             </div>
         );
     }
@@ -248,7 +249,7 @@ export default function CandidateApplicationDetailPage() {
         <div className="page-shell animate-fade-in">
             {/* Header — cố định trên cùng, trang không cuộn toàn bộ. Trái: định danh ứng viên. Phải: thanh hành động xếp 2 hàng theo mức ưu tiên. */}
             <div className="page-shell-fixed" style={{
-                background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 16,
+                background: "#fff", border: `1px solid ${COLORS.borderLight}`, borderRadius: 16,
                 boxShadow: SHADOWS.card,
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 gap: 16, flexWrap: "wrap", padding: "16px 20px", marginBottom: 14,
@@ -311,7 +312,7 @@ export default function CandidateApplicationDetailPage() {
 
             {/* Pipeline stepper */}
             {mainStages.length > 0 && (
-                <Card size="small" className="page-shell-fixed" style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 14 }}>
+                <Card size="small" className="page-shell-fixed" style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, marginBottom: 14 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.4 }}>
                         Quy trình tuyển dụng
                     </div>
@@ -320,162 +321,162 @@ export default function CandidateApplicationDetailPage() {
             )}
 
             {/* Nội dung chính — 2 cột, mỗi cột tự cuộn riêng trong phần còn lại của màn hình. */}
-            <Row gutter={20} style={{ flex: 1, minHeight: 0 }}>
+            <Row gutter={12} style={{ flex: 1, minHeight: 0 }}>
                 <Col xs={24} lg={13} style={{ height: "100%", overflowY: "auto", paddingBottom: 4 }}>
 
-            {/* Lịch phỏng vấn — hiện lại ngay sau khi tạo, không còn "biến mất" sau khi đóng modal */}
-            <SectionCard title="Lịch phỏng vấn">
-                {interviews.length === 0 ? (
-                    <div style={{ color: COLORS.textMuted, fontSize: 13, textAlign: "center", padding: "16px 0" }}>
-                        Chưa có lịch phỏng vấn nào cho hồ sơ này.
-                    </div>
-                ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        {interviews.map((iv) => {
-                            const meta = statusMeta(INTERVIEW_STATUS, iv.status);
-                            const cancellable = iv.status === "SCHEDULED" || iv.status === "CONFIRMED";
-                            const scheduled = new Date(iv.scheduledAt);
-                            return (
-                                <div key={iv.id} style={{
-                                    display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16,
-                                    padding: "14px 16px", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: "#F9FAFB",
-                                }}>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-                                            <span style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
-                                                <CalendarOutlined style={{ color: COLORS.textMuted }} />
-                                                {scheduled.toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}
-                                            </span>
-                                            <Tag color={meta.color} style={{ borderRadius: 6, margin: 0 }}>{meta.label}</Tag>
-                                        </div>
-                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 13, color: COLORS.textSecondary }}>
-                                            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                <ClockCircleOutlined /> {iv.durationMinutes} phút
-                                            </span>
-                                            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                <VideoCameraOutlined /> {iv.format === "ONLINE" ? "Online" : "Offline"}
-                                            </span>
-                                            {iv.format === "ONLINE" && iv.meetingLink ? (
-                                                <a href={iv.meetingLink} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                    <LinkOutlined /> Link họp
-                                                </a>
-                                            ) : iv.workLocationId ? (
-                                                <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                    <EnvironmentOutlined /> {workLocationMap[iv.workLocationId] ?? "—"}
-                                                </span>
-                                            ) : null}
-                                            {iv.interviewers.length > 0 && (
-                                                <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                    <TeamOutlined /> {iv.interviewers.map((p) => p.fullName).join(", ")}
-                                                </span>
+                    {/* Lịch phỏng vấn — hiện lại ngay sau khi tạo, không còn "biến mất" sau khi đóng modal */}
+                    <SectionCard title="Lịch phỏng vấn">
+                        {interviews.length === 0 ? (
+                            <div style={{ color: COLORS.textMuted, fontSize: 13, textAlign: "center", padding: "16px 0" }}>
+                                Chưa có lịch phỏng vấn nào cho hồ sơ này.
+                            </div>
+                        ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                {interviews.map((iv) => {
+                                    const meta = statusMeta(INTERVIEW_STATUS, iv.status);
+                                    const cancellable = iv.status === "SCHEDULED" || iv.status === "CONFIRMED";
+                                    const scheduled = new Date(iv.scheduledAt);
+                                    return (
+                                        <div key={iv.id} style={{
+                                            display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16,
+                                            padding: "14px 16px", borderRadius: 10, border: `1px solid ${COLORS.borderLight}`, background: "#F9FAFB",
+                                        }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                                                    <span style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
+                                                        <CalendarOutlined style={{ color: COLORS.textMuted }} />
+                                                        {scheduled.toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}
+                                                    </span>
+                                                    <Tag color={meta.color} style={{ borderRadius: 6, margin: 0 }}>{meta.label}</Tag>
+                                                </div>
+                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 13, color: COLORS.textSecondary }}>
+                                                    <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                        <ClockCircleOutlined /> {iv.durationMinutes} phút
+                                                    </span>
+                                                    <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                        <VideoCameraOutlined /> {iv.format === "ONLINE" ? "Online" : "Offline"}
+                                                    </span>
+                                                    {iv.format === "ONLINE" && iv.meetingLink ? (
+                                                        <a href={iv.meetingLink} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                            <LinkOutlined /> Link họp
+                                                        </a>
+                                                    ) : iv.workLocationId ? (
+                                                        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                            <EnvironmentOutlined /> {workLocationMap[iv.workLocationId] ?? "—"}
+                                                        </span>
+                                                    ) : null}
+                                                    {iv.interviewers.length > 0 && (
+                                                        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                            <TeamOutlined /> {iv.interviewers.map((p) => p.fullName).join(", ")}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {iv.note && (
+                                                    <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 6 }}>{iv.note}</div>
+                                                )}
+                                            </div>
+                                            {isHr && cancellable && (
+                                                <Popconfirm
+                                                    title="Hủy lịch phỏng vấn này?"
+                                                    description="Ứng viên và người phỏng vấn sẽ nhận được thông báo hủy."
+                                                    okText="Hủy lịch"
+                                                    cancelText="Đóng"
+                                                    okButtonProps={{ danger: true }}
+                                                    onConfirm={() => handleCancelInterview(iv.id)}
+                                                >
+                                                    <Button size="small" danger icon={<StopOutlined />} loading={cancelingInterviewId === iv.id}>
+                                                        Hủy lịch
+                                                    </Button>
+                                                </Popconfirm>
                                             )}
                                         </div>
-                                        {iv.note && (
-                                            <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 6 }}>{iv.note}</div>
-                                        )}
-                                    </div>
-                                    {isHr && cancellable && (
-                                        <Popconfirm
-                                            title="Hủy lịch phỏng vấn này?"
-                                            description="Ứng viên và người phỏng vấn sẽ nhận được thông báo hủy."
-                                            okText="Hủy lịch"
-                                            cancelText="Đóng"
-                                            okButtonProps={{ danger: true }}
-                                            onConfirm={() => handleCancelInterview(iv.id)}
-                                        >
-                                            <Button size="small" danger icon={<StopOutlined />} loading={cancelingInterviewId === iv.id}>
-                                                Hủy lịch
-                                            </Button>
-                                        </Popconfirm>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </SectionCard>
-
-            <SectionCard title="Thông tin ứng viên">
-                <Row gutter={16}>
-                    <Col span={12}>
-                        <InfoRow icon={<IdcardOutlined />} label="Họ và tên" value={candidate.fullName} />
-                        <InfoRow icon={<PhoneOutlined />} label="Điện thoại" value={candidate.phone} />
-                        <InfoRow icon={<MailOutlined />} label="Email" value={candidate.email} />
-                    </Col>
-                    <Col span={12}>
-                        <InfoRow icon={<EnvironmentOutlined />} label="Địa chỉ" value={candidate.address} />
-                        <InfoRow icon={<IdcardOutlined />} label="Vị trí hiện tại" value={candidate.currentPosition} />
-                        <InfoRow icon={<IdcardOutlined />} label="Học vấn" value={candidate.educationLevelName} />
-                    </Col>
-                </Row>
-                {candidate.skillNames?.length > 0 && (
-                    <div style={{ marginTop: 4 }}>
-                        <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 6 }}>Kỹ năng</div>
-                        <Space wrap size={4}>
-                            {candidate.skillNames.map((s) => (
-                                <Tag key={s} color="blue" style={{ borderRadius: 6 }}>{s}</Tag>
-                            ))}
-                        </Space>
-                    </div>
-                )}
-            </SectionCard>
-
-            <SectionCard title="Đơn ứng tuyển">
-                <Row gutter={16}>
-                    <Col span={12}>
-                        <InfoRow icon={<IdcardOutlined />} label="Phòng ban" value={application.departmentName} />
-                        <InfoRow icon={<IdcardOutlined />} label="Vị trí" value={application.jobTitle} />
-                        <InfoRow icon={<IdcardOutlined />} label="Người phụ trách" value={application.assignedRecruiterName} />
-                    </Col>
-                    <Col span={12}>
-                        <InfoRow icon={<IdcardOutlined />} label="Nguồn ứng tuyển" value={application.recruitmentSourceName} />
-                        <InfoRow icon={<CalendarOutlined />} label="Ngày ứng tuyển" value={new Date(application.appliedAt).toLocaleDateString("vi-VN")} />
-                        {application.rejectionReasonName && (
-                            <InfoRow icon={<CloseCircleOutlined />} label="Lý do từ chối" value={application.rejectionReasonName} />
+                                    );
+                                })}
+                            </div>
                         )}
-                    </Col>
-                </Row>
-                {application.note && (
-                    <div style={{ marginTop: 4 }}>
-                        <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>Ghi chú ứng tuyển</div>
-                        <div style={{ fontSize: 13 }}>{application.note}</div>
-                    </div>
-                )}
-            </SectionCard>
+                    </SectionCard>
 
-            {/* AI CV Screening — placeholder, chưa có dữ liệu thật */}
-            <SectionCard
-                title={<span><RobotOutlined style={{ marginRight: 8, color: "#8B5CF6" }} />AI CV Screening</span>}
-                extra={<Tag color="purple" style={{ borderRadius: 6 }}>AI</Tag>}
-            >
-                <div style={{
-                    display: "flex", alignItems: "center", gap: 16, padding: "16px 4px",
-                    color: COLORS.textSecondary,
-                }}>
-                    <div style={{
-                        width: 56, height: 56, borderRadius: "50%", background: "#F5F3FF",
-                        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                    }}>
-                        <RobotOutlined style={{ fontSize: 24, color: "#8B5CF6" }} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: 2 }}>
-                            Tính năng đang được phát triển
+                    <SectionCard title="Thông tin ứng viên">
+                        <Row gutter={12}>
+                            <Col span={12}>
+                                <InfoRow icon={<IdcardOutlined />} label="Họ và tên" value={candidate.fullName} />
+                                <InfoRow icon={<PhoneOutlined />} label="Điện thoại" value={candidate.phone} />
+                                <InfoRow icon={<MailOutlined />} label="Email" value={candidate.email} />
+                            </Col>
+                            <Col span={12}>
+                                <InfoRow icon={<EnvironmentOutlined />} label="Địa chỉ" value={candidate.address} />
+                                <InfoRow icon={<IdcardOutlined />} label="Vị trí hiện tại" value={candidate.currentPosition} />
+                                <InfoRow icon={<IdcardOutlined />} label="Học vấn" value={candidate.educationLevelName} />
+                            </Col>
+                        </Row>
+                        {candidate.skillNames?.length > 0 && (
+                            <div style={{ marginTop: 4 }}>
+                                <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 6 }}>Kỹ năng</div>
+                                <Space wrap size={4}>
+                                    {candidate.skillNames.map((s) => (
+                                        <Tag key={s} color="blue" style={{ borderRadius: 6 }}>{s}</Tag>
+                                    ))}
+                                </Space>
+                            </div>
+                        )}
+                    </SectionCard>
+
+                    <SectionCard title="Đơn ứng tuyển">
+                        <Row gutter={12}>
+                            <Col span={12}>
+                                <InfoRow icon={<IdcardOutlined />} label="Phòng ban" value={application.departmentName} />
+                                <InfoRow icon={<IdcardOutlined />} label="Vị trí" value={application.jobTitle} />
+                                <InfoRow icon={<IdcardOutlined />} label="Người phụ trách" value={application.assignedRecruiterName} />
+                            </Col>
+                            <Col span={12}>
+                                <InfoRow icon={<IdcardOutlined />} label="Nguồn ứng tuyển" value={application.recruitmentSourceName} />
+                                <InfoRow icon={<CalendarOutlined />} label="Ngày ứng tuyển" value={new Date(application.appliedAt).toLocaleDateString("vi-VN")} />
+                                {application.rejectionReasonName && (
+                                    <InfoRow icon={<CloseCircleOutlined />} label="Lý do từ chối" value={application.rejectionReasonName} />
+                                )}
+                            </Col>
+                        </Row>
+                        {application.note && (
+                            <div style={{ marginTop: 4 }}>
+                                <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>Ghi chú ứng tuyển</div>
+                                <div style={{ fontSize: 13 }}>{application.note}</div>
+                            </div>
+                        )}
+                    </SectionCard>
+
+                    {/* AI CV Screening — placeholder, chưa có dữ liệu thật */}
+                    <SectionCard
+                        title={<span><RobotOutlined style={{ marginRight: 8, color: "#8B5CF6" }} />AI CV Screening</span>}
+                        extra={<Tag color="purple" style={{ borderRadius: 6 }}>AI</Tag>}
+                    >
+                        <div style={{
+                            display: "flex", alignItems: "center", gap: 16, padding: "16px 4px",
+                            color: COLORS.textSecondary,
+                        }}>
+                            <div style={{
+                                width: 56, height: 56, borderRadius: "50%", background: "#F5F3FF",
+                                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                            }}>
+                                <RobotOutlined style={{ fontSize: 24, color: "#8B5CF6" }} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: 2 }}>
+                                    Tính năng đang được phát triển
+                                </div>
+                                <div style={{ fontSize: 13 }}>
+                                    Chấm điểm và phân tích CV tự động bằng AI sẽ sớm ra mắt trong giai đoạn tiếp theo.
+                                </div>
+                            </div>
+                            <Button disabled icon={<RobotOutlined />}>Chạy phân tích AI</Button>
                         </div>
-                        <div style={{ fontSize: 13 }}>
-                            Chấm điểm và phân tích CV tự động bằng AI sẽ sớm ra mắt trong giai đoạn tiếp theo.
-                        </div>
-                    </div>
-                    <Button disabled icon={<RobotOutlined />}>Chạy phân tích AI</Button>
-                </div>
-            </SectionCard>
+                    </SectionCard>
                 </Col>
 
                 {/* Cột phải — CV & lịch sử hoạt động, mỗi tab tự cuộn trong phần còn lại. */}
                 <Col xs={24} lg={11} style={{ height: "100%" }}>
                     <Card
                         className="table-card-fill"
-                        style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, height: "100%" }}
+                        style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, height: "100%" }}
                         styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 } }}
                     >
                         <Tabs
@@ -501,7 +502,7 @@ export default function CandidateApplicationDetailPage() {
                                                 <iframe
                                                     src={application.resumeUrl}
                                                     title="CV"
-                                                    style={{ width: "100%", flex: 1, minHeight: 0, border: `1px solid ${COLORS.border}`, borderRadius: 8, background: "#F8FAFC" }}
+                                                    style={{ width: "100%", flex: 1, minHeight: 0, border: `1px solid ${COLORS.borderLight}`, borderRadius: 8, background: "#F8FAFC" }}
                                                 />
                                             ) : (
                                                 <Empty image={<FileUnknownOutlined style={{ fontSize: 40, color: COLORS.textMuted }} />} description="Ứng viên chưa có CV" />
@@ -515,7 +516,7 @@ export default function CandidateApplicationDetailPage() {
                                     children: (
                                         <div style={{ height: "100%", overflowY: "auto", paddingBottom: 12 }}>
                                             {activity.length === 0 ? (
-                                                <Empty description="Chưa có hoạt động nào" />
+                                                <EmptyState title="Chưa có hoạt động nào" description="Lịch sử thay đổi và bình luận sẽ hiển thị tại đây." />
                                             ) : (
                                                 <Timeline
                                                     items={activity.map((item) => ({
@@ -533,9 +534,9 @@ export default function CandidateApplicationDetailPage() {
                 </Col>
             </Row>
 
-            <InterviewCreateModal
+            <InterviewQuickCreateModal
                 open={interviewModalOpen}
-                applicationId={application.id}
+                lockedApplicationId={application.id}
                 onClose={() => setInterviewModalOpen(false)}
                 onSuccess={() => { setInterviewModalOpen(false); loadAll(); }}
             />

@@ -1,23 +1,43 @@
-import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Tag, App, Input, Select, Space, Tooltip } from "antd";
-import { PlusOutlined, SearchOutlined, FileSearchOutlined } from "@ant-design/icons";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Table, Button, Tag, App, Input, Select, Space } from "antd";
+import {
+    PlusOutlined,
+    SearchOutlined,
+    FileSearchOutlined,
+    EyeOutlined,
+    EditOutlined,
+    SendOutlined,
+    RollbackOutlined,
+    RocketOutlined,
+    PauseCircleOutlined,
+    PlayCircleOutlined,
+    StopOutlined,
+    TeamOutlined,
+} from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 import {
     getPostings, changePostingStatus, submitPostingForReview, requestPostingEdit, publishPosting,
 } from "../recruitmentApi";
 import { getRequisitionById } from "../recruitmentApi";
-import { getCatalogItems } from "../../masterdata/masterdataApi";
+import { getCatalogItems, getPipelines } from "../../masterdata/masterdataApi";
 import { getApplications } from "../../candidate/applicationApi";
 import type { CatalogItem } from "../../masterdata/types";
 import type { ApiMessageResponse, JobPostingResponse, JobRequisitionResponse, PostingStatus } from "../types";
 import PostingFormModal from "./PostingFormModal";
+import PostingDetailModal from "./PostingDetailModal";
 import RequisitionDetailModal from "./RequisitionDetailModal";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import { POSTING_STATUS, statusMeta } from "../../../app/statusLabels";
 import { useTableScrollY } from "../../../app/useTableScrollY";
+import EmptyState from "../../../components/ui/EmptyState";
+import StatTile from "../../../components/ui/StatTile";
+import { StatRow, FilterBar, IconAction } from "../../../components/ui/pageKit";
+import { listPagination } from "../../../components/ui/listStyles";
+import { COLORS } from "../../../app/theme";
+import { formatSalaryShort } from "../../../app/money";
 
 interface Filters {
     keyword: string;
@@ -37,10 +57,13 @@ export default function PostingListPanel() {
 
     const [postings, setPostings] = useState<JobPostingResponse[]>([]);
     const [totalItems, setTotalItems] = useState(0);
+    // Toàn bộ tin (không phân trang) — chỉ để đếm số liệu, độc lập với bộ lọc của bảng
+    const [allPostings, setAllPostings] = useState<JobPostingResponse[]>([]);
     const [employmentTypes, setEmploymentTypes] = useState<CatalogItem[]>([]);
     const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
     const [employmentTypeMap, setEmploymentTypeMap] = useState<Record<number, string>>({});
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
+    const [pipelineMap, setPipelineMap] = useState<Record<number, string>>({});
     const [applicationCountMap, setApplicationCountMap] = useState<Record<number, number>>({});
     const [loading, setLoading] = useState(false);
     const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
@@ -63,6 +86,9 @@ export default function PostingListPanel() {
     const [selectedRequisition, setSelectedRequisition] = useState<JobRequisitionResponse | null>(null);
     const [requisitionLoading, setRequisitionLoading] = useState(false);
 
+    const [detailOpen, setDetailOpen] = useState(false);
+    const [selectedPosting, setSelectedPosting] = useState<JobPostingResponse | null>(null);
+
     const { wrapRef, scrollY } = useTableScrollY([loading, postings.length]);
 
     useEffect(() => {
@@ -79,7 +105,7 @@ export default function PostingListPanel() {
     const loadAll = useCallback(async () => {
         setLoading(true);
         try {
-            const [postingRes, empRes, locRes, deptRes, titleRes, levelRes, skillRes, allAppsRes] = await Promise.all([
+            const [postingRes, empRes, locRes, deptRes, titleRes, levelRes, skillRes, pipelineRes, allAppsRes] = await Promise.all([
                 getPostings({
                     status: filters.status,
                     employmentTypeId: filters.employmentTypeId,
@@ -94,6 +120,7 @@ export default function PostingListPanel() {
                 getCatalogItems("/masterdata/job-titles"),
                 getCatalogItems("/masterdata/job-levels"),
                 getCatalogItems("/masterdata/skills"),
+                getPipelines(),
                 getApplications(),
             ]);
             setPostings(postingRes.data.content);
@@ -106,6 +133,7 @@ export default function PostingListPanel() {
             setJobTitleMap(buildMap(titleRes.data));
             setJobLevelMap(buildMap(levelRes.data));
             setSkillMap(buildMap(skillRes.data));
+            setPipelineMap(Object.fromEntries(pipelineRes.data.map((p) => [p.id, p.name])));
 
             const counts: Record<number, number> = {};
             for (const app of allAppsRes.data.content) {
@@ -124,17 +152,43 @@ export default function PostingListPanel() {
         loadAll();
     }, [loadAll]);
 
+    useEffect(() => {
+        getPostings({ size: 1000 }).then((r) => setAllPostings(r.data.content)).catch(() => setAllPostings([]));
+    }, []);
+
+    const stats = useMemo(
+        () => ({
+            total: allPostings.length,
+            open: allPostings.filter((p) => p.status === "OPEN").length,
+            approved: allPostings.filter((p) => p.status === "APPROVED").length,
+            applications: Object.values(applicationCountMap).reduce((sum, n) => sum + n, 0),
+        }),
+        [allPostings, applicationCountMap],
+    );
+
+    const toggleStatus = (next: PostingStatus) => {
+        setFilters((f) => ({ ...f, status: f.status === next ? undefined : next }));
+        setPage(1);
+    };
+
     const openCreate = () => {
         setEditingItem(null);
         setFormModalOpen(true);
     };
 
     const openEdit = (item: JobPostingResponse) => {
+        setDetailOpen(false);
         setEditingItem(item);
         setFormModalOpen(true);
     };
 
+    const openDetail = (item: JobPostingResponse) => {
+        setSelectedPosting(item);
+        setDetailOpen(true);
+    };
+
     const openRequisitionModal = async (requisitionId: number) => {
+        setDetailOpen(false);
         setRequisitionModalOpen(true);
         setRequisitionLoading(true);
         try {
@@ -181,41 +235,82 @@ export default function PostingListPanel() {
             case "DRAFT":
             case "EDITING":
                 return (
-                    <Button size="small" type="primary" loading={busy} onClick={() => handleSubmitReview(record.id)}>
-                        Gửi duyệt
-                    </Button>
+                    <IconAction
+                        title="Gửi duyệt"
+                        icon={<SendOutlined />}
+                        accent={COLORS.primary}
+                        loading={busy}
+                        onClick={() => handleSubmitReview(record.id)}
+                    />
                 );
             case "APPROVED":
                 return (
                     <>
-                        <Button size="small" loading={busy} onClick={() => handleRequestEdit(record.id)}>
-                            Sửa lại
-                        </Button>
-                        <Button size="small" type="primary" loading={busy} onClick={() => handlePublish(record.id)}>
-                            Đăng tin
-                        </Button>
+                        <IconAction
+                            title="Sửa lại (chuyển về chỉnh sửa)"
+                            icon={<RollbackOutlined />}
+                            loading={busy}
+                            onClick={() => handleRequestEdit(record.id)}
+                        />
+                        <IconAction
+                            title="Đăng tin"
+                            icon={<RocketOutlined />}
+                            accent={COLORS.primary}
+                            loading={busy}
+                            onClick={() => handlePublish(record.id)}
+                            confirm={{
+                                title: "Đăng tin tuyển dụng này?",
+                                description: "Tin sẽ hiển thị công khai cho ứng viên.",
+                                okText: "Đăng tin",
+                            }}
+                        />
                     </>
                 );
             case "OPEN":
                 return (
                     <>
-                        <Button size="small" loading={busy} onClick={() => handleStatusChange(record.id, "PAUSED")}>
-                            Tạm dừng
-                        </Button>
-                        <Button size="small" danger loading={busy} onClick={() => handleStatusChange(record.id, "CLOSED")}>
-                            Đóng
-                        </Button>
+                        <IconAction
+                            title="Tạm dừng"
+                            icon={<PauseCircleOutlined />}
+                            loading={busy}
+                            onClick={() => handleStatusChange(record.id, "PAUSED")}
+                        />
+                        <IconAction
+                            title="Đóng tin"
+                            icon={<StopOutlined />}
+                            danger
+                            loading={busy}
+                            onClick={() => handleStatusChange(record.id, "CLOSED")}
+                            confirm={{
+                                title: "Đóng tin tuyển dụng này?",
+                                description: "Ứng viên sẽ không nộp hồ sơ được nữa.",
+                                okText: "Đóng tin",
+                            }}
+                        />
                     </>
                 );
             case "PAUSED":
                 return (
                     <>
-                        <Button size="small" type="primary" loading={busy} onClick={() => handleStatusChange(record.id, "OPEN")}>
-                            Mở lại
-                        </Button>
-                        <Button size="small" danger loading={busy} onClick={() => handleStatusChange(record.id, "CLOSED")}>
-                            Đóng
-                        </Button>
+                        <IconAction
+                            title="Mở lại"
+                            icon={<PlayCircleOutlined />}
+                            accent={COLORS.primary}
+                            loading={busy}
+                            onClick={() => handleStatusChange(record.id, "OPEN")}
+                        />
+                        <IconAction
+                            title="Đóng tin"
+                            icon={<StopOutlined />}
+                            danger
+                            loading={busy}
+                            onClick={() => handleStatusChange(record.id, "CLOSED")}
+                            confirm={{
+                                title: "Đóng tin tuyển dụng này?",
+                                description: "Ứng viên sẽ không nộp hồ sơ được nữa.",
+                                okText: "Đóng tin",
+                            }}
+                        />
                     </>
                 );
             default:
@@ -229,9 +324,7 @@ export default function PostingListPanel() {
             dataIndex: "title",
             key: "title",
             ellipsis: true,
-            render: (title: string, record: JobPostingResponse) => (
-                <a onClick={() => navigate(`/recruitment/postings/${record.id}`)}>{title}</a>
-            ),
+            render: (title: string) => <span style={{ color: COLORS.primary, fontWeight: 500 }}>{title}</span>,
         },
         {
             title: "Loại hình / Địa điểm",
@@ -248,12 +341,8 @@ export default function PostingListPanel() {
             title: "Mức lương",
             key: "salaryRange",
             width: 130,
-            render: (_: unknown, record: JobPostingResponse) => {
-                if (!record.salaryMin && !record.salaryMax) return "Thỏa thuận";
-                if (record.salaryMin && record.salaryMax) return `${(record.salaryMin / 1000000).toFixed(0)} - ${(record.salaryMax / 1000000).toFixed(0)} tr`;
-                if (record.salaryMin) return `Từ ${(record.salaryMin / 1000000).toFixed(0)} tr`;
-                return `Đến ${(record.salaryMax! / 1000000).toFixed(0)} tr`;
-            },
+            render: (_: unknown, record: JobPostingResponse) =>
+                formatSalaryShort(record.salaryMin, record.salaryMax),
         },
         {
             title: "SL ứng viên",
@@ -275,22 +364,26 @@ export default function PostingListPanel() {
         {
             title: "Thao tác",
             key: "actions",
-            width: canManagePosting ? 260 : 60,
+            width: canManagePosting ? 200 : 80,
             render: (_: unknown, record: JobPostingResponse) => (
-                <Space size={4} wrap>
-                    <Tooltip title="Xem yêu cầu đăng tin">
-                        <Button
-                            size="small"
-                            type="text"
-                            icon={<FileSearchOutlined />}
-                            onClick={() => openRequisitionModal(record.requisitionId)}
-                        />
-                    </Tooltip>
+                <Space size={4} wrap onClick={(e) => e.stopPropagation()}>
+                    <IconAction
+                        title="Xem chi tiết tin tuyển dụng"
+                        icon={<EyeOutlined />}
+                        onClick={() => openDetail(record)}
+                    />
+                    <IconAction
+                        title="Xem yêu cầu đăng tin"
+                        icon={<FileSearchOutlined />}
+                        onClick={() => openRequisitionModal(record.requisitionId)}
+                    />
                     {canManagePosting && renderStatusActions(record)}
                     {canManagePosting && (
-                        <Button size="small" type="link" onClick={() => openEdit(record)}>
-                            Sửa
-                        </Button>
+                        <IconAction
+                            title="Sửa tin tuyển dụng"
+                            icon={<EditOutlined />}
+                            onClick={() => openEdit(record)}
+                        />
                     )}
                 </Space>
             ),
@@ -299,15 +392,45 @@ export default function PostingListPanel() {
 
     return (
         <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12, flexShrink: 0 }}>
-                {canManagePosting && (
+            <StatRow>
+                <StatTile
+                    icon={<FileSearchOutlined />}
+                    label="Tổng tin tuyển dụng"
+                    value={stats.total}
+                    accent={COLORS.primary}
+                    active={!filters.status}
+                    onClick={() => { setFilters((f) => ({ ...f, status: undefined })); setPage(1); }}
+                />
+                <StatTile
+                    icon={<RocketOutlined />}
+                    label="Đang mở"
+                    value={stats.open}
+                    accent={COLORS.success}
+                    active={filters.status === "OPEN"}
+                    onClick={() => toggleStatus("OPEN")}
+                />
+                <StatTile
+                    icon={<SendOutlined />}
+                    label="Chờ đăng"
+                    hint="đã duyệt"
+                    value={stats.approved}
+                    accent="#3B82F6"
+                    active={filters.status === "APPROVED"}
+                    onClick={() => toggleStatus("APPROVED")}
+                />
+                <StatTile
+                    icon={<TeamOutlined />}
+                    label="Tổng ứng viên"
+                    value={stats.applications}
+                    accent="#8B5CF6"
+                />
+            </StatRow>
+
+            <FilterBar extra={canManagePosting && (
                     <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                         Tạo tin tuyển dụng
                     </Button>
-                )}
-            </div>
-
-            <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
+                )}>
                 <Input
                     prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
                     placeholder="Tìm theo tiêu đề..."
@@ -319,7 +442,7 @@ export default function PostingListPanel() {
                 <Select
                     allowClear
                     placeholder="Trạng thái"
-                    style={{ width: 170 }}
+                    style={{ width: 180 }}
                     value={filters.status}
                     onChange={(v) => { setFilters((f) => ({ ...f, status: v })); setPage(1); }}
                     options={(Object.keys(POSTING_STATUS) as PostingStatus[]).map((s) => ({
@@ -331,7 +454,7 @@ export default function PostingListPanel() {
                     showSearch
                     optionFilterProp="label"
                     placeholder="Loại hình"
-                    style={{ width: 170 }}
+                    style={{ width: 180 }}
                     value={filters.employmentTypeId}
                     onChange={(v) => { setFilters((f) => ({ ...f, employmentTypeId: v })); setPage(1); }}
                     options={employmentTypes.map((e) => ({ value: e.id, label: String(e.name) }))}
@@ -341,12 +464,12 @@ export default function PostingListPanel() {
                     showSearch
                     optionFilterProp="label"
                     placeholder="Địa điểm"
-                    style={{ width: 170 }}
+                    style={{ width: 180 }}
                     value={filters.workLocationId}
                     onChange={(v) => { setFilters((f) => ({ ...f, workLocationId: v })); setPage(1); }}
                     options={workLocations.map((w) => ({ value: w.id, label: String(w.name) }))}
                 />
-            </div>
+            </FilterBar>
 
             <div ref={wrapRef} className="table-scroll-wrap">
                 <Table
@@ -357,15 +480,24 @@ export default function PostingListPanel() {
                     dataSource={postings}
                     sticky
                     scroll={{ y: scrollY }}
+                    onRow={(record) => ({
+                        onClick: () => navigate(`/recruitment/postings/${record.id}`),
+                        style: { cursor: "pointer" },
+                    })}
                     pagination={{
                         current: page,
                         pageSize,
                         total: totalItems,
-                        size: "small",
-                        showSizeChanger: true,
-                        pageSizeOptions: [10, 20, 50],
-                        showTotal: (total) => `Tổng ${total} tin`,
+                        ...listPagination("tin"),
                         onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                    }}
+                    locale={{
+                        emptyText: (
+                            <EmptyState
+                                title="Chưa có tin tuyển dụng nào"
+                                description="Tạo tin đầu tiên từ một yêu cầu tuyển dụng đã được HR phê duyệt."
+                            />
+                        ),
                     }}
                 />
             </div>
@@ -391,6 +523,19 @@ export default function PostingListPanel() {
                 onClose={() => setRequisitionModalOpen(false)}
                 onChanged={loadAll}
                 onEdit={() => setRequisitionModalOpen(false)}
+            />
+
+            <PostingDetailModal
+                open={detailOpen}
+                posting={selectedPosting}
+                employmentTypeMap={employmentTypeMap}
+                workLocationMap={workLocationMap}
+                pipelineMap={pipelineMap}
+                skillMap={skillMap}
+                canManage={canManagePosting}
+                onClose={() => setDetailOpen(false)}
+                onViewRequisition={openRequisitionModal}
+                onEdit={openEdit}
             />
         </div>
     );

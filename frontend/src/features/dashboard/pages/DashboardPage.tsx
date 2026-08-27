@@ -24,8 +24,6 @@ import {
     CheckCircleOutlined,
     CloseCircleOutlined,
     RiseOutlined,
-    ArrowUpOutlined,
-    ArrowDownOutlined,
     CalendarOutlined,
     FileTextOutlined,
     AppstoreOutlined,
@@ -36,7 +34,9 @@ import {
 import { saveAs } from "file-saver";
 import { getDashboardSummary, getDashboardReportPdf } from "../dashboardApi";
 import type { DashboardSummaryResponse } from "../types";
-import { GRADIENTS, COLORS } from "../../../app/theme";
+import { COLORS, RADIUS } from "../../../app/theme";
+import StatTile from "../../../components/ui/StatTile";
+import { StatRow } from "../../../components/ui/pageKit";
 // import { useAppSelector } from "../../../app/hooks";
 import { useNavigate } from "react-router-dom";
 
@@ -45,90 +45,6 @@ const { Text } = Typography;
 
 const FUNNEL_COLORS = ["#0E7A5F", "#3B82F6", "#8B5CF6", "#F59E0B", "#EF4444", "#10B981"];
 
-interface StatCardProps {
-    title: string;
-    value: number | string;
-    suffix?: string;
-    icon: React.ReactNode;
-    gradient: string;
-    trend?: number;
-    precision?: number;
-}
-
-function StatCard({
-    title,
-    value,
-    suffix,
-    icon,
-    gradient,
-    trend,
-    precision,
-}: StatCardProps) {
-    return (
-        <Card className="stat-card" style={{ border: "none" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <div className="stat-icon" style={{ background: gradient }}>
-                    {icon}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                        style={{
-                            fontSize: 13,
-                            color: COLORS.textSecondary,
-                            marginBottom: 4,
-                            fontWeight: 500,
-                        }}
-                    >
-                        {title}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                        <span
-                            style={{
-                                fontSize: 28,
-                                fontWeight: 700,
-                                color: COLORS.textPrimary,
-                                lineHeight: 1,
-                            }}
-                        >
-                            {precision !== undefined ? Number(value).toFixed(precision) : value}
-                        </span>
-                        {suffix && (
-                            <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
-                                {suffix}
-                            </span>
-                        )}
-                    </div>
-                    {trend !== undefined && (
-                        <div
-                            style={{
-                                marginTop: 6,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                                fontSize: 12,
-                            }}
-                        >
-                            {trend >= 0 ? (
-                                <ArrowUpOutlined style={{ color: COLORS.success }} />
-                            ) : (
-                                <ArrowDownOutlined style={{ color: COLORS.error }} />
-                            )}
-                            <span
-                                style={{
-                                    color: trend >= 0 ? COLORS.success : COLORS.error,
-                                    fontWeight: 600,
-                                }}
-                            >
-                                {Math.abs(trend)}%
-                            </span>
-                            <span style={{ color: COLORS.textMuted }}>so với tháng trước</span>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </Card>
-    );
-}
 
 interface QuickActionProps {
     icon: React.ReactNode;
@@ -319,46 +235,37 @@ export default function DashboardPage() {
             </div>
 
             {/* Stats */}
-            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-                <Col xs={24} sm={12} lg={6}>
-                    <StatCard
-                        title="Tin đang mở"
-                        value={summary?.openPostingsCount ?? 0}
-                        icon={<FileSearchOutlined />}
-                        gradient={GRADIENTS.stat1}
-                    />
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <StatCard
-                        title="Yêu cầu tuyển dụng"
-                        value={summary?.activeRequisitionsCount ?? 0}
-                        icon={<SolutionOutlined />}
-                        gradient={GRADIENTS.stat4}
-                    />
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <StatCard
-                        title="Tổng ứng viên"
-                        value={summary?.totalCandidates ?? 0}
-                        icon={<TeamOutlined />}
-                        gradient={GRADIENTS.stat2}
-                    />
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <StatCard
-                        title="Tỷ lệ tuyển thành công"
-                        value={summary?.successRatePercent ?? 0}
-                        suffix="%"
-                        precision={1}
-                        icon={<TrophyOutlined />}
-                        gradient={GRADIENTS.stat3}
-                    />
-                </Col>
-            </Row>
+            <StatRow>
+                <StatTile
+                    icon={<FileSearchOutlined />}
+                    label="Tin đang mở"
+                    value={summary?.openPostingsCount ?? 0}
+                    accent={COLORS.primary}
+                />
+                <StatTile
+                    icon={<SolutionOutlined />}
+                    label="Yêu cầu tuyển dụng"
+                    value={summary?.activeRequisitionsCount ?? 0}
+                    accent="#8B5CF6"
+                />
+                <StatTile
+                    icon={<TeamOutlined />}
+                    label="Tổng ứng viên"
+                    value={summary?.totalCandidates ?? 0}
+                    accent="#3B82F6"
+                />
+                <StatTile
+                    icon={<TrophyOutlined />}
+                    label="Tỷ lệ tuyển thành công"
+                    value={(summary?.successRatePercent ?? 0).toFixed(1)}
+                    suffix="%"
+                    accent={COLORS.success}
+                />
+            </StatRow>
 
-            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
                 <Col xs={24} sm={8}>
-                    <Card style={{ textAlign: "center", border: "none" }} className="stat-card">
+                    <Card style={{ textAlign: "center", border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }} className="stat-card">
                         <div style={{ fontSize: 32, fontWeight: 700, color: COLORS.primary }}>
                             {summary?.totalApplications ?? 0}
                         </div>
@@ -368,7 +275,7 @@ export default function DashboardPage() {
                     </Card>
                 </Col>
                 <Col xs={24} sm={8}>
-                    <Card style={{ textAlign: "center", border: "none" }} className="stat-card">
+                    <Card style={{ textAlign: "center", border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }} className="stat-card">
                         <div
                             style={{
                                 display: "flex",
@@ -387,7 +294,7 @@ export default function DashboardPage() {
                     </Card>
                 </Col>
                 <Col xs={24} sm={8}>
-                    <Card style={{ textAlign: "center", border: "none" }} className="stat-card">
+                    <Card style={{ textAlign: "center", border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }} className="stat-card">
                         <div
                             style={{
                                 display: "flex",
@@ -409,25 +316,15 @@ export default function DashboardPage() {
 
             {/* ── Time-to-Hire ── */}
             {summary?.avgTimeToHireDays != null && (
-                <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-                    <Col span={24}>
-                        <Card style={{ border: "none" }} className="stat-card">
-                            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                                <div className="stat-icon" style={{ background: GRADIENTS.stat3 }}>
-                                    <ClockCircleOutlined />
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: 13, color: COLORS.textSecondary, fontWeight: 500 }}>
-                                        Thời gian tuyển trung bình (Time-to-Hire)
-                                    </div>
-                                    <div style={{ fontSize: 28, fontWeight: 700, color: COLORS.textPrimary }}>
-                                        {summary.avgTimeToHireDays} <span style={{ fontSize: 14, fontWeight: 500 }}>ngày</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </Card>
-                    </Col>
-                </Row>
+                <StatRow>
+                    <StatTile
+                        icon={<ClockCircleOutlined />}
+                        label="Thời gian tuyển trung bình (Time-to-Hire)"
+                        value={summary.avgTimeToHireDays}
+                        suffix="ngày"
+                        accent="#F59E0B"
+                    />
+                </StatRow>
             )}
 
             {/* ── Recruitment Funnel ── */}
@@ -439,7 +336,7 @@ export default function DashboardPage() {
                             <span>Phễu tuyển dụng (Funnel)</span>
                         </div>
                     }
-                    style={{ marginBottom: 16, border: "none" }}
+                    style={{ marginBottom: 12, border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}
                 >
                     <div
                         style={{
@@ -525,7 +422,7 @@ export default function DashboardPage() {
             )}
 
             {/* ── Source Effectiveness / Pipeline Conversion / Recruiter Performance ── */}
-            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
                 <Col xs={24} lg={12}>
                     <Card
                         title={
@@ -534,7 +431,7 @@ export default function DashboardPage() {
                                 <span>Hiệu quả nguồn tuyển dụng</span>
                             </div>
                         }
-                        style={{ height: "100%", border: "none" }}
+                        style={{ height: "100%", border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}
                     >
                         {summary?.sourceEffectiveness && summary.sourceEffectiveness.length > 0 ? (
                             <Table
@@ -562,7 +459,7 @@ export default function DashboardPage() {
                                 <span>Hiệu suất Recruiter</span>
                             </div>
                         }
-                        style={{ height: "100%", border: "none" }}
+                        style={{ height: "100%", border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}
                     >
                         {summary?.recruiterPerformance && summary.recruiterPerformance.length > 0 ? (
                             <Table
@@ -592,7 +489,7 @@ export default function DashboardPage() {
                             <span>Tỉ lệ chuyển đổi Pipeline</span>
                         </div>
                     }
-                    style={{ marginBottom: 16, border: "none" }}
+                    style={{ marginBottom: 12, border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}
                 >
                     {summary.pipelineConversion.map((s) => (
                         <div key={s.stageName} style={{ marginBottom: 12 }}>
@@ -616,7 +513,7 @@ export default function DashboardPage() {
             )}
 
             {/* Charts */}
-            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
                 <Col xs={24} lg={14}>
                     <Card
                         title={
@@ -625,7 +522,7 @@ export default function DashboardPage() {
                                 <span>Ứng viên theo giai đoạn</span>
                             </div>
                         }
-                        style={{ height: "100%", border: "none" }}
+                        style={{ height: "100%", border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}
                     >
                         <ResponsiveContainer width="100%" height={240}>
                             <BarChart
@@ -672,7 +569,7 @@ export default function DashboardPage() {
                                 <span>Phân bổ ứng viên</span>
                             </div>
                         }
-                        style={{ height: "100%", border: "none" }}
+                        style={{ height: "100%", border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}
                     >
                         {pieData.length > 0 ? (
                             <ResponsiveContainer width="100%" height={240}>
@@ -720,7 +617,7 @@ export default function DashboardPage() {
                 </Col>
             </Row>
 
-            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
                 <Col xs={24} lg={14}>
                     <Card
                         title={
@@ -729,7 +626,7 @@ export default function DashboardPage() {
                                 <span>Xu hướng ứng tuyển theo tuần</span>
                             </div>
                         }
-                        style={{ border: "none" }}
+                        style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}
                     >
                         <ResponsiveContainer width="100%" height={180}>
                             <AreaChart
@@ -765,7 +662,7 @@ export default function DashboardPage() {
                 </Col>
 
                 <Col xs={24} lg={10}>
-                    <Card title="Truy cập nhanh" style={{ border: "none", height: "100%" }}>
+                    <Card title="Truy cập nhanh" style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg, height: "100%" }}>
                         <Row gutter={[8, 8]}>
                             <Col span={12}>
                                 <QuickAction

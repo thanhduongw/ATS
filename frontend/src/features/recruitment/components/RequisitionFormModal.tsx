@@ -2,7 +2,16 @@ import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Modal, Form, Input, InputNumber, Select, DatePicker, Button, Radio, Checkbox, App } from "antd";
-import { MinusOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+    MinusOutlined,
+    PlusOutlined,
+    SolutionOutlined,
+    TeamOutlined,
+    DollarOutlined,
+    CalendarOutlined,
+    FileTextOutlined,
+    EditOutlined,
+} from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { requisitionSchema, type RequisitionFormValues } from "../schemas/requisitionSchema";
@@ -15,6 +24,9 @@ import JobTitleQuickAddSelect from "../../masterdata/components/JobTitleQuickAdd
 import type { ApiMessageResponse, JobRequisitionResponse } from "../types";
 import { COLORS, RADIUS } from "../../../app/theme";
 import { WORK_ARRANGEMENT_OPTIONS, REASON_OPTIONS, PRIORITY_OPTIONS } from "../requisitionOptions";
+import { SectionHeader, SectionContainer } from "../../../components/ui/sectionKit";
+import { ModalTitle } from "../../../components/ui/pageKit";
+import { moneyFormatter, moneyParser } from "../../../app/money";
 
 interface RequisitionFormModalProps {
     open: boolean;
@@ -23,26 +35,21 @@ interface RequisitionFormModalProps {
     onSuccess: () => void;
 }
 
-const gridStyle: React.CSSProperties = {
+/** Lưới 3 cột cho các trường ngắn (select, số) — tận dụng chiều ngang modal rộng. */
+const grid3: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
     columnGap: 12,
 };
 
-const span2Style: React.CSSProperties = { gridColumn: "1 / -1" };
+/** Lưới 2 cột cho các vùng nhập dài (textarea). */
+const grid2: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    columnGap: 12,
+};
 
-function SectionTitle({ children, first }: { children: React.ReactNode; first?: boolean }) {
-    return (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: first ? "0 0 12px" : "12px 0 12px" }}>
-            <span style={{ width: 4, height: 16, borderRadius: 2, background: COLORS.primary, flexShrink: 0 }} />
-            <span style={{ fontWeight: 600, fontSize: 15, color: COLORS.textPrimary }}>{children}</span>
-        </div>
-    );
-}
-
-const moneyFormatter = (value: number | string | undefined) =>
-    value || value === 0 ? new Intl.NumberFormat("vi-VN").format(Number(value)) : "";
-const moneyParser = (value: string | undefined) => (value ? Number(value.replace(/\D/g, "")) : 0);
+const spanAll: React.CSSProperties = { gridColumn: "1 / -1" };
 
 export default function RequisitionFormModal({
     open,
@@ -198,19 +205,26 @@ export default function RequisitionFormModal({
     return (
         <Modal
             title={
-                <div>
-                    <div style={{ fontSize: 18, fontWeight: 700 }}>
-                        {editingItem ? "Sửa yêu cầu tuyển dụng" : "Tạo yêu cầu tuyển dụng"}
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 400, color: COLORS.textSecondary, marginTop: 4 }}>
-                        Điền thông tin nhu cầu và gửi đến HR để xử lý
-                    </div>
-                </div>
+                <ModalTitle
+                    icon={editingItem ? <EditOutlined /> : <SolutionOutlined />}
+                    title={editingItem ? "Sửa yêu cầu tuyển dụng" : "Tạo yêu cầu tuyển dụng"}
+                    subtitle="Điền thông tin nhu cầu và gửi đến HR để xử lý"
+                />
             }
             open={open}
             onCancel={onClose}
-            width={760}
+            width={1100}
+            centered
             destroyOnHidden
+            styles={{
+                body: {
+                    maxHeight: "72vh",
+                    overflowY: "auto",
+                    padding: 12,
+                    background: "#FAFBFC",
+                },
+                footer: { padding: 12, borderTop: `1px solid ${COLORS.borderLight}` },
+            }}
             footer={[
                 <Button key="cancel" onClick={onClose} disabled={busy}>
                     Hủy
@@ -232,7 +246,8 @@ export default function RequisitionFormModal({
             <style>{`.req-qty-input .ant-input-number-input { text-align: center; }`}</style>
             <Form layout="vertical">
                 {/* 1. Thông tin vị trí */}
-                <SectionTitle first>Thông tin vị trí</SectionTitle>
+                <SectionContainer>
+                <SectionHeader icon={<SolutionOutlined />} title="Thông tin vị trí" />
                 <Form.Item label="Vị trí cần tuyển" validateStatus={errors.title ? "error" : ""} help={errors.title?.message}>
                     <Controller
                         name="title"
@@ -241,7 +256,7 @@ export default function RequisitionFormModal({
                     />
                 </Form.Item>
 
-                <div style={gridStyle}>
+                <div style={grid3}>
                     <Form.Item
                         label="Phòng ban"
                         validateStatus={errors.departmentId ? "error" : ""}
@@ -364,7 +379,7 @@ export default function RequisitionFormModal({
 
                     <Form.Item
                         label="Địa điểm làm việc"
-                        style={span2Style}
+                        style={spanAll}
                         validateStatus={errors.workLocationId ? "error" : ""}
                         help={errors.workLocationId?.message}
                     >
@@ -381,9 +396,12 @@ export default function RequisitionFormModal({
                         />
                     </Form.Item>
                 </div>
+                </SectionContainer>
 
                 {/* 2. Yêu cầu nhân sự */}
-                <SectionTitle>Yêu cầu nhân sự</SectionTitle>
+                <SectionContainer>
+                <SectionHeader icon={<TeamOutlined />} title="Yêu cầu nhân sự" />
+                <div style={grid2}>
                 <Form.Item label="Mô tả công việc" validateStatus={errors.description ? "error" : ""} help={errors.description?.message}>
                     <Controller
                         name="description"
@@ -392,7 +410,7 @@ export default function RequisitionFormModal({
                             <Input.TextArea
                                 {...field}
                                 value={field.value ?? ""}
-                                rows={3}
+                                rows={4}
                                 placeholder="Trách nhiệm chính, công việc hàng ngày, mục tiêu của vị trí..."
                             />
                         )}
@@ -406,7 +424,7 @@ export default function RequisitionFormModal({
                             <Input.TextArea
                                 {...field}
                                 value={field.value ?? ""}
-                                rows={3}
+                                rows={4}
                                 placeholder="Kỹ năng, kinh nghiệm, trình độ, phẩm chất cần có..."
                             />
                         )}
@@ -428,10 +446,13 @@ export default function RequisitionFormModal({
                         render={({ field }) => <SkillMultiSelect value={field.value ?? []} onChange={field.onChange} />}
                     />
                 </Form.Item>
+                </div>
+                </SectionContainer>
 
                 {/* 3. Mức lương dự kiến */}
-                <SectionTitle>Mức lương dự kiến</SectionTitle>
-                <Form.Item label="Mức lương (VNĐ/tháng)">
+                <SectionContainer>
+                <SectionHeader icon={<DollarOutlined />} title="Mức lương dự kiến" />
+                <Form.Item label="Mức lương / tháng">
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <Controller
                             name="expectedSalaryMin"
@@ -441,9 +462,10 @@ export default function RequisitionFormModal({
                                     {...field}
                                     value={field.value ?? undefined}
                                     disabled={negotiable}
-                                    style={{ width: 150 }}
+                                    style={{ width: 200 }}
                                     min={0}
                                     placeholder="Từ"
+                                    addonAfter="đ"
                                     formatter={moneyFormatter}
                                     parser={moneyParser}
                                 />
@@ -458,15 +480,15 @@ export default function RequisitionFormModal({
                                     {...field}
                                     value={field.value ?? undefined}
                                     disabled={negotiable}
-                                    style={{ width: 150 }}
+                                    style={{ width: 200 }}
                                     min={0}
                                     placeholder="Đến"
+                                    addonAfter="đ"
                                     formatter={moneyFormatter}
                                     parser={moneyParser}
                                 />
                             )}
                         />
-                        <span style={{ fontSize: 13, color: COLORS.textSecondary }}>VNĐ/tháng</span>
                     </div>
                     <Checkbox
                         checked={negotiable}
@@ -476,9 +498,11 @@ export default function RequisitionFormModal({
                         Chưa xác định / Thỏa thuận
                     </Checkbox>
                 </Form.Item>
+                </SectionContainer>
 
                 {/* 4. Lý do & Thời gian */}
-                <SectionTitle>Lý do &amp; Thời gian</SectionTitle>
+                <SectionContainer>
+                <SectionHeader icon={<CalendarOutlined />} title="Lý do & Thời gian" />
                 <Form.Item label="Lý do tuyển dụng" validateStatus={errors.reason ? "error" : ""} help={errors.reason?.message}>
                     <Controller
                         name="reason"
@@ -486,7 +510,7 @@ export default function RequisitionFormModal({
                         render={({ field }) => <Radio.Group {...field} options={REASON_OPTIONS} />}
                     />
                 </Form.Item>
-                <div style={gridStyle}>
+                <div style={grid2}>
                     <Form.Item label="Mức độ ưu tiên">
                         <Controller
                             name="priority"
@@ -512,9 +536,11 @@ export default function RequisitionFormModal({
                         />
                     </Form.Item>
                 </div>
+                </SectionContainer>
 
                 {/* 5. Ghi chú cho HR */}
-                <SectionTitle>Ghi chú cho HR</SectionTitle>
+                <SectionContainer style={{ marginBottom: 0 }}>
+                <SectionHeader icon={<FileTextOutlined />} title="Ghi chú cho HR" />
                 <Form.Item label="Ghi chú thêm">
                     <Controller
                         name="note"
@@ -529,6 +555,7 @@ export default function RequisitionFormModal({
                         )}
                     />
                 </Form.Item>
+                </SectionContainer>
             </Form>
         </Modal>
     );

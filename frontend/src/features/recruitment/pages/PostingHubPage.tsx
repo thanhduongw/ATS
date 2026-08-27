@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { App, Button, Card, Col, Row, Segmented, Space, Steps, Table, Tag, Spin, Empty } from "antd";
+import { App, Button, Card, Segmented, Space, Steps, Table, Tag, Spin, Empty } from "antd";
 import {
     ArrowLeftOutlined, FileSearchOutlined, TeamOutlined, CalendarOutlined,
     DollarOutlined, TrophyOutlined, PlusCircleOutlined, SendOutlined,
@@ -20,7 +20,8 @@ import type { ApiMessageResponse, JobPostingResponse, JobRequisitionResponse, Po
 import type { ApplicationResponse } from "../../candidate/types";
 import RequisitionDetailModal from "../components/RequisitionDetailModal";
 import ApplicationKanbanBoard from "../../candidate/components/ApplicationKanbanBoard";
-import StatCard from "../../../components/ui/StatCard";
+import StatTile from "../../../components/ui/StatTile";
+import { StatRow } from "../../../components/ui/pageKit";
 import { POSTING_STATUS, INTERVIEW_STATUS, statusMeta } from "../../../app/statusLabels";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
@@ -270,22 +271,14 @@ export default function PostingHubPage() {
                 </Space>
             </div>
 
-            <Row gutter={[12, 12]} className="page-shell-fixed" style={{ marginBottom: 14 }}>
-                <Col xs={24} sm={12} md={6}>
-                    <StatCard icon={<TeamOutlined />} label="Tổng ứng viên" value={stats?.totalApplications ?? applications.length} accentColor="#3B82F6" />
-                </Col>
-                <Col xs={24} sm={12} md={6}>
-                    <StatCard icon={<CalendarOutlined />} label="Đang phỏng vấn" value={stats?.interviewingCount ?? 0} accentColor="#F59E0B" />
-                </Col>
-                <Col xs={24} sm={12} md={6}>
-                    <StatCard icon={<DollarOutlined />} label="Đã offer" value={stats?.offerCount ?? 0} accentColor="#8B5CF6" />
-                </Col>
-                <Col xs={24} sm={12} md={6}>
-                    <StatCard icon={<TrophyOutlined />} label="Đã tuyển" value={stats?.hiredCount ?? 0} accentColor={COLORS.success} />
-                </Col>
-            </Row>
+            <StatRow>
+                <StatTile icon={<TeamOutlined />} label="Tổng ứng viên" value={stats?.totalApplications ?? applications.length} accent="#3B82F6" />
+                <StatTile icon={<CalendarOutlined />} label="Đang phỏng vấn" value={stats?.interviewingCount ?? 0} accent="#F59E0B" />
+                <StatTile icon={<DollarOutlined />} label="Đã offer" value={stats?.offerCount ?? 0} accent="#8B5CF6" />
+                <StatTile icon={<TrophyOutlined />} label="Đã tuyển" value={stats?.hiredCount ?? 0} accent={COLORS.success} />
+            </StatRow>
 
-            <Card size="small" className="page-shell-fixed" style={{ marginBottom: 14, border: `1px solid ${COLORS.border}`, borderRadius: 12 }}>
+            <Card size="small" className="page-shell-fixed" style={{ marginBottom: 14, border: `1px solid ${COLORS.borderLight}`, borderRadius: 12 }}>
                 <Steps
                     size="small"
                     current={currentStepIndex}
@@ -302,7 +295,7 @@ export default function PostingHubPage() {
 
             <Card
                 className="table-card-fill"
-                style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, flex: 1, minHeight: 0 }}
+                style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, flex: 1, minHeight: 0 }}
                 styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
             >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 12, flexShrink: 0 }}>

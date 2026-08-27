@@ -9,7 +9,6 @@ import {
     App,
     Alert,
     Tag,
-    Tooltip,
 } from "antd";
 import {
     RiseOutlined,
@@ -63,6 +62,14 @@ import {
 
 import { COLORS, RADIUS } from "../../../app/theme";
 
+import { formatMoney } from "../../../app/money";
+import {
+    SectionHeader,
+    SectionContainer,
+    InfoField,
+    TextBlock,
+} from "../../../components/ui/sectionKit";
+
 interface Props {
     open: boolean;
     requisition: JobRequisitionResponse | null;
@@ -75,228 +82,6 @@ interface Props {
     onClose: () => void;
     onChanged: () => void;
     onEdit: (item: JobRequisitionResponse) => void;
-}
-
-function formatMoney(value: number | null | undefined) {
-    if (value === null || value === undefined) return "—";
-
-    return `${new Intl.NumberFormat("vi-VN").format(value)} đ`;
-}
-
-function hasValue(value: React.ReactNode) {
-    return value !== null && value !== undefined && value !== "";
-}
-
-/* ============================================================
-   SECTION TITLE
-============================================================ */
-
-function SectionHeader({
-    icon,
-    title,
-    subtitle,
-}: {
-    icon: React.ReactNode;
-    title: string;
-    subtitle?: string;
-}) {
-    return (
-        <div
-            style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 8,
-                marginBottom: 12,
-            }}
-        >
-            <div
-                style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: `${COLORS.primary}12`,
-                    color: COLORS.primary,
-                    fontSize: 16,
-                    flexShrink: 0,
-                }}
-            >
-                {icon}
-            </div>
-
-            <div>
-                <div
-                    style={{
-                        fontSize: 15,
-                        fontWeight: 700,
-                        color: COLORS.textPrimary,
-                        lineHeight: 1.3,
-                    }}
-                >
-                    {title}
-                </div>
-
-                {subtitle && (
-                    <div
-                        style={{
-                            fontSize: 12,
-                            color: COLORS.textMuted,
-                            marginTop: 4,
-                        }}
-                    >
-                        {subtitle}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-/* ============================================================
-   INFO FIELD
-============================================================ */
-
-function InfoField({
-    label,
-    value,
-    icon,
-}: {
-    label: string;
-    value: React.ReactNode;
-    icon?: React.ReactNode;
-}) {
-    if (!hasValue(value)) return null;
-
-    return (
-        <div
-            style={{
-                minWidth: 0,
-            }}
-        >
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 11,
-                    color: COLORS.textMuted,
-                    marginBottom: 4,
-                    fontWeight: 500,
-                }}
-            >
-                {icon && (
-                    <span
-                        style={{
-                            fontSize: 12,
-                            color: COLORS.textMuted,
-                        }}
-                    >
-                        {icon}
-                    </span>
-                )}
-
-                {label}
-            </div>
-
-            <div
-                style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: COLORS.textPrimary,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                }}
-            >
-                <Tooltip title={typeof value === "string" ? value : undefined}>
-                    {value}
-                </Tooltip>
-            </div>
-        </div>
-    );
-}
-
-/* ============================================================
-   INFO SECTION
-============================================================ */
-
-function SectionContainer({
-    children,
-    style,
-}: {
-    children: React.ReactNode;
-    style?: React.CSSProperties;
-}) {
-    return (
-        <div
-            style={{
-                border: `1px solid ${COLORS.borderLight}`,
-                borderRadius: RADIUS.lg,
-                padding: 12,
-                background: "#FFFFFF",
-                marginBottom: 12,
-                ...style,
-            }}
-        >
-            {children}
-        </div>
-    );
-}
-
-/* ============================================================
-   TEXT BLOCK
-============================================================ */
-
-function TextBlock({
-    label,
-    value,
-}: {
-    label: string;
-    value: React.ReactNode;
-}) {
-    if (!value) return null;
-
-    return (
-        <div
-            style={{
-                border: `1px solid ${COLORS.borderLight}`,
-                borderRadius: RADIUS.md,
-                padding: "4px 8px",
-                background: "#FAFBFC",
-                height: "100%",
-            }}
-        >
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    marginBottom: 8,
-                    fontSize: 12,
-                    color: COLORS.textMuted,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.3,
-                }}
-            >
-                <FileTextOutlined />
-                {label}
-            </div>
-
-            <div
-                style={{
-                    fontSize: 13,
-                    color: COLORS.textPrimary,
-                    lineHeight: 1.7,
-                    whiteSpace: "pre-wrap",
-                }}
-            >
-                {value}
-            </div>
-        </div>
-    );
 }
 
 /* ============================================================
@@ -1321,11 +1106,13 @@ export default function RequisitionDetailModal({
                 </SectionContainer>
 
                 {/* ========================================================
-                    DESCRIPTION
+                    DESCRIPTION + SKILLS
                 ======================================================== */}
 
-                {textBlocks.length > 0 && (
-                    <SectionContainer>
+                {(textBlocks.length > 0 ||
+                    (requisition.skillIds &&
+                        requisition.skillIds.length > 0)) && (
+                    <SectionContainer style={{ marginBottom: 4 }}>
                         <SectionHeader
                             icon={<FileTextOutlined />}
                             title="Thông tin chi tiết"
@@ -1347,54 +1134,43 @@ export default function RequisitionDetailModal({
                                     value={item.value}
                                 />
                             ))}
+
+                            {requisition.skillIds &&
+                                requisition.skillIds.length > 0 && (
+                                    <TextBlock
+                                        label="Kỹ năng yêu cầu"
+                                        value={
+                                            <Space wrap size={[8, 8]}>
+                                                {requisition.skillIds.map(
+                                                    (id) => (
+                                                        <Tag
+                                                            key={id}
+                                                            style={{
+                                                                padding:
+                                                                    "5px 10px",
+                                                                borderRadius:
+                                                                    6,
+                                                                fontSize: 12,
+                                                                background:
+                                                                    `${COLORS.primary}08`,
+                                                                border: `1px solid ${COLORS.primary}25`,
+                                                                color:
+                                                                    COLORS.primary,
+                                                                fontWeight: 500,
+                                                            }}
+                                                        >
+                                                            {skillMap[id] ??
+                                                                `Skill #${id}`}
+                                                        </Tag>
+                                                    ),
+                                                )}
+                                            </Space>
+                                        }
+                                    />
+                                )}
                         </div>
                     </SectionContainer>
                 )}
-
-                {/* ========================================================
-                    SKILLS
-                ======================================================== */}
-
-                {requisition.skillIds &&
-                    requisition.skillIds.length > 0 && (
-                        <SectionContainer
-                            style={{
-                                marginBottom: 4,
-                            }}
-                        >
-                            <SectionHeader
-                                icon={<TrophyOutlined />}
-                                title="Kỹ năng yêu cầu"
-                                subtitle={`${requisition.skillIds.length} kỹ năng được yêu cầu`}
-                            />
-
-                            <Space wrap size={[8, 8]}>
-                                {requisition.skillIds.map(
-                                    (id) => (
-                                        <Tag
-                                            key={id}
-                                            style={{
-                                                padding:
-                                                    "5px 10px",
-                                                borderRadius:
-                                                    6,
-                                                fontSize: 12,
-                                                background:
-                                                    `${COLORS.primary}08`,
-                                                border: `1px solid ${COLORS.primary}25`,
-                                                color:
-                                                    COLORS.primary,
-                                                fontWeight: 500,
-                                            }}
-                                        >
-                                            {skillMap[id] ??
-                                                `Skill #${id}`}
-                                        </Tag>
-                                    ),
-                                )}
-                            </Space>
-                        </SectionContainer>
-                    )}
             </Modal>
 
             {/* ============================================================

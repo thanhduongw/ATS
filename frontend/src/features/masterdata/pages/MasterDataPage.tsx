@@ -6,6 +6,7 @@ import EmailTemplatePanel from "../components/EmailTemplatePanel";
 import PipelinePanel from "../components/PipelinePanel";
 import CustomFieldDefinitionPanel from "../components/CustomFieldDefinitionPanel";
 import { catalogConfigs } from "../catalogConfigs";
+import { COLORS, RADIUS } from "../../../app/theme";
 
 const { useBreakpoint } = Grid;
 
@@ -52,7 +53,7 @@ export default function MasterDataPage() {
               Nên vẫn giữ cuộn trang tự nhiên; các bảng bên trong vẫn dùng size="small" để
               hiện được nhiều dòng hơn.
             */}
-            <Card style={{ border: "none" }}>
+            <Card style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}>
                 <Tabs
                     tabPlacement={tabPlacement}
                     items={items}

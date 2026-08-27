@@ -26,6 +26,8 @@ import type { ApiMessageResponse } from "../types";
 import type { UserSummaryResponse } from "../../auth/types";
 import type { CatalogItem } from "../../masterdata/types";
 import type { ApplicationResponse } from "../../candidate/types";
+import { FileAddOutlined } from "@ant-design/icons";
+import { ModalTitle } from "../../../components/ui/pageKit";
 
 interface Props {
   open: boolean;
@@ -121,7 +123,13 @@ export default function OfferCreateModal({
 
   return (
     <Modal
-      title="Tạo Offer"
+      title={
+        <ModalTitle
+          icon={<FileAddOutlined />}
+          title="Tạo Offer"
+          subtitle="Thư mời nhận việc gửi cho ứng viên sau khi được duyệt"
+        />
+      }
       open={open}
       onOk={handleSubmit(onSubmit)}
       onCancel={onClose}

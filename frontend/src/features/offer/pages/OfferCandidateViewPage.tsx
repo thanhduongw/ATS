@@ -29,6 +29,7 @@ import {
 } from "../offerCandidateApi";
 import type { ApiMessageResponse, OfferResponse } from "../types";
 import { COLORS, GRADIENTS } from "../../../app/theme";
+import { formatMoney } from "../../../app/money";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -199,7 +200,7 @@ export default function OfferCandidateViewPage() {
                             <Col span={12}>
                                 <Text type="secondary">Mức lương</Text>
                                 <div style={{ fontSize: 22, fontWeight: 700, color: "#16a34a" }}>
-                                    {Number(offer.salaryOffered).toLocaleString("vi-VN")} đ
+                                    {formatMoney(offer.salaryOffered)}
                                 </div>
                             </Col>
                             <Col span={12}>
@@ -222,7 +223,7 @@ export default function OfferCandidateViewPage() {
                                 <Col span={12}>
                                     <Text type="secondary">Phụ cấp</Text>
                                     <div style={{ fontWeight: 600 }}>
-                                        {Number(offer.allowance).toLocaleString("vi-VN")} đ
+                                        {formatMoney(offer.allowance)}
                                     </div>
                                 </Col>
                             )}

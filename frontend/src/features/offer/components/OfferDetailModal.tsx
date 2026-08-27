@@ -6,9 +6,18 @@ import {
   Space,
   message,
   Popconfirm,
-  Typography,
+  Alert,
 } from "antd";
-import { DownloadOutlined } from "@ant-design/icons";
+import {
+  DownloadOutlined,
+  DollarOutlined,
+  UserOutlined,
+  FileTextOutlined,
+  CalendarOutlined,
+  SendOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+} from "@ant-design/icons";
 import { saveAs } from "file-saver";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
@@ -18,9 +27,15 @@ import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import OfferRejectModal from "./OfferRejectModal";
-import { COLORS } from "../../../app/theme";
-
-const { Text } = Typography;
+import { COLORS, RADIUS } from "../../../app/theme";
+import { formatMoney } from "../../../app/money";
+import { OFFER_STATUS, statusMeta } from "../../../app/statusLabels";
+import {
+  SectionHeader,
+  SectionContainer,
+  InfoField,
+  TextBlock,
+} from "../../../components/ui/sectionKit";
 
 interface Props {
   open: boolean;
@@ -29,32 +44,14 @@ interface Props {
   onChanged: () => void;
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  DRAFT: "Bản nháp",
-  PENDING_APPROVAL: "Chờ duyệt",
-  APPROVED: "Đã duyệt (gửi ứng viên)",
-  REJECTED: "Từ chối duyệt",
-  ACCEPTED: "Ứng viên đã nhận",
-  DECLINED: "Ứng viên từ chối",
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  DRAFT: "default",
-  PENDING_APPROVAL: "warning",
-  APPROVED: "processing",
-  REJECTED: "error",
-  ACCEPTED: "success",
-  DECLINED: "magenta",
-};
-
-function InfoField({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.textPrimary }}>{value ?? "—"}</div>
-    </div>
-  );
-}
+const initialsOf = (name: string) =>
+  (name || "?")
+    .trim()
+    .split(/\s+/)
+    .slice(-2)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase();
 
 export default function OfferDetailModal({
   open,
@@ -130,108 +127,175 @@ export default function OfferDetailModal({
     }
   };
 
+  const meta = statusMeta(OFFER_STATUS, offer.status);
+  const canDelete = isHr && (offer.status === "DRAFT" || offer.status === "REJECTED");
+
+  const textBlocks = [
+    { label: "Phúc lợi", value: offer.benefits },
+    { label: "Ghi chú", value: offer.note },
+  ].filter((b) => b.value);
+
   return (
     <Modal
-      title={
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span>{`Offer — ${offer.candidateName}`}</span>
-          <Tag color={STATUS_COLOR[offer.status]} style={{ margin: 0 }}>
-            {STATUS_LABEL[offer.status] ?? offer.status}
-          </Tag>
-        </div>
-      }
       open={open}
       onCancel={onClose}
-      width={700}
+      width={760}
       destroyOnHidden
-      styles={{ body: { maxHeight: "70vh", overflowY: "auto" } }}
+      centered
+      title={
+        <div style={{ display: "flex", alignItems: "center", gap: 12, paddingRight: 8 }}>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: "50%",
+              background: `${COLORS.primary}14`,
+              color: COLORS.primary,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 15,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            {initialsOf(offer.candidateName)}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+              <span style={{ fontSize: 18, fontWeight: 700, color: COLORS.textPrimary }}>
+                {offer.candidateName}
+              </span>
+              <Tag color={meta.color} style={{ margin: 0 }}>{meta.label}</Tag>
+            </div>
+            <div style={{ fontSize: 12, color: COLORS.textMuted }}>
+              Thư mời nhận việc · {formatMoney(offer.salaryOffered)}
+            </div>
+          </div>
+        </div>
+      }
+      styles={{
+        body: { maxHeight: "68vh", overflowY: "auto", padding: 12, background: "#FAFBFC" },
+        footer: { padding: 12, borderTop: `1px solid ${COLORS.borderLight}` },
+      }}
       footer={
-        <Space wrap>
-          <Button icon={<DownloadOutlined />} onClick={handleDownloadPdf}>
-            Tải PDF
-          </Button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <div>
+            {canDelete && (
+              <Popconfirm
+                title="Xóa Offer này?"
+                description="Hành động này không thể hoàn tác."
+                onConfirm={handleDelete}
+                okText="Xóa"
+                cancelText="Hủy"
+                okButtonProps={{ danger: true }}
+              >
+                <Button danger type="text">Xóa Offer</Button>
+              </Popconfirm>
+            )}
+          </div>
 
-          {isHr && isOwner && offer.status === "DRAFT" && (
-            <Button type="primary" loading={loading} onClick={handleSubmit}>
-              Gửi duyệt
+          <Space wrap>
+            <Button icon={<DownloadOutlined />} onClick={handleDownloadPdf}>
+              Tải PDF
             </Button>
-          )}
 
-          {(isDept || isHr) && isApprover && offer.status === "PENDING_APPROVAL" && (
-            <>
-              <Button type="primary" loading={loading} onClick={handleApprove}>
-                Phê duyệt
-              </Button>
-              <Button danger onClick={() => setRejectOpen(true)}>
+            {(isDept || isHr) && isApprover && offer.status === "PENDING_APPROVAL" && (
+              <Button danger icon={<CloseCircleOutlined />} onClick={() => setRejectOpen(true)}>
                 Từ chối duyệt
               </Button>
-            </>
-          )}
+            )}
 
-          {isHr && (offer.status === "DRAFT" || offer.status === "REJECTED") && (
-            <Popconfirm
-              title="Xóa Offer này?"
-              onConfirm={handleDelete}
-              okText="Xóa"
-              cancelText="Hủy"
-            >
-              <Button danger>Xóa</Button>
-            </Popconfirm>
-          )}
-          <Button onClick={onClose}>Đóng</Button>
-        </Space>
+            {isHr && isOwner && offer.status === "DRAFT" && (
+              <Button type="primary" icon={<SendOutlined />} loading={loading} onClick={handleSubmit}>
+                Gửi duyệt
+              </Button>
+            )}
+
+            {(isDept || isHr) && isApprover && offer.status === "PENDING_APPROVAL" && (
+              <Button type="primary" icon={<CheckCircleOutlined />} loading={loading} onClick={handleApprove}>
+                Phê duyệt
+              </Button>
+            )}
+
+            <Button onClick={onClose}>Đóng</Button>
+          </Space>
+        </div>
       }
     >
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          rowGap: 14,
-          columnGap: 16,
-          padding: "14px 16px",
-          background: "#FAFBFC",
-          border: `1px solid ${COLORS.borderLight}`,
-          borderRadius: 8,
-          marginBottom: 16,
-        }}
-      >
-        <InfoField label="Application ID" value={offer.applicationId} />
-        <InfoField
-          label="Mức lương"
-          value={<Text strong style={{ color: "#16a34a" }}>{Number(offer.salaryOffered).toLocaleString("vi-VN")} đ</Text>}
-        />
-        <InfoField label="Loại HĐ" value={offer.contractTypeName} />
-        <InfoField label="Ngày bắt đầu" value={offer.startDate ? dayjs(offer.startDate).format("DD/MM/YYYY") : null} />
-        <InfoField label="Thử việc" value={`${offer.probationMonths} tháng`} />
-        <InfoField
-          label="Phụ cấp"
-          value={offer.allowance != null ? `${Number(offer.allowance).toLocaleString("vi-VN")} đ` : null}
-        />
-        <InfoField
-          label="Hạn phản hồi"
-          value={offer.responseDeadline ? dayjs(offer.responseDeadline).format("HH:mm DD/MM/YYYY") : null}
-        />
-        <InfoField label="Người tạo" value={offer.requesterName} />
-        <InfoField label="Người duyệt" value={offer.approverName} />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <InfoField label="Phúc lợi" value={offer.benefits} />
-        <InfoField label="Ghi chú" value={offer.note} />
-      </div>
-
       {offer.rejectReason && (
-        <div style={{ marginTop: 12 }}>
-          <InfoField label="Lý do từ chối duyệt" value={offer.rejectReason} />
-        </div>
+        <Alert
+          type="error"
+          showIcon
+          message="Offer bị từ chối phê duyệt"
+          description={offer.rejectReason}
+          style={{ marginBottom: 12, borderRadius: RADIUS.md }}
+        />
       )}
       {offer.declineReasonName && (
-        <div style={{ marginTop: 12 }}>
+        <Alert
+          type="warning"
+          showIcon
+          message="Ứng viên từ chối offer"
+          description={offer.declineReasonName + (offer.declineNote ? ` — ${offer.declineNote}` : "")}
+          style={{ marginBottom: 12, borderRadius: RADIUS.md }}
+        />
+      )}
+
+      <SectionContainer>
+        <SectionHeader
+          icon={<DollarOutlined />}
+          title="Điều khoản offer"
+          subtitle="Mức lương, hợp đồng và thời gian bắt đầu"
+        />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
           <InfoField
-            label="Lý do ứng viên từ chối"
-            value={offer.declineReasonName + (offer.declineNote ? ` — ${offer.declineNote}` : "")}
+            icon={<DollarOutlined />}
+            label="Mức lương"
+            value={
+              <span style={{ color: COLORS.success }}>{formatMoney(offer.salaryOffered)}</span>
+            }
+          />
+          <InfoField label="Phụ cấp" value={offer.allowance != null ? formatMoney(offer.allowance) : null} />
+          <InfoField label="Loại hợp đồng" value={offer.contractTypeName} />
+          <InfoField
+            icon={<CalendarOutlined />}
+            label="Ngày bắt đầu"
+            value={offer.startDate ? dayjs(offer.startDate).format("DD/MM/YYYY") : null}
+          />
+          <InfoField label="Thử việc" value={`${offer.probationMonths} tháng`} />
+          <InfoField
+            label="Hạn phản hồi"
+            value={offer.responseDeadline ? dayjs(offer.responseDeadline).format("HH:mm DD/MM/YYYY") : null}
           />
         </div>
+      </SectionContainer>
+
+      <SectionContainer>
+        <SectionHeader
+          icon={<UserOutlined />}
+          title="Nhân sự liên quan"
+          subtitle="Người tạo và người phụ trách phê duyệt offer"
+        />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+          <InfoField icon={<UserOutlined />} label="Người tạo" value={offer.requesterName} />
+          <InfoField
+            icon={<CheckCircleOutlined />}
+            label="Người duyệt"
+            value={offer.approverName || "Chưa được phân công"}
+          />
+        </div>
+      </SectionContainer>
+
+      {textBlocks.length > 0 && (
+        <SectionContainer style={{ marginBottom: 4 }}>
+          <SectionHeader icon={<FileTextOutlined />} title="Phúc lợi & ghi chú" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
+            {textBlocks.map((b) => (
+              <TextBlock key={b.label} label={b.label} value={b.value} />
+            ))}
+          </div>
+        </SectionContainer>
       )}
 
       <OfferRejectModal

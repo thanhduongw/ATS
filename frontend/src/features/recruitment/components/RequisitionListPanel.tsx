@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Table, Button, App, Input, Select } from "antd";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+    PlusOutlined,
+    SearchOutlined,
+    SolutionOutlined,
+    ClockCircleOutlined,
+    CheckCircleOutlined,
+    ExclamationCircleOutlined,
+} from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getRequisitions } from "../recruitmentApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
@@ -14,6 +21,10 @@ import RequisitionDetailModal from "./RequisitionDetailModal";
 import { REQUISITION_STATUS_COLOR, REQUISITION_STATUS_LABEL } from "../requisitionStatus";
 import StatusTag from "../../../components/ui/StatusTag";
 import EmptyState from "../../../components/ui/EmptyState";
+import StatTile from "../../../components/ui/StatTile";
+import { StatRow, FilterBar } from "../../../components/ui/pageKit";
+import { listPagination } from "../../../components/ui/listStyles";
+import { COLORS } from "../../../app/theme";
 
 const STATUS_OPTIONS: RequisitionStatus[] = [
     "DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "CHANGES_REQUESTED",
@@ -35,6 +46,8 @@ export default function RequisitionListPanel() {
 
     const [requisitions, setRequisitions] = useState<JobRequisitionResponse[]>([]);
     const [totalItems, setTotalItems] = useState(0);
+    // Toàn bộ yêu cầu (không phân trang) — chỉ để đếm số liệu, độc lập với bộ lọc của bảng
+    const [allRequisitions, setAllRequisitions] = useState<JobRequisitionResponse[]>([]);
     const [departmentMap, setDepartmentMap] = useState<Record<number, string>>({});
     const [jobTitleMap, setJobTitleMap] = useState<Record<number, string>>({});
     const [jobLevelMap, setJobLevelMap] = useState<Record<number, string>>({});
@@ -106,6 +119,25 @@ export default function RequisitionListPanel() {
         loadAll();
     }, [loadAll]);
 
+    useEffect(() => {
+        getRequisitions({ size: 1000 }).then((r) => setAllRequisitions(r.data.content)).catch(() => setAllRequisitions([]));
+    }, []);
+
+    const stats = useMemo(
+        () => ({
+            total: allRequisitions.length,
+            pending: allRequisitions.filter((r) => r.status === "PENDING_APPROVAL").length,
+            approved: allRequisitions.filter((r) => r.status === "APPROVED").length,
+            changes: allRequisitions.filter((r) => r.status === "CHANGES_REQUESTED").length,
+        }),
+        [allRequisitions],
+    );
+
+    const toggleStatus = (next: RequisitionStatus) => {
+        setFilters((f) => ({ ...f, status: f.status === next ? undefined : next }));
+        setPage(1);
+    };
+
     const openCreate = () => {
         setEditingItem(null);
         setFormModalOpen(true);
@@ -151,15 +183,46 @@ export default function RequisitionListPanel() {
 
     return (
         <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12, flexShrink: 0 }}>
-                {canCreateRequisition && (
+            <StatRow>
+                <StatTile
+                    icon={<SolutionOutlined />}
+                    label="Tổng yêu cầu"
+                    value={stats.total}
+                    accent={COLORS.primary}
+                    active={!filters.status}
+                    onClick={() => { setFilters((f) => ({ ...f, status: undefined })); setPage(1); }}
+                />
+                <StatTile
+                    icon={<ClockCircleOutlined />}
+                    label="Chờ HR duyệt"
+                    value={stats.pending}
+                    accent="#F59E0B"
+                    active={filters.status === "PENDING_APPROVAL"}
+                    onClick={() => toggleStatus("PENDING_APPROVAL")}
+                />
+                <StatTile
+                    icon={<CheckCircleOutlined />}
+                    label="Đã duyệt"
+                    value={stats.approved}
+                    accent={COLORS.success}
+                    active={filters.status === "APPROVED"}
+                    onClick={() => toggleStatus("APPROVED")}
+                />
+                <StatTile
+                    icon={<ExclamationCircleOutlined />}
+                    label="Cần chỉnh sửa"
+                    value={stats.changes}
+                    accent="#8B5CF6"
+                    active={filters.status === "CHANGES_REQUESTED"}
+                    onClick={() => toggleStatus("CHANGES_REQUESTED")}
+                />
+            </StatRow>
+
+            <FilterBar extra={canCreateRequisition && (
                     <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                         Tạo yêu cầu tuyển dụng
                     </Button>
-                )}
-            </div>
-
-            <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
+                )}>
                 <Input
                     prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
                     placeholder="Tìm theo tiêu đề..."
@@ -186,7 +249,7 @@ export default function RequisitionListPanel() {
                     onChange={(v) => { setFilters((f) => ({ ...f, departmentId: v })); setPage(1); }}
                     options={departments.map((d) => ({ value: d.id, label: String(d.name) }))}
                 />
-            </div>
+            </FilterBar>
 
             <div className="page-shell-scroll">
                 <Table
@@ -203,10 +266,7 @@ export default function RequisitionListPanel() {
                         current: page,
                         pageSize,
                         total: totalItems,
-                        size: "small",
-                        showSizeChanger: true,
-                        pageSizeOptions: [10, 20, 50],
-                        showTotal: (total) => `Tổng ${total} yêu cầu`,
+                        ...listPagination("yêu cầu"),
                         onChange: (p, ps) => { setPage(p); setPageSize(ps); },
                     }}
                     locale={{

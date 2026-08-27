@@ -12,9 +12,11 @@ import { HR_ROLES } from "../../../app/roles";
 import { createSlots, getSlots, selectSlot } from "../schedulingApi";
 import type { InterviewSlotResponse } from "../schedulingTypes";
 import SlotConfirmationPanel from "../components/SlotConfirmationPanel";
+import BulkScheduleModal from "../components/BulkScheduleModal";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import { useI18n } from "../../../i18n/useI18n";
+import { toLocalDateTimeString } from "../../../app/datetime";
 import { COLORS } from "../../../app/theme";
 
 const { Text } = Typography;
@@ -159,6 +161,7 @@ export default function InterviewSchedulingPage() {
     const [form] = Form.useForm();
     const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
+    const [bulkOpen, setBulkOpen] = useState(false);
 
     const load = useCallback(() => {
         if (!applicationId) return;
@@ -182,8 +185,8 @@ export default function InterviewSchedulingPage() {
             workLocationId: v.workLocationId ?? null,
             meetingLink: v.meetingLink ?? null,
             slots: v.slots.map((s: { range: [Dayjs, Dayjs] }) => ({
-                startTime: s.range[0].toISOString(),
-                endTime: s.range[1].toISOString(),
+                startTime: toLocalDateTimeString(s.range[0]),
+                endTime: toLocalDateTimeString(s.range[1]),
             })),
         };
         await createSlots(payload);
@@ -232,6 +235,13 @@ export default function InterviewSchedulingPage() {
                         onClick={() => navigate(`/interviews${applicationId ? `?applicationId=${applicationId}` : ""}`)}
                     >
                         Tạo lịch thủ công
+                    </Button>
+                    <Button
+                        size="large"
+                        icon={<ThunderboltOutlined />}
+                        onClick={() => setBulkOpen(true)}
+                    >
+                        Xếp lịch hàng loạt
                     </Button>
                 </Space>
             </div>
@@ -294,7 +304,7 @@ export default function InterviewSchedulingPage() {
                 <Card
                     title={<><ClockCircleOutlined style={{ color: "#F59E0B", marginRight: 8 }} />Các khung giờ đề xuất ({slots.length})</>}
                     loading={loading}
-                    style={{ border: "none" }}
+                    style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12 }}
                 >
                     {slots.length === 0 ? (
                         <div style={{ padding: "40px 0", textAlign: "center", color: COLORS.textMuted }}>
@@ -367,6 +377,12 @@ export default function InterviewSchedulingPage() {
                     </Form.List>
                 </Form>
             </Modal>
+
+            <BulkScheduleModal
+                open={bulkOpen}
+                onClose={() => setBulkOpen(false)}
+                onSuccess={load}
+            />
         </div>
     );
 }

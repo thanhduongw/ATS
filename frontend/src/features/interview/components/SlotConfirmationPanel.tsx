@@ -9,7 +9,7 @@ import { confirmSlot, getMyPendingSlots } from "../schedulingApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { InterviewSlotResponse } from "../schedulingTypes";
 import { useI18n } from "../../../i18n/useI18n";
-import { COLORS, GRADIENTS } from "../../../app/theme";
+import { COLORS, GRADIENTS, RADIUS } from "../../../app/theme";
 
 const { Text } = Typography;
 
@@ -137,7 +137,7 @@ export default function SlotConfirmationPanel() {
 
     if (loading && slots.length === 0) {
         return (
-            <Card style={{ border: "none" }}>
+            <Card style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}>
                 <Skeleton active paragraph={{ rows: 4 }} />
             </Card>
         );
@@ -145,7 +145,7 @@ export default function SlotConfirmationPanel() {
 
     if (!loading && slots.length === 0) {
         return (
-            <Card style={{ border: "none", padding: "20px 0" }}>
+            <Card style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}>
                 <Empty
                     image={<CalendarOutlined style={{ fontSize: 40, color: COLORS.textMuted }} />}
                     description={

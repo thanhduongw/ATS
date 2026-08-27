@@ -2,11 +2,12 @@ import { Card, Tabs } from "antd";
 import { SolutionOutlined, FileSearchOutlined } from "@ant-design/icons";
 import RequisitionListPanel from "../components/RequisitionListPanel";
 import PostingListPanel from "../components/PostingListPanel";
+import { listCardStyle, listCardBodyStyle } from "../../../components/ui/listStyles";
 
 export default function RecruitmentPage() {
     return (
         <div className="page-shell animate-fade-in">
-            <Card style={{ border: "none", flex: 1, minHeight: 0 }} className="table-card-fill" styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}>
+            <Card style={listCardStyle} className="table-card-fill" styles={{ body: listCardBodyStyle }}>
                 <Tabs
                     size="large"
                     className="tabs-fill"

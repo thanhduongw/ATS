@@ -24,6 +24,7 @@ import {
     RESOURCE_TYPE_LABEL,
 } from "../../../app/statusLabels";
 import { useTableScrollY } from "../../../app/useTableScrollY";
+import { listCardStyle } from "../../../components/ui/listStyles";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -191,7 +192,7 @@ export default function AuditLogPage() {
         <div className="page-shell">
             <Card
                 className="table-card-fill"
-                style={{ border: "none", flex: 1, minHeight: 0 }}
+                style={listCardStyle}
                 styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
             >
                 <div

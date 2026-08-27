@@ -403,29 +403,15 @@ export default function ApplicationsPage() {
 
     return (
         <div className="page-shell animate-fade-in">
-            {/* Header */}
-            <div className="page-header page-shell-fixed" style={{ marginBottom: 16 }}>
-                <div className="page-header-title">
-                    <div style={{
-                        width: 44, height: 44, borderRadius: 12,
-                        background: GRADIENTS.stat2,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "#fff", fontSize: 20,
-                    }}>
-                        <FolderOpenOutlined />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Hồ sơ ứng tuyển</h2>
-                        <div className="page-header-subtitle">Theo dõi tiến độ các hồ sơ ứng tuyển vào vị trí của phòng ban bạn.</div>
-                    </div>
-                </div>
+            {/* Toolbar */}
+            <div className="page-header page-shell-fixed" style={{ marginBottom: 14, justifyContent: "flex-end" }}>
                 <Button icon={<DownloadOutlined />} size="large" onClick={handleExportExcel}>
                     Xuất Excel
                 </Button>
             </div>
 
             {/* KPI stat cards */}
-            <Row gutter={[16, 16]} className="page-shell-fixed" style={{ marginBottom: 16 }}>
+            <Row gutter={[12, 12]} className="page-shell-fixed" style={{ marginBottom: 14 }}>
                 <Col xs={24} sm={12} md={8} lg={4}>
                     <StatCard title="Tổng hồ sơ" value={kpiStats.total} icon={<FolderOpenOutlined />} gradient={GRADIENTS.stat1} />
                 </Col>
@@ -448,7 +434,7 @@ export default function ApplicationsPage() {
                 style={{ border: "none", flex: 1, minHeight: 0 }}
                 styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
             >
-                <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap", flexShrink: 0 }}>
                     <Select
                         allowClear
                         showSearch
@@ -499,7 +485,7 @@ export default function ApplicationsPage() {
                     <div
                         style={{
                             display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-                            padding: "10px 16px", marginBottom: 16, background: "#EFF6FF",
+                            padding: "10px 16px", marginBottom: 12, background: "#EFF6FF",
                             border: "1px solid #BFDBFE", borderRadius: 8, flexShrink: 0,
                         }}
                     >

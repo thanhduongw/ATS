@@ -144,7 +144,7 @@ export default function CatalogPanel({ config }: CatalogPanelProps) {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    marginBottom: 16,
+                    marginBottom: 12,
                 }}
             >
                 <Title level={4} style={{ margin: 0 }}>

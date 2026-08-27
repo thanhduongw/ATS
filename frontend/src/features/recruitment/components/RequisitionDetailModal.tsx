@@ -1,19 +1,66 @@
 import { useEffect, useState } from "react";
-import { Modal, Button, Space, Form, Input, InputNumber, App, Alert, Divider, Tag } from "antd";
+import {
+    Modal,
+    Button,
+    Space,
+    Form,
+    Input,
+    InputNumber,
+    App,
+    Alert,
+    Tag,
+    Tooltip,
+} from "antd";
+import {
+    RiseOutlined,
+    FallOutlined,
+    EditOutlined,
+    SendOutlined,
+    CheckCircleOutlined,
+    CloseCircleOutlined,
+    ExclamationCircleOutlined,
+    UserOutlined,
+    TeamOutlined,
+    DollarOutlined,
+    FileTextOutlined,
+    EnvironmentOutlined,
+    CalendarOutlined,
+    TrophyOutlined,
+    SolutionOutlined,
+    InfoCircleOutlined,
+    CheckOutlined,
+} from "@ant-design/icons";
 import type { AxiosError } from "axios";
+
 import {
     approveRequisition,
     rejectRequisition,
     requestRequisitionChanges,
     submitRequisition,
 } from "../recruitmentApi";
-import type { ApiMessageResponse, JobRequisitionResponse } from "../types";
-import { REQUISITION_STATUS_COLOR, REQUISITION_STATUS_LABEL } from "../requisitionStatus";
+
+import type {
+    ApiMessageResponse,
+    JobRequisitionResponse,
+} from "../types";
+
+import {
+    REQUISITION_STATUS_COLOR,
+    REQUISITION_STATUS_LABEL,
+} from "../requisitionStatus";
+
 import { useAppSelector } from "../../../app/hooks";
 import { DEPARTMENT_ROLES, HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
+
 import StatusTag from "../../../components/ui/StatusTag";
-import { WORK_ARRANGEMENT_LABEL, REASON_LABEL, PRIORITY_LABEL } from "../requisitionOptions";
+
+import {
+    WORK_ARRANGEMENT_LABEL,
+    REASON_LABEL,
+    PRIORITY_LABEL,
+} from "../requisitionOptions";
+
 import { COLORS, RADIUS } from "../../../app/theme";
 
 interface Props {
@@ -32,36 +79,229 @@ interface Props {
 
 function formatMoney(value: number | null | undefined) {
     if (value === null || value === undefined) return "—";
-    return new Intl.NumberFormat("vi-VN").format(value) + " đ";
+
+    return `${new Intl.NumberFormat("vi-VN").format(value)} đ`;
 }
 
-function InfoField({ label, value }: { label: string; value: React.ReactNode }) {
+function hasValue(value: React.ReactNode) {
+    return value !== null && value !== undefined && value !== "";
+}
+
+/* ============================================================
+   SECTION TITLE
+============================================================ */
+
+function SectionHeader({
+    icon,
+    title,
+    subtitle,
+}: {
+    icon: React.ReactNode;
+    title: string;
+    subtitle?: string;
+}) {
     return (
-        <div>
-            <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>{label}</div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.textPrimary }}>{value ?? "—"}</div>
+        <div
+            style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                marginBottom: 12,
+            }}
+        >
+            <div
+                style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: `${COLORS.primary}12`,
+                    color: COLORS.primary,
+                    fontSize: 16,
+                    flexShrink: 0,
+                }}
+            >
+                {icon}
+            </div>
+
+            <div>
+                <div
+                    style={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: COLORS.textPrimary,
+                        lineHeight: 1.3,
+                    }}
+                >
+                    {title}
+                </div>
+
+                {subtitle && (
+                    <div
+                        style={{
+                            fontSize: 12,
+                            color: COLORS.textMuted,
+                            marginTop: 4,
+                        }}
+                    >
+                        {subtitle}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
 
-function TextBlock({ label, value }: { label: string; value: React.ReactNode }) {
+/* ============================================================
+   INFO FIELD
+============================================================ */
+
+function InfoField({
+    label,
+    value,
+    icon,
+}: {
+    label: string;
+    value: React.ReactNode;
+    icon?: React.ReactNode;
+}) {
+    if (!hasValue(value)) return null;
+
+    return (
+        <div
+            style={{
+                minWidth: 0,
+            }}
+        >
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: 11,
+                    color: COLORS.textMuted,
+                    marginBottom: 4,
+                    fontWeight: 500,
+                }}
+            >
+                {icon && (
+                    <span
+                        style={{
+                            fontSize: 12,
+                            color: COLORS.textMuted,
+                        }}
+                    >
+                        {icon}
+                    </span>
+                )}
+
+                {label}
+            </div>
+
+            <div
+                style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: COLORS.textPrimary,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                }}
+            >
+                <Tooltip title={typeof value === "string" ? value : undefined}>
+                    {value}
+                </Tooltip>
+            </div>
+        </div>
+    );
+}
+
+/* ============================================================
+   INFO SECTION
+============================================================ */
+
+function SectionContainer({
+    children,
+    style,
+}: {
+    children: React.ReactNode;
+    style?: React.CSSProperties;
+}) {
+    return (
+        <div
+            style={{
+                border: `1px solid ${COLORS.borderLight}`,
+                borderRadius: RADIUS.lg,
+                padding: 12,
+                background: "#FFFFFF",
+                marginBottom: 12,
+                ...style,
+            }}
+        >
+            {children}
+        </div>
+    );
+}
+
+/* ============================================================
+   TEXT BLOCK
+============================================================ */
+
+function TextBlock({
+    label,
+    value,
+}: {
+    label: string;
+    value: React.ReactNode;
+}) {
+    if (!value) return null;
+
     return (
         <div
             style={{
                 border: `1px solid ${COLORS.borderLight}`,
                 borderRadius: RADIUS.md,
-                padding: "10px 12px",
+                padding: "4px 8px",
                 background: "#FAFBFC",
-                minHeight: 60,
+                height: "100%",
             }}
         >
-            <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4, fontWeight: 600 }}>{label}</div>
-            <div style={{ fontSize: 13, color: COLORS.textPrimary, whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto" }}>
-                {value || "—"}
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    marginBottom: 8,
+                    fontSize: 12,
+                    color: COLORS.textMuted,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.3,
+                }}
+            >
+                <FileTextOutlined />
+                {label}
+            </div>
+
+            <div
+                style={{
+                    fontSize: 13,
+                    color: COLORS.textPrimary,
+                    lineHeight: 1.7,
+                    whiteSpace: "pre-wrap",
+                }}
+            >
+                {value}
             </div>
         </div>
     );
 }
+
+/* ============================================================
+   MAIN COMPONENT
+============================================================ */
 
 export default function RequisitionDetailModal({
     open,
@@ -77,49 +317,100 @@ export default function RequisitionDetailModal({
     onEdit,
 }: Props) {
     const { message } = App.useApp();
-    const currentUser = useAppSelector((state) => state.auth.user);
-    const [rejectModalOpen, setRejectModalOpen] = useState(false);
-    const [changesModalOpen, setChangesModalOpen] = useState(false);
-    const [approveModalOpen, setApproveModalOpen] = useState(false);
+
+    const currentUser = useAppSelector(
+        (state) => state.auth.user,
+    );
+
+    const [rejectModalOpen, setRejectModalOpen] =
+        useState(false);
+
+    const [changesModalOpen, setChangesModalOpen] =
+        useState(false);
+
+    const [approveModalOpen, setApproveModalOpen] =
+        useState(false);
+
     const [rejectForm] = Form.useForm();
     const [changesForm] = Form.useForm();
     const [approveForm] = Form.useForm();
-    const [actionLoading, setActionLoading] = useState(false);
+
+    const [actionLoading, setActionLoading] =
+        useState(false);
 
     useEffect(() => {
         if (requisition && approveModalOpen) {
             approveForm.setFieldsValue({
-                approvedSalaryMin: requisition.expectedSalaryMin,
-                approvedSalaryMax: requisition.expectedSalaryMax,
+                approvedSalaryMin:
+                    requisition.expectedSalaryMin,
+                approvedSalaryMax:
+                    requisition.expectedSalaryMax,
                 note: "",
             });
         }
-    }, [requisition, approveModalOpen, approveForm]);
+    }, [
+        requisition,
+        approveModalOpen,
+        approveForm,
+    ]);
 
     if (!requisition) return null;
 
-    const role = currentUser?.role as UserRole | undefined;
+    /* ============================================================
+       PERMISSIONS
+    ============================================================ */
+
+    const role =
+        currentUser?.role as UserRole | undefined;
 
     const isOwner =
-        currentUser?.userId === String(requisition.requesterId) &&
+        currentUser?.userId ===
+        String(requisition.requesterId) &&
         !!role &&
         DEPARTMENT_ROLES.includes(role);
 
     const isApprover =
-        currentUser?.userId === String(requisition.approverId) &&
+        currentUser?.userId ===
+        String(requisition.approverId) &&
         !!role &&
         HR_ROLES.includes(role);
 
+    const canOwnerAct =
+        isOwner &&
+        (
+            requisition.status === "DRAFT" ||
+            requisition.status ===
+            "CHANGES_REQUESTED"
+        );
+
+    const canApproverAct =
+        isApprover &&
+        requisition.status === "PENDING_APPROVAL";
+
+    /* ============================================================
+       ACTIONS
+    ============================================================ */
+
     const handleSubmit = async () => {
         setActionLoading(true);
+
         try {
             await submitRequisition(requisition.id);
-            message.success("Đã gửi HR duyệt");
+
+            message.success(
+                "Đã gửi yêu cầu đến HR để phê duyệt",
+            );
+
             onChanged();
             onClose();
         } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Gửi duyệt thất bại");
+            const axiosErr =
+                err as AxiosError<ApiMessageResponse>;
+
+            message.error(
+                axiosErr.response?.data?.message ??
+                "Gửi yêu cầu phê duyệt thất bại",
+            );
         } finally {
             setActionLoading(false);
         }
@@ -127,17 +418,44 @@ export default function RequisitionDetailModal({
 
     const handleApprove = async () => {
         try {
-            const values = await approveForm.validateFields();
+            const values =
+                await approveForm.validateFields();
+
+            if (
+                values.approvedSalaryMin != null &&
+                values.approvedSalaryMax != null &&
+                values.approvedSalaryMin >
+                values.approvedSalaryMax
+            ) {
+                message.error(
+                    "Mức lương tối thiểu không được lớn hơn mức lương tối đa",
+                );
+                return;
+            }
+
             setActionLoading(true);
-            await approveRequisition(requisition.id, values);
-            message.success("Đã phê duyệt yêu cầu tuyển dụng");
+
+            await approveRequisition(
+                requisition.id,
+                values,
+            );
+
+            message.success(
+                "Đã phê duyệt yêu cầu tuyển dụng",
+            );
+
             setApproveModalOpen(false);
+
             onChanged();
             onClose();
         } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
+            const axiosErr =
+                err as AxiosError<ApiMessageResponse>;
+
             if (axiosErr.response?.data?.message) {
-                message.error(axiosErr.response.data.message);
+                message.error(
+                    axiosErr.response.data.message,
+                );
             }
         } finally {
             setActionLoading(false);
@@ -146,17 +464,32 @@ export default function RequisitionDetailModal({
 
     const handleReject = async () => {
         try {
-            const values = await rejectForm.validateFields();
+            const values =
+                await rejectForm.validateFields();
+
             setActionLoading(true);
-            await rejectRequisition(requisition.id, values);
-            message.success("Đã từ chối yêu cầu");
+
+            await rejectRequisition(
+                requisition.id,
+                values,
+            );
+
+            message.success(
+                "Đã từ chối yêu cầu tuyển dụng",
+            );
+
             setRejectModalOpen(false);
+
             onChanged();
             onClose();
         } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
+            const axiosErr =
+                err as AxiosError<ApiMessageResponse>;
+
             if (axiosErr.response?.data?.message) {
-                message.error(axiosErr.response.data.message);
+                message.error(
+                    axiosErr.response.data.message,
+                );
             }
         } finally {
             setActionLoading(false);
@@ -165,219 +498,1115 @@ export default function RequisitionDetailModal({
 
     const handleRequestChanges = async () => {
         try {
-            const values = await changesForm.validateFields();
+            const values =
+                await changesForm.validateFields();
+
             setActionLoading(true);
-            await requestRequisitionChanges(requisition.id, values);
-            message.success("Đã gửi yêu cầu chỉnh sửa cho phòng ban");
+
+            await requestRequisitionChanges(
+                requisition.id,
+                values,
+            );
+
+            message.success(
+                "Đã gửi yêu cầu chỉnh sửa cho phòng ban",
+            );
+
             setChangesModalOpen(false);
+
             onChanged();
             onClose();
         } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
+            const axiosErr =
+                err as AxiosError<ApiMessageResponse>;
+
             if (axiosErr.response?.data?.message) {
-                message.error(axiosErr.response.data.message);
+                message.error(
+                    axiosErr.response.data.message,
+                );
             }
         } finally {
             setActionLoading(false);
         }
     };
 
-    const hasApprovedSalary = requisition.status === "APPROVED";
+    /* ============================================================
+       SALARY CALCULATIONS
+    ============================================================ */
+
+    const hasApprovedSalary =
+        requisition.status === "APPROVED";
+
+    const expectedAvg =
+        requisition.expectedSalaryMin != null &&
+            requisition.expectedSalaryMax != null
+            ? (
+                requisition.expectedSalaryMin +
+                requisition.expectedSalaryMax
+            ) / 2
+            : null;
+
+    const approvedAvg =
+        requisition.approvedSalaryMin != null &&
+            requisition.approvedSalaryMax != null
+            ? (
+                requisition.approvedSalaryMin +
+                requisition.approvedSalaryMax
+            ) / 2
+            : null;
+
+    const salaryDelta =
+        hasApprovedSalary &&
+            expectedAvg != null &&
+            approvedAvg != null
+            ? approvedAvg - expectedAvg
+            : null;
+
+    const textBlocks = [
+        {
+            label: "Mô tả công việc",
+            value: requisition.description,
+        },
+        {
+            label: "Yêu cầu ứng viên",
+            value: requisition.requirements,
+        },
+        {
+            label: "Quyền lợi",
+            value: requisition.benefits,
+        },
+        {
+            label: "Ghi chú gửi HR",
+            value: requisition.note,
+        },
+    ].filter((item) => item.value);
+
+    /* ============================================================
+       RENDER
+    ============================================================ */
 
     return (
-        <Modal
-            title={
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span>{requisition.title}</span>
-                    <StatusTag color={REQUISITION_STATUS_COLOR[requisition.status]} label={REQUISITION_STATUS_LABEL[requisition.status]} />
-                </div>
-            }
-            open={open}
-            onCancel={onClose}
-            width={880}
-            destroyOnHidden
-            styles={{ body: { maxHeight: "72vh", overflowY: "auto", paddingRight: 4 } }}
-            footer={
-                <Space wrap>
-                    {isOwner && (requisition.status === "DRAFT" || requisition.status === "CHANGES_REQUESTED") && (
-                        <>
-                            <Button onClick={() => onEdit(requisition)}>Sửa</Button>
-                            <Button type="primary" loading={actionLoading} onClick={handleSubmit}>
-                                Gửi HR duyệt
-                            </Button>
-                        </>
-                    )}
-                    {isApprover && requisition.status === "PENDING_APPROVAL" && (
-                        <>
-                            <Button type="primary" onClick={() => setApproveModalOpen(true)}>
-                                Phê duyệt
-                            </Button>
-                            <Button onClick={() => setChangesModalOpen(true)}>Yêu cầu chỉnh sửa</Button>
-                            <Button danger onClick={() => setRejectModalOpen(true)}>
-                                Từ chối
-                            </Button>
-                        </>
-                    )}
-                    <Button onClick={onClose}>Đóng</Button>
-                </Space>
-            }
-        >
-            {requisition.status === "CHANGES_REQUESTED" && requisition.hrNote && (
-                <Alert
-                    type="warning"
-                    showIcon
-                    message="HR yêu cầu chỉnh sửa lại"
-                    description={requisition.hrNote}
-                    style={{ marginBottom: 16 }}
-                />
-            )}
-            {requisition.status === "REJECTED" && (
-                <Alert type="error" showIcon message="Lý do từ chối" description={requisition.rejectReason} style={{ marginBottom: 16 }} />
-            )}
-            {requisition.status === "APPROVED" && requisition.hrNote && (
-                <Alert type="info" showIcon message="Ghi chú của HR" description={requisition.hrNote} style={{ marginBottom: 16 }} />
-            )}
-
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, 1fr)",
-                    rowGap: 14,
-                    columnGap: 16,
-                    padding: "14px 16px",
-                    background: "#FAFBFC",
-                    border: `1px solid ${COLORS.borderLight}`,
-                    borderRadius: RADIUS.md,
-                    marginBottom: 16,
-                }}
-            >
-                <InfoField label="Phòng ban" value={departmentMap[requisition.departmentId]} />
-                <InfoField label="Chức vụ" value={jobTitleMap[requisition.jobTitleId]} />
-                <InfoField label="Cấp bậc" value={requisition.jobLevelId ? jobLevelMap[requisition.jobLevelId] : null} />
-                <InfoField label="Số lượng" value={requisition.quantity} />
-                <InfoField label="Loại hình làm việc" value={requisition.employmentTypeId ? employmentTypeMap[requisition.employmentTypeId] : null} />
-                <InfoField label="Hình thức làm việc" value={requisition.workArrangement ? WORK_ARRANGEMENT_LABEL[requisition.workArrangement] : null} />
-                <InfoField label="Địa điểm làm việc" value={requisition.workLocationId ? workLocationMap[requisition.workLocationId] : null} />
-                <InfoField label="Kinh nghiệm yêu cầu" value={requisition.experienceRequired} />
-                <InfoField label="Ngân sách" value={requisition.budget} />
-                <InfoField label="Ngày cần tuyển" value={requisition.expectedStartDate} />
-                <InfoField label="Lý do tuyển dụng" value={requisition.reason ? REASON_LABEL[requisition.reason] : null} />
-                <InfoField label="Mức độ ưu tiên" value={requisition.priority ? PRIORITY_LABEL[requisition.priority] : null} />
-                <InfoField label="Người tạo (phòng ban)" value={requisition.requesterName} />
-                <InfoField label="Người duyệt (HR)" value={requisition.approverName} />
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-                <TextBlock label="Mô tả công việc" value={requisition.description} />
-                <TextBlock label="Yêu cầu ứng viên" value={requisition.requirements} />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-                <TextBlock label="Quyền lợi" value={requisition.benefits} />
-                <TextBlock label="Ghi chú gửi HR" value={requisition.note} />
-            </div>
-
-            {requisition.skillIds && requisition.skillIds.length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 6, fontWeight: 600 }}>Kỹ năng yêu cầu</div>
-                    <Space wrap size={4}>
-                        {requisition.skillIds.map((id) => (
-                            <Tag key={id}>{skillMap[id] ?? `#${id}`}</Tag>
-                        ))}
-                    </Space>
-                </div>
-            )}
-
-            <Divider titlePlacement="start" plain style={{ marginTop: 0 }}>
-                So sánh mức lương
-            </Divider>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <InfoField
-                    label="Phòng ban đề xuất"
-                    value={`${formatMoney(requisition.expectedSalaryMin)} — ${formatMoney(requisition.expectedSalaryMax)}`}
-                />
-                <InfoField
-                    label="HR chốt duyệt"
-                    value={
-                        hasApprovedSalary ? (
-                            <span style={{ color: "#0E7A5F", fontWeight: 600 }}>
-                                {formatMoney(requisition.approvedSalaryMin)} — {formatMoney(requisition.approvedSalaryMax)}
+        <>
+            <Modal
+                open={open}
+                onCancel={onClose}
+                width={1100}
+                destroyOnHidden
+                centered
+                title={
+                    <div
+                        style={{
+                            paddingRight: 8,
+                        }}
+                    >
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                marginBottom: 4,
+                            }}
+                        >
+                            <span
+                                style={{
+                                    fontSize: 18,
+                                    fontWeight: 700,
+                                    color: COLORS.textPrimary,
+                                }}
+                            >
+                                {requisition.title}
                             </span>
-                        ) : (
-                            "— (chưa duyệt)"
-                        )
-                    }
-                />
-            </div>
+
+                            <StatusTag
+                                color={
+                                    REQUISITION_STATUS_COLOR[
+                                    requisition.status
+                                    ]
+                                }
+                                label={
+                                    REQUISITION_STATUS_LABEL[
+                                    requisition.status
+                                    ]
+                                }
+                            />
+                        </div>
+
+                        <div
+                            style={{
+                                fontSize: 12,
+                                color: COLORS.textMuted,
+                            }}
+                        >
+                            Chi tiết yêu cầu tuyển dụng
+                        </div>
+                    </div>
+                }
+                styles={{
+                    body: {
+                        maxHeight: "72vh",
+                        overflowY: "auto",
+                        padding: "12px",
+                        background: "#FAFBFC",
+                    },
+                    footer: {
+                        padding: "12px",
+                        borderTop: `1px solid ${COLORS.borderLight}`,
+                    },
+                }}
+                footer={
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontSize: 12,
+                                color: COLORS.textMuted,
+                            }}
+                        >
+                            {canOwnerAct &&
+                                "Bạn có thể chỉnh sửa hoặc gửi yêu cầu để HR phê duyệt."}
+
+                            {canApproverAct &&
+                                "Vui lòng kiểm tra thông tin trước khi phê duyệt."}
+                        </div>
+
+                        <Space>
+                            {canOwnerAct && (
+                                <>
+                                    <Button
+                                        icon={<EditOutlined />}
+                                        onClick={() =>
+                                            onEdit(
+                                                requisition,
+                                            )
+                                        }
+                                    >
+                                        Chỉnh sửa
+                                    </Button>
+
+                                    <Button
+                                        type="primary"
+                                        icon={<SendOutlined />}
+                                        loading={
+                                            actionLoading
+                                        }
+                                        onClick={
+                                            handleSubmit
+                                        }
+                                    >
+                                        Gửi HR duyệt
+                                    </Button>
+                                </>
+                            )}
+
+                            {canApproverAct && (
+                                <>
+                                    <Button
+                                        danger
+                                        icon={
+                                            <CloseCircleOutlined />
+                                        }
+                                        onClick={() =>
+                                            setRejectModalOpen(
+                                                true,
+                                            )
+                                        }
+                                    >
+                                        Từ chối
+                                    </Button>
+
+                                    <Button
+                                        icon={
+                                            <ExclamationCircleOutlined />
+                                        }
+                                        onClick={() =>
+                                            setChangesModalOpen(
+                                                true,
+                                            )
+                                        }
+                                    >
+                                        Yêu cầu chỉnh sửa
+                                    </Button>
+
+                                    <Button
+                                        type="primary"
+                                        icon={
+                                            <CheckCircleOutlined />
+                                        }
+                                        onClick={() =>
+                                            setApproveModalOpen(
+                                                true,
+                                            )
+                                        }
+                                    >
+                                        Phê duyệt
+                                    </Button>
+                                </>
+                            )}
+                        </Space>
+                    </div>
+                }
+            >
+                {/* ========================================================
+                    STATUS ALERTS
+                ======================================================== */}
+
+                {requisition.status ===
+                    "CHANGES_REQUESTED" &&
+                    requisition.hrNote && (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="HR yêu cầu chỉnh sửa"
+                            description={
+                                requisition.hrNote
+                            }
+                            style={{
+                                marginBottom: 12,
+                                borderRadius: RADIUS.md,
+                            }}
+                        />
+                    )}
+
+                {requisition.status ===
+                    "REJECTED" && (
+                        <Alert
+                            type="error"
+                            showIcon
+                            message="Yêu cầu đã bị từ chối"
+                            description={
+                                requisition.rejectReason
+                            }
+                            style={{
+                                marginBottom: 12,
+                                borderRadius: RADIUS.md,
+                            }}
+                        />
+                    )}
+
+                {requisition.status ===
+                    "APPROVED" &&
+                    requisition.hrNote && (
+                        <Alert
+                            type="success"
+                            showIcon
+                            message="Yêu cầu đã được phê duyệt"
+                            description={
+                                requisition.hrNote
+                            }
+                            style={{
+                                marginBottom: 12,
+                                borderRadius: RADIUS.md,
+                            }}
+                        />
+                    )}
+
+                {/* ========================================================
+                    POSITION INFORMATION
+                ======================================================== */}
+
+                <SectionContainer>
+                    <SectionHeader
+                        icon={<SolutionOutlined />}
+                        title="Thông tin vị trí"
+                        subtitle="Thông tin cơ bản về nhu cầu tuyển dụng"
+                    />
+
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                                "repeat(3, minmax(0, 1fr))",
+                            gap: 12,
+                        }}
+                    >
+                        <InfoField
+                            icon={<TeamOutlined />}
+                            label="Phòng ban"
+                            value={
+                                departmentMap[
+                                requisition.departmentId
+                                ]
+                            }
+                        />
+
+                        <InfoField
+                            icon={<TrophyOutlined />}
+                            label="Chức vụ"
+                            value={
+                                jobTitleMap[
+                                requisition.jobTitleId
+                                ]
+                            }
+                        />
+
+                        <InfoField
+                            label="Số lượng tuyển"
+                            value={`${requisition.quantity} vị trí`}
+                        />
+
+                        <InfoField
+                            label="Cấp bậc"
+                            value={
+                                requisition.jobLevelId
+                                    ? jobLevelMap[
+                                    requisition
+                                        .jobLevelId
+                                    ]
+                                    : null
+                            }
+                        />
+
+                        <InfoField
+                            label="Loại hình làm việc"
+                            value={
+                                requisition.employmentTypeId
+                                    ? employmentTypeMap[
+                                    requisition
+                                        .employmentTypeId
+                                    ]
+                                    : null
+                            }
+                        />
+
+                        <InfoField
+                            label="Hình thức làm việc"
+                            value={
+                                requisition.workArrangement
+                                    ? WORK_ARRANGEMENT_LABEL[
+                                    requisition
+                                        .workArrangement
+                                    ]
+                                    : null
+                            }
+                        />
+
+                        <InfoField
+                            icon={
+                                <EnvironmentOutlined />
+                            }
+                            label="Địa điểm làm việc"
+                            value={
+                                requisition.workLocationId
+                                    ? workLocationMap[
+                                    requisition
+                                        .workLocationId
+                                    ]
+                                    : null
+                            }
+                        />
+
+                        <InfoField
+                            label="Kinh nghiệm yêu cầu"
+                            value={
+                                requisition.experienceRequired
+                            }
+                        />
+
+                        <InfoField
+                            icon={<CalendarOutlined />}
+                            label="Ngày cần tuyển"
+                            value={
+                                requisition.expectedStartDate
+                            }
+                        />
+
+                        <InfoField
+                            label="Lý do tuyển dụng"
+                            value={
+                                requisition.reason
+                                    ? REASON_LABEL[
+                                    requisition.reason
+                                    ]
+                                    : null
+                            }
+                        />
+
+                        <InfoField
+                            label="Mức độ ưu tiên"
+                            value={
+                                requisition.priority
+                                    ? PRIORITY_LABEL[
+                                    requisition.priority
+                                    ]
+                                    : null
+                            }
+                        />
+                    </div>
+                </SectionContainer>
+
+                {/* ========================================================
+                    SALARY & BUDGET
+                ======================================================== */}
+
+                <SectionContainer>
+                    <SectionHeader
+                        icon={<DollarOutlined />}
+                        title="Lương & ngân sách"
+                        subtitle="So sánh đề xuất của phòng ban và mức HR phê duyệt"
+                    />
+
+                    {requisition.budget != null && (
+                        <div
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 8,
+                                padding: "8px 12px",
+                                borderRadius: 8,
+                                background: `${COLORS.primary}08`,
+                                marginBottom: 12,
+                            }}
+                        >
+                            <span
+                                style={{
+                                    fontSize: 12,
+                                    color: COLORS.textMuted,
+                                }}
+                            >
+                                Ngân sách dự kiến
+                            </span>
+
+                            <span
+                                style={{
+                                    fontSize: 14,
+                                    fontWeight: 700,
+                                    color: COLORS.primary,
+                                }}
+                            >
+                                {formatMoney(
+                                    requisition.budget,
+                                )}
+                            </span>
+                        </div>
+                    )}
+
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                                "1fr 80px 1fr",
+                            gap: 12,
+                            alignItems: "stretch",
+                        }}
+                    >
+                        {/* Department Salary */}
+
+                        <div
+                            style={{
+                                border: `1px solid ${COLORS.borderLight}`,
+                                borderRadius: RADIUS.md,
+                                padding: "12px",
+                                background: "#FAFBFC",
+                            }}
+                        >
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    color: COLORS.textMuted,
+                                    fontWeight: 700,
+                                    textTransform:
+                                        "uppercase",
+                                    letterSpacing: 0.3,
+                                    marginBottom: 8,
+                                }}
+                            >
+                                Phòng ban đề xuất
+                            </div>
+
+                            <div
+                                style={{
+                                    fontSize: 16,
+                                    fontWeight: 700,
+                                    color:
+                                        COLORS.textPrimary,
+                                }}
+                            >
+                                {formatMoney(
+                                    requisition.expectedSalaryMin,
+                                )}
+                            </div>
+
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    color: COLORS.textMuted,
+                                    margin: "4px 0",
+                                }}
+                            >
+                                đến
+                            </div>
+
+                            <div
+                                style={{
+                                    fontSize: 16,
+                                    fontWeight: 700,
+                                    color:
+                                        COLORS.textPrimary,
+                                }}
+                            >
+                                {formatMoney(
+                                    requisition.expectedSalaryMax,
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Difference */}
+
+                        <div
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent:
+                                    "center",
+                                gap: 8,
+                            }}
+                        >
+                            {salaryDelta != null ? (
+                                <>
+                                    <div
+                                        style={{
+                                            fontSize: 20,
+                                            color:
+                                                salaryDelta >= 0
+                                                    ? COLORS.success
+                                                    : COLORS.error,
+                                        }}
+                                    >
+                                        {salaryDelta >= 0 ? (
+                                            <RiseOutlined />
+                                        ) : (
+                                            <FallOutlined />
+                                        )}
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                            color:
+                                                salaryDelta >= 0
+                                                    ? COLORS.success
+                                                    : COLORS.error,
+                                            textAlign: "center",
+                                        }}
+                                    >
+                                        {formatMoney(
+                                            Math.abs(
+                                                salaryDelta,
+                                            ),
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <div
+                                    style={{
+                                        fontSize: 24,
+                                        color:
+                                            COLORS.textMuted,
+                                    }}
+                                >
+                                    →
+                                </div>
+                            )}
+                        </div>
+
+                        {/* HR Salary */}
+
+                        <div
+                            style={{
+                                border: `1px solid ${hasApprovedSalary
+                                    ? `${COLORS.success}50`
+                                    : COLORS.borderLight
+                                    }`,
+                                borderRadius: RADIUS.md,
+                                padding: "12px",
+                                background:
+                                    hasApprovedSalary
+                                        ? "#F0FDF4"
+                                        : "#FAFBFC",
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent:
+                                        "space-between",
+                                    marginBottom: 8,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        fontSize: 11,
+                                        color:
+                                            COLORS.textMuted,
+                                        fontWeight: 700,
+                                        textTransform:
+                                            "uppercase",
+                                        letterSpacing: 0.3,
+                                    }}
+                                >
+                                    HR chốt duyệt
+                                </span>
+
+                                {hasApprovedSalary && (
+                                    <CheckOutlined
+                                        style={{
+                                            color:
+                                                COLORS.success,
+                                        }}
+                                    />
+                                )}
+                            </div>
+
+                            {hasApprovedSalary ? (
+                                <>
+                                    <div
+                                        style={{
+                                            fontSize: 16,
+                                            fontWeight: 700,
+                                            color:
+                                                COLORS.success,
+                                        }}
+                                    >
+                                        {formatMoney(
+                                            requisition.approvedSalaryMin,
+                                        )}
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            fontSize: 11,
+                                            color:
+                                                COLORS.textMuted,
+                                            margin: "4px 0",
+                                        }}
+                                    >
+                                        đến
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            fontSize: 16,
+                                            fontWeight: 700,
+                                            color:
+                                                COLORS.success,
+                                        }}
+                                    >
+                                        {formatMoney(
+                                            requisition.approvedSalaryMax,
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <div
+                                    style={{
+                                        color:
+                                            COLORS.textMuted,
+                                        fontSize: 14,
+                                        paddingTop: 12,
+                                    }}
+                                >
+                                    Chưa có mức lương được duyệt
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </SectionContainer>
+
+                {/* ========================================================
+                    PEOPLE
+                ======================================================== */}
+
+                <SectionContainer>
+                    <SectionHeader
+                        icon={<UserOutlined />}
+                        title="Nhân sự liên quan"
+                        subtitle="Người tạo và người phụ trách phê duyệt"
+                    />
+
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                                "repeat(2, minmax(0, 1fr))",
+                            gap: 12,
+                        }}
+                    >
+                        <div
+                            style={{
+                                padding: "12px",
+                                border: `1px solid ${COLORS.borderLight}`,
+                                borderRadius: RADIUS.md,
+                            }}
+                        >
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    color:
+                                        COLORS.textMuted,
+                                    marginBottom: 4,
+                                }}
+                            >
+                                NGƯỜI TẠO YÊU CẦU
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    fontWeight: 600,
+                                    color:
+                                        COLORS.textPrimary,
+                                }}
+                            >
+                                <UserOutlined
+                                    style={{
+                                        color:
+                                            COLORS.primary,
+                                    }}
+                                />
+
+                                {requisition.requesterName}
+                            </div>
+                        </div>
+
+                        <div
+                            style={{
+                                padding: "12px",
+                                border: `1px solid ${COLORS.borderLight}`,
+                                borderRadius: RADIUS.md,
+                            }}
+                        >
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    color:
+                                        COLORS.textMuted,
+                                    marginBottom: 4,
+                                }}
+                            >
+                                NGƯỜI PHÊ DUYỆT
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    fontWeight: 600,
+                                    color:
+                                        COLORS.textPrimary,
+                                }}
+                            >
+                                <CheckCircleOutlined
+                                    style={{
+                                        color:
+                                            COLORS.success,
+                                    }}
+                                />
+
+                                {requisition.approverName ||
+                                    "Chưa được phân công"}
+                            </div>
+                        </div>
+                    </div>
+                </SectionContainer>
+
+                {/* ========================================================
+                    DESCRIPTION
+                ======================================================== */}
+
+                {textBlocks.length > 0 && (
+                    <SectionContainer>
+                        <SectionHeader
+                            icon={<FileTextOutlined />}
+                            title="Thông tin chi tiết"
+                            subtitle="Mô tả và các yêu cầu liên quan đến vị trí"
+                        />
+
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns:
+                                    "repeat(auto-fit, minmax(350px, 1fr))",
+                                gap: 12,
+                            }}
+                        >
+                            {textBlocks.map((item) => (
+                                <TextBlock
+                                    key={item.label}
+                                    label={item.label}
+                                    value={item.value}
+                                />
+                            ))}
+                        </div>
+                    </SectionContainer>
+                )}
+
+                {/* ========================================================
+                    SKILLS
+                ======================================================== */}
+
+                {requisition.skillIds &&
+                    requisition.skillIds.length > 0 && (
+                        <SectionContainer
+                            style={{
+                                marginBottom: 4,
+                            }}
+                        >
+                            <SectionHeader
+                                icon={<TrophyOutlined />}
+                                title="Kỹ năng yêu cầu"
+                                subtitle={`${requisition.skillIds.length} kỹ năng được yêu cầu`}
+                            />
+
+                            <Space wrap size={[8, 8]}>
+                                {requisition.skillIds.map(
+                                    (id) => (
+                                        <Tag
+                                            key={id}
+                                            style={{
+                                                padding:
+                                                    "5px 10px",
+                                                borderRadius:
+                                                    6,
+                                                fontSize: 12,
+                                                background:
+                                                    `${COLORS.primary}08`,
+                                                border: `1px solid ${COLORS.primary}25`,
+                                                color:
+                                                    COLORS.primary,
+                                                fontWeight: 500,
+                                            }}
+                                        >
+                                            {skillMap[id] ??
+                                                `Skill #${id}`}
+                                        </Tag>
+                                    ),
+                                )}
+                            </Space>
+                        </SectionContainer>
+                    )}
+            </Modal>
+
+            {/* ============================================================
+                APPROVE MODAL
+            ============================================================ */}
 
             <Modal
-                title="Phê duyệt yêu cầu tuyển dụng"
+                title={
+                    <Space>
+                        <CheckCircleOutlined
+                            style={{
+                                color: COLORS.success,
+                            }}
+                        />
+
+                        Phê duyệt yêu cầu tuyển dụng
+                    </Space>
+                }
                 open={approveModalOpen}
                 onOk={handleApprove}
-                onCancel={() => setApproveModalOpen(false)}
+                onCancel={() =>
+                    setApproveModalOpen(false)
+                }
                 confirmLoading={actionLoading}
-                okText="Phê duyệt"
+                okText="Phê duyệt yêu cầu"
                 cancelText="Hủy"
             >
                 <Alert
                     type="info"
                     showIcon
-                    message="Bạn có thể chốt lại mức lương khác với đề xuất của phòng ban trước khi duyệt."
-                    style={{ marginBottom: 16 }}
+                    icon={<InfoCircleOutlined />}
+                    message="Kiểm tra mức lương trước khi phê duyệt"
+                    description="HR có thể điều chỉnh mức lương cuối cùng phù hợp với ngân sách và chính sách công ty."
+                    style={{
+                        marginBottom: 12,
+                        borderRadius: RADIUS.md,
+                    }}
                 />
-                <Form form={approveForm} layout="vertical">
-                    <div style={{ display: "flex", gap: 16 }}>
-                        <Form.Item label="Lương chốt duyệt từ" name="approvedSalaryMin" style={{ flex: 1 }}>
-                            <InputNumber style={{ width: "100%" }} min={0} placeholder={String(requisition.expectedSalaryMin ?? "")} />
+
+                <Form
+                    form={approveForm}
+                    layout="vertical"
+                >
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                                "1fr 1fr",
+                            gap: 12,
+                        }}
+                    >
+                        <Form.Item
+                            label="Mức lương tối thiểu"
+                            name="approvedSalaryMin"
+                        >
+                            <InputNumber
+                                style={{
+                                    width: "100%",
+                                }}
+                                min={0}
+                                addonAfter="đ"
+                                placeholder="Nhập mức lương"
+                            />
                         </Form.Item>
-                        <Form.Item label="Lương chốt duyệt đến" name="approvedSalaryMax" style={{ flex: 1 }}>
-                            <InputNumber style={{ width: "100%" }} min={0} placeholder={String(requisition.expectedSalaryMax ?? "")} />
+
+                        <Form.Item
+                            label="Mức lương tối đa"
+                            name="approvedSalaryMax"
+                        >
+                            <InputNumber
+                                style={{
+                                    width: "100%",
+                                }}
+                                min={0}
+                                addonAfter="đ"
+                                placeholder="Nhập mức lương"
+                            />
                         </Form.Item>
                     </div>
-                    <Form.Item label="Ghi chú " name="note">
-                        <Input.TextArea rows={2} placeholder="Ví dụ: duyệt theo ngân sách quý này" />
+
+                    <Form.Item
+                        label="Ghi chú của HR"
+                        name="note"
+                    >
+                        <Input.TextArea
+                            rows={3}
+                            placeholder="Ví dụ: Đã điều chỉnh mức lương phù hợp với ngân sách hiện tại..."
+                        />
                     </Form.Item>
                 </Form>
             </Modal>
 
+            {/* ============================================================
+                REQUEST CHANGES MODAL
+            ============================================================ */}
+
             <Modal
-                title="Yêu cầu phòng ban chỉnh sửa lại"
+                title={
+                    <Space>
+                        <ExclamationCircleOutlined
+                            style={{
+                                color: "#D97706",
+                            }}
+                        />
+
+                        Yêu cầu chỉnh sửa
+                    </Space>
+                }
                 open={changesModalOpen}
                 onOk={handleRequestChanges}
-                onCancel={() => setChangesModalOpen(false)}
+                onCancel={() =>
+                    setChangesModalOpen(false)
+                }
                 confirmLoading={actionLoading}
-                okText="Gửi yêu cầu chỉnh sửa"
+                okText="Gửi yêu cầu"
                 cancelText="Hủy"
             >
-                <Form form={changesForm} layout="vertical">
+                <Alert
+                    type="warning"
+                    showIcon
+                    message="Yêu cầu sẽ được gửi lại cho phòng ban"
+                    description="Hãy mô tả rõ những nội dung cần được điều chỉnh để người tạo có thể xử lý nhanh hơn."
+                    style={{
+                        marginBottom: 12,
+                        borderRadius: RADIUS.md,
+                    }}
+                />
+
+                <Form
+                    form={changesForm}
+                    layout="vertical"
+                >
                     <Form.Item
                         name="note"
                         label="Nội dung cần chỉnh sửa"
-                        rules={[{ required: true, message: "Vui lòng nhập nội dung cần chỉnh sửa" }]}
+                        rules={[
+                            {
+                                required: true,
+                                message:
+                                    "Vui lòng nhập nội dung cần chỉnh sửa",
+                            },
+                        ]}
                     >
-                        <Input.TextArea rows={3} placeholder="Ví dụ: mức lương đề xuất vượt ngân sách, vui lòng điều chỉnh lại" />
+                        <Input.TextArea
+                            rows={5}
+                            placeholder="Ví dụ: Mức lương đề xuất hiện tại vượt ngân sách. Vui lòng điều chỉnh lại khoảng lương phù hợp..."
+                        />
                     </Form.Item>
                 </Form>
             </Modal>
 
+            {/* ============================================================
+                REJECT MODAL
+            ============================================================ */}
+
             <Modal
-                title="Từ chối yêu cầu tuyển dụng"
+                title={
+                    <Space>
+                        <CloseCircleOutlined
+                            style={{
+                                color: COLORS.error,
+                            }}
+                        />
+
+                        Từ chối yêu cầu tuyển dụng
+                    </Space>
+                }
                 open={rejectModalOpen}
                 onOk={handleReject}
-                onCancel={() => setRejectModalOpen(false)}
+                onCancel={() =>
+                    setRejectModalOpen(false)
+                }
                 confirmLoading={actionLoading}
-                okText="Từ chối"
+                okText="Xác nhận từ chối"
                 cancelText="Hủy"
+                okButtonProps={{
+                    danger: true,
+                }}
             >
-                <Form form={rejectForm} layout="vertical">
+                <Alert
+                    type="error"
+                    showIcon
+                    message="Xác nhận từ chối yêu cầu"
+                    description="Vui lòng cung cấp lý do cụ thể để phòng ban hiểu và có thể điều chỉnh hoặc tạo yêu cầu mới."
+                    style={{
+                        marginBottom: 12,
+                        borderRadius: RADIUS.md,
+                    }}
+                />
+
+                <Form
+                    form={rejectForm}
+                    layout="vertical"
+                >
                     <Form.Item
                         name="reason"
                         label="Lý do từ chối"
-                        rules={[{ required: true, message: "Vui lòng nhập lý do từ chối" }]}
+                        rules={[
+                            {
+                                required: true,
+                                message:
+                                    "Vui lòng nhập lý do từ chối",
+                            },
+                        ]}
                     >
-                        <Input.TextArea rows={3} />
+                        <Input.TextArea
+                            rows={5}
+                            placeholder="Nhập lý do từ chối yêu cầu..."
+                        />
                     </Form.Item>
                 </Form>
             </Modal>
-        </Modal>
+        </>
     );
 }

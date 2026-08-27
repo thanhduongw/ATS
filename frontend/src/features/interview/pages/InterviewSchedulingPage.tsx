@@ -15,7 +15,7 @@ import SlotConfirmationPanel from "../components/SlotConfirmationPanel";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import { useI18n } from "../../../i18n/useI18n";
-import { COLORS, GRADIENTS } from "../../../app/theme";
+import { COLORS } from "../../../app/theme";
 
 const { Text } = Typography;
 
@@ -202,17 +202,6 @@ export default function InterviewSchedulingPage() {
     if (!isHR) {
         return (
             <div className="page-shell animate-fade-in">
-                <div className="page-header page-shell-fixed" style={{ marginBottom: 16 }}>
-                    <div className="page-header-title">
-                        <div style={{ width: 44, height: 44, borderRadius: 12, background: GRADIENTS.stat4, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20 }}>
-                            <ScheduleOutlined />
-                        </div>
-                        <div>
-                            <h2 style={{ margin: 0 }}>Xác nhận khung giờ phỏng vấn</h2>
-                            <div className="page-header-subtitle">Xác nhận các khung giờ bạn có thể tham gia</div>
-                        </div>
-                    </div>
-                </div>
                 <div className="page-shell-scroll">
                     <SlotConfirmationPanel />
                 </div>
@@ -226,17 +215,8 @@ export default function InterviewSchedulingPage() {
 
     return (
         <div className="page-shell animate-fade-in">
-            {/* ── Page Header ──────────────────── */}
-            <div className="page-header page-shell-fixed" style={{ marginBottom: 16 }}>
-                <div className="page-header-title">
-                    <div style={{ width: 44, height: 44, borderRadius: 12, background: GRADIENTS.stat4, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20 }}>
-                        <ScheduleOutlined />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0 }}>Xếp lịch phỏng vấn (3 bên)</h2>
-                        <div className="page-header-subtitle">HR tạo khung giờ → Phòng ban & Ứng viên xác nhận → Hệ thống chốt lịch</div>
-                    </div>
-                </div>
+            {/* ── Toolbar ──────────────────── */}
+            <div className="page-header page-shell-fixed" style={{ marginBottom: 14, justifyContent: "flex-end" }}>
                 <Space>
                     <Button
                         type="primary"
@@ -261,13 +241,13 @@ export default function InterviewSchedulingPage() {
                     type="info"
                     showIcon
                     title='Mở trang này từ trang "Hồ sơ ứng tuyển" hoặc thêm ?applicationId=… vào URL'
-                    style={{ marginBottom: 16, borderRadius: 10, flexShrink: 0 }}
+                    style={{ marginBottom: 14, borderRadius: 10, flexShrink: 0 }}
                     className="page-shell-fixed"
                 />
             )}
 
             {/* ── How it works ─────────────────── */}
-            <Card className="page-shell-fixed" style={{ marginBottom: 16, border: "none", background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)" }}>
+            <Card className="page-shell-fixed" style={{ marginBottom: 14, border: "none", background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)" }}>
                 <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                     {[
                         { step: 1, icon: <UserOutlined />, label: "HR tạo khung giờ", color: COLORS.primary },

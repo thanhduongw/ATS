@@ -26,14 +26,14 @@ interface RequisitionFormModalProps {
 const gridStyle: React.CSSProperties = {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    columnGap: 20,
+    columnGap: 12,
 };
 
 const span2Style: React.CSSProperties = { gridColumn: "1 / -1" };
 
 function SectionTitle({ children, first }: { children: React.ReactNode; first?: boolean }) {
     return (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: first ? "0 0 16px" : "28px 0 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: first ? "0 0 12px" : "12px 0 12px" }}>
             <span style={{ width: 4, height: 16, borderRadius: 2, background: COLORS.primary, flexShrink: 0 }} />
             <span style={{ fontWeight: 600, fontSize: 15, color: COLORS.textPrimary }}>{children}</span>
         </div>
@@ -432,7 +432,7 @@ export default function RequisitionFormModal({
                 {/* 3. Mức lương dự kiến */}
                 <SectionTitle>Mức lương dự kiến</SectionTitle>
                 <Form.Item label="Mức lương (VNĐ/tháng)">
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <Controller
                             name="expectedSalaryMin"
                             control={control}
@@ -471,7 +471,7 @@ export default function RequisitionFormModal({
                     <Checkbox
                         checked={negotiable}
                         onChange={(e) => toggleNegotiable(e.target.checked)}
-                        style={{ marginTop: 10 }}
+                        style={{ marginTop: 8 }}
                     >
                         Chưa xác định / Thỏa thuận
                     </Checkbox>

@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Calendar, Badge, Card, App } from "antd";
-import { CalendarOutlined } from "@ant-design/icons";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { getInterviews } from "../interviewApi";
 import type { ApiMessageResponse, InterviewResponse } from "../types";
 import InterviewDetailModal from "./InterviewDetailModal";
-import { COLORS, GRADIENTS } from "../../../app/theme";
+import { COLORS } from "../../../app/theme";
 
 const STATUS_BADGE: Record<string, "success" | "processing" | "default" | "error"> = {
   SCHEDULED: "processing",
@@ -68,23 +67,6 @@ export default function InterviewCalendar() {
 
   return (
     <div className="page-shell animate-fade-in">
-      <div className="page-header page-shell-fixed" style={{ marginBottom: 16 }}>
-        <div className="page-header-title">
-          <div style={{
-            width: 44, height: 44, borderRadius: 12,
-            background: GRADIENTS.stat3,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#fff", fontSize: 20,
-          }}>
-            <CalendarOutlined />
-          </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Lịch phỏng vấn</h2>
-            <div className="page-header-subtitle">Các buổi phỏng vấn đã lên lịch — bấm vào một buổi để xem chi tiết.</div>
-          </div>
-        </div>
-      </div>
-
       <Card
         className="table-card-fill"
         style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, flex: 1, minHeight: 0 }}

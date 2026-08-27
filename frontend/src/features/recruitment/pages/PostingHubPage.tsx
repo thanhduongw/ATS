@@ -27,6 +27,7 @@ import { HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import { COLORS } from "../../../app/theme";
 import { useTableScrollY } from "../../../app/useTableScrollY";
+import { useBreadcrumbLabel } from "../../../app/useBreadcrumbLabel";
 
 const RESULT_META: Record<string, { label: string; color: string }> = {
     HIRED: { label: "Đã tuyển", color: "success" },
@@ -102,6 +103,7 @@ export default function PostingHubPage() {
     }, [jobPostingId, message]);
 
     useEffect(() => { loadAll(); }, [loadAll]);
+    useBreadcrumbLabel(posting?.title);
 
     const openRequisitionModal = async () => {
         if (!posting) return;
@@ -220,13 +222,13 @@ export default function PostingHubPage() {
         {
             title: "Giai đoạn hiện tại",
             key: "stage",
-            width: 160,
+            width: 200,
             render: (_, r) => <Tag color="blue">{r.currentStageName}</Tag>,
         },
         {
-            title: "Trạng thái PV gần nhất",
+            title: "Trạng thái gần nhất",
             key: "interviewStatus",
-            width: 170,
+            width: 200,
             render: (_, r) => {
                 const status = stats?.latestInterviewStatusByApplicationId?.[r.id];
                 if (!status) return <span style={{ color: COLORS.textMuted }}>Chưa có lịch</span>;
@@ -247,7 +249,7 @@ export default function PostingHubPage() {
             title: "Ngày ứng tuyển",
             dataIndex: "appliedAt",
             key: "appliedAt",
-            width: 130,
+            width: 160,
             render: (v: string) => new Date(v).toLocaleDateString("vi-VN"),
         },
     ];
@@ -255,18 +257,13 @@ export default function PostingHubPage() {
     return (
         <div className="page-shell animate-fade-in">
             <div className="page-header page-shell-fixed" style={{ marginBottom: 14 }}>
-                <div className="page-header-title">
+                <Space align="center" wrap>
                     <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/recruitment")}>Quay lại</Button>
-                    <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{posting.title}</h2>
-                            <Tag color={statusMetaValue.color}>{statusMetaValue.label}</Tag>
-                        </div>
-                        <div className="page-header-subtitle">
-                            {employmentTypeMap[posting.employmentTypeId] ?? "—"} · {workLocationMap[posting.workLocationId] ?? "—"}
-                        </div>
-                    </div>
-                </div>
+                    <Tag color={statusMetaValue.color}>{statusMetaValue.label}</Tag>
+                    <span className="page-header-subtitle" style={{ margin: 0 }}>
+                        {employmentTypeMap[posting.employmentTypeId] ?? "—"} · {workLocationMap[posting.workLocationId] ?? "—"}
+                    </span>
+                </Space>
                 <Space wrap>
                     <Button icon={<FileSearchOutlined />} onClick={openRequisitionModal}>Xem yêu cầu gốc</Button>
                     {renderActions()}

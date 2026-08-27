@@ -455,23 +455,6 @@ export default function AuthManagementPage() {
 
     return (
         <div className="page-shell animate-fade-in">
-            <div className="page-header page-shell-fixed" style={{ marginBottom: 16 }}>
-                <div className="page-header-title">
-                    <div style={{
-                        width: 44, height: 44, borderRadius: 12,
-                        background: GRADIENTS.primary,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "#fff", fontSize: 20,
-                    }}>
-                        <SettingOutlined />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Cài đặt tài khoản</h2>
-                        <div className="page-header-subtitle">Quản lý thông tin cá nhân, công ty và nhân sự</div>
-                    </div>
-                </div>
-            </div>
-
             <Card
                 className="table-card-fill"
                 style={{ border: "none", flex: 1, minHeight: 0 }}

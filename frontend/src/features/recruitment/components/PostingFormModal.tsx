@@ -38,7 +38,7 @@ interface Props {
 const gridStyle: React.CSSProperties = {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    columnGap: 20,
+    columnGap: 12,
 };
 
 const span2Style: React.CSSProperties = { gridColumn: "1 / -1" };
@@ -57,12 +57,12 @@ function Section({
             style={{
                 border: `1px solid ${COLORS.borderLight}`,
                 borderRadius: RADIUS.lg,
-                padding: "18px 20px 6px",
-                marginBottom: 20,
+                padding: "12px 12px 4px",
+                marginBottom: 12,
                 background: "#FCFDFD",
             }}
         >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <span
                     style={{
                         width: 28,
@@ -89,7 +89,7 @@ function Section({
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
     return (
         <div>
-            <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>{label}</div>
+            <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 4 }}>{label}</div>
             <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.textPrimary }}>{value ?? "—"}</div>
         </div>
     );
@@ -108,7 +108,7 @@ function PriorityBadge({ priority }: { priority: RequisitionPriority | null }) {
         <span
             style={{
                 display: "inline-block",
-                padding: "1px 8px",
+                padding: "4px 8px",
                 borderRadius: 999,
                 fontSize: 12,
                 fontWeight: 600,
@@ -303,7 +303,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                         <div style={{ fontSize: 18, fontWeight: 700 }}>
                             {editingItem ? "Sửa tin tuyển dụng" : "Tạo tin tuyển dụng"}
                         </div>
-                        <div style={{ fontSize: 13, fontWeight: 400, color: COLORS.textSecondary, marginTop: 2 }}>
+                        <div style={{ fontSize: 13, fontWeight: 400, color: COLORS.textSecondary, marginTop: 4 }}>
                             Đăng tin công khai từ yêu cầu tuyển dụng đã được HR phê duyệt
                         </div>
                     </div>
@@ -326,7 +326,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 <Alert
                     type="warning"
                     showIcon
-                    style={{ marginBottom: 16, borderRadius: RADIUS.md }}
+                    style={{ marginBottom: 12, borderRadius: RADIUS.md }}
                     message="Tin tuyển dụng này đã có ứng viên nộp hồ sơ nên không thể đổi Quy trình tuyển dụng."
                 />
             )}
@@ -334,7 +334,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 <Alert
                     type="warning"
                     showIcon
-                    style={{ marginBottom: 16, borderRadius: RADIUS.md }}
+                    style={{ marginBottom: 12, borderRadius: RADIUS.md }}
                     message="Hiện chưa có yêu cầu tuyển dụng nào được HR phê duyệt để đăng tin."
                 />
             )}
@@ -342,7 +342,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 <Alert
                     type="info"
                     showIcon
-                    style={{ marginBottom: 16, borderRadius: RADIUS.md }}
+                    style={{ marginBottom: 12, borderRadius: RADIUS.md }}
                     message="Chỉ đăng tin từ yêu cầu đã được HR phê duyệt. Các thông tin sẽ được điền sẵn theo yêu cầu, bạn có thể chỉnh lại trước khi đăng."
                 />
             )} */}
@@ -385,11 +385,11 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     {selectedReq && (
                         <div
                             style={{
-                                padding: 14,
+                                padding: 12,
                                 borderRadius: RADIUS.md,
                                 background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)",
                                 border: `1px solid ${COLORS.border}`,
-                                marginBottom: 16,
+                                marginBottom: 12,
                             }}
                         >
                             <div
@@ -397,15 +397,15 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                                     fontSize: 12,
                                     fontWeight: 600,
                                     color: COLORS.primaryDark,
-                                    marginBottom: 10,
+                                    marginBottom: 8,
                                     display: "flex",
                                     alignItems: "center",
-                                    gap: 6,
+                                    gap: 8,
                                 }}
                             >
                                 <InfoCircleOutlined /> Thông tin từ yêu cầu tuyển dụng
                             </div>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", rowGap: 12, columnGap: 16 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", rowGap: 12, columnGap: 12 }}>
                                 <InfoRow label="Phòng ban" value={nameOf(departments, selectedReq.departmentId)} />
                                 <InfoRow label="Chức vụ" value={nameOf(jobTitles, selectedReq.jobTitleId)} />
                                 <InfoRow label="Cấp bậc" value={nameOf(jobLevels, selectedReq.jobLevelId)} />
@@ -531,7 +531,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 {/* 3. Lương */}
                 <Section icon={<DollarCircleOutlined />} title="Lương">
                     <Form.Item label="Khoảng lương dự kiến (VNĐ/tháng)">
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                             <Controller
                                 name="salaryMin"
                                 control={control}

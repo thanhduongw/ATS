@@ -37,7 +37,7 @@ import { saveAs } from "file-saver";
 import { getDashboardSummary, getDashboardReportPdf } from "../dashboardApi";
 import type { DashboardSummaryResponse } from "../types";
 import { GRADIENTS, COLORS } from "../../../app/theme";
-import { useAppSelector } from "../../../app/hooks";
+// import { useAppSelector } from "../../../app/hooks";
 import { useNavigate } from "react-router-dom";
 
 const { RangePicker } = DatePicker;
@@ -212,7 +212,7 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
-    const user = useAppSelector((s) => s.auth.user);
+    // const user = useAppSelector((s) => s.auth.user);
     const navigate = useNavigate();
 
     const rangeParams = useMemo(() => ({
@@ -246,10 +246,6 @@ export default function DashboardPage() {
             setExporting(false);
         }
     };
-
-    const hour = new Date().getHours();
-    const greeting =
-        hour < 12 ? "Chào buổi sáng" : hour < 18 ? "Chào buổi chiều" : "Chào buổi tối";
 
     const barChartData = summary
         ? Object.entries(summary.applicationsByStage ?? {}).map(([stage, count]) => ({
@@ -299,51 +295,11 @@ export default function DashboardPage() {
 
     return (
         <div className="page-container animate-fade-in">
-            {/* Welcome */}
-            <div
-                style={{
-                    background: GRADIENTS.header,
-                    borderRadius: 16,
-                    padding: "28px 32px",
-                    marginBottom: 24,
-                    position: "relative",
-                    overflow: "hidden",
-                    boxShadow: "0 8px 24px rgba(11,59,54,0.2)",
-                }}
-            >
-                <div style={{ position: "relative", zIndex: 1 }}>
-                    <div
-                        style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}
-                    >
-                        {greeting},
-                    </div>
-                    <div
-                        style={{
-                            fontSize: 24,
-                            fontWeight: 700,
-                            color: "#fff",
-                            marginBottom: 6,
-                        }}
-                    >
-                        {user?.fullName || user?.email || "Admin"} 👋
-                    </div>
-                    <div style={{ fontSize: 14, color: "rgba(255,255,255,0.7)" }}>
-                        Hôm nay là{" "}
-                        {new Date().toLocaleDateString("vi-VN", {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                        })}
-                    </div>
-                </div>
-            </div>
-
             {/* Filter theo thời gian + xuất báo cáo */}
             <div
                 style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
-                    flexWrap: "wrap", gap: 12, marginBottom: 24,
+                    flexWrap: "wrap", gap: 12, marginBottom: 16,
                 }}
             >
                 <RangePicker
@@ -363,7 +319,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Stats */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
                 <Col xs={24} sm={12} lg={6}>
                     <StatCard
                         title="Tin đang mở"
@@ -400,7 +356,7 @@ export default function DashboardPage() {
                 </Col>
             </Row>
 
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
                 <Col xs={24} sm={8}>
                     <Card style={{ textAlign: "center", border: "none" }} className="stat-card">
                         <div style={{ fontSize: 32, fontWeight: 700, color: COLORS.primary }}>
@@ -453,7 +409,7 @@ export default function DashboardPage() {
 
             {/* ── Time-to-Hire ── */}
             {summary?.avgTimeToHireDays != null && (
-                <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
                     <Col span={24}>
                         <Card style={{ border: "none" }} className="stat-card">
                             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -483,7 +439,7 @@ export default function DashboardPage() {
                             <span>Phễu tuyển dụng (Funnel)</span>
                         </div>
                     }
-                    style={{ marginBottom: 24, border: "none" }}
+                    style={{ marginBottom: 16, border: "none" }}
                 >
                     <div
                         style={{
@@ -569,7 +525,7 @@ export default function DashboardPage() {
             )}
 
             {/* ── Source Effectiveness / Pipeline Conversion / Recruiter Performance ── */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
                 <Col xs={24} lg={12}>
                     <Card
                         title={
@@ -636,7 +592,7 @@ export default function DashboardPage() {
                             <span>Tỉ lệ chuyển đổi Pipeline</span>
                         </div>
                     }
-                    style={{ marginBottom: 24, border: "none" }}
+                    style={{ marginBottom: 16, border: "none" }}
                 >
                     {summary.pipelineConversion.map((s) => (
                         <div key={s.stageName} style={{ marginBottom: 12 }}>
@@ -660,7 +616,7 @@ export default function DashboardPage() {
             )}
 
             {/* Charts */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
                 <Col xs={24} lg={14}>
                     <Card
                         title={
@@ -764,7 +720,7 @@ export default function DashboardPage() {
                 </Col>
             </Row>
 
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
                 <Col xs={24} lg={14}>
                     <Card
                         title={
@@ -810,7 +766,7 @@ export default function DashboardPage() {
 
                 <Col xs={24} lg={10}>
                     <Card title="Truy cập nhanh" style={{ border: "none", height: "100%" }}>
-                        <Row gutter={[10, 10]}>
+                        <Row gutter={[8, 8]}>
                             <Col span={12}>
                                 <QuickAction
                                     icon={<SolutionOutlined />}

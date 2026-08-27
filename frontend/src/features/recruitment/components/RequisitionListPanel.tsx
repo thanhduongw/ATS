@@ -14,7 +14,6 @@ import RequisitionDetailModal from "./RequisitionDetailModal";
 import { REQUISITION_STATUS_COLOR, REQUISITION_STATUS_LABEL } from "../requisitionStatus";
 import StatusTag from "../../../components/ui/StatusTag";
 import EmptyState from "../../../components/ui/EmptyState";
-import { useTableScrollY } from "../../../app/useTableScrollY";
 
 const STATUS_OPTIONS: RequisitionStatus[] = [
     "DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "CHANGES_REQUESTED",
@@ -55,8 +54,6 @@ export default function RequisitionListPanel() {
 
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<JobRequisitionResponse | null>(null);
-
-    const { wrapRef, scrollY } = useTableScrollY([loading, requisitions.length]);
 
     // Debounce ô tìm kiếm
     useEffect(() => {
@@ -131,34 +128,24 @@ export default function RequisitionListPanel() {
             title: "Phòng ban",
             dataIndex: "departmentId",
             key: "departmentId",
-            width: 150,
+            width: 160,
             render: (id: number) => departmentMap[id] ?? "—",
         },
         {
             title: "Chức vụ",
             dataIndex: "jobTitleId",
             key: "jobTitleId",
-            width: 150,
+            width: 160,
             render: (id: number) => jobTitleMap[id] ?? "—",
         },
-        { title: "SL", dataIndex: "quantity", key: "quantity", width: 60 },
-        { title: "Người duyệt", dataIndex: "approverName", key: "approverName", width: 150, ellipsis: true },
+        { title: "SL", dataIndex: "quantity", key: "quantity", width: 45 },
+        { title: "Người duyệt", dataIndex: "approverName", key: "approverName", width: 140, ellipsis: true },
         {
             title: "Trạng thái",
             dataIndex: "status",
             key: "status",
-            width: 140,
+            width: 125,
             render: (status: RequisitionStatus) => <StatusTag color={REQUISITION_STATUS_COLOR[status]} label={REQUISITION_STATUS_LABEL[status]} />,
-        },
-        {
-            title: "",
-            key: "actions",
-            width: 100,
-            render: (_: unknown, record: JobRequisitionResponse) => (
-                <Button type="link" onClick={() => openDetail(record)}>
-                    Chi tiết
-                </Button>
-            ),
         },
     ];
 
@@ -201,15 +188,17 @@ export default function RequisitionListPanel() {
                 />
             </div>
 
-            <div ref={wrapRef} className="table-scroll-wrap">
+            <div className="page-shell-scroll">
                 <Table
                     rowKey="id"
                     size="small"
                     loading={loading}
                     columns={columns}
                     dataSource={requisitions}
-                    sticky
-                    scroll={{ y: scrollY }}
+                    onRow={(record) => ({
+                        onClick: () => openDetail(record),
+                        style: { cursor: "pointer" },
+                    })}
                     pagination={{
                         current: page,
                         pageSize,

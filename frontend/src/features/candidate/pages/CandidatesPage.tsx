@@ -424,37 +424,8 @@ export default function CandidatesPage() {
 
     return (
         <div className="page-shell animate-fade-in">
-            {/* Header */}
-            <div className="page-header page-shell-fixed" style={{ marginBottom: 16 }}>
-                <div className="page-header-title">
-                    <div style={{
-                        width: 44, height: 44, borderRadius: 12,
-                        background: GRADIENTS.stat2,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "#fff", fontSize: 20,
-                    }}>
-                        <UserOutlined />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Ứng viên</h2>
-                        <div className="page-header-subtitle">Quản lý, sàng lọc và đánh giá ứng viên trong quy trình tuyển dụng.</div>
-                    </div>
-                </div>
-                <Space>
-                    <Button icon={<DownloadOutlined />} size="large" onClick={handleExportExcel}>
-                        Xuất Excel
-                    </Button>
-                    {isHr && (
-                        <Button type="primary" icon={<PlusOutlined />} size="large"
-                            onClick={() => setFormModalOpen(true)}>
-                            Thêm ứng viên
-                        </Button>
-                    )}
-                </Space>
-            </div>
-
             {/* KPI stat cards */}
-            <Row gutter={[16, 16]} className="page-shell-fixed" style={{ marginBottom: 16 }}>
+            <Row gutter={[12, 12]} className="page-shell-fixed" style={{ marginBottom: 14 }}>
                 <Col xs={24} sm={12} md={8} lg={4}>
                     <StatCard title="Tổng ứng viên" value={totalCandidates} icon={<UserOutlined />} gradient={GRADIENTS.stat1} />
                 </Col>
@@ -477,51 +448,67 @@ export default function CandidatesPage() {
                 style={{ border: "none", flex: 1, minHeight: 0 }}
                 styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
             >
-                <Input
-                    prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
-                    placeholder="Tìm theo tên, email hoặc số điện thoại..."
-                    value={searchInput}
-                    onChange={e => setSearchInput(e.target.value)}
-                    style={{ marginBottom: 12, flexShrink: 0 }}
-                    size="large"
-                    allowClear
-                />
-                <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", flexShrink: 0 }}>
-                    <Select
-                        allowClear
-                        placeholder="Tất cả phòng ban"
-                        style={{ width: 180 }}
-                        value={departmentFilter}
-                        onChange={(v) => { setDepartmentFilter(v ?? null); setPage(1); }}
-                        options={departmentOptions.map((d) => ({ value: d.name, label: `${d.name} (${d.count})` }))}
-                    />
-                    <Select
-                        allowClear
-                        showSearch
-                        placeholder="Tất cả vị trí"
-                        style={{ width: 180 }}
-                        value={positionFilter}
-                        onChange={(v) => { setPositionFilter(v ?? null); setPage(1); }}
-                        options={positionOptions.map((p) => ({ value: p, label: p }))}
-                    />
-                    <Select
-                        allowClear
-                        placeholder="Tất cả trạng thái"
-                        style={{ width: 180 }}
-                        value={statusFilter}
-                        onChange={(v) => { setStatusFilter(v ?? null); setPage(1); }}
-                        options={statusOptions.map((s) => ({ value: s, label: s }))}
-                    />
-                    {hasActiveFilters && (
-                        <Button onClick={handleResetFilters}>Reset</Button>
-                    )}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12, flexWrap: "wrap", flexShrink: 0 }}>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", flex: 1, minWidth: 280 }}>
+                        <Input
+                            prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
+                            placeholder="Tìm theo tên, email, SĐT..."
+                            value={searchInput}
+                            onChange={e => setSearchInput(e.target.value)}
+                            style={{ width: 220 }}
+                            size="large"
+                            allowClear
+                        />
+                        <Select
+                            allowClear
+                            size="large"
+                            placeholder="Phòng ban"
+                            style={{ width: 140 }}
+                            value={departmentFilter}
+                            onChange={(v) => { setDepartmentFilter(v ?? null); setPage(1); }}
+                            options={departmentOptions.map((d) => ({ value: d.name, label: `${d.name} (${d.count})` }))}
+                        />
+                        <Select
+                            allowClear
+                            showSearch
+                            size="large"
+                            placeholder="Vị trí"
+                            style={{ width: 130 }}
+                            value={positionFilter}
+                            onChange={(v) => { setPositionFilter(v ?? null); setPage(1); }}
+                            options={positionOptions.map((p) => ({ value: p, label: p }))}
+                        />
+                        <Select
+                            allowClear
+                            size="large"
+                            placeholder="Trạng thái"
+                            style={{ width: 140 }}
+                            value={statusFilter}
+                            onChange={(v) => { setStatusFilter(v ?? null); setPage(1); }}
+                            options={statusOptions.map((s) => ({ value: s, label: s }))}
+                        />
+                        {hasActiveFilters && (
+                            <Button size="large" onClick={handleResetFilters}>Reset</Button>
+                        )}
+                    </div>
+                    <Space>
+                        <Button icon={<DownloadOutlined />} size="large" onClick={handleExportExcel}>
+                            Xuất Excel
+                        </Button>
+                        {isHr && (
+                            <Button type="primary" icon={<PlusOutlined />} size="large"
+                                onClick={() => setFormModalOpen(true)}>
+                                Thêm ứng viên
+                            </Button>
+                        )}
+                    </Space>
                 </div>
 
                 {isHr && selectedRowKeys.length > 0 && (
                     <div
                         style={{
                             display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-                            padding: "10px 16px", marginBottom: 16, background: "#EFF6FF",
+                            padding: "10px 16px", marginBottom: 12, background: "#EFF6FF",
                             border: "1px solid #BFDBFE", borderRadius: 8, flexShrink: 0,
                         }}
                     >

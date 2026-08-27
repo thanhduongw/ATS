@@ -7,7 +7,6 @@ import {
     Input,
     Select,
     Tag,
-    Popconfirm,
     Typography,
     App,
     Space,
@@ -23,8 +22,12 @@ import {
     deleteCatalogItem,
     previewEmailTemplate,
 } from "../masterdataApi";
+import { COLORS, RADIUS } from "../../../app/theme";
+import EmptyState from "../../../components/ui/EmptyState";
+import { PageToolbar, IconAction, ModalTitle } from "../../../components/ui/pageKit";
+import { listPagination } from "../../../components/ui/listStyles";
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 const SAMPLE_KEYS = ["title", "message", "recipientName", "resourceType", "resourceId"];
 
@@ -170,25 +173,22 @@ export default function EmailTemplatePanel({ config }: Props) {
         {
             title: "Thao tác",
             key: "actions",
+            width: 120,
             render: (_: unknown, record: CatalogItem) => (
-                <Space>
-                    <Button type="link" icon={<EyeOutlined />} onClick={() => openPreview(record)}>
-                        Xem trước
-                    </Button>
-                    <Button type="link" icon={<EditOutlined />} onClick={() => openEditModal(record)}>
-                        Sửa
-                    </Button>
-                    <Popconfirm
-                        title="Xác nhận xóa?"
-                        description="Mục này sẽ được ẩn khỏi danh sách sử dụng, không xóa vĩnh viễn."
-                        onConfirm={() => handleDelete(record.id)}
-                        okText="Xóa"
-                        cancelText="Hủy"
-                    >
-                        <Button type="link" danger icon={<DeleteOutlined />}>
-                            Xóa
-                        </Button>
-                    </Popconfirm>
+                <Space size={4}>
+                    <IconAction title="Xem trước" icon={<EyeOutlined />} onClick={() => openPreview(record)} />
+                    <IconAction title="Sửa" icon={<EditOutlined />} onClick={() => openEditModal(record)} />
+                    <IconAction
+                        title="Ẩn khỏi danh sách"
+                        icon={<DeleteOutlined />}
+                        danger
+                        onClick={() => handleDelete(record.id)}
+                        confirm={{
+                            title: "Ẩn mẫu email này?",
+                            description: "Mục này sẽ được ẩn khỏi danh sách sử dụng, không xóa vĩnh viễn.",
+                            okText: "Ẩn",
+                        }}
+                    />
                 </Space>
             ),
         },
@@ -196,19 +196,23 @@ export default function EmailTemplatePanel({ config }: Props) {
 
     return (
         <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <Title level={4} style={{ margin: 0 }}>
-                    {config.title}
-                </Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-                    Thêm mới
-                </Button>
-            </div>
+            <PageToolbar
+                left={
+                    <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.textPrimary }}>
+                        {config.title}
+                    </span>
+                }
+                right={
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+                        Thêm mới
+                    </Button>
+                }
+            />
 
             <Alert
                 type="info"
                 showIcon
-                style={{ marginBottom: 16 }}
+                style={{ marginBottom: 12, borderRadius: RADIUS.md }}
                 message="Biến khả dụng trong Tiêu đề/Nội dung"
                 description={
                     <span>
@@ -218,10 +222,31 @@ export default function EmailTemplatePanel({ config }: Props) {
                 }
             />
 
-            <Table rowKey="id" loading={loading} columns={columns} dataSource={items} pagination={{ pageSize: 10 }} />
+            <Table
+                rowKey="id"
+                size="small"
+                loading={loading}
+                columns={columns}
+                dataSource={items}
+                pagination={{ pageSize: 10, ...listPagination("mẫu email") }}
+                locale={{
+                    emptyText: (
+                        <EmptyState
+                            title="Chưa có mẫu email nào"
+                            description="Thêm mẫu để hệ thống gửi email tự động cho ứng viên."
+                        />
+                    ),
+                }}
+            />
 
             <Modal
-                title={editingItem ? `Sửa ${config.title.toLowerCase()}` : `Thêm ${config.title.toLowerCase()}`}
+                title={
+                    <ModalTitle
+                        icon={editingItem ? <EditOutlined /> : <PlusOutlined />}
+                        title={editingItem ? `Sửa ${config.title.toLowerCase()}` : `Thêm ${config.title.toLowerCase()}`}
+                        subtitle="Mẫu email gửi tự động theo sự kiện tuyển dụng"
+                    />
+                }
                 open={modalOpen}
                 onOk={handleSubmit}
                 onCancel={() => setModalOpen(false)}

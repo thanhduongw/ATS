@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Modal, Form, Select, Input, message } from "antd";
+import { FolderAddOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
+import { ModalTitle } from "../../../components/ui/pageKit";
 import {
   applicationCreateSchema,
   type ApplicationCreateFormValues,
@@ -80,7 +82,13 @@ export default function ApplicationCreateModal({
 
   return (
     <Modal
-      title="Thêm ứng viên vào tin tuyển dụng"
+      title={
+        <ModalTitle
+          icon={<FolderAddOutlined />}
+          title="Thêm ứng viên vào tin tuyển dụng"
+          subtitle="Tạo hồ sơ ứng tuyển cho ứng viên đã có trong hệ thống"
+        />
+      }
       open={open}
       onOk={handleSubmit(onSubmit)}
       onCancel={onClose}

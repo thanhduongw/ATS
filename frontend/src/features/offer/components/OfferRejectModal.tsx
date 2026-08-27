@@ -2,7 +2,10 @@ import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Modal, Form, Input, message } from "antd";
+import { CloseCircleOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
+import { ModalTitle } from "../../../components/ui/pageKit";
+import { COLORS } from "../../../app/theme";
 import { offerRejectSchema, type OfferRejectFormValues } from "../schemas/offerRejectSchema";
 import { rejectOffer } from "../offerApi";
 import type { ApiMessageResponse } from "../types";
@@ -42,7 +45,14 @@ export default function OfferRejectModal({ open, offerId, onClose, onSuccess }: 
 
   return (
     <Modal
-      title="Từ chối phê duyệt Offer"
+      title={
+        <ModalTitle
+          icon={<CloseCircleOutlined />}
+          title="Từ chối phê duyệt Offer"
+          subtitle="Nêu rõ lý do để HR điều chỉnh và gửi duyệt lại"
+          accent={COLORS.error}
+        />
+      }
       open={open}
       onOk={handleSubmit(onSubmit)}
       onCancel={onClose}

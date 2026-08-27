@@ -24,6 +24,11 @@ public record JobPostingResponse(
         List<Long> skillIds,
         PostingStatus status,
         boolean pipelineLocked,
+        LocalDateTime createdAt,
+        LocalDateTime submittedAt,
+        LocalDateTime approvedAt,
+        Long approvedBy,
+        String approvedByName,
         LocalDateTime publishedAt,
         LocalDateTime closedAt,
         /** Chỉ populate ở luồng public (career portal); null ở luồng nội bộ HR. */

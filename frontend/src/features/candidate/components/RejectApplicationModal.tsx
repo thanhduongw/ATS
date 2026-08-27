@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Modal, Form, Select, Input, message } from "antd";
+import { CloseCircleOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
+import { ModalTitle } from "../../../components/ui/pageKit";
+import { COLORS } from "../../../app/theme";
 import { rejectApplicationSchema, type RejectApplicationFormValues } from "../schemas/rejectApplicationSchema";
 import { rejectApplication } from "../candidateApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
@@ -46,7 +49,14 @@ export default function RejectApplicationModal({ open, applicationId, onClose, o
 
   return (
     <Modal
-      title="Từ chối hồ sơ ứng tuyển"
+      title={
+        <ModalTitle
+          icon={<CloseCircleOutlined />}
+          title="Từ chối hồ sơ ứng tuyển"
+          subtitle="Ứng viên sẽ nhận email thông báo tự động"
+          accent={COLORS.error}
+        />
+      }
       open={open}
       onOk={handleSubmit(onSubmit)}
       onCancel={onClose}

@@ -1,19 +1,30 @@
-import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Checkbox, App, Input, Select } from "antd";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Table, Button, App, Input, Select } from "antd";
+import {
+    PlusOutlined,
+    SearchOutlined,
+    SolutionOutlined,
+    ClockCircleOutlined,
+    CheckCircleOutlined,
+    ExclamationCircleOutlined,
+} from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getRequisitions } from "../recruitmentApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import type { ApiMessageResponse, JobRequisitionResponse, RequisitionStatus } from "../types";
 import { useAppSelector } from "../../../app/hooks";
-import { DEPARTMENT_ROLES, HR_ROLES } from "../../../app/roles";
+import { DEPARTMENT_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import RequisitionFormModal from "./RequisitionFormModal";
-import RequisitionDetailDrawer from "./RequisitionDetailDrawer";
+import RequisitionDetailModal from "./RequisitionDetailModal";
 import { REQUISITION_STATUS_COLOR, REQUISITION_STATUS_LABEL } from "../requisitionStatus";
 import StatusTag from "../../../components/ui/StatusTag";
 import EmptyState from "../../../components/ui/EmptyState";
+import StatTile from "../../../components/ui/StatTile";
+import { StatRow, FilterBar } from "../../../components/ui/pageKit";
+import { listPagination } from "../../../components/ui/listStyles";
+import { COLORS } from "../../../app/theme";
 
 const STATUS_OPTIONS: RequisitionStatus[] = [
     "DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "CHANGES_REQUESTED",
@@ -32,10 +43,11 @@ export default function RequisitionListPanel() {
     const currentUser = useAppSelector((state) => state.auth.user);
     const role = currentUser?.role as UserRole | undefined;
     const canCreateRequisition = !!role && DEPARTMENT_ROLES.includes(role);
-    const isHr = !!role && HR_ROLES.includes(role);
 
     const [requisitions, setRequisitions] = useState<JobRequisitionResponse[]>([]);
     const [totalItems, setTotalItems] = useState(0);
+    // Toàn bộ yêu cầu (không phân trang) — chỉ để đếm số liệu, độc lập với bộ lọc của bảng
+    const [allRequisitions, setAllRequisitions] = useState<JobRequisitionResponse[]>([]);
     const [departmentMap, setDepartmentMap] = useState<Record<number, string>>({});
     const [jobTitleMap, setJobTitleMap] = useState<Record<number, string>>({});
     const [jobLevelMap, setJobLevelMap] = useState<Record<number, string>>({});
@@ -44,7 +56,6 @@ export default function RequisitionListPanel() {
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
     const [departments, setDepartments] = useState<CatalogItem[]>([]);
     const [loading, setLoading] = useState(false);
-    const [assignedToMeOnly, setAssignedToMeOnly] = useState(false);
 
     const [searchInput, setSearchInput] = useState("");
     const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -77,7 +88,6 @@ export default function RequisitionListPanel() {
                     status: filters.status,
                     departmentId: filters.departmentId,
                     keyword: filters.keyword || undefined,
-                    assignedToMe: assignedToMeOnly,
                     page: page - 1,
                     size: pageSize,
                 }),
@@ -103,11 +113,30 @@ export default function RequisitionListPanel() {
         } finally {
             setLoading(false);
         }
-    }, [message, assignedToMeOnly, filters, page, pageSize]);
+    }, [message, filters, page, pageSize]);
 
     useEffect(() => {
         loadAll();
     }, [loadAll]);
+
+    useEffect(() => {
+        getRequisitions({ size: 1000 }).then((r) => setAllRequisitions(r.data.content)).catch(() => setAllRequisitions([]));
+    }, []);
+
+    const stats = useMemo(
+        () => ({
+            total: allRequisitions.length,
+            pending: allRequisitions.filter((r) => r.status === "PENDING_APPROVAL").length,
+            approved: allRequisitions.filter((r) => r.status === "APPROVED").length,
+            changes: allRequisitions.filter((r) => r.status === "CHANGES_REQUESTED").length,
+        }),
+        [allRequisitions],
+    );
+
+    const toggleStatus = (next: RequisitionStatus) => {
+        setFilters((f) => ({ ...f, status: f.status === next ? undefined : next }));
+        setPage(1);
+    };
 
     const openCreate = () => {
         setEditingItem(null);
@@ -119,56 +148,81 @@ export default function RequisitionListPanel() {
         setDetailOpen(true);
     };
 
-    const openEditFromDrawer = (item: JobRequisitionResponse) => {
+    const openEditFromModal = (item: JobRequisitionResponse) => {
         setDetailOpen(false);
         setEditingItem(item);
         setFormModalOpen(true);
     };
 
     const columns = [
-        { title: "Tiêu đề", dataIndex: "title", key: "title" },
+        { title: "Tiêu đề", dataIndex: "title", key: "title", ellipsis: true },
         {
             title: "Phòng ban",
             dataIndex: "departmentId",
             key: "departmentId",
+            width: 160,
             render: (id: number) => departmentMap[id] ?? "—",
         },
         {
             title: "Chức vụ",
             dataIndex: "jobTitleId",
             key: "jobTitleId",
+            width: 160,
             render: (id: number) => jobTitleMap[id] ?? "—",
         },
-        { title: "Số lượng", dataIndex: "quantity", key: "quantity" },
-        { title: "Người duyệt", dataIndex: "approverName", key: "approverName" },
+        { title: "SL", dataIndex: "quantity", key: "quantity", width: 45 },
+        { title: "Người duyệt", dataIndex: "approverName", key: "approverName", width: 140, ellipsis: true },
         {
             title: "Trạng thái",
             dataIndex: "status",
             key: "status",
+            width: 125,
             render: (status: RequisitionStatus) => <StatusTag color={REQUISITION_STATUS_COLOR[status]} label={REQUISITION_STATUS_LABEL[status]} />,
-        },
-        {
-            title: "",
-            key: "actions",
-            render: (_: unknown, record: JobRequisitionResponse) => (
-                <Button type="link" onClick={() => openDetail(record)}>
-                    Xem chi tiết
-                </Button>
-            ),
         },
     ];
 
     return (
-        <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-                {canCreateRequisition && (
+        <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <StatRow>
+                <StatTile
+                    icon={<SolutionOutlined />}
+                    label="Tổng yêu cầu"
+                    value={stats.total}
+                    accent={COLORS.primary}
+                    active={!filters.status}
+                    onClick={() => { setFilters((f) => ({ ...f, status: undefined })); setPage(1); }}
+                />
+                <StatTile
+                    icon={<ClockCircleOutlined />}
+                    label="Chờ HR duyệt"
+                    value={stats.pending}
+                    accent="#F59E0B"
+                    active={filters.status === "PENDING_APPROVAL"}
+                    onClick={() => toggleStatus("PENDING_APPROVAL")}
+                />
+                <StatTile
+                    icon={<CheckCircleOutlined />}
+                    label="Đã duyệt"
+                    value={stats.approved}
+                    accent={COLORS.success}
+                    active={filters.status === "APPROVED"}
+                    onClick={() => toggleStatus("APPROVED")}
+                />
+                <StatTile
+                    icon={<ExclamationCircleOutlined />}
+                    label="Cần chỉnh sửa"
+                    value={stats.changes}
+                    accent="#8B5CF6"
+                    active={filters.status === "CHANGES_REQUESTED"}
+                    onClick={() => toggleStatus("CHANGES_REQUESTED")}
+                />
+            </StatRow>
+
+            <FilterBar extra={canCreateRequisition && (
                     <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                         Tạo yêu cầu tuyển dụng
                     </Button>
-                )}
-            </div>
-
-            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+                )}>
                 <Input
                     prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
                     placeholder="Tìm theo tiêu đề..."
@@ -195,39 +249,36 @@ export default function RequisitionListPanel() {
                     onChange={(v) => { setFilters((f) => ({ ...f, departmentId: v })); setPage(1); }}
                     options={departments.map((d) => ({ value: d.id, label: String(d.name) }))}
                 />
-                {/* {isHr && (
-                    <Checkbox
-                        checked={assignedToMeOnly}
-                        onChange={(e) => { setAssignedToMeOnly(e.target.checked); setPage(1); }}
-                    >
-                        Chỉ chờ tôi duyệt
-                    </Checkbox>
-                )} */}
-            </div>
+            </FilterBar>
 
-            <Table
-                rowKey="id"
-                loading={loading}
-                columns={columns}
-                dataSource={requisitions}
-                pagination={{
-                    current: page,
-                    pageSize,
-                    total: totalItems,
-                    showSizeChanger: true,
-                    pageSizeOptions: [10, 20, 50],
-                    showTotal: (total) => `Tổng ${total} yêu cầu`,
-                    onChange: (p, ps) => { setPage(p); setPageSize(ps); },
-                }}
-                locale={{
-                    emptyText: (
-                        <EmptyState
-                            title="Chưa có yêu cầu tuyển dụng nào"
-                            description="Tạo yêu cầu đầu tiên để gửi HR duyệt và mở tin tuyển dụng."
-                        />
-                    ),
-                }}
-            />
+            <div className="page-shell-scroll">
+                <Table
+                    rowKey="id"
+                    size="small"
+                    loading={loading}
+                    columns={columns}
+                    dataSource={requisitions}
+                    onRow={(record) => ({
+                        onClick: () => openDetail(record),
+                        style: { cursor: "pointer" },
+                    })}
+                    pagination={{
+                        current: page,
+                        pageSize,
+                        total: totalItems,
+                        ...listPagination("yêu cầu"),
+                        onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                    }}
+                    locale={{
+                        emptyText: (
+                            <EmptyState
+                                title="Chưa có yêu cầu tuyển dụng nào"
+                                description="Tạo yêu cầu đầu tiên để gửi HR duyệt và mở tin tuyển dụng."
+                            />
+                        ),
+                    }}
+                />
+            </div>
 
             <RequisitionFormModal
                 open={formModalOpen}
@@ -236,7 +287,7 @@ export default function RequisitionListPanel() {
                 onSuccess={loadAll}
             />
 
-            <RequisitionDetailDrawer
+            <RequisitionDetailModal
                 open={detailOpen}
                 requisition={selectedItem}
                 departmentMap={departmentMap}
@@ -247,7 +298,7 @@ export default function RequisitionListPanel() {
                 workLocationMap={workLocationMap}
                 onClose={() => setDetailOpen(false)}
                 onChanged={loadAll}
-                onEdit={openEditFromDrawer}
+                onEdit={openEditFromModal}
             />
         </div>
     );

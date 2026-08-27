@@ -27,6 +27,9 @@ import type {
 } from "../types";
 import { COLORS, RADIUS } from "../../../app/theme";
 import { WORK_ARRANGEMENT_OPTIONS, PRIORITY_LABEL } from "../requisitionOptions";
+import { SectionHeader, SectionContainer, InfoField } from "../../../components/ui/sectionKit";
+import { ModalTitle } from "../../../components/ui/pageKit";
+import { moneyFormatter, moneyParser, formatSalaryRange } from "../../../app/money";
 
 interface Props {
     open: boolean;
@@ -35,65 +38,21 @@ interface Props {
     onSuccess: () => void;
 }
 
-const gridStyle: React.CSSProperties = {
+/** Lưới 3 cột cho các trường ngắn (select) — tận dụng chiều ngang modal rộng. */
+const grid3: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    columnGap: 20,
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    columnGap: 12,
 };
 
-const span2Style: React.CSSProperties = { gridColumn: "1 / -1" };
+/** Lưới 2 cột cho các vùng nhập dài (textarea). */
+const grid2: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    columnGap: 12,
+};
 
-function Section({
-    icon,
-    title,
-    children,
-}: {
-    icon: React.ReactNode;
-    title: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <div
-            style={{
-                border: `1px solid ${COLORS.borderLight}`,
-                borderRadius: RADIUS.lg,
-                padding: "18px 20px 6px",
-                marginBottom: 20,
-                background: "#FCFDFD",
-            }}
-        >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                <span
-                    style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 8,
-                        background: "rgba(14, 122, 95, 0.1)",
-                        color: COLORS.primary,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 14,
-                        flexShrink: 0,
-                    }}
-                >
-                    {icon}
-                </span>
-                <span style={{ fontWeight: 600, fontSize: 15, color: COLORS.textPrimary }}>{title}</span>
-            </div>
-            {children}
-        </div>
-    );
-}
-
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-    return (
-        <div>
-            <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>{label}</div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.textPrimary }}>{value ?? "—"}</div>
-        </div>
-    );
-}
+const spanAll: React.CSSProperties = { gridColumn: "1 / -1" };
 
 const PRIORITY_STYLE: Record<RequisitionPriority, { color: string; bg: string }> = {
     NORMAL: { color: COLORS.textSecondary, bg: COLORS.borderLight },
@@ -108,7 +67,7 @@ function PriorityBadge({ priority }: { priority: RequisitionPriority | null }) {
         <span
             style={{
                 display: "inline-block",
-                padding: "1px 8px",
+                padding: "4px 8px",
                 borderRadius: 999,
                 fontSize: 12,
                 fontWeight: 600,
@@ -120,17 +79,6 @@ function PriorityBadge({ priority }: { priority: RequisitionPriority | null }) {
         </span>
     );
 }
-
-const moneyFormatter = (value: number | string | undefined) =>
-    value || value === 0 ? new Intl.NumberFormat("vi-VN").format(Number(value)) : "";
-const moneyParser = (value: string | undefined) => (value ? Number(value.replace(/\D/g, "")) : 0);
-
-const fmtSalaryRange = (min?: number | null, max?: number | null) => {
-    if (!min && !max) return "Thỏa thuận";
-    const f = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
-    if (min && max) return `${f(min)} – ${f(max)} VNĐ`;
-    return `${f((min ?? max) as number)} VNĐ`;
-};
 
 export default function PostingFormModal({ open, editingItem, onClose, onSuccess }: Props) {
     const { message } = App.useApp();
@@ -282,37 +230,26 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
     return (
         <Modal
             title={
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div
-                        style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: RADIUS.md,
-                            background: "linear-gradient(135deg, #0E7A5F 0%, #10B981 100%)",
-                            color: "#fff",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 18,
-                            flexShrink: 0,
-                        }}
-                    >
-                        {editingItem ? <EditOutlined /> : <FileAddOutlined />}
-                    </div>
-                    <div>
-                        <div style={{ fontSize: 18, fontWeight: 700 }}>
-                            {editingItem ? "Sửa tin tuyển dụng" : "Tạo tin tuyển dụng"}
-                        </div>
-                        <div style={{ fontSize: 13, fontWeight: 400, color: COLORS.textSecondary, marginTop: 2 }}>
-                            Đăng tin công khai từ yêu cầu tuyển dụng đã được HR phê duyệt
-                        </div>
-                    </div>
-                </div>
+                <ModalTitle
+                    icon={editingItem ? <EditOutlined /> : <FileAddOutlined />}
+                    title={editingItem ? "Sửa tin tuyển dụng" : "Tạo tin tuyển dụng"}
+                    subtitle="Đăng tin công khai từ yêu cầu tuyển dụng đã được HR phê duyệt"
+                />
             }
             open={open}
             onCancel={onClose}
-            width={800}
+            width={1100}
+            centered
             destroyOnHidden
+            styles={{
+                body: {
+                    maxHeight: "72vh",
+                    overflowY: "auto",
+                    padding: 12,
+                    background: "#FAFBFC",
+                },
+                footer: { padding: 12, borderTop: `1px solid ${COLORS.borderLight}` },
+            }}
             footer={[
                 <Button key="cancel" onClick={onClose} disabled={saving}>
                     Hủy
@@ -326,7 +263,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 <Alert
                     type="warning"
                     showIcon
-                    style={{ marginBottom: 16, borderRadius: RADIUS.md }}
+                    style={{ marginBottom: 12, borderRadius: RADIUS.md }}
                     message="Tin tuyển dụng này đã có ứng viên nộp hồ sơ nên không thể đổi Quy trình tuyển dụng."
                 />
             )}
@@ -334,7 +271,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 <Alert
                     type="warning"
                     showIcon
-                    style={{ marginBottom: 16, borderRadius: RADIUS.md }}
+                    style={{ marginBottom: 12, borderRadius: RADIUS.md }}
                     message="Hiện chưa có yêu cầu tuyển dụng nào được HR phê duyệt để đăng tin."
                 />
             )}
@@ -342,13 +279,14 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 <Alert
                     type="info"
                     showIcon
-                    style={{ marginBottom: 16, borderRadius: RADIUS.md }}
+                    style={{ marginBottom: 12, borderRadius: RADIUS.md }}
                     message="Chỉ đăng tin từ yêu cầu đã được HR phê duyệt. Các thông tin sẽ được điền sẵn theo yêu cầu, bạn có thể chỉnh lại trước khi đăng."
                 />
             )} */}
             <Form layout="vertical">
                 {/* 1. Nguồn gốc */}
-                <Section icon={<LinkOutlined />} title="Nguồn gốc">
+                <SectionContainer>
+                <SectionHeader icon={<LinkOutlined />} title="Nguồn gốc" />
                     <Form.Item
                         label="Yêu cầu tuyển dụng"
                         validateStatus={errors.requisitionId ? "error" : ""}
@@ -385,11 +323,11 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     {selectedReq && (
                         <div
                             style={{
-                                padding: 14,
+                                padding: 12,
                                 borderRadius: RADIUS.md,
                                 background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)",
                                 border: `1px solid ${COLORS.border}`,
-                                marginBottom: 16,
+                                marginBottom: 12,
                             }}
                         >
                             <div
@@ -397,28 +335,28 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                                     fontSize: 12,
                                     fontWeight: 600,
                                     color: COLORS.primaryDark,
-                                    marginBottom: 10,
+                                    marginBottom: 8,
                                     display: "flex",
                                     alignItems: "center",
-                                    gap: 6,
+                                    gap: 8,
                                 }}
                             >
                                 <InfoCircleOutlined /> Thông tin từ yêu cầu tuyển dụng
                             </div>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", rowGap: 12, columnGap: 16 }}>
-                                <InfoRow label="Phòng ban" value={nameOf(departments, selectedReq.departmentId)} />
-                                <InfoRow label="Chức vụ" value={nameOf(jobTitles, selectedReq.jobTitleId)} />
-                                <InfoRow label="Cấp bậc" value={nameOf(jobLevels, selectedReq.jobLevelId)} />
-                                <InfoRow label="Số lượng cần tuyển" value={`${selectedReq.quantity} người`} />
-                                <InfoRow label="Người yêu cầu" value={selectedReq.requesterName} />
-                                <InfoRow label="Độ ưu tiên" value={<PriorityBadge priority={selectedReq.priority} />} />
-                                <InfoRow
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", rowGap: 12, columnGap: 12 }}>
+                                <InfoField label="Phòng ban" value={nameOf(departments, selectedReq.departmentId)} />
+                                <InfoField label="Chức vụ" value={nameOf(jobTitles, selectedReq.jobTitleId)} />
+                                <InfoField label="Cấp bậc" value={nameOf(jobLevels, selectedReq.jobLevelId)} />
+                                <InfoField label="Số lượng cần tuyển" value={`${selectedReq.quantity} người`} />
+                                <InfoField label="Người yêu cầu" value={selectedReq.requesterName} />
+                                <InfoField label="Độ ưu tiên" value={<PriorityBadge priority={selectedReq.priority} />} />
+                                <InfoField
                                     label="Ngày mong muốn bắt đầu"
                                     value={selectedReq.expectedStartDate ?? "—"}
                                 />
-                                <InfoRow
+                                <InfoField
                                     label="Mức lương đã duyệt"
-                                    value={fmtSalaryRange(
+                                    value={formatSalaryRange(
                                         selectedReq.approvedSalaryMin ?? selectedReq.expectedSalaryMin,
                                         selectedReq.approvedSalaryMax ?? selectedReq.expectedSalaryMax,
                                     )}
@@ -426,10 +364,11 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                             </div>
                         </div>
                     )}
-                </Section>
+                </SectionContainer>
 
                 {/* 2. Thông tin tin tuyển dụng */}
-                <Section icon={<FileTextOutlined />} title="Thông tin tin tuyển dụng">
+                <SectionContainer>
+                <SectionHeader icon={<FileTextOutlined />} title="Thông tin tin tuyển dụng" />
                     <Form.Item label="Tiêu đề tin" validateStatus={errors.title ? "error" : ""} help={errors.title?.message}>
                         <Controller
                             name="title"
@@ -438,7 +377,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                         />
                     </Form.Item>
 
-                    <div style={gridStyle}>
+                    <div style={grid3}>
                         <Form.Item
                             label="Loại hình làm việc"
                             validateStatus={errors.employmentTypeId ? "error" : ""}
@@ -472,7 +411,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
 
                         <Form.Item
                             label="Địa điểm làm việc"
-                            style={span2Style}
+                            style={spanAll}
                             validateStatus={errors.workLocationId ? "error" : ""}
                             help={errors.workLocationId?.message}
                         >
@@ -491,7 +430,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
 
                         <Form.Item
                             label="Kinh nghiệm yêu cầu"
-                            style={span2Style}
+                            style={spanAll}
                         >
                             <Controller
                                 name="experienceRequired"
@@ -526,12 +465,13 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                             )}
                         />
                     </Form.Item>
-                </Section>
+                </SectionContainer>
 
                 {/* 3. Lương */}
-                <Section icon={<DollarCircleOutlined />} title="Lương">
-                    <Form.Item label="Khoảng lương dự kiến (VNĐ/tháng)">
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <SectionContainer>
+                <SectionHeader icon={<DollarCircleOutlined />} title="Lương" />
+                    <Form.Item label="Khoảng lương dự kiến / tháng">
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                             <Controller
                                 name="salaryMin"
                                 control={control}
@@ -542,7 +482,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                                         style={{ width: 180 }}
                                         min={0}
                                         placeholder="Từ"
-                                        addonAfter="₫"
+                                        addonAfter="đ"
                                         formatter={moneyFormatter}
                                         parser={moneyParser}
                                     />
@@ -559,7 +499,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                                         style={{ width: 180 }}
                                         min={0}
                                         placeholder="Đến"
-                                        addonAfter="₫"
+                                        addonAfter="đ"
                                         formatter={moneyFormatter}
                                         parser={moneyParser}
                                     />
@@ -570,10 +510,12 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                             Khoảng lương sẽ hiển thị công khai trên tin tuyển dụng.
                         </div>
                     </Form.Item>
-                </Section>
+                </SectionContainer>
 
                 {/* 4. Mô tả & Kỹ năng */}
-                <Section icon={<BulbOutlined />} title="Mô tả & Kỹ năng">
+                <SectionContainer>
+                <SectionHeader icon={<BulbOutlined />} title="Mô tả & Kỹ năng" />
+                    <div style={grid2}>
                     <Form.Item label="Mô tả công việc">
                         <Controller
                             name="description"
@@ -582,7 +524,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                                 <Input.TextArea
                                     {...field}
                                     value={field.value ?? ""}
-                                    rows={3}
+                                    rows={5}
                                     maxLength={3000}
                                     showCount
                                     placeholder="Trách nhiệm chính, công việc hàng ngày, mục tiêu của vị trí..."
@@ -598,7 +540,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                                 <Input.TextArea
                                     {...field}
                                     value={field.value ?? ""}
-                                    rows={3}
+                                    rows={5}
                                     maxLength={3000}
                                     showCount
                                     placeholder="Kỹ năng, kinh nghiệm, trình độ, phẩm chất cần có..."
@@ -606,7 +548,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                             )}
                         />
                     </Form.Item>
-                    <Form.Item label="Kỹ năng yêu cầu">
+                    <Form.Item label="Kỹ năng yêu cầu" style={spanAll}>
                         <Controller
                             name="skillIds"
                             control={control}
@@ -615,10 +557,12 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                             )}
                         />
                     </Form.Item>
-                </Section>
+                    </div>
+                </SectionContainer>
 
                 {/* 5. Quyền lợi */}
-                <Section icon={<GiftOutlined />} title="Quyền lợi">
+                <SectionContainer style={{ marginBottom: 0 }}>
+                <SectionHeader icon={<GiftOutlined />} title="Quyền lợi" />
                     <Form.Item label="Quyền lợi ứng viên nhận được">
                         <Controller
                             name="benefits"
@@ -627,7 +571,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                                 <Input.TextArea
                                     {...field}
                                     value={field.value ?? ""}
-                                    rows={3}
+                                    rows={4}
                                     maxLength={2000}
                                     showCount
                                     placeholder="Lương thưởng, phúc lợi, môi trường làm việc..."
@@ -635,7 +579,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                             )}
                         />
                     </Form.Item>
-                </Section>
+                </SectionContainer>
             </Form>
         </Modal>
     );

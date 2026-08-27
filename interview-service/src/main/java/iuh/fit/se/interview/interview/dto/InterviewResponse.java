@@ -13,7 +13,7 @@ public record InterviewResponse(
         LocalDateTime scheduledAt,
         Integer durationMinutes,
         InterviewFormat format,
-        String location,
+        Long workLocationId,
         String meetingLink,
         String note,
         InterviewStatus status,

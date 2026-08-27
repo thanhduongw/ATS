@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Table, Button, Modal, Form, Input, Select, Tag, Popconfirm, Typography, App } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Table, Button, Modal, Form, Input, Select, Tag, Space, App } from "antd";
+import {
+    PlusOutlined,
+    EditOutlined,
+    DeleteOutlined,
+} from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import {
     getCustomFieldDefinitions,
@@ -9,8 +13,10 @@ import {
     deleteCustomFieldDefinition,
 } from "../../candidate/customFieldApi";
 import type { ApiMessageResponse, CustomFieldDefinition, CustomFieldType } from "../../candidate/types";
-
-const { Title } = Typography;
+import { COLORS } from "../../../app/theme";
+import EmptyState from "../../../components/ui/EmptyState";
+import { PageToolbar, IconAction, ModalTitle } from "../../../components/ui/pageKit";
+import { listPagination } from "../../../components/ui/listStyles";
 
 const TYPE_LABEL: Record<CustomFieldType, string> = {
     TEXT: "Văn bản",
@@ -86,61 +92,92 @@ export default function CustomFieldDefinitionPanel() {
         }
     };
 
+
     const columns = [
-        { title: "Khóa (fieldKey)", dataIndex: "fieldKey", key: "fieldKey" },
-        { title: "Nhãn hiển thị", dataIndex: "fieldLabel", key: "fieldLabel" },
+        { title: "Khóa (fieldKey)", dataIndex: "fieldKey", key: "fieldKey", ellipsis: true },
+        { title: "Nhãn hiển thị", dataIndex: "fieldLabel", key: "fieldLabel", ellipsis: true },
         {
             title: "Kiểu dữ liệu",
             dataIndex: "fieldType",
             key: "fieldType",
+            width: 140,
             render: (t: CustomFieldType) => TYPE_LABEL[t],
         },
         {
             title: "Trạng thái",
             dataIndex: "active",
             key: "active",
+            width: 120,
             render: (active: boolean) =>
-                active ? <Tag color="green">Đang dùng</Tag> : <Tag color="default">Đã ẩn</Tag>,
+                active ? (
+                    <Tag color="success" style={{ margin: 0 }}>Đang dùng</Tag>
+                ) : (
+                    <Tag color="default" style={{ margin: 0 }}>Đã ẩn</Tag>
+                ),
         },
         {
             title: "Thao tác",
             key: "actions",
+            width: 90,
             render: (_: unknown, record: CustomFieldDefinition) => (
-                <>
-                    <Button type="link" icon={<EditOutlined />} onClick={() => openEditModal(record)}>
-                        Sửa
-                    </Button>
-                    <Popconfirm
-                        title="Xác nhận xóa?"
-                        description="Trường này sẽ bị ẩn khỏi form ứng viên, không xóa dữ liệu đã lưu."
-                        onConfirm={() => handleDelete(record.id)}
-                        okText="Xóa"
-                        cancelText="Hủy"
-                    >
-                        <Button type="link" danger icon={<DeleteOutlined />}>
-                            Xóa
-                        </Button>
-                    </Popconfirm>
-                </>
+                <Space size={4}>
+                    <IconAction title="Sửa" icon={<EditOutlined />} onClick={() => openEditModal(record)} />
+                    <IconAction
+                        title="Ẩn trường này"
+                        icon={<DeleteOutlined />}
+                        danger
+                        onClick={() => handleDelete(record.id)}
+                        confirm={{
+                            title: "Ẩn trường tùy chỉnh này?",
+                            description: "Trường này sẽ bị ẩn khỏi form ứng viên, không xóa dữ liệu đã lưu.",
+                            okText: "Ẩn",
+                        }}
+                    />
+                </Space>
             ),
         },
     ];
 
     return (
         <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <Title level={4} style={{ margin: 0 }}>
-                    Trường tùy chỉnh (Ứng viên)
-                </Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-                    Thêm mới
-                </Button>
-            </div>
+            <PageToolbar
+                left={
+                    <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.textPrimary }}>
+                        Trường tùy chỉnh (Ứng viên)
+                    </span>
+                }
+                right={
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+                        Thêm mới
+                    </Button>
+                }
+            />
 
-            <Table rowKey="id" loading={loading} columns={columns} dataSource={items} pagination={{ pageSize: 10 }} />
+            <Table
+                rowKey="id"
+                size="small"
+                loading={loading}
+                columns={columns}
+                dataSource={items}
+                pagination={{ pageSize: 10, ...listPagination("trường") }}
+                locale={{
+                    emptyText: (
+                        <EmptyState
+                            title="Chưa có trường tùy chỉnh nào"
+                            description="Thêm trường để thu thập thông tin riêng của công ty trên hồ sơ ứng viên."
+                        />
+                    ),
+                }}
+            />
 
             <Modal
-                title={editingItem ? "Sửa trường tùy chỉnh" : "Thêm trường tùy chỉnh"}
+                title={
+                    <ModalTitle
+                        icon={editingItem ? <EditOutlined /> : <PlusOutlined />}
+                        title={editingItem ? "Sửa trường tùy chỉnh" : "Thêm trường tùy chỉnh"}
+                        subtitle="Trường bổ sung hiển thị trên form hồ sơ ứng viên"
+                    />
+                }
                 open={modalOpen}
                 onOk={handleSubmit}
                 onCancel={() => setModalOpen(false)}
@@ -148,7 +185,7 @@ export default function CustomFieldDefinitionPanel() {
                 cancelText="Hủy"
                 destroyOnHidden
             >
-                <Form form={form} layout="vertical">
+                <Form form={form} layout="vertical" style={{ marginTop: 12 }}>
                     <Form.Item
                         name="fieldKey"
                         label="Khóa (fieldKey — dùng nội bộ, không dấu, không khoảng trắng)"

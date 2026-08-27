@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Tag, Timeline, Typography, Spin, Empty, Button, Space, App } from "antd";
+import { Card, Tag, Timeline, Typography, Spin, Button, Space, App } from "antd";
 import {
     ScheduleOutlined, FileTextOutlined, DeleteOutlined
 } from "@ant-design/icons";
@@ -8,7 +8,9 @@ import { useNavigate } from "react-router-dom";
 import { getApplications } from "../applicationApi";
 import { requestOwnDataDeletion } from "../candidateApi";
 import type { ApplicationResponse, ApiMessageResponse } from "../types";
-import { COLORS } from "../../../app/theme";
+import { COLORS, RADIUS } from "../../../app/theme";
+import { stageTypeTagColor } from "../../../app/statusLabels";
+import EmptyState from "../../../components/ui/EmptyState";
 import { useAppDispatch } from "../../../app/hooks";
 import { logout } from "../../auth/authSlice";
 
@@ -47,16 +49,6 @@ export default function MyApplicationsPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    const getStageColor = (type: string) => {
-        switch (type) {
-            case "HIRED": return "success";
-            case "REJECTED": return "error";
-            case "OFFER": return "purple";
-            case "INTERVIEW": return "processing";
-            default: return "blue";
-        }
-    };
-
     if (loading) {
         return (
             <div style={{ textAlign: "center", padding: "100px 0" }}>
@@ -78,27 +70,30 @@ export default function MyApplicationsPage() {
             </div>
 
             {applications.length === 0 ? (
-                <Card style={{ textAlign: "center", padding: "60px 0", borderRadius: 12 }}>
-                    <Empty description="Bạn chưa có hồ sơ ứng tuyển nào trong hệ thống" />
+                <Card style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}>
+                    <EmptyState
+                        title="Bạn chưa có hồ sơ ứng tuyển nào"
+                        description="Hãy vào mục “Việc làm” để ứng tuyển vị trí phù hợp."
+                    />
                 </Card>
             ) : (
-                <Space orientation="vertical" size={16} style={{ width: "100%" }}>
+                <Space orientation="vertical" size={12} style={{ width: "100%" }}>
                     {applications.map(app => (
-                        <Card key={app.id} hoverable style={{ borderRadius: 12, border: `1px solid ${COLORS.border}` }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-                                <div>
-                                    <Tag color={getStageColor(app.currentStageType)} style={{ fontSize: 13, padding: "2px 10px", borderRadius: 4 }}>
+                        <Card key={app.id} hoverable style={{ borderRadius: RADIUS.lg, border: `1px solid ${COLORS.borderLight}` }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                                <div style={{ minWidth: 0 }}>
+                                    <Tag color={stageTypeTagColor(app.currentStageType)} style={{ margin: 0 }}>
                                         {app.currentStageName}
                                     </Tag>
                                     <Title level={4} style={{ marginTop: 8, marginBottom: 4 }}>
-                                        Hồ sơ #{app.id}
+                                        {app.jobPostingTitle ?? app.jobTitle ?? `Hồ sơ #${app.id}`}
                                     </Title>
                                     <Text type="secondary">
                                         Ứng tuyển ngày: {new Date(app.appliedAt).toLocaleDateString("vi-VN")}
                                     </Text>
                                 </div>
 
-                                <Space>
+                                <Space wrap>
                                     {app.currentStageType === "OFFER" && (
                                         <Button
                                             type="primary"
@@ -108,7 +103,7 @@ export default function MyApplicationsPage() {
                                             Xem Offer
                                         </Button>
                                     )}
-                                    {app.currentStageType === "INTERVIEW" && (
+                                    {app.currentStageType.includes("INTERVIEW") && (
                                         <Button
                                             icon={<ScheduleOutlined />}
                                             onClick={() => navigate(`/scheduling?applicationId=${app.id}`)}
@@ -131,7 +126,7 @@ export default function MyApplicationsPage() {
                                         children: app.currentStageOrder > 1 ? "Đã vượt qua vòng Sơ tuyển CV" : "Đang sơ tuyển CV",
                                     },
                                     {
-                                        color: app.currentStageType === "INTERVIEW" || app.currentStageOrder > 2 ? "green" : app.currentStageOrder === 2 ? "blue" : "gray",
+                                        color: app.currentStageType.includes("INTERVIEW") ? "blue" : app.currentStageOrder > 2 ? "green" : "gray",
                                         children: "Vòng phỏng vấn",
                                     },
                                     {

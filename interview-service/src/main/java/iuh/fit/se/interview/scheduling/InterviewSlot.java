@@ -38,7 +38,8 @@ public class InterviewSlot {
     @Column(nullable = false)
     private InterviewFormat format;
 
-    private String location;
+    @Column(name = "work_location_id")
+    private Long workLocationId;
 
     @Column(name = "meeting_link")
     private String meetingLink;

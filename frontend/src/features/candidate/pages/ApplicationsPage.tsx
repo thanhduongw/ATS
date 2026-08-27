@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState, type Key, type ReactNode } from "react";
-import { Table, Button, Space, Select, Modal, Form, Input, App, DatePicker, Card, Row, Col, Avatar } from "antd";
+import { useCallback, useEffect, useState, type Key } from "react";
+import { Table, Button, Space, Select, Modal, Form, Input, App, DatePicker, Card, Avatar, Tooltip, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { AxiosError } from "axios";
-import type { Dayjs } from "dayjs";
+import dayjs, { type Dayjs } from "dayjs";
 import {
     getApplications,
     advanceApplicationStage,
@@ -19,14 +19,19 @@ import type { JobPostingResponse } from "../../recruitment/types";
 import type { CatalogItem, StageType } from "../../masterdata/types";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
+import { useTableScrollY } from "../../../app/useTableScrollY";
 import type { UserRole, UserSummaryResponse } from "../../auth/types";
-import { STAGE_TYPE_LABEL } from "../../../app/statusLabels";
+import { STAGE_TYPE_LABEL, stageTypeTagColor } from "../../../app/statusLabels";
 import { exportToExcel } from "../../../app/exportExcel";
 import {
     DownloadOutlined, FolderOpenOutlined, UserAddOutlined, CalendarOutlined,
-    TrophyOutlined, FileTextOutlined,
+    TrophyOutlined, FileTextOutlined, CheckOutlined, CloseOutlined,
 } from "@ant-design/icons";
 import { COLORS, GRADIENTS } from "../../../app/theme";
+import EmptyState from "../../../components/ui/EmptyState";
+import StatTile from "../../../components/ui/StatTile";
+import { StatRow, FilterBar, IconAction, ModalTitle } from "../../../components/ui/pageKit";
+import { listCardStyle, listCardBodyStyle, listPagination } from "../../../components/ui/listStyles";
 
 const { RangePicker } = DatePicker;
 
@@ -44,46 +49,6 @@ const STAGE_TYPE_OPTIONS: StageType[] = [
 ];
 
 const INTERVIEW_STAGE_TYPES = ["TECHNICAL_INTERVIEW", "HR_INTERVIEW", "FINAL_INTERVIEW"];
-
-interface StatCardProps {
-    title: string;
-    value: number | string;
-    subtitle?: string;
-    icon: ReactNode;
-    gradient: string;
-}
-
-function StatCard({ title, value, subtitle, icon, gradient }: StatCardProps) {
-    return (
-        <Card className="stat-card" style={{ border: "none" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <div className="stat-icon" style={{ background: gradient }}>
-                    {icon}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 4, fontWeight: 500 }}>
-                        {title}
-                    </div>
-                    <div style={{ fontSize: 26, fontWeight: 700, color: COLORS.textPrimary, lineHeight: 1 }}>
-                        {value}
-                    </div>
-                    {subtitle && (
-                        <div style={{ marginTop: 6, fontSize: 12, color: COLORS.textMuted }}>{subtitle}</div>
-                    )}
-                </div>
-            </div>
-        </Card>
-    );
-}
-
-function stageDotColor(stageType: string) {
-    if (stageType === "HIRED") return COLORS.stageHired;
-    if (stageType === "REJECTED") return COLORS.stageRejected;
-    if (stageType === "OFFER") return COLORS.stageOffer;
-    if (stageType.includes("INTERVIEW")) return COLORS.stageInterview;
-    if (stageType.includes("SCREENING")) return COLORS.stageScreening;
-    return COLORS.stageNew;
-}
 
 function getInitials(name: string) {
     const parts = (name || "").split(" ").filter(Boolean);
@@ -133,6 +98,8 @@ export default function ApplicationsPage() {
     const [bulkForm] = Form.useForm();
     const [bulkAssignForm] = Form.useForm();
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
+    const { wrapRef, scrollY } = useTableScrollY([loading, rows.length]);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -283,7 +250,7 @@ export default function ApplicationsPage() {
         {
             title: "Ứng viên",
             key: "candidateName",
-            width: 200,
+            width: 170,
             render: (_, r, index) => (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Avatar
@@ -299,33 +266,40 @@ export default function ApplicationsPage() {
         {
             title: "Vị trí ứng tuyển",
             key: "jobTitle",
+            width: 150,
+            ellipsis: true,
             render: (_, r) => <span style={{ fontWeight: 500 }}>{r.jobTitle || `Job #${r.jobPostingId}`}</span>,
         },
         {
             title: "Giai đoạn",
             key: "stage",
+            width: 150,
             render: (_, r) => (
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: stageDotColor(r.currentStageType), flexShrink: 0 }} />
-                    <span style={{ fontSize: 13 }}>{r.currentStageName}</span>
-                </div>
+                <Tag color={stageTypeTagColor(r.currentStageType)} style={{ margin: 0 }}>
+                    {r.currentStageName}
+                </Tag>
             ),
         },
         {
             title: "Người phụ trách",
             dataIndex: "assignedRecruiterName",
             key: "assignedRecruiterName",
+            width: 120,
+            ellipsis: true,
             render: (v: string | null) => v || <span style={{ color: COLORS.textMuted }}>—</span>,
         },
         {
             title: "Nguồn",
             dataIndex: "recruitmentSourceName",
             key: "recruitmentSourceName",
+            width: 100,
+            ellipsis: true,
         },
         {
             title: "Ngày nộp",
             dataIndex: "appliedAt",
             key: "appliedAt",
+            width: 95,
             render: (v: string) => (
                 <span style={{ fontSize: 13 }}>{new Date(v).toLocaleDateString("vi-VN")}</span>
             ),
@@ -334,11 +308,14 @@ export default function ApplicationsPage() {
             title: "CV",
             dataIndex: "resumeUrl",
             key: "resumeUrl",
+            width: 75,
             render: (url: string) =>
                 url ? (
-                    <a href={url} target="_blank" rel="noreferrer">
-                        <Button size="small" icon={<FileTextOutlined />}>Xem CV</Button>
-                    </a>
+                    <Tooltip title="Xem CV">
+                        <a href={url} target="_blank" rel="noreferrer">
+                            <Button size="small" icon={<FileTextOutlined />} />
+                        </a>
+                    </Tooltip>
                 ) : (
                     <span style={{ color: COLORS.textMuted }}>—</span>
                 ),
@@ -348,22 +325,25 @@ export default function ApplicationsPage() {
                 {
                     title: "Thao tác",
                     key: "actions",
+                    width: 100,
                     render: (_: unknown, r: ApplicationResponse) =>
                         r.currentStageType === "REJECTED" || r.currentStageType === "HIRED" ? null : (
-                            <Space>
-                                <Button type="primary" size="small" onClick={() => handlePass(r.id)}>
-                                    Pass
-                                </Button>
-                                <Button
+                            <Space size={4} onClick={(e) => e.stopPropagation()}>
+                                <IconAction
+                                    title="Chuyển sang giai đoạn kế tiếp"
+                                    icon={<CheckOutlined />}
+                                    accent={COLORS.primary}
+                                    onClick={() => handlePass(r.id)}
+                                />
+                                <IconAction
+                                    title="Từ chối hồ sơ"
+                                    icon={<CloseOutlined />}
                                     danger
-                                    size="small"
                                     onClick={() => {
                                         setSelectedId(r.id);
                                         setRejectOpen(true);
                                     }}
-                                >
-                                    Reject
-                                </Button>
+                                />
                             </Space>
                         ),
                 },
@@ -387,101 +367,126 @@ export default function ApplicationsPage() {
     };
 
     return (
-        <div className="page-container animate-fade-in">
-            {/* Header */}
-            <div className="page-header">
-                <div className="page-header-title">
-                    <div style={{
-                        width: 44, height: 44, borderRadius: 12,
-                        background: GRADIENTS.stat2,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "#fff", fontSize: 20,
-                    }}>
-                        <FolderOpenOutlined />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Hồ sơ ứng tuyển</h2>
-                        <div className="page-header-subtitle">Theo dõi tiến độ các hồ sơ ứng tuyển vào vị trí của phòng ban bạn.</div>
-                    </div>
-                </div>
-                <Button icon={<DownloadOutlined />} size="large" onClick={handleExportExcel}>
-                    Xuất Excel
-                </Button>
-            </div>
+        <div className="page-shell animate-fade-in">
+            {/* ── Thống kê nhanh ─────────────────────────── */}
+            <StatRow>
+                <StatTile
+                    icon={<FolderOpenOutlined />}
+                    label="Tổng hồ sơ"
+                    value={kpiStats.total}
+                    accent={COLORS.primary}
+                    active={!hasActiveFilters}
+                    onClick={handleResetFilters}
+                />
+                <StatTile
+                    icon={<UserAddOutlined />}
+                    label="Đơn mới"
+                    hint="7 ngày qua"
+                    value={kpiStats.newApplications}
+                    accent="#3B82F6"
+                    active={!!dateRange}
+                    onClick={() => {
+                        setDateRange([dayjs().subtract(7, "day"), dayjs()]);
+                        setPage(1);
+                    }}
+                />
+                <StatTile
+                    icon={<FileTextOutlined />}
+                    label="Sàng lọc CV"
+                    hint="chờ HR duyệt"
+                    value={kpiStats.cvScreening}
+                    accent="#F59E0B"
+                    active={stageType === "CV_SCREENING"}
+                    onClick={() => {
+                        setStageType(stageType === "CV_SCREENING" ? undefined : "CV_SCREENING");
+                        setPage(1);
+                    }}
+                />
+                <StatTile
+                    icon={<CalendarOutlined />}
+                    label="Phỏng vấn"
+                    hint="đang diễn ra"
+                    value={kpiStats.interviews}
+                    accent="#8B5CF6"
+                />
+                <StatTile
+                    icon={<TrophyOutlined />}
+                    label="Đã tuyển"
+                    hint="trong tháng"
+                    value={kpiStats.hiredThisMonth}
+                    accent={COLORS.success}
+                    active={stageType === "HIRED"}
+                    onClick={() => {
+                        setStageType(stageType === "HIRED" ? undefined : "HIRED");
+                        setPage(1);
+                    }}
+                />
+            </StatRow>
 
-            {/* KPI stat cards */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-                <Col xs={24} sm={12} md={8} lg={4}>
-                    <StatCard title="Tổng hồ sơ" value={kpiStats.total} icon={<FolderOpenOutlined />} gradient={GRADIENTS.stat1} />
-                </Col>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                    <StatCard title="Đơn mới" value={kpiStats.newApplications} subtitle="7 ngày qua" icon={<UserAddOutlined />} gradient={GRADIENTS.stat2} />
-                </Col>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                    <StatCard title="Sàng lọc CV" value={kpiStats.cvScreening} subtitle="đang chờ HR duyệt" icon={<FileTextOutlined />} gradient={GRADIENTS.stat3} />
-                </Col>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                    <StatCard title="Phỏng vấn" value={kpiStats.interviews} subtitle="đang diễn ra" icon={<CalendarOutlined />} gradient={GRADIENTS.stat4} />
-                </Col>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                    <StatCard title="Đã tuyển" value={kpiStats.hiredThisMonth} subtitle="trong tháng" icon={<TrophyOutlined />} gradient={GRADIENTS.primary} />
-                </Col>
-            </Row>
+            {/* ── Bộ lọc ─────────────────────────────────── */}
+            <FilterBar
+                extra={
+                    <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
+                        Xuất Excel
+                    </Button>
+                }
+            >
+                <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="Vị trí tuyển dụng"
+                    style={{ width: 240 }}
+                    value={jobPostingId}
+                    onChange={(v) => { setJobPostingId(v); setPage(1); }}
+                    options={postings.map((p) => ({ value: p.id, label: p.title }))}
+                />
+                <Select
+                    allowClear
+                    placeholder="Giai đoạn"
+                    style={{ width: 180 }}
+                    value={stageType}
+                    onChange={(v) => { setStageType(v); setPage(1); }}
+                    options={STAGE_TYPE_OPTIONS.map((t) => ({ value: t, label: STAGE_TYPE_LABEL[t] ?? t }))}
+                />
+                <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="Người phụ trách"
+                    style={{ width: 180 }}
+                    value={assignedRecruiterId}
+                    onChange={(v) => { setAssignedRecruiterId(v); setPage(1); }}
+                    options={recruiters.map((r) => ({ value: r.id, label: r.fullName }))}
+                />
+                <Select
+                    allowClear
+                    placeholder="Nguồn tuyển dụng"
+                    style={{ width: 180 }}
+                    value={recruitmentSourceId}
+                    onChange={(v) => { setRecruitmentSourceId(v); setPage(1); }}
+                    options={sources.map((s) => ({ value: s.id, label: String(s.name) }))}
+                />
+                <RangePicker
+                    placeholder={["Nộp từ ngày", "Đến ngày"]}
+                    format="DD/MM/YYYY"
+                    value={dateRange}
+                    onChange={(v) => { setDateRange(v as [Dayjs, Dayjs] | null); setPage(1); }}
+                />
+                {hasActiveFilters && <Button onClick={handleResetFilters}>Xóa bộ lọc</Button>}
+            </FilterBar>
 
-            <Card style={{ border: "none" }}>
-                <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                    <Select
-                        allowClear
-                        showSearch
-                        optionFilterProp="label"
-                        placeholder="Vị trí tuyển dụng"
-                        style={{ width: 220 }}
-                        value={jobPostingId}
-                        onChange={(v) => { setJobPostingId(v); setPage(1); }}
-                        options={postings.map((p) => ({ value: p.id, label: p.title }))}
-                    />
-                    <Select
-                        allowClear
-                        placeholder="Giai đoạn"
-                        style={{ width: 200 }}
-                        value={stageType}
-                        onChange={(v) => { setStageType(v); setPage(1); }}
-                        options={STAGE_TYPE_OPTIONS.map((t) => ({ value: t, label: STAGE_TYPE_LABEL[t] ?? t }))}
-                    />
-                    <Select
-                        allowClear
-                        showSearch
-                        optionFilterProp="label"
-                        placeholder="Người phụ trách"
-                        style={{ width: 200 }}
-                        value={assignedRecruiterId}
-                        onChange={(v) => { setAssignedRecruiterId(v); setPage(1); }}
-                        options={recruiters.map((r) => ({ value: r.id, label: r.fullName }))}
-                    />
-                    <Select
-                        allowClear
-                        placeholder="Nguồn tuyển dụng"
-                        style={{ width: 180 }}
-                        value={recruitmentSourceId}
-                        onChange={(v) => { setRecruitmentSourceId(v); setPage(1); }}
-                        options={sources.map((s) => ({ value: s.id, label: String(s.name) }))}
-                    />
-                    <RangePicker
-                        placeholder={["Nộp từ ngày", "Đến ngày"]}
-                        value={dateRange}
-                        onChange={(v) => { setDateRange(v as [Dayjs, Dayjs] | null); setPage(1); }}
-                    />
-                    {hasActiveFilters && (
-                        <Button onClick={handleResetFilters}>Reset</Button>
-                    )}
-                </div>
-
+            <Card
+                className="table-card-fill"
+                style={listCardStyle}
+                styles={{ body: listCardBodyStyle }}
+            >
                 {isHr && selectedRowKeys.length > 0 && (
                     <div
                         style={{
                             display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-                            padding: "10px 16px", marginBottom: 16, background: "#EFF6FF",
-                            border: "1px solid #BFDBFE", borderRadius: 8,
+                            padding: "10px 16px", marginBottom: 12, background: "#EFF6FF",
+                            border: "1px solid #BFDBFE", borderRadius: 8, flexShrink: 0,
                         }}
                     >
                         <span>Đã chọn {selectedRowKeys.length} hồ sơ</span>
@@ -500,36 +505,54 @@ export default function ApplicationsPage() {
                     </div>
                 )}
 
-                <Table
-                    rowKey="id"
-                    loading={loading}
-                    columns={columns}
-                    dataSource={rows}
-                    rowSelection={isHr ? {
-                        selectedRowKeys,
-                        onChange: setSelectedRowKeys,
-                    } : undefined}
-                    pagination={{
-                        current: page,
-                        pageSize,
-                        total: totalItems,
-                        size: "small",
-                        showSizeChanger: true,
-                        pageSizeOptions: [10, 20, 50],
-                        showTotal: (total) => `Tổng ${total} hồ sơ`,
-                        onChange: (p, ps) => { setPage(p); setPageSize(ps); },
-                    }}
-                    scroll={{ x: 1000 }}
-                    rowHoverable
-                />
+                <div ref={wrapRef} className="table-scroll-wrap">
+                    <Table
+                        rowKey="id"
+                        size="small"
+                        loading={loading}
+                        columns={columns}
+                        dataSource={rows}
+                        sticky
+                        scroll={{ y: scrollY }}
+                        rowSelection={isHr ? {
+                            selectedRowKeys,
+                            onChange: setSelectedRowKeys,
+                        } : undefined}
+                        pagination={{
+                            current: page,
+                            pageSize,
+                            total: totalItems,
+                            ...listPagination("hồ sơ"),
+                            onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                        }}
+                        locale={{
+                            emptyText: (
+                                <EmptyState
+                                    title="Chưa có hồ sơ ứng tuyển nào"
+                                    description="Hồ sơ phù hợp với bộ lọc hiện tại sẽ hiển thị ở đây."
+                                />
+                            ),
+                        }}
+                        rowHoverable
+                    />
+                </div>
             </Card>
 
             <Modal
-                title="Từ chối hồ sơ"
+                title={
+                    <ModalTitle
+                        icon={<CloseOutlined />}
+                        title="Từ chối hồ sơ"
+                        subtitle="Ứng viên sẽ nhận email thông báo tự động"
+                        accent={COLORS.error}
+                    />
+                }
                 open={rejectOpen}
                 onOk={handleReject}
                 onCancel={() => setRejectOpen(false)}
                 okText="Từ chối"
+                cancelText="Hủy"
+                okButtonProps={{ danger: true }}
             >
                 <Form form={rejectForm} layout="vertical">
                     <Form.Item
@@ -548,11 +571,19 @@ export default function ApplicationsPage() {
             </Modal>
 
             <Modal
-                title={`Từ chối hàng loạt (${selectedRowKeys.length} hồ sơ)`}
+                title={
+                    <ModalTitle
+                        icon={<CloseOutlined />}
+                        title="Từ chối hàng loạt"
+                        subtitle={`${selectedRowKeys.length} hồ sơ được chọn · gửi email tự động`}
+                        accent={COLORS.error}
+                    />
+                }
                 open={bulkRejectOpen}
                 onOk={handleBulkReject}
                 onCancel={() => setBulkRejectOpen(false)}
                 okText="Từ chối"
+                cancelText="Hủy"
                 confirmLoading={bulkSubmitting}
                 okButtonProps={{ danger: true }}
             >
@@ -571,11 +602,18 @@ export default function ApplicationsPage() {
             </Modal>
 
             <Modal
-                title={`Gán người phụ trách hàng loạt (${selectedRowKeys.length} hồ sơ)`}
+                title={
+                    <ModalTitle
+                        icon={<UserAddOutlined />}
+                        title="Gán người phụ trách"
+                        subtitle={`${selectedRowKeys.length} hồ sơ được chọn`}
+                    />
+                }
                 open={bulkAssignOpen}
                 onOk={handleBulkAssign}
                 onCancel={() => setBulkAssignOpen(false)}
                 okText="Gán"
+                cancelText="Hủy"
                 confirmLoading={bulkSubmitting}
             >
                 <Form form={bulkAssignForm} layout="vertical">

@@ -1,12 +1,12 @@
 import { Card, Tabs, Grid } from "antd";
 import type { TabsProps } from "antd";
-import { DatabaseOutlined, ApartmentOutlined, FormOutlined } from "@ant-design/icons";
+import { ApartmentOutlined, FormOutlined } from "@ant-design/icons";
 import CatalogPanel from "../components/CatalogPanel";
 import EmailTemplatePanel from "../components/EmailTemplatePanel";
 import PipelinePanel from "../components/PipelinePanel";
 import CustomFieldDefinitionPanel from "../components/CustomFieldDefinitionPanel";
 import { catalogConfigs } from "../catalogConfigs";
-import { GRADIENTS } from "../../../app/theme";
+import { COLORS, RADIUS } from "../../../app/theme";
 
 const { useBreakpoint } = Grid;
 
@@ -45,25 +45,15 @@ export default function MasterDataPage() {
 
     return (
         <div className="page-container animate-fade-in">
-            {/* ── Page Header ──────────────────── */}
-            <div className="page-header" style={{ marginBottom: 20 }}>
-                <div className="page-header-title">
-                    <div style={{
-                        width: 44, height: 44, borderRadius: 12,
-                        background: GRADIENTS.stat4,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "#fff", fontSize: 20,
-                    }}>
-                        <DatabaseOutlined />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh mục hệ thống</h2>
-                        <div className="page-header-subtitle">Quản lý danh mục dùng chung: kỹ năng, học vấn, hình thức tuyển dụng, quy trình...</div>
-                    </div>
-                </div>
-            </div>
-
-            <Card style={{ border: "none" }}>
+            {/*
+              Ghi chú: trang này CHỦ ĐỘNG không dùng bố cục "1 màn hình không cuộn" như các
+              trang khác — tabPlacement="start" có thể tới 16 mục dọc, cao hơn vùng hiển thị
+              trên nhiều màn hình. antd tự quản lý scroll của thanh tab dọc bằng JS nội bộ,
+              ép CSS overflow lên đó gây xung đột (tab không chọn được — xem index.css).
+              Nên vẫn giữ cuộn trang tự nhiên; các bảng bên trong vẫn dùng size="small" để
+              hiện được nhiều dòng hơn.
+            */}
+            <Card style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}>
                 <Tabs
                     tabPlacement={tabPlacement}
                     items={items}

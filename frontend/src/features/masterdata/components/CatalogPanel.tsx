@@ -7,11 +7,14 @@ import {
     Input,
     InputNumber,
     Tag,
-    Popconfirm,
-    Typography,
+    Space,
     App,
 } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import {
+    PlusOutlined,
+    EditOutlined,
+    DeleteOutlined,
+} from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import type { CatalogConfig, CatalogItem, ApiMessageResponse } from "../types";
 import {
@@ -20,8 +23,10 @@ import {
     updateCatalogItem,
     deleteCatalogItem,
 } from "../masterdataApi";
-
-const { Title } = Typography;
+import { COLORS } from "../../../app/theme";
+import EmptyState from "../../../components/ui/EmptyState";
+import { PageToolbar, IconAction, ModalTitle } from "../../../components/ui/pageKit";
+import { listPagination } from "../../../components/ui/listStyles";
 
 interface CatalogPanelProps {
     config: CatalogConfig;
@@ -88,7 +93,7 @@ export default function CatalogPanel({ config }: CatalogPanelProps) {
     const handleDelete = async (id: number) => {
         try {
             await deleteCatalogItem(config.endpoint, id);
-            message.success("Xóa thành công");
+            message.success("Đã ẩn khỏi danh sách sử dụng");
             loadItems();
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
@@ -102,6 +107,7 @@ export default function CatalogPanel({ config }: CatalogPanelProps) {
             title: f.label,
             dataIndex: f.name,
             key: f.name,
+            ellipsis: true,
         }));
 
     const columns = [
@@ -110,55 +116,85 @@ export default function CatalogPanel({ config }: CatalogPanelProps) {
             title: "Trạng thái",
             dataIndex: "active",
             key: "active",
+            width: 120,
             render: (active: boolean) =>
-                active ? <Tag color="green">Đang dùng</Tag> : <Tag color="default">Đã ẩn</Tag>,
+                active ? (
+                    <Tag color="success" style={{ margin: 0 }}>Đang dùng</Tag>
+                ) : (
+                    <Tag color="default" style={{ margin: 0 }}>Đã ẩn</Tag>
+                ),
         },
         {
             title: "Thao tác",
             key: "actions",
+            width: 90,
             render: (_: unknown, record: CatalogItem) => (
-                <>
-                    <Button type="link" icon={<EditOutlined />} onClick={() => openEditModal(record)}>
-                        Sửa
-                    </Button>
-                    <Popconfirm
-                        title="Xác nhận xóa?"
-                        description="Mục này sẽ được ẩn khỏi danh sách sử dụng, không xóa vĩnh viễn."
-                        onConfirm={() => handleDelete(record.id)}
-                        okText="Xóa"
-                        cancelText="Hủy"
-                    >
-                        <Button type="link" danger icon={<DeleteOutlined />}>
-                            Xóa
-                        </Button>
-                    </Popconfirm>
-                </>
+                <Space size={4}>
+                    <IconAction
+                        title="Sửa"
+                        icon={<EditOutlined />}
+                        onClick={() => openEditModal(record)}
+                    />
+                    <IconAction
+                        title="Ẩn khỏi danh sách"
+                        icon={<DeleteOutlined />}
+                        danger
+                        onClick={() => handleDelete(record.id)}
+                        confirm={{
+                            title: "Ẩn mục này?",
+                            description: "Mục này sẽ được ẩn khỏi danh sách sử dụng, không xóa vĩnh viễn.",
+                            okText: "Ẩn",
+                        }}
+                    />
+                </Space>
             ),
         },
     ];
 
     return (
         <div>
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 16,
-                }}
-            >
-                <Title level={4} style={{ margin: 0 }}>
-                    {config.title}
-                </Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-                    Thêm mới
-                </Button>
-            </div>
+            <PageToolbar
+                left={
+                    <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.textPrimary }}>
+                        {config.title}
+                    </span>
+                }
+                right={
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+                        Thêm mới
+                    </Button>
+                }
+            />
 
-            <Table rowKey="id" loading={loading} columns={columns} dataSource={items} pagination={{ pageSize: 10 }} />
+            <Table
+                rowKey="id"
+                size="small"
+                loading={loading}
+                columns={columns}
+                dataSource={items}
+                pagination={{ pageSize: 10, ...listPagination("mục") }}
+                locale={{
+                    emptyText: (
+                        <EmptyState
+                            title={`Chưa có ${config.title.toLowerCase()} nào`}
+                            description="Nhấn “Thêm mới” để tạo mục đầu tiên cho danh mục này."
+                        />
+                    ),
+                }}
+            />
 
             <Modal
-                title={editingItem ? `Sửa ${config.title.toLowerCase()}` : `Thêm ${config.title.toLowerCase()}`}
+                title={
+                    <ModalTitle
+                        icon={editingItem ? <EditOutlined /> : <PlusOutlined />}
+                        title={
+                            editingItem
+                                ? `Sửa ${config.title.toLowerCase()}`
+                                : `Thêm ${config.title.toLowerCase()}`
+                        }
+                        subtitle="Dữ liệu danh mục dùng chung cho toàn hệ thống"
+                    />
+                }
                 open={modalOpen}
                 onOk={handleSubmit}
                 onCancel={() => setModalOpen(false)}
@@ -166,7 +202,7 @@ export default function CatalogPanel({ config }: CatalogPanelProps) {
                 cancelText="Hủy"
                 destroyOnHidden
             >
-                <Form form={form} layout="vertical">
+                <Form form={form} layout="vertical" style={{ marginTop: 12 }}>
                     {config.fields.map((field) => (
                         <Form.Item
                             key={field.name}

@@ -1,5 +1,5 @@
 export type RequisitionStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
-export type PostingStatus = "OPEN" | "PAUSED" | "CLOSED";
+export type PostingStatus = "DRAFT" | "EDITING" | "APPROVED" | "OPEN" | "PAUSED" | "CLOSED";
 export type WorkArrangement = "ONSITE" | "HYBRID" | "REMOTE";
 export type RequisitionReason = "NEW" | "REPLACEMENT" | "EXPANSION" | "NEW_PROJECT" | "OTHER";
 export type RequisitionPriority = "NORMAL" | "HIGH" | "URGENT";
@@ -103,8 +103,28 @@ export interface JobPostingResponse {
     skillIds: number[];
     status: PostingStatus;
     pipelineLocked: boolean;
+    createdAt: string | null;
+    submittedAt: string | null;
+    approvedAt: string | null;
+    approvedBy: number | null;
+    approvedByName: string | null;
     publishedAt: string | null;
     closedAt: string | null;
+    /** Chỉ populate ở luồng public (career portal); null ở luồng nội bộ HR. */
+    employmentTypeName?: string | null;
+    workLocationName?: string | null;
+    departmentId?: number | null;
+    departmentName?: string | null;
+}
+
+export interface PostingStatsResponse {
+    jobPostingId: number;
+    totalApplications: number;
+    interviewingCount: number;
+    offerCount: number;
+    hiredCount: number;
+    byStage: Record<string, number>;
+    latestInterviewStatusByApplicationId: Record<number, string | null>;
 }
 
 export interface JobPostingCreateRequest {

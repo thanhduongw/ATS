@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Modal, Form, Select, Input, message } from "antd";
+import { StopOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
+import { ModalTitle } from "../../../components/ui/pageKit";
+import { COLORS } from "../../../app/theme";
 import { offerDeclineSchema, type OfferDeclineFormValues } from "../schemas/offerDeclineSchema";
 import { declineOffer } from "../offerApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
@@ -49,7 +52,14 @@ export default function OfferDeclineModal({ open, offerId, onClose, onSuccess }:
 
   return (
     <Modal
-      title="Ghi nhận Ứng viên từ chối Offer"
+      title={
+        <ModalTitle
+          icon={<StopOutlined />}
+          title="Ứng viên từ chối Offer"
+          subtitle="Ghi nhận lý do để phục vụ báo cáo tuyển dụng"
+          accent={COLORS.warning}
+        />
+      }
       open={open}
       onOk={handleSubmit(onSubmit)}
       onCancel={onClose}

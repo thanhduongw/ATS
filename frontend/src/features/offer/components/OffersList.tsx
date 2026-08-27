@@ -1,38 +1,39 @@
-import { useCallback, useEffect, useState } from "react";
-import { App, Table, Tag, Button, Segmented, Card, Row, Col, Avatar, Space, Input, DatePicker } from "antd";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { App, Table, Tag, Button, Segmented, Avatar, Space, Input, DatePicker } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+    PlusOutlined,
+    SearchOutlined,
+    EyeOutlined,
+    FileTextOutlined,
+    ClockCircleOutlined,
+    SendOutlined,
+    CheckCircleOutlined,
+} from "@ant-design/icons";
 import dayjs, { type Dayjs } from "dayjs";
 import type { AxiosError } from "axios";
 import { getOffers } from "../offerApi";
 import type { ApiMessageResponse, OfferResponse, OfferStatus } from "../types";
-import OfferDetailDrawer from "./OfferDetailDrawer";
+import OfferDetailModal from "./OfferDetailModal";
 import OfferCreateModal from "./OfferCreateModal";
 import { COLORS } from "../../../app/theme";
+import { formatMoney } from "../../../app/money";
+import { OFFER_STATUS, statusMeta } from "../../../app/statusLabels";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
+import { useTableScrollY } from "../../../app/useTableScrollY";
+import EmptyState from "../../../components/ui/EmptyState";
+import StatTile from "../../../components/ui/StatTile";
+import { StatRow, PageToolbar, FilterBar, IconAction } from "../../../components/ui/pageKit";
+import { listPagination } from "../../../components/ui/listStyles";
 
 const { RangePicker } = DatePicker;
 
-const STATUS_LABEL: Record<string, string> = {
-    ALL: "Tất cả",
-    DRAFT: "Bản nháp",
-    PENDING_APPROVAL: "Chờ duyệt",
-    APPROVED: "Đã duyệt",
-    REJECTED: "Từ chối duyệt",
-    ACCEPTED: "Ứng viên đã nhận",
-    DECLINED: "Ứng viên từ chối",
-};
-
-const STATUS_COLOR: Record<string, string> = {
-    DRAFT: "default",
-    PENDING_APPROVAL: "warning",
-    APPROVED: "processing",
-    REJECTED: "error",
-    ACCEPTED: "success",
-    DECLINED: "magenta",
-};
+const SEGMENT_OPTIONS = [
+    { label: "Tất cả", value: "ALL" },
+    ...Object.keys(OFFER_STATUS).map((k) => ({ label: OFFER_STATUS[k].label, value: k })),
+];
 
 function getInitials(name: string) {
     const parts = name.split(" ").filter(Boolean);
@@ -55,6 +56,8 @@ export default function OffersList() {
 
     const [offers, setOffers] = useState<OfferResponse[]>([]);
     const [totalItems, setTotalItems] = useState(0);
+    // Toàn bộ offer (không phân trang) — chỉ để đếm số liệu, độc lập với bộ lọc của bảng
+    const [allOffers, setAllOffers] = useState<OfferResponse[]>([]);
     const [loading, setLoading] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string>("ALL");
     const [selectedOffer, setSelectedOffer] = useState<OfferResponse | null>(null);
@@ -65,6 +68,8 @@ export default function OffersList() {
     const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+
+    const { wrapRef, scrollY } = useTableScrollY([loading, offers.length]);
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -101,16 +106,33 @@ export default function OffersList() {
         loadOffers();
     }, [loadOffers]);
 
+    useEffect(() => {
+        getOffers({ size: 1000 }).then((r) => setAllOffers(r.data.content)).catch(() => setAllOffers([]));
+    }, []);
+
     // Đơn giản: lọc theo từ khóa tên ứng viên trên trang hiện tại (server chưa hỗ trợ full-text theo tên offer)
     const displayed = filters.keyword
         ? offers.filter((o) => o.candidateName?.toLowerCase().includes(filters.keyword.toLowerCase()))
         : offers;
 
-    const counts = {
-        draft: offers.filter((o) => o.status === "DRAFT").length,
-        pending: offers.filter((o) => o.status === "PENDING_APPROVAL").length,
-        approved: offers.filter((o) => o.status === "APPROVED").length,
-        accepted: offers.filter((o) => o.status === "ACCEPTED").length,
+    const counts = useMemo(
+        () => ({
+            draft: allOffers.filter((o) => o.status === "DRAFT").length,
+            pending: allOffers.filter((o) => o.status === "PENDING_APPROVAL").length,
+            approved: allOffers.filter((o) => o.status === "APPROVED").length,
+            accepted: allOffers.filter((o) => o.status === "ACCEPTED").length,
+        }),
+        [allOffers],
+    );
+
+    const toggleStatus = (next: string) => {
+        setFilterStatus((prev) => (prev === next ? "ALL" : next));
+        setPage(1);
+    };
+
+    const openDetail = (offer: OfferResponse) => {
+        setSelectedOffer(offer);
+        setDrawerOpen(true);
     };
 
     const columns: ColumnsType<OfferResponse> = [
@@ -118,6 +140,8 @@ export default function OffersList() {
             title: "Ứng viên",
             dataIndex: "candidateName",
             key: "candidateName",
+            width: 180,
+            ellipsis: true,
             render: (name: string) => (
                 <Space>
                     <Avatar size="small" style={{ background: COLORS.primary }}>
@@ -131,116 +155,120 @@ export default function OffersList() {
             title: "Mức lương",
             dataIndex: "salaryOffered",
             key: "salaryOffered",
-            render: (v: number) =>
-                v != null ? `${Number(v).toLocaleString("vi-VN")} đ` : "—",
+            width: 150,
+            render: (v: number) => formatMoney(v),
         },
         {
             title: "Loại HĐ",
             dataIndex: "contractTypeName",
             key: "contractTypeName",
+            width: 120,
+            ellipsis: true,
         },
         {
             title: "Ngày bắt đầu",
             dataIndex: "startDate",
             key: "startDate",
+            width: 110,
             render: (d: string) => (d ? dayjs(d).format("DD/MM/YYYY") : "—"),
         },
         {
             title: "Trạng thái",
             dataIndex: "status",
             key: "status",
-            render: (s: string) => (
-                <Tag color={STATUS_COLOR[s] ?? "default"}>{STATUS_LABEL[s] ?? s}</Tag>
-            ),
+            width: 160,
+            render: (s: string) => {
+                const meta = statusMeta(OFFER_STATUS, s);
+                return <Tag color={meta.color} style={{ margin: 0 }}>{meta.label}</Tag>;
+            },
         },
         {
             title: "Người duyệt",
             dataIndex: "approverName",
             key: "approverName",
+            width: 130,
+            ellipsis: true,
         },
         {
-            title: "",
+            title: "Thao tác",
             key: "action",
+            width: 90,
             render: (_: unknown, record: OfferResponse) => (
-                <Button
-                    type="link"
-                    onClick={() => {
-                        setSelectedOffer(record);
-                        setDrawerOpen(true);
-                    }}
-                >
-                    Chi tiết
-                </Button>
+                <span onClick={(e) => e.stopPropagation()}>
+                    <IconAction
+                        title="Xem chi tiết offer"
+                        icon={<EyeOutlined />}
+                        onClick={() => openDetail(record)}
+                    />
+                </span>
             ),
         },
     ];
 
     return (
-        <>
-            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-                {[
-                    { label: "Bản nháp", value: counts.draft, color: "#6B7280" },
-                    { label: "Chờ duyệt", value: counts.pending, color: "#F59E0B" },
-                    { label: "Đã duyệt", value: counts.approved, color: "#3B82F6" },
-                    { label: "Ứng viên đã nhận", value: counts.accepted, color: "#22C55E" },
-                ].map((s) => (
-                    <Col xs={12} sm={6} key={s.label}>
-                        <Card
-                            size="small"
-                            style={{
-                                borderRadius: 12,
-                                border: `1px solid ${s.color}25`,
-                                background: `${s.color}08`,
-                            }}
-                        >
-                            <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>
-                                {s.value}
-                            </div>
-                            <div style={{ fontSize: 12, color: COLORS.textSecondary }}>
-                                {s.label}
-                            </div>
-                        </Card>
-                    </Col>
-                ))}
-            </Row>
-
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 16,
-                    flexWrap: "wrap",
-                    gap: 12,
-                }}
-            >
-                <Segmented
-                    value={filterStatus}
-                    onChange={(v) => { setFilterStatus(v as string); setPage(1); }}
-                    options={Object.entries(STATUS_LABEL).map(([k, label]) => ({
-                        label,
-                        value: k,
-                    }))}
+        <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <StatRow>
+                <StatTile
+                    icon={<FileTextOutlined />}
+                    label="Bản nháp"
+                    value={counts.draft}
+                    accent={COLORS.textMuted}
+                    active={filterStatus === "DRAFT"}
+                    onClick={() => toggleStatus("DRAFT")}
                 />
+                <StatTile
+                    icon={<ClockCircleOutlined />}
+                    label="Chờ duyệt"
+                    value={counts.pending}
+                    accent="#F59E0B"
+                    active={filterStatus === "PENDING_APPROVAL"}
+                    onClick={() => toggleStatus("PENDING_APPROVAL")}
+                />
+                <StatTile
+                    icon={<SendOutlined />}
+                    label="Đã gửi ứng viên"
+                    value={counts.approved}
+                    accent="#3B82F6"
+                    active={filterStatus === "APPROVED"}
+                    onClick={() => toggleStatus("APPROVED")}
+                />
+                <StatTile
+                    icon={<CheckCircleOutlined />}
+                    label="Ứng viên đã nhận"
+                    value={counts.accepted}
+                    accent={COLORS.success}
+                    active={filterStatus === "ACCEPTED"}
+                    onClick={() => toggleStatus("ACCEPTED")}
+                />
+            </StatRow>
 
-                {/* Chỉ HR được tạo Offer */}
-                {isHr && (
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => setCreateOpen(true)}
-                    >
-                        Tạo Offer
-                    </Button>
-                )}
-                {isDept && !isHr && (
-                    <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
-                        Bạn chỉ duyệt Offer được gán cho mình
-                    </span>
-                )}
-            </div>
+            <PageToolbar
+                left={
+                    <Segmented
+                        value={filterStatus}
+                        onChange={(v) => { setFilterStatus(v as string); setPage(1); }}
+                        options={SEGMENT_OPTIONS}
+                    />
+                }
+            />
 
-            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+            <FilterBar
+                extra={
+                    <>
+                        {isDept && !isHr && (
+                            <span style={{ fontSize: 12, color: COLORS.textMuted }}>
+                                Bạn chỉ duyệt Offer được gán cho mình
+                            </span>
+                        )}
+                        {/* Chỉ HR được tạo Offer */}
+                        {isHr && (
+                            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+                                Tạo Offer
+                            </Button>
+                        )}
+                    </>
+                }
+            >
                 <Input
                     prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
                     placeholder="Tìm theo tên ứng viên..."
@@ -251,6 +279,7 @@ export default function OffersList() {
                 />
                 <RangePicker
                     placeholder={["Tạo từ ngày", "Đến ngày"]}
+                    format="DD/MM/YYYY"
                     onChange={(v) => {
                         const range = v as [Dayjs, Dayjs] | null;
                         setFilters((f) => ({
@@ -260,26 +289,40 @@ export default function OffersList() {
                         setPage(1);
                     }}
                 />
+            </FilterBar>
+
+            <div ref={wrapRef} className="table-scroll-wrap">
+                <Table
+                    rowKey="id"
+                    size="small"
+                    loading={loading}
+                    columns={columns}
+                    dataSource={displayed}
+                    sticky
+                    scroll={{ y: scrollY }}
+                    onRow={(record) => ({
+                        onClick: () => openDetail(record),
+                        style: { cursor: "pointer" },
+                    })}
+                    pagination={{
+                        current: page,
+                        pageSize,
+                        total: totalItems,
+                        ...listPagination("offer"),
+                        onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                    }}
+                    locale={{
+                        emptyText: (
+                            <EmptyState
+                                title="Chưa có offer nào"
+                                description="Offer phù hợp với bộ lọc hiện tại sẽ hiển thị ở đây."
+                            />
+                        ),
+                    }}
+                />
             </div>
 
-            <Table
-                rowKey="id"
-                loading={loading}
-                columns={columns}
-                dataSource={displayed}
-                pagination={{
-                    current: page,
-                    pageSize,
-                    total: totalItems,
-                    size: "small",
-                    showSizeChanger: true,
-                    pageSizeOptions: [10, 20, 50],
-                    showTotal: (total) => `Tổng ${total} offer`,
-                    onChange: (p, ps) => { setPage(p); setPageSize(ps); },
-                }}
-            />
-
-            <OfferDetailDrawer
+            <OfferDetailModal
                 open={drawerOpen}
                 offer={selectedOffer}
                 onClose={() => setDrawerOpen(false)}
@@ -296,6 +339,6 @@ export default function OffersList() {
                     }}
                 />
             )}
-        </>
+        </div>
     );
 }

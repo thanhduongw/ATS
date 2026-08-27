@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { App, Button, Card, DatePicker, Form, Input, Modal, Radio, Space, Tag, Typography, Alert, Progress, Tooltip } from "antd";
+import { App, Button, Card, DatePicker, Form, Input, Modal, Radio, Select, Space, Tag, Typography, Alert, Progress, Tooltip } from "antd";
 import {
     PlusOutlined, ThunderboltOutlined, CheckCircleOutlined,
     ClockCircleOutlined, TeamOutlined, UserOutlined, ScheduleOutlined,
@@ -12,8 +12,12 @@ import { HR_ROLES } from "../../../app/roles";
 import { createSlots, getSlots, selectSlot } from "../schedulingApi";
 import type { InterviewSlotResponse } from "../schedulingTypes";
 import SlotConfirmationPanel from "../components/SlotConfirmationPanel";
+import BulkScheduleModal from "../components/BulkScheduleModal";
+import { getCatalogItems } from "../../masterdata/masterdataApi";
+import type { CatalogItem } from "../../masterdata/types";
 import { useI18n } from "../../../i18n/useI18n";
-import { COLORS, GRADIENTS } from "../../../app/theme";
+import { toLocalDateTimeString } from "../../../app/datetime";
+import { COLORS } from "../../../app/theme";
 
 const { Text } = Typography;
 
@@ -36,7 +40,9 @@ function ConfirmBadge({ confirmed, label }: { confirmed: boolean; label: string 
 }
 
 /* ── Slot Card ────────────────────────────────────────── */
-function SlotCard({ slot, onSelect }: { slot: InterviewSlotResponse; onSelect: (id: number) => void }) {
+function SlotCard({ slot, onSelect, workLocationMap }: {
+    slot: InterviewSlotResponse; onSelect: (id: number) => void; workLocationMap: Record<number, string>;
+}) {
     const { t } = useI18n();
     const matchCount = getMatchCount(slot);
     const isSelected = slot.status === "SELECTED";
@@ -86,7 +92,9 @@ function SlotCard({ slot, onSelect }: { slot: InterviewSlotResponse; onSelect: (
                 >
                     {slot.format === "ONLINE" ? "Online" : "Offline"}
                 </Tag>
-                {slot.location && <Text type="secondary" style={{ fontSize: 12 }}>{slot.location}</Text>}
+                {slot.workLocationId && (
+                    <Text type="secondary" style={{ fontSize: 12 }}>{workLocationMap[slot.workLocationId] ?? "—"}</Text>
+                )}
                 {slot.meetingLink && (
                     <a href={slot.meetingLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
                         Mở link họp
@@ -151,6 +159,9 @@ export default function InterviewSchedulingPage() {
     const [loading, setLoading] = useState(false);
     const [open, setOpen] = useState(false);
     const [form] = Form.useForm();
+    const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
+    const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
+    const [bulkOpen, setBulkOpen] = useState(false);
 
     const load = useCallback(() => {
         if (!applicationId) return;
@@ -159,16 +170,23 @@ export default function InterviewSchedulingPage() {
     }, [applicationId]);
     useEffect(load, [load]);
 
+    useEffect(() => {
+        getCatalogItems("/masterdata/work-locations").then((r) => {
+            setWorkLocations(r.data);
+            setWorkLocationMap(Object.fromEntries(r.data.map((w) => [w.id, String(w.name)])));
+        });
+    }, []);
+
     const handleCreate = async () => {
         const v = await form.validateFields();
         const payload = {
             applicationId,
             format: v.format,
-            location: v.location ?? null,
+            workLocationId: v.workLocationId ?? null,
             meetingLink: v.meetingLink ?? null,
             slots: v.slots.map((s: { range: [Dayjs, Dayjs] }) => ({
-                startTime: s.range[0].toISOString(),
-                endTime: s.range[1].toISOString(),
+                startTime: toLocalDateTimeString(s.range[0]),
+                endTime: toLocalDateTimeString(s.range[1]),
             })),
         };
         await createSlots(payload);
@@ -186,19 +204,10 @@ export default function InterviewSchedulingPage() {
     /* Non-HR view: only slot confirmation */
     if (!isHR) {
         return (
-            <div className="page-container animate-fade-in">
-                <div className="page-header" style={{ marginBottom: 20 }}>
-                    <div className="page-header-title">
-                        <div style={{ width: 44, height: 44, borderRadius: 12, background: GRADIENTS.stat4, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20 }}>
-                            <ScheduleOutlined />
-                        </div>
-                        <div>
-                            <h2 style={{ margin: 0 }}>Xác nhận khung giờ phỏng vấn</h2>
-                            <div className="page-header-subtitle">Xác nhận các khung giờ bạn có thể tham gia</div>
-                        </div>
-                    </div>
+            <div className="page-shell animate-fade-in">
+                <div className="page-shell-scroll">
+                    <SlotConfirmationPanel />
                 </div>
-                <SlotConfirmationPanel />
             </div>
         );
     }
@@ -208,18 +217,9 @@ export default function InterviewSchedulingPage() {
     const pendingSlots = slots.filter(s => !s.matched && s.status !== "SELECTED");
 
     return (
-        <div className="page-container animate-fade-in">
-            {/* ── Page Header ──────────────────── */}
-            <div className="page-header" style={{ marginBottom: 20 }}>
-                <div className="page-header-title">
-                    <div style={{ width: 44, height: 44, borderRadius: 12, background: GRADIENTS.stat4, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20 }}>
-                        <ScheduleOutlined />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0 }}>Xếp lịch phỏng vấn (3 bên)</h2>
-                        <div className="page-header-subtitle">HR tạo khung giờ → Phòng ban & Ứng viên xác nhận → Hệ thống chốt lịch</div>
-                    </div>
-                </div>
+        <div className="page-shell animate-fade-in">
+            {/* ── Toolbar ──────────────────── */}
+            <div className="page-header page-shell-fixed" style={{ marginBottom: 14, justifyContent: "flex-end" }}>
                 <Space>
                     <Button
                         type="primary"
@@ -236,6 +236,13 @@ export default function InterviewSchedulingPage() {
                     >
                         Tạo lịch thủ công
                     </Button>
+                    <Button
+                        size="large"
+                        icon={<ThunderboltOutlined />}
+                        onClick={() => setBulkOpen(true)}
+                    >
+                        Xếp lịch hàng loạt
+                    </Button>
                 </Space>
             </div>
 
@@ -244,12 +251,13 @@ export default function InterviewSchedulingPage() {
                     type="info"
                     showIcon
                     title='Mở trang này từ trang "Hồ sơ ứng tuyển" hoặc thêm ?applicationId=… vào URL'
-                    style={{ marginBottom: 20, borderRadius: 10 }}
+                    style={{ marginBottom: 14, borderRadius: 10, flexShrink: 0 }}
+                    className="page-shell-fixed"
                 />
             )}
 
             {/* ── How it works ─────────────────── */}
-            <Card style={{ marginBottom: 16, border: "none", background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)" }}>
+            <Card className="page-shell-fixed" style={{ marginBottom: 14, border: "none", background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)" }}>
                 <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                     {[
                         { step: 1, icon: <UserOutlined />, label: "HR tạo khung giờ", color: COLORS.primary },
@@ -273,39 +281,41 @@ export default function InterviewSchedulingPage() {
                 </div>
             </Card>
 
-            {/* ── Slot lists ───────────────────── */}
-            {selectedSlots.length > 0 && (
-                <Card
-                    title={<><CheckCircleOutlined style={{ color: COLORS.success, marginRight: 8 }} />Lịch đã chốt</>}
-                    style={{ marginBottom: 16, border: `1px solid ${COLORS.success}30` }}
-                >
-                    {selectedSlots.map(s => <SlotCard key={s.id} slot={s} onSelect={handleSelect} />)}
-                </Card>
-            )}
-
-            {matchedSlots.length > 0 && (
-                <Card
-                    title={<><ThunderboltOutlined style={{ color: COLORS.success, marginRight: 8 }} />Khớp 3 bên — sẵn sàng chốt</>}
-                    style={{ marginBottom: 16, border: `1px solid ${COLORS.success}50` }}
-                >
-                    {matchedSlots.map(s => <SlotCard key={s.id} slot={s} onSelect={handleSelect} />)}
-                </Card>
-            )}
-
-            <Card
-                title={<><ClockCircleOutlined style={{ color: "#F59E0B", marginRight: 8 }} />Các khung giờ đề xuất ({slots.length})</>}
-                loading={loading}
-                style={{ border: "none" }}
-            >
-                {slots.length === 0 ? (
-                    <div style={{ padding: "40px 0", textAlign: "center", color: COLORS.textMuted }}>
-                        <ScheduleOutlined style={{ fontSize: 32, marginBottom: 12 }} />
-                        <div>Chưa có khung giờ nào. Nhấn "Tạo khung giờ" để bắt đầu.</div>
-                    </div>
-                ) : (
-                    pendingSlots.map(s => <SlotCard key={s.id} slot={s} onSelect={handleSelect} />)
+            {/* ── Slot lists — 1 vùng cuộn riêng cho toàn bộ danh sách khung giờ ── */}
+            <div className="page-shell-scroll">
+                {selectedSlots.length > 0 && (
+                    <Card
+                        title={<><CheckCircleOutlined style={{ color: COLORS.success, marginRight: 8 }} />Lịch đã chốt</>}
+                        style={{ marginBottom: 16, border: `1px solid ${COLORS.success}30` }}
+                    >
+                        {selectedSlots.map(s => <SlotCard key={s.id} slot={s} onSelect={handleSelect} workLocationMap={workLocationMap} />)}
+                    </Card>
                 )}
-            </Card>
+
+                {matchedSlots.length > 0 && (
+                    <Card
+                        title={<><ThunderboltOutlined style={{ color: COLORS.success, marginRight: 8 }} />Khớp 3 bên — sẵn sàng chốt</>}
+                        style={{ marginBottom: 16, border: `1px solid ${COLORS.success}50` }}
+                    >
+                        {matchedSlots.map(s => <SlotCard key={s.id} slot={s} onSelect={handleSelect} workLocationMap={workLocationMap} />)}
+                    </Card>
+                )}
+
+                <Card
+                    title={<><ClockCircleOutlined style={{ color: "#F59E0B", marginRight: 8 }} />Các khung giờ đề xuất ({slots.length})</>}
+                    loading={loading}
+                    style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12 }}
+                >
+                    {slots.length === 0 ? (
+                        <div style={{ padding: "40px 0", textAlign: "center", color: COLORS.textMuted }}>
+                            <ScheduleOutlined style={{ fontSize: 32, marginBottom: 12 }} />
+                            <div>Chưa có khung giờ nào. Nhấn "Tạo khung giờ" để bắt đầu.</div>
+                        </div>
+                    ) : (
+                        pendingSlots.map(s => <SlotCard key={s.id} slot={s} onSelect={handleSelect} workLocationMap={workLocationMap} />)
+                    )}
+                </Card>
+            </div>
 
             {/* ── Create Slot Modal ─────────────── */}
             <Modal
@@ -331,8 +341,12 @@ export default function InterviewSchedulingPage() {
                                 <Input prefix={<VideoCameraOutlined style={{ color: "#9CA3AF" }} />} placeholder="https://meet.google.com/..." size="large" />
                             </Form.Item>
                         ) : (
-                            <Form.Item name="location" label="Địa điểm">
-                                <Input prefix={<EnvironmentOutlined style={{ color: "#9CA3AF" }} />} placeholder="Phòng họp A, Tầng 3, 12 Nguyễn Văn Bảo..." size="large" />
+                            <Form.Item name="workLocationId" label="Địa điểm" rules={[{ required: true, message: "Vui lòng chọn địa điểm" }]}>
+                                <Select
+                                    size="large"
+                                    placeholder="Chọn địa điểm phỏng vấn"
+                                    options={workLocations.map((w) => ({ value: w.id, label: String(w.name) }))}
+                                />
                             </Form.Item>
                         )}
                     </Form.Item>
@@ -363,6 +377,12 @@ export default function InterviewSchedulingPage() {
                     </Form.List>
                 </Form>
             </Modal>
+
+            <BulkScheduleModal
+                open={bulkOpen}
+                onClose={() => setBulkOpen(false)}
+                onSuccess={load}
+            />
         </div>
     );
 }

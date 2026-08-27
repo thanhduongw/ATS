@@ -85,6 +85,38 @@ public class JobPostingController {
         return ResponseEntity.ok(service.changeStatus(tenantId, id, req));
     }
 
+    /** DRAFT/EDITING → APPROVED */
+    @PatchMapping("/{id}/submit-review")
+    public ResponseEntity<JobPostingResponse> submitReview(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.submitReview(tenantId, actorUserId, id));
+    }
+
+    /** APPROVED → EDITING */
+    @PatchMapping("/{id}/request-edit")
+    public ResponseEntity<JobPostingResponse> requestEdit(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.requestEdit(tenantId, id));
+    }
+
+    /** APPROVED → OPEN */
+    @PatchMapping("/{id}/publish")
+    public ResponseEntity<JobPostingResponse> publish(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.publish(tenantId, actorUserId, id));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(
             @RequestHeader("X-Tenant-Id") Long tenantId,

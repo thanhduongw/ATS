@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, useMemo, type Key, type ReactNode } from "react";
-import { App, Card, Table, Button, Space, Input, Select, Row, Col, Tooltip, Avatar, Modal, Form } from "antd";
+import { useCallback, useEffect, useState, useMemo, type Key } from "react";
+import { App, Card, Table, Button, Input, Select, Tooltip, Avatar, Modal, Form, Tag } from "antd";
 import {
     PlusOutlined, SearchOutlined, UserOutlined, DownloadOutlined,
     UserAddOutlined, FileSearchOutlined, CalendarOutlined, TrophyOutlined, MailOutlined, CloseCircleOutlined,
@@ -19,54 +19,23 @@ import { COLORS, GRADIENTS } from "../../../app/theme";
 import { exportToExcel } from "../../../app/exportExcel";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
-
-interface StatCardProps {
-    title: string;
-    value: number | string;
-    subtitle?: string;
-    icon: ReactNode;
-    gradient: string;
-}
-
-function StatCard({ title, value, subtitle, icon, gradient }: StatCardProps) {
-    return (
-        <Card className="stat-card" style={{ border: "none" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <div className="stat-icon" style={{ background: gradient }}>
-                    {icon}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 4, fontWeight: 500 }}>
-                        {title}
-                    </div>
-                    <div style={{ fontSize: 26, fontWeight: 700, color: COLORS.textPrimary, lineHeight: 1 }}>
-                        {value}
-                    </div>
-                    {subtitle && (
-                        <div style={{ marginTop: 6, fontSize: 12, color: COLORS.textMuted }}>{subtitle}</div>
-                    )}
-                </div>
-            </div>
-        </Card>
-    );
-}
+import { useTableScrollY } from "../../../app/useTableScrollY";
+import EmptyState from "../../../components/ui/EmptyState";
+import StatTile from "../../../components/ui/StatTile";
+import { StatRow, FilterBar } from "../../../components/ui/pageKit";
+import { listCardStyle, listCardBodyStyle, listPagination } from "../../../components/ui/listStyles";
+import { stageTypeTagColor } from "../../../app/statusLabels";
 
 const INTERVIEW_STAGE_TYPES = ["TECHNICAL_INTERVIEW", "HR_INTERVIEW", "FINAL_INTERVIEW"];
+
+/** Lọc nhanh bằng cách bấm vào ô số liệu đầu trang. */
+type QuickFilter = "new7d" | "cvScreening" | "interview" | "hired" | null;
 
 const DEPARTMENT_DOT_COLORS = ["#3B82F6", "#8B5CF6", "#F59E0B", "#10B981", "#EC4899", "#06B6D4"];
 function departmentDotColor(name: string) {
     let hash = 0;
     for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
     return DEPARTMENT_DOT_COLORS[hash % DEPARTMENT_DOT_COLORS.length];
-}
-
-function stageDotColor(stageType: string) {
-    if (stageType === "HIRED") return COLORS.stageHired;
-    if (stageType === "REJECTED") return COLORS.stageRejected;
-    if (stageType === "OFFER") return COLORS.stageOffer;
-    if (stageType.includes("INTERVIEW")) return COLORS.stageInterview;
-    if (stageType.includes("SCREENING")) return COLORS.stageScreening;
-    return COLORS.stageNew;
 }
 
 /** Chưa có dữ liệu AI thật (tính năng đang phát triển) — giữ chỗ để bật sort ngay khi có điểm thật. */
@@ -90,6 +59,7 @@ export default function CandidatesPage() {
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
 
     const [formModalOpen, setFormModalOpen] = useState(false);
 
@@ -157,16 +127,42 @@ export default function CandidatesPage() {
         }));
     }, [candidates, allApplications]);
 
+    const matchesQuickFilter = useCallback(
+        (apps: ApplicationResponse[]) => {
+            if (!quickFilter) return true;
+            const now = new Date();
+            if (quickFilter === "new7d") {
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                return apps.some((a) => new Date(a.appliedAt) >= sevenDaysAgo);
+            }
+            if (quickFilter === "cvScreening") {
+                return apps.some((a) => a.currentStageType === "CV_SCREENING");
+            }
+            if (quickFilter === "interview") {
+                return apps.some((a) => INTERVIEW_STAGE_TYPES.includes(a.currentStageType));
+            }
+            return apps.some((a) => {
+                if (!a.hiredAt) return false;
+                const d = new Date(a.hiredAt);
+                return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            });
+        },
+        [quickFilter],
+    );
+
     const visibleCandidates = useMemo(() => {
         return candidatesWithApps.filter((c) => {
             if (departmentFilter && !c.applications.some((a) => a.departmentName === departmentFilter)) return false;
             if (positionFilter && !c.applications.some((a) => a.jobTitle === positionFilter)) return false;
             if (statusFilter && !c.applications.some((a) => a.currentStageName === statusFilter)) return false;
+            if (!matchesQuickFilter(c.applications)) return false;
             return true;
         });
-    }, [candidatesWithApps, departmentFilter, positionFilter, statusFilter]);
+    }, [candidatesWithApps, departmentFilter, positionFilter, statusFilter, matchesQuickFilter]);
 
-    const hasActiveFilters = !!(keyword || departmentFilter || positionFilter || statusFilter);
+    const { wrapRef, scrollY } = useTableScrollY([loading, visibleCandidates.length]);
+
+    const hasActiveFilters = !!(keyword || departmentFilter || positionFilter || statusFilter || quickFilter);
 
     const handleResetFilters = () => {
         setSearchInput("");
@@ -174,8 +170,12 @@ export default function CandidatesPage() {
         setDepartmentFilter(null);
         setPositionFilter(null);
         setStatusFilter(null);
+        setQuickFilter(null);
         setPage(1);
     };
+
+    const toggleQuickFilter = (next: Exclude<QuickFilter, null>) =>
+        setQuickFilter((prev) => (prev === next ? null : next));
 
     // ── Thống kê KPI (dựa trên toàn bộ đơn ứng tuyển của công ty) ──
     const kpiStats = useMemo(() => {
@@ -319,24 +319,25 @@ export default function CandidatesPage() {
         {
             title: "Ứng viên",
             key: "candidate",
-            width: 240,
+            width: 230,
             render: (_, record, index) => (
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                     <Avatar
-                        size={36}
+                        size={30}
                         style={{
                             background: AVATAR_COLORS[index % AVATAR_COLORS.length],
-                            color: "#fff", fontWeight: 600, fontSize: 13, flexShrink: 0,
+                            color: "#fff", fontWeight: 600, fontSize: 12, flexShrink: 0,
                         }}
                     >
                         {getInitials(record.fullName)}
                     </Avatar>
-                    <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, color: COLORS.textPrimary }}>{record.fullName}</div>
-                        <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{record.email}</div>
-                        {record.phone && (
-                            <div style={{ fontSize: 12, color: COLORS.textMuted }}>{record.phone}</div>
-                        )}
+                    <div style={{ minWidth: 0, lineHeight: 1.3 }}>
+                        <div style={{ fontWeight: 600, color: COLORS.textPrimary, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {record.fullName}
+                        </div>
+                        <div style={{ fontSize: 11, color: COLORS.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {record.email}{record.phone ? ` · ${record.phone}` : ""}
+                        </div>
                     </div>
                 </div>
             ),
@@ -344,7 +345,7 @@ export default function CandidatesPage() {
         {
             title: "Vị trí",
             key: "position",
-            width: 200,
+            width: 170,
             render: (_, record) => {
                 const primary = record.applications[0];
                 if (!primary) return <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Chưa ứng tuyển</span>;
@@ -363,7 +364,7 @@ export default function CandidatesPage() {
         {
             title: "Phòng ban",
             key: "department",
-            width: 150,
+            width: 130,
             render: (_, record) => {
                 const name = record.applications[0]?.departmentName;
                 if (!name) return <span style={{ color: COLORS.textMuted }}>—</span>;
@@ -378,7 +379,7 @@ export default function CandidatesPage() {
         {
             title: "Ngày ứng tuyển",
             key: "appliedAt",
-            width: 130,
+            width: 115,
             sorter: (a, b) => {
                 const ta = a.applications[0] ? new Date(a.applications[0].appliedAt).getTime() : 0;
                 const tb = b.applications[0] ? new Date(b.applications[0].appliedAt).getTime() : 0;
@@ -397,124 +398,143 @@ export default function CandidatesPage() {
         {
             title: "Trạng thái",
             key: "status",
-            width: 150,
+            width: 130,
             render: (_, record) => {
                 const primary = record.applications[0];
                 if (!primary) return <span style={{ color: COLORS.textMuted }}>—</span>;
                 return (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: stageDotColor(primary.currentStageType), flexShrink: 0 }} />
-                        <span style={{ fontSize: 13 }}>{primary.currentStageName}</span>
-                    </div>
+                    <Tag color={stageTypeTagColor(primary.currentStageType)} style={{ margin: 0 }}>
+                        {primary.currentStageName}
+                    </Tag>
                 );
             },
         },
         {
             title: "AI Score",
             key: "aiScore",
-            width: 130,
+            width: 110,
             sorter: (a, b) => (getAiScore(a) ?? -1) - (getAiScore(b) ?? -1),
             render: (_, record) => <AiScoreBadge score={getAiScore(record)} />,
         },
     ];
 
     return (
-        <div className="page-container animate-fade-in">
-            {/* Header */}
-            <div className="page-header">
-                <div className="page-header-title">
-                    <div style={{
-                        width: 44, height: 44, borderRadius: 12,
-                        background: GRADIENTS.stat2,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "#fff", fontSize: 20,
-                    }}>
-                        <UserOutlined />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Ứng viên</h2>
-                        <div className="page-header-subtitle">Quản lý, sàng lọc và đánh giá ứng viên trong quy trình tuyển dụng.</div>
-                    </div>
-                </div>
-                <Space>
-                    <Button icon={<DownloadOutlined />} size="large" onClick={handleExportExcel}>
-                        Xuất Excel
-                    </Button>
-                    {isHr && (
-                        <Button type="primary" icon={<PlusOutlined />} size="large"
-                            onClick={() => setFormModalOpen(true)}>
-                            Thêm ứng viên
+        <div className="page-shell animate-fade-in">
+            {/* ── Thống kê nhanh ─────────────────────────── */}
+            <StatRow>
+                <StatTile
+                    icon={<UserOutlined />}
+                    label="Tổng ứng viên"
+                    value={totalCandidates}
+                    accent={COLORS.primary}
+                    active={!quickFilter}
+                    onClick={() => setQuickFilter(null)}
+                />
+                <StatTile
+                    icon={<UserAddOutlined />}
+                    label="Đơn mới"
+                    hint="7 ngày qua"
+                    value={kpiStats.newApplications}
+                    accent="#3B82F6"
+                    active={quickFilter === "new7d"}
+                    onClick={() => toggleQuickFilter("new7d")}
+                />
+                <StatTile
+                    icon={<FileSearchOutlined />}
+                    label="Sàng lọc CV"
+                    hint="chờ duyệt"
+                    value={kpiStats.cvScreening}
+                    accent="#F59E0B"
+                    active={quickFilter === "cvScreening"}
+                    onClick={() => toggleQuickFilter("cvScreening")}
+                />
+                <StatTile
+                    icon={<CalendarOutlined />}
+                    label="Phỏng vấn"
+                    hint="đang diễn ra"
+                    value={kpiStats.interviews}
+                    accent="#8B5CF6"
+                    active={quickFilter === "interview"}
+                    onClick={() => toggleQuickFilter("interview")}
+                />
+                <StatTile
+                    icon={<TrophyOutlined />}
+                    label="Đã tuyển"
+                    hint="trong tháng"
+                    value={kpiStats.hiredThisMonth}
+                    accent={COLORS.success}
+                    active={quickFilter === "hired"}
+                    onClick={() => toggleQuickFilter("hired")}
+                />
+            </StatRow>
+
+            {/* ── Bộ lọc ─────────────────────────────────── */}
+            <FilterBar
+                extra={
+                    <>
+                        <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
+                            Xuất Excel
                         </Button>
-                    )}
-                </Space>
-            </div>
-
-            {/* KPI stat cards */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-                <Col xs={24} sm={12} md={8} lg={4}>
-                    <StatCard title="Tổng ứng viên" value={totalCandidates} icon={<UserOutlined />} gradient={GRADIENTS.stat1} />
-                </Col>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                    <StatCard title="Đơn mới" value={kpiStats.newApplications} subtitle="7 ngày qua" icon={<UserAddOutlined />} gradient={GRADIENTS.stat2} />
-                </Col>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                    <StatCard title="Sàng lọc CV" value={kpiStats.cvScreening} subtitle="đang chờ duyệt" icon={<FileSearchOutlined />} gradient={GRADIENTS.stat3} />
-                </Col>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                    <StatCard title="Phỏng vấn" value={kpiStats.interviews} subtitle="đang diễn ra" icon={<CalendarOutlined />} gradient={GRADIENTS.stat4} />
-                </Col>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                    <StatCard title="Đã tuyển" value={kpiStats.hiredThisMonth} subtitle="trong tháng" icon={<TrophyOutlined />} gradient={GRADIENTS.primary} />
-                </Col>
-            </Row>
-
-            <Card style={{ border: "none" }}>
+                        {isHr && (
+                            <Button type="primary" icon={<PlusOutlined />} onClick={() => setFormModalOpen(true)}>
+                                Thêm ứng viên
+                            </Button>
+                        )}
+                    </>
+                }
+            >
                 <Input
                     prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
-                    placeholder="Tìm theo tên, email hoặc số điện thoại..."
+                    placeholder="Tìm theo tên, email, SĐT..."
                     value={searchInput}
                     onChange={e => setSearchInput(e.target.value)}
-                    style={{ marginBottom: 12 }}
-                    size="large"
+                    style={{ width: 240 }}
                     allowClear
                 />
-                <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                    <Select
-                        allowClear
-                        placeholder="Tất cả phòng ban"
-                        style={{ width: 180 }}
-                        value={departmentFilter}
-                        onChange={(v) => { setDepartmentFilter(v ?? null); setPage(1); }}
-                        options={departmentOptions.map((d) => ({ value: d.name, label: `${d.name} (${d.count})` }))}
-                    />
-                    <Select
-                        allowClear
-                        showSearch
-                        placeholder="Tất cả vị trí"
-                        style={{ width: 180 }}
-                        value={positionFilter}
-                        onChange={(v) => { setPositionFilter(v ?? null); setPage(1); }}
-                        options={positionOptions.map((p) => ({ value: p, label: p }))}
-                    />
-                    <Select
-                        allowClear
-                        placeholder="Tất cả trạng thái"
-                        style={{ width: 180 }}
-                        value={statusFilter}
-                        onChange={(v) => { setStatusFilter(v ?? null); setPage(1); }}
-                        options={statusOptions.map((s) => ({ value: s, label: s }))}
-                    />
-                    {hasActiveFilters && (
-                        <Button onClick={handleResetFilters}>Reset</Button>
-                    )}
-                </div>
+                <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="Phòng ban"
+                    style={{ width: 180 }}
+                    value={departmentFilter}
+                    onChange={(v) => { setDepartmentFilter(v ?? null); setPage(1); }}
+                    options={departmentOptions.map((d) => ({ value: d.name, label: `${d.name} (${d.count})` }))}
+                />
+                <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="Vị trí"
+                    style={{ width: 180 }}
+                    value={positionFilter}
+                    onChange={(v) => { setPositionFilter(v ?? null); setPage(1); }}
+                    options={positionOptions.map((p) => ({ value: p, label: p }))}
+                />
+                <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="Trạng thái"
+                    style={{ width: 180 }}
+                    value={statusFilter}
+                    onChange={(v) => { setStatusFilter(v ?? null); setPage(1); }}
+                    options={statusOptions.map((s) => ({ value: s, label: s }))}
+                />
+                {hasActiveFilters && <Button onClick={handleResetFilters}>Xóa bộ lọc</Button>}
+            </FilterBar>
 
+            <Card
+                className="table-card-fill"
+                style={listCardStyle}
+                styles={{ body: listCardBodyStyle }}
+            >
                 {isHr && selectedRowKeys.length > 0 && (
                     <div
                         style={{
                             display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-                            padding: "10px 16px", marginBottom: 16, background: "#EFF6FF",
-                            border: "1px solid #BFDBFE", borderRadius: 8,
+                            padding: "10px 16px", marginBottom: 12, background: "#EFF6FF",
+                            border: "1px solid #BFDBFE", borderRadius: 8, flexShrink: 0,
                         }}
                     >
                         <span>Đã chọn {selectedRowKeys.length} ứng viên</span>
@@ -530,35 +550,44 @@ export default function CandidatesPage() {
                     </div>
                 )}
 
-                <Table
-                    rowKey="id"
-                    loading={loading}
-                    columns={columns}
-                    dataSource={visibleCandidates}
-                    rowSelection={isHr ? {
-                        selectedRowKeys,
-                        onChange: setSelectedRowKeys,
-                    } : undefined}
-                    onRow={(record) => {
-                        const primary = record.applications[0];
-                        return {
-                            onClick: () => { if (primary) goToApplication(record.id, primary.id); },
-                            style: { cursor: primary ? "pointer" : "default" },
-                        };
-                    }}
-                    pagination={{
-                        current: page,
-                        pageSize,
-                        total: totalCandidates,
-                        size: "small",
-                        showSizeChanger: true,
-                        pageSizeOptions: [10, 20, 50],
-                        showTotal: (total) => `Tổng ${total} ứng viên`,
-                        onChange: (p, ps) => { setPage(p); setPageSize(ps); },
-                    }}
-                    scroll={{ x: 1050 }}
-                    rowHoverable
-                />
+                <div ref={wrapRef} className="table-scroll-wrap">
+                    <Table
+                        rowKey="id"
+                        size="small"
+                        loading={loading}
+                        columns={columns}
+                        dataSource={visibleCandidates}
+                        sticky
+                        scroll={{ y: scrollY }}
+                        rowSelection={isHr ? {
+                            selectedRowKeys,
+                            onChange: setSelectedRowKeys,
+                        } : undefined}
+                        onRow={(record) => {
+                            const primary = record.applications[0];
+                            return {
+                                onClick: () => { if (primary) goToApplication(record.id, primary.id); },
+                                style: { cursor: primary ? "pointer" : "default" },
+                            };
+                        }}
+                        pagination={{
+                            current: page,
+                            pageSize,
+                            total: totalCandidates,
+                            ...listPagination("ứng viên"),
+                            onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                        }}
+                        locale={{
+                            emptyText: (
+                                <EmptyState
+                                    title="Chưa có ứng viên nào"
+                                    description="Ứng viên phù hợp với bộ lọc hiện tại sẽ hiển thị ở đây."
+                                />
+                            ),
+                        }}
+                        rowHoverable
+                    />
+                </div>
             </Card>
 
             <CandidateFormModal open={formModalOpen} editingItem={null}

@@ -100,6 +100,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_recruitment
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATA_REDIS_HOST: redis
+      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
+      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
     depends_on:
       postgres:
         condition: service_healthy
@@ -140,6 +142,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_interview
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATA_REDIS_HOST: redis
+      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
+      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
+      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
+      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
+      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
     depends_on:
       postgres:
         condition: service_healthy
@@ -157,6 +164,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_notification
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATA_REDIS_HOST: redis
+      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
+      SERVICES_INTERVIEW_SERVICE_URL: http://interview-service:8085
+      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
+      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
     depends_on:
       postgres:
         condition: service_healthy

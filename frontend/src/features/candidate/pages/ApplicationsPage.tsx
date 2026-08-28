@@ -19,7 +19,7 @@ export default function ApplicationsPage() {
 
     const [rows, setRows] = useState<ApplicationResponse[]>([]);
     const [loading, setLoading] = useState(false);
-    const [jobPostingId, setJobPostingId] = useState<number | undefined>();
+    const [jobPostingId] = useState<number | undefined>();
     const [rejectOpen, setRejectOpen] = useState(false);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [reasons, setReasons] = useState<{ id: number; name: string }[]>([]);

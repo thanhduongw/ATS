@@ -2,6 +2,7 @@ package iuh.fit.se.auth.service;
 
 import iuh.fit.se.auth.dto.request.CreateUserRequest;
 import iuh.fit.se.auth.dto.request.UpdateProfileRequest;
+import iuh.fit.se.auth.dto.request.UpdateUserStatusRequest;
 import iuh.fit.se.auth.dto.response.UserProfileResponse;
 import iuh.fit.se.auth.dto.response.UserSummaryResponse;
 import iuh.fit.se.auth.entity.AppUser;
@@ -38,7 +39,8 @@ public class UserService {
                             u.getId(),
                             u.getFullName(),
                             u.getEmail(),
-                            role.getName().name()
+                            role.getName().name(),
+                            u.getStatus() != null ? u.getStatus().name() : "ACTIVE"
                     );
                 })
                 .filter(r -> roleFilter == null
@@ -138,5 +140,30 @@ public class UserService {
                 req.email()
         );
     }
-    
+
+    @Transactional
+    public void updateUserStatus(Long tenantId, Long actorUserId, Long targetUserId, UpdateUserStatusRequest req) {
+        AppUser user = appUserRepository.findById(targetUserId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy người dùng"));
+
+        if (!user.getTenantId().equals(tenantId)) {
+            throw new BusinessException("Người dùng không thuộc công ty này");
+        }
+
+        if (user.getId().equals(actorUserId)) {
+            throw new BusinessException("Không thể tự thay đổi trạng thái của chính mình");
+        }
+
+        user.setStatus(req.status());
+        appUserRepository.save(user);
+
+        auditEventPublisher.publish(
+                tenantId,
+                actorUserId,
+                "USER_STATUS_UPDATED",
+                "USER",
+                targetUserId,
+                "Trạng thái mới: " + req.status().name()
+        );
+    }
 }

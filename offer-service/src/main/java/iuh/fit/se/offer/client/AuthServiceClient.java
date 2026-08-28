@@ -1,5 +1,6 @@
 package iuh.fit.se.offer.client;
 
+import iuh.fit.se.offer.client.dto.CompanyResponse;
 import iuh.fit.se.offer.client.dto.UserSummaryResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,4 +15,7 @@ public interface AuthServiceClient {
     List<UserSummaryResponse> getUsers(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestParam(value = "role", required = false) String role);
+
+    @GetMapping("/api/auth/company")
+    CompanyResponse getCompany(@RequestHeader("X-Tenant-Id") Long tenantId);
 }

@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Modal, Form, Select, Input, message } from "antd";
+import { FolderAddOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
+import { ModalTitle } from "../../../components/ui/pageKit";
 import {
   applicationCreateSchema,
   type ApplicationCreateFormValues,
@@ -52,8 +54,8 @@ export default function ApplicationCreateModal({
       getCatalogItems("/masterdata/recruitment-sources"),
       getUsers("RECRUITER"),
     ]).then(([candRes, postRes, srcRes, recRes]) => {
-      setCandidates(candRes.data);
-      setPostings(postRes.data.filter((p) => p.status === "OPEN"));
+      setCandidates(candRes.data.content);
+      setPostings(postRes.data.content.filter((p) => p.status === "OPEN"));
       setSources(srcRes.data);
       setRecruiters(recRes.data);
     });
@@ -80,7 +82,13 @@ export default function ApplicationCreateModal({
 
   return (
     <Modal
-      title="Thêm ứng viên vào tin tuyển dụng"
+      title={
+        <ModalTitle
+          icon={<FolderAddOutlined />}
+          title="Thêm ứng viên vào tin tuyển dụng"
+          subtitle="Tạo hồ sơ ứng tuyển cho ứng viên đã có trong hệ thống"
+        />
+      }
       open={open}
       onOk={handleSubmit(onSubmit)}
       onCancel={onClose}
@@ -143,7 +151,7 @@ export default function ApplicationCreateModal({
           />
         </Form.Item>
 
-        <Form.Item label="Người phụ trách (không bắt buộc)">
+        <Form.Item label="Người phụ trách ">
           <Controller
             name="assignedRecruiterId"
             control={control}
@@ -153,7 +161,7 @@ export default function ApplicationCreateModal({
           />
         </Form.Item>
 
-        <Form.Item label="Ghi chú (không bắt buộc)">
+        <Form.Item label="Ghi chú ">
           <Controller
             name="note"
             control={control}

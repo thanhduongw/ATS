@@ -69,6 +69,28 @@ spring:
           predicates:
             - Path=/api/offer/**
 
+springdoc:
+  swagger-ui:
+    urls:
+      - name: auth-service
+        url: /api/auth/v3/api-docs
+      - name: masterdata-service
+        url: /api/masterdata/v3/api-docs
+      - name: recruitment-service
+        url: /api/recruitment/v3/api-docs
+      - name: candidate-service
+        url: /api/candidate/v3/api-docs
+      - name: interview-service
+        url: /api/interview/v3/api-docs
+      - name: notification-service
+        url: /api/notification/v3/api-docs
+      - name: dashboard-service
+        url: /api/dashboard/v3/api-docs
+      - name: application-service
+        url: /api/application/v3/api-docs
+      - name: offer-service
+        url: /api/offer/v3/api-docs
+
 app:
   jwt:
     secret: ${JWT_SECRET:thay-bang-chuoi-bi-mat-it-nhat-256-bit-truoc-khi-deploy-thuc-te}

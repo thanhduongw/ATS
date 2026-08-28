@@ -7,6 +7,9 @@ public record ApplicationResponse(
         Long candidateId,
         String candidateName,
         Long jobPostingId,
+        String jobTitle,
+        Long departmentId,
+        String departmentName,
         Long recruitmentSourceId,
         String recruitmentSourceName,
         Long assignedRecruiterId,
@@ -19,5 +22,6 @@ public record ApplicationResponse(
         Long rejectionReasonId,
         String rejectionReasonName,
         String note,
-        LocalDateTime appliedAt
+        LocalDateTime appliedAt,
+        LocalDateTime hiredAt
 ) {}

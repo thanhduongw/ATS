@@ -2,8 +2,11 @@ package iuh.fit.se.auth.controller;
 
 import iuh.fit.se.auth.dto.request.*;
 import iuh.fit.se.auth.dto.response.*;
+import iuh.fit.se.auth.exception.BusinessException;
+import iuh.fit.se.auth.security.OAuth2TokenExchangeStore;
 import iuh.fit.se.auth.service.*;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -21,6 +24,9 @@ public class AuthController {
     private final UserService userService;
     private final PasswordService passwordService;
     private final CompanyService companyService;
+    private final OAuth2TokenExchangeStore oAuth2TokenExchangeStore;
+
+    public record OAuth2ExchangeRequest(@NotBlank String code) {}
 
     @PostMapping("/register-company")
     public ResponseEntity<ApiMessageResponse> register(@Valid @RequestBody RegisterCompanyRequest req) {
@@ -32,6 +38,12 @@ public class AuthController {
     public ResponseEntity<ApiMessageResponse> verify(@Valid @RequestBody VerifyEmailRequest req) {
         registerService.verifyEmail(req);
         return ResponseEntity.ok(new ApiMessageResponse("Xác thực thành công"));
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<ApiMessageResponse> resendOtp(@Valid @RequestBody ResendOtpRequest req) {
+        registerService.resendOtp(req);
+        return ResponseEntity.ok(new ApiMessageResponse("Mã OTP mới đã được gửi tới email của bạn"));
     }
 
     @PostMapping("/login")
@@ -48,6 +60,16 @@ public class AuthController {
     public ResponseEntity<ApiMessageResponse> logout(@Valid @RequestBody RefreshTokenRequest req) {
         loginService.logout(req.refreshToken());
         return ResponseEntity.ok(new ApiMessageResponse("Đăng xuất thành công"));
+    }
+
+    /** Đổi mã dùng-một-lần (sau khi Google SSO thành công) lấy access/refresh token thật. */
+    @PostMapping("/oauth2/exchange")
+    public ResponseEntity<LoginResponse> exchangeOAuth2Code(@Valid @RequestBody OAuth2ExchangeRequest req) {
+        LoginResponse tokens = oAuth2TokenExchangeStore.consume(req.code());
+        if (tokens == null) {
+            throw new BusinessException("Mã đăng nhập không hợp lệ hoặc đã hết hạn");
+        }
+        return ResponseEntity.ok(tokens);
     }
 
     @PostMapping("/forgot-password")
@@ -90,6 +112,22 @@ public class AuthController {
         userService.createUser(tenantId, actorUserId, req);
         return ResponseEntity.ok(new ApiMessageResponse("Tạo tài khoản thành công"));
     }
+
+    @PatchMapping("/users/{id}/status")
+    public ResponseEntity<ApiMessageResponse> updateUserStatus(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String requesterRole,
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateUserStatusRequest req) {
+
+        if (!"COMPANY_ADMIN".equals(requesterRole)) {
+            throw new AccessDeniedException("Chỉ Company Admin được cập nhật trạng thái tài khoản");
+        }
+        userService.updateUserStatus(tenantId, actorUserId, id, req);
+        return ResponseEntity.ok(new ApiMessageResponse("Cập nhật trạng thái tài khoản thành công"));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> getMyProfile(
             @RequestHeader("X-User-Id") Long userId) {

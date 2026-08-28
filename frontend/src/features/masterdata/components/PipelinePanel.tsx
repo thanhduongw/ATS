@@ -7,19 +7,22 @@ import {
     Form,
     Input,
     Modal,
-    Popconfirm,
     Select,
     Space,
+    Tag,
     Typography,
     Spin,
 } from "antd";
-import { DeleteOutlined, HolderOutlined, PlusOutlined } from "@ant-design/icons";
+import { DeleteOutlined, HolderOutlined, PlusOutlined, ApartmentOutlined } from "@ant-design/icons";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import type { AxiosError } from "axios";
 import type { ApiMessageResponse, PipelineResponse, StageType } from "../types";
 import { createPipeline, deletePipeline, getPipelines, updatePipeline } from "../masterdataApi";
+import { COLORS, RADIUS } from "../../../app/theme";
+import EmptyState from "../../../components/ui/EmptyState";
+import { IconAction, ModalTitle } from "../../../components/ui/pageKit";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const STAGE_TYPE_OPTIONS: { value: StageType; label: string }[] = [
     { value: "APPLIED", label: "Ứng tuyển" },
@@ -98,7 +101,7 @@ export default function PipelinePanel() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [message]);
 
     useEffect(() => {
         loadPipelines();
@@ -188,53 +191,66 @@ export default function PipelinePanel() {
     };
 
     return (
-        <div style={{ display: "flex", gap: 24 }}>
-            <div style={{ width: 260 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                    <Title level={5} style={{ margin: 0 }}>
+        <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ width: 260, flexShrink: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.textPrimary }}>
                         Danh sách quy trình
-                    </Title>
+                    </span>
                     <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
                         Thêm
                     </Button>
                 </div>
                 <Spin spinning={loading}>
-                    <div style={{ border: "1px solid #f0f0f0", borderRadius: 8 }}>
+                    <div style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg, overflow: "hidden" }}>
                         {pipelines.length === 0 && (
-                            <div style={{ padding: 16 }}>
-                                <Empty description="Chưa có quy trình" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                            </div>
+                            <EmptyState
+                                title="Chưa có quy trình"
+                                description="Bấm “Thêm” để tạo quy trình đầu tiên."
+                            />
                         )}
-                        {pipelines.map((pipeline, index) => (
-                            <div
-                                key={pipeline.id}
-                                onClick={() => applyPipelineToState(pipeline)}
-                                style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                    padding: "12px 16px",
-                                    cursor: "pointer",
-                                    borderTop: index === 0 ? "none" : "1px solid #f0f0f0",
-                                    background: pipeline.id === selectedId ? "#e6f4ff" : undefined,
-                                }}
-                            >
-                                <span>
-                                    <Text strong={pipeline.id === selectedId}>{pipeline.name}</Text>
-                                    {pipeline.isDefault && <Text type="secondary"> (mặc định)</Text>}
-                                </span>
-                                <Popconfirm
-                                    title="Ẩn quy trình này?"
-                                    onConfirm={(e) => {
-                                        e?.stopPropagation();
-                                        handleDeletePipeline(pipeline.id);
+                        {pipelines.map((pipeline, index) => {
+                            const selected = pipeline.id === selectedId;
+                            return (
+                                <div
+                                    key={pipeline.id}
+                                    onClick={() => applyPipelineToState(pipeline)}
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        padding: "12px 14px",
+                                        cursor: "pointer",
+                                        borderTop: index === 0 ? "none" : `1px solid ${COLORS.borderLight}`,
+                                        borderLeft: `3px solid ${selected ? COLORS.primary : "transparent"}`,
+                                        background: selected ? `${COLORS.primary}0D` : undefined,
                                     }}
-                                    onCancel={(e) => e?.stopPropagation()}
                                 >
-                                    <DeleteOutlined onClick={(e) => e.stopPropagation()} />
-                                </Popconfirm>
-                            </div>
-                        ))}
+                                    <span style={{ minWidth: 0 }}>
+                                        <Text strong={selected} style={{ color: selected ? COLORS.primary : undefined }}>
+                                            {pipeline.name}
+                                        </Text>
+                                        {pipeline.isDefault && (
+                                            <Tag color="success" style={{ marginLeft: 6 }}>Mặc định</Tag>
+                                        )}
+                                    </span>
+                                    <span onClick={(e) => e.stopPropagation()}>
+                                        <IconAction
+                                            title="Ẩn quy trình"
+                                            icon={<DeleteOutlined />}
+                                            danger
+                                            onClick={() => handleDeletePipeline(pipeline.id)}
+                                            confirm={{
+                                                title: "Ẩn quy trình này?",
+                                                description: "Quy trình sẽ bị ẩn khỏi danh sách sử dụng.",
+                                                okText: "Ẩn",
+                                            }}
+                                        />
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
                 </Spin>
             </div>
@@ -242,6 +258,7 @@ export default function PipelinePanel() {
             <div style={{ flex: 1 }}>
                 {selectedId ? (
                     <Card
+                        style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}
                         title={
                             <Input
                                 value={pipelineName}
@@ -277,18 +294,32 @@ export default function PipelinePanel() {
                                                             gap: 12,
                                                             padding: "10px 12px",
                                                             marginBottom: 8,
-                                                            background: "#fafafa",
-                                                            border: "1px solid #f0f0f0",
-                                                            borderRadius: 6,
+                                                            background: "#FAFBFC",
+                                                            border: `1px solid ${COLORS.borderLight}`,
+                                                            borderRadius: RADIUS.md,
                                                             ...dragProvided.draggableProps.style,
                                                         }}
                                                     >
                                                         <span {...dragProvided.dragHandleProps}>
-                                                            <HolderOutlined style={{ cursor: "grab", color: "#999" }} />
+                                                            <HolderOutlined style={{ cursor: "grab", color: COLORS.textMuted }} />
                                                         </span>
-                                                        <Text strong style={{ width: 24 }}>
+                                                        <span
+                                                            style={{
+                                                                width: 24,
+                                                                height: 24,
+                                                                borderRadius: "50%",
+                                                                background: `${COLORS.primary}14`,
+                                                                color: COLORS.primary,
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                fontSize: 12,
+                                                                fontWeight: 700,
+                                                                flexShrink: 0,
+                                                            }}
+                                                        >
                                                             {index + 1}
-                                                        </Text>
+                                                        </span>
                                                         <div style={{ flex: 1 }}>
                                                             <div>{stage.name}</div>
                                                             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -314,12 +345,21 @@ export default function PipelinePanel() {
                         {stages.length === 0 && <Empty description="Chưa có giai đoạn nào" />}
                     </Card>
                 ) : (
-                    <Empty description="Chưa có quy trình tuyển dụng nào, bấm Thêm để tạo mới" />
+                    <EmptyState
+                        title="Chưa chọn quy trình nào"
+                        description="Chọn một quy trình bên trái, hoặc bấm “Thêm” để tạo quy trình mới."
+                    />
                 )}
             </div>
 
             <Modal
-                title="Tạo quy trình tuyển dụng mới"
+                title={
+                    <ModalTitle
+                        icon={<ApartmentOutlined />}
+                        title="Tạo quy trình tuyển dụng"
+                        subtitle="Quy trình gồm các giai đoạn hồ sơ ứng viên sẽ đi qua"
+                    />
+                }
                 open={createModalOpen}
                 onOk={handleCreatePipeline}
                 onCancel={() => setCreateModalOpen(false)}
@@ -341,7 +381,13 @@ export default function PipelinePanel() {
             </Modal>
 
             <Modal
-                title="Thêm giai đoạn"
+                title={
+                    <ModalTitle
+                        icon={<PlusOutlined />}
+                        title="Thêm giai đoạn"
+                        subtitle="Giai đoạn mới sẽ được thêm vào cuối quy trình"
+                    />
+                }
                 open={stageModalOpen}
                 onOk={handleAddStage}
                 onCancel={() => setStageModalOpen(false)}

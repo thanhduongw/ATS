@@ -1,6 +1,7 @@
 package iuh.fit.se.recruitment.posting;
 
 import iuh.fit.se.recruitment.common.AccessGuard;
+import iuh.fit.se.recruitment.common.PageResponse;
 import iuh.fit.se.recruitment.posting.dto.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,11 +20,17 @@ public class JobPostingController {
 
     /** HR + Phòng ban: mọi status */
     @GetMapping
-    public ResponseEntity<List<JobPostingResponse>> getAll(
+    public ResponseEntity<PageResponse<JobPostingResponse>> getAll(
             @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role) {
+            @RequestHeader("X-User-Role") String role,
+            @RequestParam(required = false) PostingStatus status,
+            @RequestParam(required = false) Long employmentTypeId,
+            @RequestParam(required = false) Long workLocationId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         AccessGuard.requireHrOrDepartment(role);
-        return ResponseEntity.ok(service.getAll(tenantId));
+        return ResponseEntity.ok(service.getAll(tenantId, status, employmentTypeId, workLocationId, keyword, page, size));
     }
 
     /**
@@ -33,7 +40,7 @@ public class JobPostingController {
     @GetMapping("/open")
     public ResponseEntity<List<JobPostingResponse>> getOpen(
             @RequestHeader("X-Tenant-Id") Long tenantId) {
-        return ResponseEntity.ok(service.getOpen(tenantId));
+        return ResponseEntity.ok(service.getOpen(tenantId, null, null));
     }
 
     @GetMapping("/{id}")
@@ -76,6 +83,38 @@ public class JobPostingController {
             @Valid @RequestBody JobPostingStatusRequest req) {
         AccessGuard.requireHr(role);
         return ResponseEntity.ok(service.changeStatus(tenantId, id, req));
+    }
+
+    /** DRAFT/EDITING → APPROVED */
+    @PatchMapping("/{id}/submit-review")
+    public ResponseEntity<JobPostingResponse> submitReview(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.submitReview(tenantId, actorUserId, id));
+    }
+
+    /** APPROVED → EDITING */
+    @PatchMapping("/{id}/request-edit")
+    public ResponseEntity<JobPostingResponse> requestEdit(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.requestEdit(tenantId, id));
+    }
+
+    /** APPROVED → OPEN */
+    @PatchMapping("/{id}/publish")
+    public ResponseEntity<JobPostingResponse> publish(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.publish(tenantId, actorUserId, id));
     }
 
     @DeleteMapping("/{id}")

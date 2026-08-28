@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 public record CandidateCreateRequest(
         @NotBlank(message = "Họ tên không được để trống") String fullName,
@@ -15,5 +16,7 @@ public record CandidateCreateRequest(
         String address,
         String currentPosition,
         Long educationLevelId,
-        List<Long> skillIds
+        List<Long> skillIds,
+        String internalNote,
+        Map<String, String> customFields
 ) {}

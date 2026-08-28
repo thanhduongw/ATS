@@ -6,8 +6,11 @@ import iuh.fit.se.recruitment.common.AccessGuard;
 import iuh.fit.se.recruitment.event.AuditEventPublisher;
 import iuh.fit.se.recruitment.event.RequisitionEventPublisher;
 import iuh.fit.se.recruitment.exception.BusinessException;
+import iuh.fit.se.recruitment.common.PageResponse;
 import iuh.fit.se.recruitment.requisition.dto.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,22 +29,38 @@ public class JobRequisitionService {
     private final RequisitionEventPublisher requisitionEventPublisher;
     private final AuditEventPublisher auditEventPublisher;
 
-    public List<JobRequisitionResponse> getAll(Long tenantId, Long userId, String role) {
-        List<JobRequisition> requisitions;
+    public PageResponse<JobRequisitionResponse> getAll(
+            Long tenantId, Long userId, String role,
+            RequisitionStatus status, Long departmentId, String keyword, Boolean assignedToMe,
+            Integer page, Integer size) {
 
+        Long requesterId;
         if (AccessGuard.isHr(role)) {
             // HR / Company Admin: xem toàn bộ requisition của tenant
-            requisitions = repository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
+            requesterId = null;
         } else if (AccessGuard.isDepartment(role)) {
             // Phòng ban: chỉ xem yêu cầu do mình tạo
-            requisitions = repository
-                    .findByTenantIdAndRequesterIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, userId);
+            requesterId = userId;
         } else {
             throw new AccessDeniedException("Bạn không có quyền xem danh sách yêu cầu tuyển dụng");
         }
 
+        // "Chờ tôi duyệt": chỉ có ý nghĩa với HR (approver), thu hẹp thêm theo approverId
+        Long approverId = (Boolean.TRUE.equals(assignedToMe) && AccessGuard.isHr(role)) ? userId : null;
+
+        var spec = JobRequisitionSpecifications.build(tenantId, requesterId, approverId, status, departmentId, keyword);
         Map<Long, String> userNameMap = buildUserNameMap();
-        return requisitions.stream().map(r -> toResponse(r, userNameMap)).toList();
+
+        if (page == null && size == null) {
+            List<JobRequisition> all = repository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+            return PageResponse.unpaged(all.stream().map(r -> toResponse(r, userNameMap)).toList());
+        }
+
+        var pageable = PageRequest.of(
+                page != null ? page : 0,
+                size != null ? size : 20,
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        return PageResponse.of(repository.findAll(spec, pageable).map(r -> toResponse(r, userNameMap)));
     }
 
     public JobRequisitionResponse getById(Long tenantId, Long id) {
@@ -60,11 +79,21 @@ public class JobRequisitionService {
                 .jobTitleId(req.jobTitleId())
                 .jobLevelId(req.jobLevelId())
                 .quantity(req.quantity())
+                .employmentTypeId(req.employmentTypeId())
+                .workLocationId(req.workLocationId())
+                .workArrangement(req.workArrangement())
+                .experienceRequired(req.experienceRequired())
+                .reason(req.reason())
+                .priority(req.priority() != null ? req.priority() : RequisitionPriority.NORMAL)
+                .note(req.note())
                 .budget(req.budget())
                 .expectedSalaryMin(req.expectedSalaryMin())
                 .expectedSalaryMax(req.expectedSalaryMax())
                 .expectedStartDate(req.expectedStartDate())
                 .description(req.description())
+                .requirements(req.requirements())
+                .benefits(req.benefits())
+                .skillIds(req.skillIds() != null ? new java.util.ArrayList<>(req.skillIds()) : new java.util.ArrayList<>())
                 .requesterId(requesterId)
                 .approverId(req.approverId())
                 .status(RequisitionStatus.DRAFT)
@@ -90,11 +119,21 @@ public class JobRequisitionService {
         requisition.setJobTitleId(req.jobTitleId());
         requisition.setJobLevelId(req.jobLevelId());
         requisition.setQuantity(req.quantity());
+        requisition.setEmploymentTypeId(req.employmentTypeId());
+        requisition.setWorkLocationId(req.workLocationId());
+        requisition.setWorkArrangement(req.workArrangement());
+        requisition.setExperienceRequired(req.experienceRequired());
+        requisition.setReason(req.reason());
+        requisition.setPriority(req.priority() != null ? req.priority() : RequisitionPriority.NORMAL);
+        requisition.setNote(req.note());
         requisition.setBudget(req.budget());
         requisition.setExpectedSalaryMin(req.expectedSalaryMin());
         requisition.setExpectedSalaryMax(req.expectedSalaryMax());
         requisition.setExpectedStartDate(req.expectedStartDate());
         requisition.setDescription(req.description());
+        requisition.setRequirements(req.requirements());
+        requisition.setBenefits(req.benefits());
+        requisition.setSkillIds(req.skillIds() != null ? new java.util.ArrayList<>(req.skillIds()) : new java.util.ArrayList<>());
         requisition.setApproverId(req.approverId());
         // Chỉnh sửa lại sau khi HR yêu cầu chỉnh sửa -> đưa về Bản nháp, chờ phòng ban
         // gửi duyệt lại
@@ -235,9 +274,11 @@ public class JobRequisitionService {
     private JobRequisitionResponse toResponse(JobRequisition r, Map<Long, String> userNameMap) {
         return new JobRequisitionResponse(
                 r.getId(), r.getTitle(), r.getDepartmentId(), r.getJobTitleId(), r.getJobLevelId(),
-                r.getQuantity(), r.getBudget(), r.getExpectedSalaryMin(), r.getExpectedSalaryMax(),
+                r.getQuantity(), r.getEmploymentTypeId(), r.getWorkLocationId(), r.getWorkArrangement(),
+                r.getExperienceRequired(), r.getReason(), r.getPriority(), r.getNote(),
+                r.getBudget(), r.getExpectedSalaryMin(), r.getExpectedSalaryMax(),
                 r.getApprovedSalaryMin(), r.getApprovedSalaryMax(),
-                r.getExpectedStartDate(), r.getDescription(),
+                r.getExpectedStartDate(), r.getDescription(), r.getRequirements(), r.getBenefits(), r.getSkillIds(),
                 r.getRequesterId(), userNameMap.getOrDefault(r.getRequesterId(), "N/A"),
                 r.getApproverId(), userNameMap.getOrDefault(r.getApproverId(), "N/A"),
                 r.getStatus(), r.getRejectReason(), r.getHrNote(), r.getCreatedAt());

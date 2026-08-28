@@ -93,4 +93,6 @@ export const NOTIFICATION_TYPE_LABEL: Record<string, string> = {
     OFFER_READY_FOR_CANDIDATE: "Thư đề nghị",
     OFFER_ACCEPTED: "Offer được nhận",
     OFFER_DECLINED: "Offer bị từ chối",
+    APPLICATION_COMMENT_MENTION: "Nhắc đến bạn",
+    APPLICATION_STALE_REMINDER: "Hồ sơ chưa xử lý",
 };

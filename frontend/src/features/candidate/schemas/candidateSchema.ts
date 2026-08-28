@@ -10,6 +10,8 @@ export const candidateSchema = z.object({
   currentPosition: z.string().optional().nullable(),
   educationLevelId: z.number().optional().nullable(),
   skillIds: z.array(z.number()).optional().nullable(),
+  internalNote: z.string().optional().nullable(),
+  customFields: z.record(z.string(), z.string()).optional().nullable(),
 });
 
 export type CandidateFormValues = z.infer<typeof candidateSchema>;

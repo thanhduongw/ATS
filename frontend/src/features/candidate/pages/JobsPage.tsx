@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Card, Button, List, App, Select, Space, Typography, Tag, Empty, Spin } from "antd";
+import { Card, Button, List, App, Select, Space, Typography, Tag, Spin } from "antd";
 import { SendOutlined, DollarOutlined } from "@ant-design/icons";
+import { COLORS, RADIUS } from "../../../app/theme";
+import { formatSalaryRange } from "../../../app/money";
+import EmptyState from "../../../components/ui/EmptyState";
 import type { AxiosError } from "axios";
 import { getOpenPostings } from "../../recruitment/recruitmentApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
@@ -92,8 +95,11 @@ export default function JobsPage() {
             </Space>
 
             {jobs.length === 0 ? (
-                <Card style={{ textAlign: "center", padding: "60px 0", borderRadius: 12 }}>
-                    <Empty description="Hiện chưa có tin tuyển dụng nào đang mở" />
+                <Card style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}>
+                    <EmptyState
+                        title="Hiện chưa có tin tuyển dụng nào đang mở"
+                        description="Quay lại sau nhé — tin mới sẽ hiển thị tại đây."
+                    />
                 </Card>
             ) : (
                 <List
@@ -102,20 +108,23 @@ export default function JobsPage() {
                         const applied = appliedIds.has(job.id);
                         return (
                             <List.Item key={job.id}>
-                                <Card style={{ width: "100%", borderRadius: 12 }} size="small">
+                                <Card
+                                    style={{ width: "100%", border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}
+                                    size="small"
+                                >
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
-                                        <div style={{ flex: 1 }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
                                             <Title level={4} style={{ margin: 0 }}>{job.title}</Title>
-                                            <Space style={{ marginTop: 6 }}>
-                                                <Tag color="success">Đang mở</Tag>
-                                                {(job.salaryMin || job.salaryMax) && (
-                                                    <Tag icon={<DollarOutlined />}>
-                                                        {job.salaryMin ?? "?"} – {job.salaryMax ?? "?"}
-                                                    </Tag>
-                                                )}
+                                            <Space style={{ marginTop: 6 }} wrap>
+                                                <Tag color="success" style={{ margin: 0 }}>Đang mở</Tag>
+                                                <Tag icon={<DollarOutlined />} style={{ margin: 0 }}>
+                                                    {formatSalaryRange(job.salaryMin, job.salaryMax)}
+                                                </Tag>
                                             </Space>
                                             {job.description && (
-                                                <div style={{ marginTop: 10, color: "#4B5563" }}>{job.description}</div>
+                                                <div style={{ marginTop: 10, color: COLORS.textSecondary, whiteSpace: "pre-wrap" }}>
+                                                    {job.description}
+                                                </div>
                                             )}
                                         </div>
                                         <Button

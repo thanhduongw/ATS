@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Modal, Upload, Button, message } from "antd";
-import { InboxOutlined } from "@ant-design/icons";
+import { InboxOutlined, FileAddOutlined } from "@ant-design/icons";
+import { ModalTitle } from "../../../components/ui/pageKit";
 import type { UploadProps } from "antd";
 import type { AxiosError } from "axios";
 import { uploadCandidateCv } from "../candidateApi";
@@ -36,7 +37,19 @@ export default function CvUploadModal({ open, candidateId, onClose, onSuccess }:
   };
 
   return (
-    <Modal title="Tải CV lên" open={open} onCancel={onClose} footer={null} destroyOnHidden>
+    <Modal
+      title={
+        <ModalTitle
+          icon={<FileAddOutlined />}
+          title="Tải CV lên"
+          subtitle="Hỗ trợ tệp PDF, DOC, DOCX"
+        />
+      }
+      open={open}
+      onCancel={onClose}
+      footer={null}
+      destroyOnHidden
+    >
       <Upload.Dragger customRequest={handleUpload} showUploadList={false} accept=".pdf,.doc,.docx" disabled={uploading}>
         <p className="ant-upload-drag-icon">
           <InboxOutlined />

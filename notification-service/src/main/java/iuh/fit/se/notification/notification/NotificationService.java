@@ -1,6 +1,8 @@
 package iuh.fit.se.notification.notification;
 
 import iuh.fit.se.notification.client.AuthServiceClient;
+import iuh.fit.se.notification.client.MasterDataServiceClient;
+import iuh.fit.se.notification.client.dto.EmailTemplateResponse;
 import iuh.fit.se.notification.client.dto.UserSummaryResponse;
 import iuh.fit.se.notification.exception.BusinessException;
 import iuh.fit.se.notification.notification.dto.NotificationResponse;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -20,6 +23,7 @@ public class NotificationService {
     private final RealtimePushService realtimePushService;
     private final EmailNotificationService emailNotificationService;
     private final AuthServiceClient authServiceClient;
+    private final MasterDataServiceClient masterDataServiceClient;
 
     public List<NotificationResponse> getAll(Long tenantId, Long userId) {
         return repository
@@ -90,27 +94,54 @@ public class NotificationService {
             log.warn("Realtime push thất bại userId={}: {}", recipientUserId, e.getMessage());
         }
 
-        trySendEmail(tenantId, recipientUserId, title, message);
+        trySendEmail(tenantId, recipientUserId, type, title, message, resourceType, resourceId);
     }
 
     private void trySendEmail(
-            Long tenantId, Long recipientUserId, String title, String message) {
+            Long tenantId, Long recipientUserId, NotificationType type,
+            String title, String message, String resourceType, Long resourceId) {
         try {
-            String email = resolveUserEmail(tenantId, recipientUserId);
-            if (email == null) {
+            UserSummaryResponse recipient = resolveUser(tenantId, recipientUserId);
+            if (recipient == null || recipient.email() == null || recipient.email().isBlank()) {
                 return;
             }
-            emailNotificationService.sendSafe(email, title, message);
+
+            String subject = title;
+            String body = message;
+
+            // Nếu công ty đã cấu hình mẫu email cho loại thông báo này (code = tên NotificationType)
+            // thì render theo mẫu; nếu không có / lỗi thì fallback về title/message mặc định.
+            try {
+                EmailTemplateResponse template = masterDataServiceClient.getByCode(tenantId, type.name());
+                if (template != null && template.active()) {
+                    Map<String, String> data = Map.of(
+                            "title", nullToEmpty(title),
+                            "message", nullToEmpty(message),
+                            "recipientName", nullToEmpty(recipient.fullName()),
+                            "resourceType", nullToEmpty(resourceType),
+                            "resourceId", resourceId != null ? String.valueOf(resourceId) : "");
+                    subject = TemplateRenderer.render(template.subject(), data);
+                    body = TemplateRenderer.render(template.body(), data);
+                }
+            } catch (Exception e) {
+                log.debug("Không có mẫu email tùy chỉnh cho {} (tenantId={}), dùng nội dung mặc định", type, tenantId);
+            }
+
+            emailNotificationService.sendSafe(recipient.email(), subject, body);
         } catch (Exception e) {
             log.warn("Skip email userId={}: {}", recipientUserId, e.getMessage());
         }
     }
 
+    private static String nullToEmpty(String s) {
+        return s != null ? s : "";
+    }
+
     /**
-     * Lấy email từ auth-service (danh sách user theo tenant, lọc theo id).
+     * Lấy thông tin user từ auth-service (danh sách user theo tenant, lọc theo id).
      * Không cần endpoint mới trên auth.
      */
-    private String resolveUserEmail(Long tenantId, Long userId) {
+    private UserSummaryResponse resolveUser(Long tenantId, Long userId) {
         if (tenantId == null || userId == null) {
             return null;
         }
@@ -120,8 +151,6 @@ public class NotificationService {
         }
         return users.stream()
                 .filter(u -> userId.equals(u.id()))
-                .map(UserSummaryResponse::email)
-                .filter(e -> e != null && !e.isBlank())
                 .findFirst()
                 .orElse(null);
     }

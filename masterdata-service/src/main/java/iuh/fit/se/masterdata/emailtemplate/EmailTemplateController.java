@@ -22,6 +22,21 @@ public class EmailTemplateController {
         return ResponseEntity.ok(service.getAll(tenantId));
     }
 
+    /** Internal / Feign — dùng bởi notification-service lúc gửi email thật. */
+    @GetMapping("/by-code/{code}")
+    public ResponseEntity<EmailTemplateResponse> getByCode(
+            @RequestHeader("X-Tenant-Id") Long tenantId, @PathVariable String code) {
+        return ResponseEntity.ok(service.getByCode(tenantId, code));
+    }
+
+    @PostMapping("/{id}/preview")
+    public ResponseEntity<Map<String, String>> preview(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> sampleData) {
+        return ResponseEntity.ok(service.preview(tenantId, id, sampleData));
+    }
+
     @PostMapping
     public ResponseEntity<EmailTemplateResponse> create(
             @RequestHeader("X-Tenant-Id") Long tenantId,

@@ -7,14 +7,18 @@ import PublicLayout from "../layouts/PublicLayout";
 import RegisterPage from "../features/auth/pages/RegisterPage";
 import VerifyEmailPage from "../features/auth/pages/VerifyEmailPage";
 import LoginPage from "../features/auth/pages/LoginPage";
+import OAuth2CallbackPage from "../features/auth/pages/OAuth2CallbackPage";
 import ForgotPasswordPage from "../features/auth/pages/ForgotPasswordPage";
 import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
 import DashboardPage from "../features/dashboard/pages/DashboardPage";
 import MasterDataPage from "../features/masterdata/pages/MasterDataPage";
 import RecruitmentPage from "../features/recruitment/pages/RecruitmentPage";
+import PostingHubPage from "../features/recruitment/pages/PostingHubPage";
 import CandidatesPage from "../features/candidate/pages/CandidatesPage";
+import CandidateApplicationDetailPage from "../features/candidate/pages/CandidateApplicationDetailPage";
 import ApplicationsPage from "../features/candidate/pages/ApplicationsPage";
 import InterviewsPage from "../features/interview/pages/InterviewsPage";
+import InterviewCalendar from "../features/interview/components/InterviewCalendar";
 import InterviewSchedulingPage from "../features/interview/pages/InterviewSchedulingPage";
 import OffersPage from "../features/offer/pages/OffersPage";
 import OfferCandidateViewPage from "../features/offer/pages/OfferCandidateViewPage";
@@ -43,6 +47,7 @@ export default function AppRoutes() {
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/oauth2/callback" element={<OAuth2CallbackPage />} />
             </Route>
 
             {/* ===== Protected (nội bộ) ===== */}
@@ -53,13 +58,15 @@ export default function AppRoutes() {
 
                     <Route element={<RoleRoute allow={[...HR_ROLES]} />}>
                         <Route path="/masterdata" element={<MasterDataPage />} />
-                        <Route path="/candidates" element={<CandidatesPage />} />
                     </Route>
 
                     <Route element={<RoleRoute allow={[...HR_ROLES, ...DEPARTMENT_ROLES]} />}>
+                        <Route path="/candidates" element={<CandidatesPage />} />
+                        <Route path="/candidates/:candidateId/applications/:applicationId" element={<CandidateApplicationDetailPage />} />
                         <Route path="/recruitment" element={<RecruitmentPage />} />
+                        <Route path="/recruitment/postings/:id" element={<PostingHubPage />} />
                         <Route path="/applications" element={<ApplicationsPage />} />
-                        <Route path="/interviews" element={<InterviewsPage />} />
+                        <Route path="/interviews" element={<InterviewCalendar />} />
                         <Route path="/interviews/:interviewId/result" element={<InterviewsPage />} />
                         <Route path="/offers" element={<OffersPage />} />
                     </Route>

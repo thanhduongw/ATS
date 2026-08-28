@@ -18,6 +18,8 @@ import type {
 import { useAppSelector } from "../../../app/hooks";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 import { ROLE_LABELS } from "../../../app/roles";
+import { useTableScrollY } from "../../../app/useTableScrollY";
+import { listCardStyle } from "../../../components/ui/listStyles";
 
 const ROLE_COLORS: Record<string, string> = {
     COMPANY_ADMIN: "purple",
@@ -49,6 +51,7 @@ export default function AuthManagementPage() {
 
     const [passwordForm] = Form.useForm();
     const [profileForm] = Form.useForm();
+    const { wrapRef, scrollY } = useTableScrollY([loadingUsers, users.length]);
     // ❌ Bỏ companyForm hook — dùng initialValues + key thay thế
 
     const fetchProfile = useCallback(async () => {
@@ -114,9 +117,20 @@ export default function AuthManagementPage() {
         }
     };
 
-    const handleUpdateCompany = async (values: { name: string }) => {
+    const handleUpdateCompany = async (values: {
+        name: string;
+        description?: string;
+        logoUrl?: string;
+        bannerUrl?: string;
+        dataRetentionMonths?: string | number;
+    }) => {
         try {
-            const res = await updateCompany(values);
+            const res = await updateCompany({
+                ...values,
+                dataRetentionMonths: values.dataRetentionMonths
+                    ? Number(values.dataRetentionMonths)
+                    : null,
+            });
             setCompany(res.data);
             message.success("Cập nhật thông tin công ty thành công");
         } catch (err) {
@@ -227,7 +241,7 @@ export default function AuthManagementPage() {
                 </span>
             ),
             children: (
-                <div style={{ maxWidth: 560 }}>
+                <div style={{ maxWidth: 560, height: "100%", overflowY: "auto", paddingBottom: 12 }}>
                     <div style={{
                         display: "flex", alignItems: "center", gap: 20,
                         padding: "20px 24px", background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)",
@@ -304,7 +318,7 @@ export default function AuthManagementPage() {
                 </span>
             ),
             children: (
-                <div style={{ maxWidth: 560 }}>
+                <div style={{ maxWidth: 560, height: "100%", overflowY: "auto", paddingBottom: 12 }}>
                     <div style={{
                         display: "flex", alignItems: "center", gap: 20,
                         padding: "20px 24px", background: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)",
@@ -339,7 +353,13 @@ export default function AuthManagementPage() {
                         <Form
                             layout="vertical"
                             onFinish={handleUpdateCompany}
-                            initialValues={{ name: company?.name }}
+                            initialValues={{
+                                name: company?.name,
+                                description: company?.description,
+                                logoUrl: company?.logoUrl,
+                                bannerUrl: company?.bannerUrl,
+                                dataRetentionMonths: company?.dataRetentionMonths,
+                            }}
                         >
                             <Form.Item label="Tên công ty" name="name" rules={[{ required: true }]}>
                                 <Input
@@ -347,6 +367,42 @@ export default function AuthManagementPage() {
                                     size="large"
                                     disabled={currentUserRole !== "COMPANY_ADMIN"}
                                     placeholder="Tên đầy đủ công ty"
+                                />
+                            </Form.Item>
+                            <Form.Item
+                                label="Giới thiệu công ty (hiển thị trên trang tuyển dụng công khai)"
+                                name="description"
+                            >
+                                <Input.TextArea
+                                    rows={4}
+                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
+                                    placeholder="Về chúng tôi, văn hóa, phúc lợi chung..."
+                                />
+                            </Form.Item>
+                            <Form.Item label="URL logo công ty" name="logoUrl">
+                                <Input
+                                    size="large"
+                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
+                                    placeholder="https://.../logo.png"
+                                />
+                            </Form.Item>
+                            <Form.Item label="URL ảnh banner trang tuyển dụng" name="bannerUrl">
+                                <Input
+                                    size="large"
+                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
+                                    placeholder="https://.../banner.jpg"
+                                />
+                            </Form.Item>
+                            <Form.Item
+                                label="Thời gian lưu trữ hồ sơ ứng viên (tháng, để trống = không giới hạn)"
+                                name="dataRetentionMonths"
+                            >
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    size="large"
+                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
+                                    placeholder="VD: 24"
                                 />
                             </Form.Item>
                             {currentUserRole === "COMPANY_ADMIN" ? (
@@ -371,45 +427,41 @@ export default function AuthManagementPage() {
                 </span>
             ),
             children: (
-                <Card loading={loadingUsers} style={{ border: "1px solid #E5E7EB" }}>
-                    <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <Card
+                    loading={loadingUsers}
+                    style={{ border: "1px solid #E5E7EB", height: "100%" }}
+                    styles={{ body: { height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" } }}
+                >
+                    <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
                         <div>
                             <div style={{ fontWeight: 600, fontSize: 16 }}>Danh sách nhân sự</div>
                             <div style={{ fontSize: 13, color: COLORS.textSecondary }}>Tổng: {users.length} người</div>
                         </div>
                     </div>
-                    <Table
-                        dataSource={users}
-                        columns={userColumns}
-                        rowKey="id"
-                        pagination={{ pageSize: 10, size: "small" }}
-                    />
+                    <div ref={wrapRef} className="table-scroll-wrap">
+                        <Table
+                            dataSource={users}
+                            columns={userColumns}
+                            rowKey="id"
+                            size="small"
+                            sticky
+                            scroll={{ y: scrollY }}
+                            pagination={{ pageSize: 10, size: "small" }}
+                        />
+                    </div>
                 </Card>
             ),
         },
     ];
 
     return (
-        <div className="page-container animate-fade-in">
-            <div className="page-header" style={{ marginBottom: 24 }}>
-                <div className="page-header-title">
-                    <div style={{
-                        width: 44, height: 44, borderRadius: 12,
-                        background: GRADIENTS.primary,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "#fff", fontSize: 20,
-                    }}>
-                        <SettingOutlined />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Cài đặt tài khoản</h2>
-                        <div className="page-header-subtitle">Quản lý thông tin cá nhân, công ty và nhân sự</div>
-                    </div>
-                </div>
-            </div>
-
-            <Card style={{ border: "none" }}>
-                <Tabs items={tabItems} size="large" />
+        <div className="page-shell animate-fade-in">
+            <Card
+                className="table-card-fill"
+                style={listCardStyle}
+                styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
+            >
+                <Tabs items={tabItems} size="large" className="tabs-fill" />
             </Card>
 
             {/* ✅ forceRender để Form mount ngay từ đầu, tránh warning */}

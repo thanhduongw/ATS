@@ -1,18 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar, Dropdown, Layout, Menu, Space, Typography, Breadcrumb, Button } from "antd";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
     DashboardOutlined, DatabaseOutlined, SolutionOutlined, TeamOutlined, AppstoreOutlined,
     CalendarOutlined, FileTextOutlined, AuditOutlined, LogoutOutlined, UserOutlined,
     ScheduleOutlined, GlobalOutlined, SettingOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
+    FolderOpenOutlined,
 } from "@ant-design/icons";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
-import { logout } from "../features/auth/authSlice";
+import { logout, setUserProfile } from "../features/auth/authSlice";
+import { getMyProfile } from "../features/auth/authApi";
 import NotificationBell from "../features/notification/components/NotificationBell";
-import { COLORS } from "../app/theme";
+import { COLORS, GRADIENTS } from "../app/theme";
 import type { UserRole } from "../features/auth/types";
 import { ROLE_LABELS } from "../app/roles";
-import { useI18n } from "../i18n/I18nProvider";
+import { useI18n } from "../i18n/useI18n";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -31,6 +33,19 @@ const BREADCRUMB_MAP: Record<string, string> = {
     "/settings": "Cài đặt",
 };
 
+/* Icon + màu đại diện cho từng khu vực — hiển thị gộp chung với breadcrumb trên header,
+   thay cho khối icon vuông + tiêu đề to lặp lại ở từng trang. */
+const PAGE_ICON_MAP: Record<string, { icon: React.ReactNode; gradient: string }> = {
+    "/masterdata": { icon: <DatabaseOutlined />, gradient: GRADIENTS.stat4 },
+    "/recruitment": { icon: <SolutionOutlined />, gradient: GRADIENTS.primary },
+    "/candidates": { icon: <UserOutlined />, gradient: GRADIENTS.stat2 },
+    "/applications": { icon: <FolderOpenOutlined />, gradient: GRADIENTS.stat2 },
+    "/interviews": { icon: <CalendarOutlined />, gradient: GRADIENTS.stat3 },
+    "/scheduling": { icon: <ScheduleOutlined />, gradient: GRADIENTS.stat4 },
+    "/offers": { icon: <FileTextOutlined />, gradient: GRADIENTS.stat3 },
+    "/settings": { icon: <SettingOutlined />, gradient: GRADIENTS.primary },
+};
+
 export default function AppLayout() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -38,6 +53,10 @@ export default function AppLayout() {
     const user = useAppSelector((s) => s.auth.user);
     const { lang, setLang, t } = useI18n();
     const [collapsed, setCollapsed] = useState(false);
+    const [crumbLabel, setCrumbLabel] = useState<string | null>(null);
+
+    // Đoạn cuối breadcrumb (ID trên URL) có thể được trang con ghi đè bằng tên thật — reset khi đổi route.
+    useEffect(() => { setCrumbLabel(null); }, [location.pathname]);
 
     const all = {
         dashboard: { key: "/dashboard", icon: <DashboardOutlined />, label: t("menu.dashboard") },
@@ -57,12 +76,23 @@ export default function AppLayout() {
     const MENU_BY_ROLE: Record<UserRole, typeof all[keyof typeof all][]> = {
         PLATFORM_ADMIN: [all.dashboard, all.audit],
         COMPANY_ADMIN: [all.dashboard, all.masterdata, all.recruitment, all.candidates, all.applications, all.scheduling, all.interviews, all.offers, all.audit, all.settings],
-        RECRUITER: [all.dashboard, all.masterdata, all.recruitment, all.candidates, all.applications, all.scheduling, all.interviews, all.offers, all.settings],
-        HIRING_MANAGER: [all.dashboard, all.recruitment, all.applications, all.scheduling, all.interviews, all.offers, all.settings,],
+        RECRUITER: [all.dashboard, all.masterdata, all.recruitment, all.candidates,
+        // all.applications,
+        all.interviews, all.offers, all.settings],
+        HIRING_MANAGER: [all.dashboard, all.recruitment, all.candidates, all.interviews, all.offers, all.settings,],
         CANDIDATE: [all.jobs, all.myApplications, all.scheduling],
     };
 
     const menuItems = user ? MENU_BY_ROLE[user.role] : [];
+
+    /* JWT chỉ chứa userId/tenantId/role — nạp thêm fullName/email để hiển thị đúng tên user */
+    useEffect(() => {
+        if (user && !user.fullName) {
+            getMyProfile()
+                .then((res) => dispatch(setUserProfile(res.data)))
+                .catch(() => { });
+        }
+    }, [user, dispatch]);
 
     const handleLogout = () => { dispatch(logout()); navigate("/login"); };
 
@@ -75,15 +105,27 @@ export default function AppLayout() {
         return name.substring(0, 2).toUpperCase();
     };
 
-    /* Build breadcrumb */
+    /* Build breadcrumb — bỏ qua các đoạn ID/slug chưa được đặt tên ở giữa đường dẫn,
+       chỉ đoạn cuối mới fallback về giá trị thô (hoặc tên do trang con set qua crumbLabel).
+       Đoạn cuối được in đậm, sáng hơn — đóng vai trò tiêu đề trang luôn, thay cho khối
+       icon vuông + <h2> lặp lại riêng ở từng trang. */
     const pathParts = location.pathname.split("/").filter(Boolean);
-    const breadcrumbItems = [
-        { title: "ATS" },
-        ...pathParts.map((_, idx) => {
-            const path = "/" + pathParts.slice(0, idx + 1).join("/");
-            return { title: BREADCRUMB_MAP[path] || pathParts[idx] };
-        }),
-    ];
+    const breadcrumbItems: { title: React.ReactNode }[] = [];
+    pathParts.forEach((part, idx) => {
+        const path = "/" + pathParts.slice(0, idx + 1).join("/");
+        const isLast = idx === pathParts.length - 1;
+        const mapped = BREADCRUMB_MAP[path];
+        const label = mapped || (isLast ? crumbLabel || part : null);
+        if (label) {
+            breadcrumbItems.push({
+                title: isLast
+                    ? <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{label}</span>
+                    : label,
+            });
+        }
+    });
+
+    const pageIcon = PAGE_ICON_MAP["/" + (pathParts[0] ?? "")];
 
     return (
         /* ── Root: chiếm đúng 100vh, KHÔNG scroll toàn trang ── */
@@ -175,6 +217,14 @@ export default function AppLayout() {
                                 justifyContent: "center",
                             }}
                         />
+                        {pageIcon && (
+                            <div
+                                className="app-header-icon"
+                                style={{ background: pageIcon.gradient }}
+                            >
+                                {pageIcon.icon}
+                            </div>
+                        )}
                         <Breadcrumb
                             items={breadcrumbItems}
                             style={{ margin: 0 }}
@@ -239,7 +289,7 @@ export default function AppLayout() {
                         minHeight: 0, // Quan trọng: cho phép flex item co lại
                     }}
                 >
-                    <Outlet />
+                    <Outlet context={{ setBreadcrumbLabel: setCrumbLabel }} />
                 </Content>
             </Layout>
         </Layout>

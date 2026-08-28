@@ -25,7 +25,7 @@ public class CompanyService {
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy mã công ty"));
 
-        return new CompanyResponse(company.getId(), tenantId, company.getName(), tenant.getTenantCode());
+        return toResponse(company, tenant.getTenantCode());
     }
 
     /**
@@ -45,7 +45,7 @@ public class CompanyService {
         Company company = companyRepository.findByTenantId(tenant.getId())
                 .orElseThrow(() -> new BusinessException("Không tìm thấy thông tin công ty"));
 
-        return new CompanyResponse(company.getId(), tenant.getId(), company.getName(), tenant.getTenantCode());
+        return toResponse(company, tenant.getTenantCode());
     }
 
     @Transactional
@@ -54,8 +54,19 @@ public class CompanyService {
                 .orElseThrow(() -> new BusinessException("Không tìm thấy thông tin công ty"));
 
         company.setName(req.name());
+        company.setDescription(req.description());
+        company.setLogoUrl(req.logoUrl());
+        company.setBannerUrl(req.bannerUrl());
+        company.setDataRetentionMonths(req.dataRetentionMonths());
         companyRepository.save(company);
 
         return getCompanyInfo(tenantId);
+    }
+
+    private CompanyResponse toResponse(Company company, String tenantCode) {
+        return new CompanyResponse(
+                company.getId(), company.getTenantId(), company.getName(), tenantCode,
+                company.getDescription(), company.getLogoUrl(), company.getBannerUrl(),
+                company.getDataRetentionMonths());
     }
 }

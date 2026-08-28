@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Slf4j
@@ -142,6 +143,37 @@ public class BusinessEventListener {
         }
     }
 
+    // ===== Workflow automation: hồ sơ kẹt quá lâu ở 1 giai đoạn =====
+    @RabbitListener(queues = BusinessEventConfig.APPLICATION_STALE_QUEUE)
+    public void onApplicationStale(ApplicationStaleEvent event) {
+        log.info("Nhận event application.stale, applicationId={}, daysSinceUpdate={}",
+                event.applicationId(), event.daysSinceUpdate());
+        notificationService.createAndPush(
+                event.tenantId(),
+                event.assignedRecruiterId(),
+                NotificationType.APPLICATION_STALE_REMINDER,
+                "Hồ sơ chưa xử lý lâu ngày",
+                nullSafe(event.candidateName()) + " đang ở giai đoạn \"" + nullSafe(event.currentStageName())
+                        + "\" đã " + event.daysSinceUpdate() + " ngày, chưa được cập nhật.",
+                "APPLICATION",
+                event.applicationId());
+    }
+
+    // ===== Application comment @mention =====
+    @RabbitListener(queues = BusinessEventConfig.APPLICATION_COMMENT_MENTION_QUEUE)
+    public void onApplicationCommentMention(ApplicationCommentMentionEvent event) {
+        log.info("Nhận event application.comment_mention, applicationId={}, mentionedUserId={}",
+                event.applicationId(), event.mentionedUserId());
+        notificationService.createAndPush(
+                event.tenantId(),
+                event.mentionedUserId(),
+                NotificationType.APPLICATION_COMMENT_MENTION,
+                nullSafe(event.authorName()) + " đã nhắc đến bạn",
+                nullSafe(event.commentExcerpt()),
+                "APPLICATION",
+                event.applicationId());
+    }
+
     // ===== 4. Lịch phỏng vấn =====
     @RabbitListener(queues = BusinessEventConfig.INTERVIEW_SCHEDULED_QUEUE)
     public void onInterviewScheduled(InterviewScheduledEvent event) {
@@ -160,7 +192,7 @@ public class BusinessEventListener {
                         NotificationType.INTERVIEW_SCHEDULED,
                         "Lịch phỏng vấn mới",
                         "Bạn được phân công phỏng vấn " + nullSafe(interview.candidateName())
-                                + " lúc " + event.scheduledAt() + ".",
+                                + " lúc " + formatVi(event.scheduledAt()) + ".",
                         "INTERVIEW",
                         event.interviewId());
             }
@@ -173,7 +205,7 @@ public class BusinessEventListener {
                     candidateUserId,
                     NotificationType.INTERVIEW_SCHEDULED,
                     "Lịch phỏng vấn",
-                    "Bạn có lịch phỏng vấn lúc " + event.scheduledAt() + ". Vui lòng xác nhận trên hệ thống.",
+                    "Bạn có lịch phỏng vấn lúc " + formatVi(event.scheduledAt()) + ". Vui lòng xác nhận trên hệ thống.",
                     "INTERVIEW",
                     event.interviewId());
         }
@@ -214,7 +246,7 @@ public class BusinessEventListener {
                         interviewer.interviewerId(),
                         NotificationType.INTERVIEW_CONFIRMED,
                         "Ứng viên đã xác nhận lịch phỏng vấn",
-                        nullSafe(interview.candidateName()) + " đã xác nhận lịch lúc " + event.scheduledAt() + ".",
+                        nullSafe(interview.candidateName()) + " đã xác nhận lịch lúc " + formatVi(event.scheduledAt()) + ".",
                         "INTERVIEW",
                         event.interviewId());
             }
@@ -243,7 +275,7 @@ public class BusinessEventListener {
                         NotificationType.INTERVIEW_REMINDER,
                         "Sắp đến giờ phỏng vấn",
                         "Buổi phỏng vấn " + nullSafe(interview.candidateName())
-                                + " sẽ diễn ra lúc " + interview.scheduledAt() + ".",
+                                + " sẽ diễn ra lúc " + formatVi(interview.scheduledAt()) + ".",
                         "INTERVIEW",
                         payload.interviewId());
             }
@@ -257,7 +289,7 @@ public class BusinessEventListener {
                     candidateUserId,
                     NotificationType.INTERVIEW_REMINDER,
                     "Nhắc lịch phỏng vấn",
-                    "Buổi phỏng vấn của bạn sẽ diễn ra lúc " + interview.scheduledAt() + ".",
+                    "Buổi phỏng vấn của bạn sẽ diễn ra lúc " + formatVi(interview.scheduledAt()) + ".",
                     "INTERVIEW",
                     payload.interviewId());
         }
@@ -431,5 +463,11 @@ public class BusinessEventListener {
 
     private static String nullSafe(String s) {
         return s != null ? s : "";
+    }
+
+    private static final DateTimeFormatter VI_DATETIME = DateTimeFormatter.ofPattern("HH:mm 'ngày' dd/MM/yyyy");
+
+    private static String formatVi(LocalDateTime dt) {
+        return dt != null ? dt.format(VI_DATETIME) : "";
     }
 }

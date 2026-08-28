@@ -1,6 +1,6 @@
 import { Tag, Tooltip } from "antd";
 import { RobotOutlined } from "@ant-design/icons";
-import { useI18n } from "../i18n/I18nProvider";
+import { useI18n } from "../i18n/useI18n";
 
 /** Placeholder cho module AI duyệt CV (giai đoạn sau). */
 export default function AiScoreBadge({ score }: { score?: number | null }) {

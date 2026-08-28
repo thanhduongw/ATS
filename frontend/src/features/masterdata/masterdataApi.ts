@@ -19,6 +19,11 @@ export const updateCatalogItem = (endpoint: string, id: number, data: Record<str
 export const deleteCatalogItem = (endpoint: string, id: number) =>
     axiosClient.delete<ApiMessageResponse>(`${endpoint}/${id}`);
 
+// ===== Email Template preview =====
+export const previewEmailTemplate = (id: number, sampleData: Record<string, string>) =>
+    axiosClient.post<{ subject: string; body: string }>(
+        `/masterdata/email-templates/${id}/preview`, sampleData);
+
 // ===== Pipeline API — cấu trúc lồng nhau (có mảng stages), không dùng chung generic =====
 export const getPipelines = () =>
     axiosClient.get<PipelineResponse[]>("/masterdata/pipelines");

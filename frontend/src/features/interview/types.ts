@@ -15,7 +15,7 @@ export interface InterviewResponse {
   scheduledAt: string;
   durationMinutes: number;
   format: InterviewFormat;
-  location: string | null;
+  workLocationId: number | null;
   meetingLink: string | null;
   note: string | null;
   status: InterviewStatus;
@@ -28,10 +28,37 @@ export interface InterviewCreateRequest {
   scheduledAt: string;
   durationMinutes: number;
   format: InterviewFormat;
-  location?: string | null;
+  workLocationId?: number | null;
   meetingLink?: string | null;
   note?: string | null;
   interviewerIds: number[];
+}
+
+export interface InterviewBulkScheduleRequest {
+  applicationIds: number[];
+  startTime: string;
+  durationMinutesPerPerson: number;
+  format: InterviewFormat;
+  workLocationId?: number | null;
+  meetingLink?: string | null;
+  interviewerIds: number[];
+  note?: string | null;
+}
+
+export interface InterviewBulkScheduleItem {
+  applicationId: number;
+  candidateName: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  shifted: boolean;
+  interview: InterviewResponse;
+}
+
+export interface InterviewListFilters {
+  interviewerId?: number;
+  status?: InterviewStatus;
+  fromDate?: string;
+  toDate?: string;
 }
 
 export interface EvaluationScoreRequest {

@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { jwtDecode } from "jwt-decode";
-import type { AuthUser, JwtPayload, LoginResponse } from "./types";
+import type { AuthUser, JwtPayload, LoginResponse, UserProfileResponse } from "./types";
 
 const STORAGE_KEY = "ats_auth";
 
@@ -51,8 +51,14 @@ const authSlice = createSlice({
             state.user = null;
             localStorage.removeItem(STORAGE_KEY);
         },
+        setUserProfile: (state, action: PayloadAction<UserProfileResponse>) => {
+            if (!state.user) return;
+            state.user.fullName = action.payload.fullName;
+            state.user.email = action.payload.email;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        },
     },
 });
 
-export const { setCredentials, logout } = authSlice.actions;
+export const { setCredentials, logout, setUserProfile } = authSlice.actions;
 export default authSlice.reducer;

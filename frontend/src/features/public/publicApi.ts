@@ -17,9 +17,13 @@ export const getPublicCompany = (tenantCode: string) =>
         `/auth/public/companies/${encodeURIComponent(tenantCode)}`
     );
 
-export const getPublicJobs = (tenantCode: string) =>
+export const getPublicJobs = (
+    tenantCode: string,
+    params?: { employmentTypeId?: number; workLocationId?: number }
+) =>
     publicClient.get<PublicJobPosting[]>(
-        `/recruitment/public/companies/${encodeURIComponent(tenantCode)}/jobs`
+        `/recruitment/public/companies/${encodeURIComponent(tenantCode)}/jobs`,
+        { params }
     );
 
 export const getPublicJobById = (tenantCode: string, jobId: number) =>
@@ -35,6 +39,7 @@ export const publicApply = (
         email: string;
         phone?: string;
         note?: string;
+        consentGiven: boolean;
         file: File;
     }
 ) => {
@@ -43,6 +48,7 @@ export const publicApply = (
     form.append("email", data.email);
     if (data.phone) form.append("phone", data.phone);
     if (data.note) form.append("note", data.note);
+    form.append("consentGiven", String(data.consentGiven));
     form.append("file", data.file);
 
     return publicClient.post<PublicApplyResponse>(

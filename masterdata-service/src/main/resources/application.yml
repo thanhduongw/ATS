@@ -17,3 +17,7 @@ spring:
     port: 5672
     username: ats_user
     password: ats_password
+
+springdoc:
+  api-docs:
+    path: /api/masterdata/v3/api-docs

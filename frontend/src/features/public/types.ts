@@ -4,6 +4,9 @@ export interface PublicCompanyResponse {
     tenantId: number;
     name: string;
     tenantCode: string;
+    description: string | null;
+    logoUrl: string | null;
+    bannerUrl: string | null;
 }
 
 /** Khớp JobPostingResponse backend */
@@ -23,6 +26,8 @@ export interface PublicJobPosting {
     pipelineLocked: boolean;
     publishedAt: string | null;
     closedAt: string | null;
+    employmentTypeName: string | null;
+    workLocationName: string | null;
 }
 
 /** Response sau khi nộp public apply */

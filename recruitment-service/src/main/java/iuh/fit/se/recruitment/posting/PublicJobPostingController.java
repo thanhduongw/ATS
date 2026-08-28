@@ -18,12 +18,15 @@ public class PublicJobPostingController {
     private final AuthServiceClient authServiceClient;
 
     /**
-     * Danh sách tin đang OPEN của công ty (Career Portal).
+     * Danh sách tin đang OPEN của công ty (Career Portal), có thể lọc theo loại hình/địa điểm.
      */
     @GetMapping("/companies/{tenantCode}/jobs")
-    public ResponseEntity<List<JobPostingResponse>> listOpenJobs(@PathVariable String tenantCode) {
+    public ResponseEntity<List<JobPostingResponse>> listOpenJobs(
+            @PathVariable String tenantCode,
+            @RequestParam(required = false) Long employmentTypeId,
+            @RequestParam(required = false) Long workLocationId) {
         CompanyResponse company = authServiceClient.getCompanyByTenantCode(tenantCode);
-        return ResponseEntity.ok(jobPostingService.getOpen(company.tenantId()));
+        return ResponseEntity.ok(jobPostingService.getOpen(company.tenantId(), employmentTypeId, workLocationId));
     }
 
     /**

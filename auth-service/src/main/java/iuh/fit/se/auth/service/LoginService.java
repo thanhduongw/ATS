@@ -65,6 +65,36 @@ public class LoginService {
         return response;
     }
 
+    /**
+     * Đăng nhập qua Google SSO — chỉ dùng làm phương thức xác thực thay thế cho tài khoản
+     * ĐÃ ĐƯỢC Company Admin tạo sẵn trước đó (không tự động tạo tài khoản/tenant mới ở đây,
+     * để tránh rủi ro chiếm quyền tài khoản qua việc khớp domain email chưa xác thực).
+     */
+    @Transactional
+    public LoginResponse loginWithGoogle(String tenantCode, String email) {
+        Tenant tenant = tenantRepository.findByTenantCode(tenantCode)
+                .orElseThrow(() -> new BusinessException("Sai mã công ty"));
+
+        if (tenant.getStatus() != TenantStatus.ACTIVE) {
+            throw new BusinessException("Công ty chưa được kích hoạt");
+        }
+
+        AppUser user = appUserRepository.findByTenantIdAndEmail(tenant.getId(), email)
+                .orElseThrow(() -> new BusinessException(
+                        "Tài khoản chưa được đăng ký trong công ty này. Vui lòng liên hệ quản trị viên."));
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new BusinessException("Tài khoản chưa được kích hoạt");
+        }
+
+        Role role = roleRepository.findById(user.getRoleId())
+                .orElseThrow(() -> new BusinessException("Vai trò không hợp lệ"));
+
+        LoginResponse response = issueTokens(user, tenant.getId(), role.getName().name());
+        auditEventPublisher.publish(tenant.getId(), user.getId(), "LOGIN_GOOGLE", "USER", user.getId(), null);
+        return response;
+    }
+
     @Transactional
     public LoginResponse refreshToken(String refreshTokenValue) {
         RefreshToken stored = refreshTokenRepository.findByToken(refreshTokenValue)

@@ -43,5 +43,10 @@ app:
   jwt:
     secret: ${JWT_SECRET:thay-bang-chuoi-bi-mat-it-nhat-256-bit-truoc-khi-deploy-thuc-te}
   notification:
+    email-enabled: ${APP_NOTIFICATION_EMAIL_ENABLED:false}
     interview-reminder-hours-before: 1
     evaluation-check-hours-after: 24
+
+springdoc:
+  api-docs:
+    path: /api/notification/v3/api-docs

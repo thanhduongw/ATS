@@ -25,3 +25,7 @@ services:
     url: ${SERVICES_MASTERDATA_SERVICE_URL:http://localhost:8082}
   application-service:
     url: ${SERVICES_APPLICATION_SERVICE_URL:http://localhost:8089}
+
+springdoc:
+  api-docs:
+    path: /api/offer/v3/api-docs

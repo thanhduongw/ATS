@@ -34,4 +34,10 @@ public class AccessGuard {
             throw new AccessDeniedException("Chỉ người được chỉ định duyệt mới được thực hiện thao tác này");
         }
     }
+
+    public static void requireCompanyAdmin(String role) {
+        if (!"COMPANY_ADMIN".equals(role)) {
+            throw new AccessDeniedException("Chỉ Company Admin được thực hiện thao tác này");
+        }
+    }
 }

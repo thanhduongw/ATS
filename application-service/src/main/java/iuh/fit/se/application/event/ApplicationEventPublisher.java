@@ -43,4 +43,26 @@ public class ApplicationEventPublisher {
                         assignedRecruiterId, fromStageName, toStageName, toStageType)
         );
     }
+
+    public void publishApplicationStale(
+            Long tenantId, Long applicationId, Long assignedRecruiterId,
+            String candidateName, String currentStageName, long daysSinceUpdate) {
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ATS_EXCHANGE,
+                RabbitMQConfig.APPLICATION_STALE_ROUTING_KEY,
+                new ApplicationStaleEvent(
+                        tenantId, applicationId, assignedRecruiterId, candidateName, currentStageName, daysSinceUpdate)
+        );
+    }
+
+    public void publishCommentMention(
+            Long tenantId, Long applicationId, Long mentionedUserId,
+            Long authorUserId, String authorName, String commentExcerpt) {
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ATS_EXCHANGE,
+                RabbitMQConfig.APPLICATION_COMMENT_MENTION_ROUTING_KEY,
+                new ApplicationCommentMentionEvent(
+                        tenantId, applicationId, mentionedUserId, authorUserId, authorName, commentExcerpt)
+        );
+    }
 }

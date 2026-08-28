@@ -56,7 +56,7 @@ export default function RegisterPage() {
 
                     {/* Steps preview */}
                     <Steps
-                        direction="vertical"
+                        orientation="vertical"
                         size="small"
                         current={0}
                         items={[

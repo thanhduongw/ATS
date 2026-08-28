@@ -3,6 +3,7 @@ package iuh.fit.se.candidate.candidate.dto;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 public record CandidateResponse(
         Long id,
@@ -18,5 +19,9 @@ public record CandidateResponse(
         List<Long> skillIds,
         List<String> skillNames,
         String cvFileUrl,
+        String internalNote,
+        String poolStatus,
+        List<CandidateTagResponse> tags,
+        Map<String, String> customFields,
         LocalDateTime createdAt
 ) {}

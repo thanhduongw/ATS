@@ -23,6 +23,8 @@ import {
     AUDIT_ACTION_LABEL,
     RESOURCE_TYPE_LABEL,
 } from "../../../app/statusLabels";
+import { useTableScrollY } from "../../../app/useTableScrollY";
+import { listCardStyle } from "../../../components/ui/listStyles";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -71,6 +73,8 @@ export default function AuditLogPage() {
     const [actorUserId, setActorUserId] = useState<number | undefined>();
     const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
     const [keyword, setKeyword] = useState("");
+
+    const { wrapRef, scrollY } = useTableScrollY([loading, logs.length]);
 
     const loadLogs = async () => {
         setLoading(true);
@@ -185,8 +189,12 @@ export default function AuditLogPage() {
     ];
 
     return (
-        <div className="page-container">
-            <Card style={{ border: "none" }}>
+        <div className="page-shell">
+            <Card
+                className="table-card-fill"
+                style={listCardStyle}
+                styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
+            >
                 <div
                     style={{
                         display: "flex",
@@ -195,6 +203,7 @@ export default function AuditLogPage() {
                         marginBottom: 16,
                         flexWrap: "wrap",
                         gap: 12,
+                        flexShrink: 0,
                     }}
                 >
                     <div>
@@ -207,7 +216,7 @@ export default function AuditLogPage() {
                     </div>
                 </div>
 
-                <Space wrap style={{ marginBottom: 16 }}>
+                <Space wrap style={{ marginBottom: 16, flexShrink: 0 }}>
                     <Select
                         allowClear
                         placeholder="Loại đối tượng"
@@ -248,14 +257,18 @@ export default function AuditLogPage() {
                     </Button>
                 </Space>
 
-                <Table
-                    rowKey="id"
-                    loading={loading}
-                    columns={columns}
-                    dataSource={filtered}
-                    size="middle"
-                    pagination={{ pageSize: 15, showSizeChanger: true }}
-                />
+                <div ref={wrapRef} className="table-scroll-wrap">
+                    <Table
+                        rowKey="id"
+                        loading={loading}
+                        columns={columns}
+                        dataSource={filtered}
+                        size="small"
+                        sticky
+                        scroll={{ y: scrollY }}
+                        pagination={{ pageSize: 15, size: "small", showSizeChanger: true }}
+                    />
+                </div>
             </Card>
         </div>
     );

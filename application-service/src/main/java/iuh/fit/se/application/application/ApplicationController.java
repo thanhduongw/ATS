@@ -2,11 +2,14 @@ package iuh.fit.se.application.application;
 
 import iuh.fit.se.application.application.dto.*;
 import iuh.fit.se.application.common.AccessGuard;
+import iuh.fit.se.application.common.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -18,13 +21,23 @@ public class ApplicationController {
     private final ApplicationService service;
 
     @GetMapping
-    public ResponseEntity<List<ApplicationResponse>> getAll(
+    public ResponseEntity<PageResponse<ApplicationResponse>> getAll(
             @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
             @RequestParam(required = false) Long jobPostingId,
-            @RequestParam(required = false) Long candidateId) {
-        return ResponseEntity.ok(service.getAll(tenantId, userId, role, jobPostingId, candidateId));
+            @RequestParam(required = false) Long candidateId,
+            @RequestParam(required = false) Long assignedRecruiterId,
+            @RequestParam(required = false) Long recruitmentSourceId,
+            @RequestParam(required = false) String stageType,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedTo,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ResponseEntity.ok(service.getAll(
+                tenantId, userId, role, jobPostingId, candidateId,
+                assignedRecruiterId, recruitmentSourceId, stageType,
+                appliedFrom, appliedTo, page, size));
     }
 
     @GetMapping("/{id}")
@@ -50,6 +63,26 @@ public class ApplicationController {
             @PathVariable Long id) {
         AccessGuard.requireHrOrDepartment(role);
         return ResponseEntity.ok(service.getHistory(tenantId, id));
+    }
+
+    @GetMapping("/{id}/comments")
+    public ResponseEntity<List<ApplicationCommentResponse>> getComments(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id) {
+        AccessGuard.requireHrOrDepartment(role);
+        return ResponseEntity.ok(service.getComments(tenantId, id));
+    }
+
+    @PostMapping("/{id}/comments")
+    public ResponseEntity<ApplicationCommentResponse> addComment(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id,
+            @Valid @RequestBody ApplicationCommentCreateRequest req) {
+        AccessGuard.requireHrOrDepartment(role);
+        return ResponseEntity.ok(service.addComment(tenantId, id, actorUserId, req.content()));
     }
 
     /** Candidate self-apply hoặc HR nộp hộ. */
@@ -84,6 +117,47 @@ public class ApplicationController {
             @Valid @RequestBody ApplicationRejectRequest req) {
         AccessGuard.requireHr(role);
         return ResponseEntity.ok(service.reject(tenantId, id, actorUserId, req));
+    }
+
+    @PatchMapping("/{id}/assign-recruiter")
+    public ResponseEntity<ApplicationResponse> assignRecruiter(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long id,
+            @Valid @RequestBody ApplicationAssignRecruiterRequest req) {
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.assignRecruiter(tenantId, id, actorUserId, req.assignedRecruiterId()));
+    }
+
+    @PatchMapping("/bulk-advance-stage")
+    public ResponseEntity<BulkOperationResponse> bulkAdvanceStage(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody BulkAdvanceStageRequest req) {
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.bulkAdvanceStage(tenantId, actorUserId, req));
+    }
+
+    @PatchMapping("/bulk-reject")
+    public ResponseEntity<BulkOperationResponse> bulkReject(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody BulkRejectRequest req) {
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.bulkReject(tenantId, actorUserId, req));
+    }
+
+    @PatchMapping("/bulk-assign-recruiter")
+    public ResponseEntity<BulkOperationResponse> bulkAssignRecruiter(
+            @RequestHeader("X-Tenant-Id") Long tenantId,
+            @RequestHeader("X-User-Id") Long actorUserId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody BulkAssignRecruiterRequest req) {
+        AccessGuard.requireHr(role);
+        return ResponseEntity.ok(service.bulkAssignRecruiter(tenantId, actorUserId, req));
     }
 
     @DeleteMapping("/{id}")

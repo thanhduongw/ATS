@@ -8,7 +8,12 @@ import java.util.Optional;
 public interface InterviewRepository extends JpaRepository<Interview, Long> {
     List<Interview> findByTenantIdOrderByScheduledAtDesc(Long tenantId);
     List<Interview> findByTenantIdAndApplicationIdOrderByScheduledAtDesc(Long tenantId, Long applicationId);
+    List<Interview> findByTenantIdAndJobPostingIdOrderByScheduledAtDesc(Long tenantId, Long jobPostingId);
     List<Interview> findByTenantIdAndCandidateIdOrderByScheduledAtDesc(Long tenantId, Long candidateId);
     List<Interview> findByTenantIdAndInterviewers_InterviewerIdOrderByScheduledAtDesc(Long tenantId, Long interviewerId);
     Optional<Interview> findByIdAndTenantId(Long id, Long tenantId);
+
+    /** Lịch hiện có của các người phỏng vấn — dùng để tránh trùng lịch khi xếp lịch hàng loạt. */
+    List<Interview> findByTenantIdAndInterviewers_InterviewerIdInAndStatusIn(
+            Long tenantId, List<Long> interviewerIds, List<InterviewStatus> statuses);
 }

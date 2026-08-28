@@ -10,16 +10,21 @@ import iuh.fit.se.offer.client.dto.ApplicationSummaryResponse;
 import iuh.fit.se.offer.client.dto.CatalogItemResponse;
 import iuh.fit.se.offer.client.dto.UserSummaryResponse;
 import iuh.fit.se.offer.common.AccessGuard;
+import iuh.fit.se.offer.common.PageResponse;
 import iuh.fit.se.offer.event.AuditEventPublisher;
 import iuh.fit.se.offer.event.OfferEventPublisher;
 import iuh.fit.se.offer.exception.BusinessException;
 import iuh.fit.se.offer.offer.dto.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -42,44 +47,46 @@ public class OfferService {
     private final CandidateServiceClient candidateServiceClient;
     private final OfferEventPublisher offerEventPublisher;
     private final AuditEventPublisher auditEventPublisher;
+    private final OfferPdfService offerPdfService;
 
-    public List<OfferResponse> getAll(Long tenantId, Long userId, String role, Long applicationId) {
-        List<Offer> offers;
+    public PageResponse<OfferResponse> getAll(
+            Long tenantId, Long userId, String role, Long applicationId,
+            OfferStatus status, LocalDate createdFrom, LocalDate createdTo,
+            Integer page, Integer size) {
 
+        Long candidateId = null;
+        Long approverId = null;
         if (AccessGuard.isCandidate(role)) {
-            long candidateId = resolveCandidateId(tenantId, userId);
-            offers = offerRepository
-                    .findByTenantIdAndCandidateIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, candidateId);
-            if (applicationId != null) {
-                offers = offers.stream()
-                        .filter(o -> o.getApplicationId().equals(applicationId))
-                        .toList();
-            }
+            candidateId = resolveCandidateId(tenantId, userId);
         } else if (AccessGuard.isDepartment(role)) {
-            // Phòng ban: offer mình là approver
-            offers = offerRepository
-                    .findByTenantIdAndApproverIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId, userId);
-            if (applicationId != null) {
-                offers = offers.stream()
-                        .filter(o -> o.getApplicationId().equals(applicationId))
-                        .toList();
-            }
-        } else if (AccessGuard.isHr(role)) {
-            offers = applicationId != null
-                    ? offerRepository.findByTenantIdAndApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(
-                    tenantId, applicationId)
-                    : offerRepository.findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId);
-        } else {
+            // Phòng ban: chỉ xem offer mình là approver
+            approverId = userId;
+        } else if (!AccessGuard.isHr(role)) {
             throw new AccessDeniedException("Bạn không có quyền xem Offer");
         }
+
+        var spec = OfferSpecifications.build(
+                tenantId, candidateId, approverId, applicationId, status,
+                createdFrom != null ? createdFrom.atStartOfDay() : null,
+                createdTo != null ? createdTo.atTime(LocalTime.MAX) : null);
 
         Map<Long, String> userNameMap = buildUserNameMap(tenantId);
         Map<Long, String> contractTypeMap = buildCatalogMap(masterDataServiceClient.getContractTypes(tenantId));
         Map<Long, String> reasonMap = buildCatalogMap(masterDataServiceClient.getRejectionReasons(tenantId));
 
-        return offers.stream()
-                .map(o -> toResponse(o, userNameMap, contractTypeMap, reasonMap))
-                .toList();
+        if (page == null && size == null) {
+            List<Offer> all = offerRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+            return PageResponse.unpaged(all.stream()
+                    .map(o -> toResponse(o, userNameMap, contractTypeMap, reasonMap))
+                    .toList());
+        }
+
+        var pageable = PageRequest.of(
+                page != null ? page : 0,
+                size != null ? size : 20,
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        return PageResponse.of(offerRepository.findAll(spec, pageable)
+                .map(o -> toResponse(o, userNameMap, contractTypeMap, reasonMap)));
     }
 
     public OfferResponse getById(Long tenantId, Long userId, String role, Long id) {
@@ -88,6 +95,17 @@ public class OfferService {
         return toResponse(offer, buildUserNameMap(tenantId),
                 buildCatalogMap(masterDataServiceClient.getContractTypes(tenantId)),
                 buildCatalogMap(masterDataServiceClient.getRejectionReasons(tenantId)));
+    }
+
+    public byte[] generateOfferPdf(Long tenantId, Long userId, String role, Long id) {
+        Offer offer = findOwned(tenantId, id);
+        assertCanView(offer, userId, role);
+
+        String companyName = authServiceClient.getCompany(tenantId).name();
+        Map<Long, String> contractTypeMap = buildCatalogMap(masterDataServiceClient.getContractTypes(tenantId));
+        String contractTypeName = contractTypeMap.getOrDefault(offer.getContractTypeId(), "N/A");
+
+        return offerPdfService.generate(offer, companyName, contractTypeName);
     }
 
     /** Internal / Feign không cần role */

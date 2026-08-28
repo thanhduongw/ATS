@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { App, Button, Card, Col, Descriptions, Input, InputNumber, Row, Tag, Flex, Divider } from "antd";
 import { LockOutlined } from "@ant-design/icons";
@@ -11,7 +11,7 @@ import { getInterviewById, getEvaluations } from "../interviewApi";
 import { approveSalaryProposal, getSalaryProposals, submitSalaryProposal } from "../schedulingApi";
 import type { EvaluationResponse, InterviewResponse } from "../types";
 import type { SalaryProposalResponse } from "../schedulingTypes";
-import { useI18n } from "../../../i18n/I18nProvider";
+import { useI18n } from "../../../i18n/useI18n";
 
 const schema = z.object({
   proposedSalary: z.number().min(0, "invalid"),
@@ -35,10 +35,9 @@ export default function InterviewsPage() {
 
   const { control, handleSubmit, formState: { isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
-  const load = () => {
+  const load = useCallback(() => {
     // [FIX 1] Chặn gọi API khi ID là NaN hoặc undefined
     if (!interviewId || isNaN(id)) {
-      // message.warning("ID phỏng vấn không hợp lệ.");
       navigate("/interviews"); // Điều hướng về trang danh sách
       return;
     }
@@ -48,9 +47,9 @@ export default function InterviewsPage() {
       getEvaluations(id).then((e) => setEvals(e.data));
       if (isHR && r.data.applicationId) getSalaryProposals(r.data.applicationId).then((p) => setProposals(p.data));
     }).catch(() => message.error("Không thể tải dữ liệu phỏng vấn"));
-  };
+  }, [id, interviewId, isHR, message, navigate]);
 
-  useEffect(load, [id]);
+  useEffect(() => { load(); }, [load]);
 
   const onProposal = handleSubmit(async (v) => {
     if (!interview) return;

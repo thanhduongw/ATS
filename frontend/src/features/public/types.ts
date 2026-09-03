@@ -1,12 +1,11 @@
 /** Khớp CompanyResponse backend (auth public) */
 export interface PublicCompanyResponse {
     id: number;
-    tenantId: number;
     name: string;
-    tenantCode: string;
     description: string | null;
     logoUrl: string | null;
     bannerUrl: string | null;
+    dataRetentionMonths: number | null;
 }
 
 /** Khớp JobPostingResponse backend */

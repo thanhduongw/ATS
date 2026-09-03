@@ -14,31 +14,31 @@ public class RecruitmentSourceService {
 
     private final RecruitmentSourceRepository repository;
 
-    public List<RecruitmentSourceResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByNameAsc(tenantId).stream().map(this::toResponse).toList();
+    public List<RecruitmentSourceResponse> getAll() {
+        return repository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public RecruitmentSourceResponse create(Long tenantId, RecruitmentSourceRequest req) {
-        if (repository.existsByTenantIdAndNameIgnoreCase(tenantId, req.name())) {
+    public RecruitmentSourceResponse create(RecruitmentSourceRequest req) {
+        if (repository.existsByNameIgnoreCase(req.name())) {
             throw new BusinessException("Nguồn tuyển dụng đã tồn tại");
         }
         RecruitmentSource saved = repository.save(RecruitmentSource.builder()
-                .tenantId(tenantId).name(req.name()).active(true).build());
+                .name(req.name()).active(true).build());
         return toResponse(saved);
     }
 
     @Transactional
-    public RecruitmentSourceResponse update(Long tenantId, Long id, RecruitmentSourceRequest req) {
-        RecruitmentSource entity = repository.findByIdAndTenantId(id, tenantId)
+    public RecruitmentSourceResponse update(Long id, RecruitmentSourceRequest req) {
+        RecruitmentSource entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy nguồn tuyển dụng"));
         entity.setName(req.name());
         return toResponse(repository.save(entity));
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        RecruitmentSource entity = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        RecruitmentSource entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy nguồn tuyển dụng"));
         entity.setActive(false);
         repository.save(entity);

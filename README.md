@@ -1,214 +1,229 @@
 # ATS - Applicant Tracking System
-> **Hệ thống Quản lý Tuyển dụng & Ứng viên Chuẩn Doanh Nghiệp (Multi-tenancy)**  
-> Dự án Khóa Luận Tốt Nghiệp (KLTN) xây dựng trên kiến trúc **Microservices (Spring Boot 3)** & **Frontend (React 19 + TypeScript + Vite + Ant Design)**.
 
----
+Hệ thống quản lý tuyển dụng dành cho **một doanh nghiệp duy nhất**, xây dựng theo
+kiến trúc microservices với Spring Boot 3 và React 19/TypeScript.
 
-## 🔑 Tài Khoản Thử Nghiệm Nhanh (Preset Test Accounts)
-> 📄 Danh sách chi tiết và kịch bản test đầy đủ tại: **[TEST_ACCOUNTS.md](TEST_ACCOUNTS.md)**
+> Phạm vi chính thức: single-company, không có tenant và không có
+> `PLATFORM_ADMIN`. Backend phân quyền theo role, phòng ban, người được giao và
+> quyền sở hữu hồ sơ ứng viên.
 
-| Mã Công Ty | Email | Mật khẩu | Vai trò | Quyền |
-|---|---|---|---|---|
-| TECHCORP | admin.company@test.net | Password123! | Company Admin | Quản trị tenant |
-| TECHCORP | hr.recruiter@test.net | Password123! | HR | Duyệt Req, đăng tin, CV, PV, Offer |
-| TECHCORP | dept.manager@test.net | Password123! | Phòng ban | Tạo Req, PV, duyệt Offer |
-| TECHCORP | candidate.test@test.net | Password123! | Candidate | Việc làm, nộp CV, Offer |
+## 1. Phạm Vi Hệ Thống
 
----
+- Một hồ sơ doanh nghiệp dùng chung cho toàn hệ thống.
+- Bốn role: `COMPANY_ADMIN`, `RECRUITER`, `HIRING_MANAGER`, `CANDIDATE`.
+- Nhân viên nội bộ không tự đăng ký; `COMPANY_ADMIN` tạo tài khoản và gán phòng ban.
+- Ứng viên tự đăng ký, xác thực email, đăng nhập, cập nhật hồ sơ/CV, ứng tuyển và
+  theo dõi application, interview, offer của chính mình.
+- `COMPANY_ADMIN` có phạm vi toàn doanh nghiệp.
+- `RECRUITER` và `HIRING_MANAGER` bị giới hạn theo phòng ban và assignment được
+  backend kiểm tra.
+- Không có permission table hay permission động; policy hiện tại là RBAC kết hợp
+  department, assignment và candidate self-ownership trong source code.
 
-## 📖 1. Tổng Quan Dự Án
+## 2. Role Và Trách Nhiệm
 
-**ATS (Applicant Tracking System)** là giải pháp phần mềm quản lý toàn bộ quy trình tuyển dụng nhân sự dành cho các doanh nghiệp với mô hình **Multi-tenancy** (nhiều công ty cùng sử dụng trên một hạ tầng với dữ liệu phân tách tuyệt đối).
+| Role | Phạm vi | Trách nhiệm chính |
+| --- | --- | --- |
+| `COMPANY_ADMIN` | Toàn doanh nghiệp | User, company profile, master data, audit và toàn bộ nghiệp vụ tuyển dụng |
+| `RECRUITER` | Phòng ban hoặc resource được giao | Duyệt requisition, quản lý posting, candidate, application, interview và offer |
+| `HIRING_MANAGER` | Phòng ban của tài khoản | Tạo/theo dõi requisition, tham gia phỏng vấn và nghiệp vụ thuộc phòng ban |
+| `CANDIDATE` | Dữ liệu của chính tài khoản | Hồ sơ/CV, application, interview và offer cá nhân |
 
-### Các tính năng cốt lõi:
-- **Đăng ký Doanh nghiệp & Xác thực:** Đăng ký tài khoản công ty, gửi/xác thực mã OTP qua Email, Đăng nhập cấp mã JWT Token (Access Token & Refresh Token).
-- **Phân tách Đa công ty (Multi-tenancy):** Tự động lọc và quản lý dữ liệu theo `X-Tenant-Id` được inject từ API Gateway.
-- **Quản lý Danh mục Dùng chung (Master Data):** Cấu hình linh hoạt các danh mục riêng cho từng công ty: Phòng ban (Department), Vị trí (Job Title), Kỹ năng (Skill), Cấp bậc (Job Level), Quy trình tuyển dụng (Pipeline/Vòng phỏng vấn), Lý do từ chối, Mẫu Email thông báo,...
-- **Quản lý Tuyển dụng (Recruitment):** Tạo & duyệt Phiếu yêu cầu tuyển dụng (Job Requisition), Đăng tin tuyển dụng (Job Posting).
-- **Quản lý Ứng viên & Phỏng vấn (Candidate & Interview):** Tiếp nhận CV/Hồ sơ ứng viên, đặt lịch phỏng vấn và đánh giá kết quả (Khung microservice mở rộng).
+`departmentId` bắt buộc về mặt nghiệp vụ với `RECRUITER` và `HIRING_MANAGER`.
+`COMPANY_ADMIN` và `CANDIDATE` không mang department scope.
 
----
+## 3. Authentication Và Authorization
 
-## 🏗️ 2. Kiến Trúc Hệ Thống & Công Nghệ
+Tất cả người dùng đăng nhập bằng `email + password` tại `POST /api/auth/login`.
+Mật khẩu được hash bằng BCrypt. Tài khoản chỉ đăng nhập được khi có status
+`ACTIVE`; các status còn lại là `PENDING_VERIFICATION`, `LOCKED`, `INACTIVE`.
 
-### Sơ đồ Kiến trúc Tổng thể (Architecture Overview)
+Auth service cấp:
+
+- Access token JWT, mặc định 15 phút.
+- Refresh token opaque, mặc định 7 ngày, chỉ lưu SHA-256 digest trong database.
+- JWT claims: `sub` (user ID), `email`, `role`, `departmentId` nếu có, `iat`, `exp`.
+- Không có `tenantId` hoặc company claim.
+
+Gateway validate JWT, xóa identity header do client gửi và tạo lại:
+`X-User-Id`, `X-User-Email`, `X-User-Role`, `X-Department-Id`. Domain services tạo
+`SecurityContext` từ các header nội bộ và tiếp tục enforce policy ở controller,
+service và repository/specification. Frontend route/menu chỉ hỗ trợ UX, không thay
+thế authorization ở backend.
+
+## 4. Kiến Trúc Hiện Tại
 
 ```mermaid
-flowchart TD
-    Client["Client Browser (React + Vite)"] -->|Port 5173| Gateway["API Gateway (Port 8080)"]
+flowchart LR
+    Browser[React frontend] -->|HTTP + Bearer JWT| Gateway[API Gateway :8080]
+    Gateway -->|Validate JWT và tạo trusted headers| Auth[Auth :8081]
+    Gateway --> Master[Master Data :8082]
+    Gateway --> Recruitment[Recruitment :8083]
+    Gateway --> Candidate[Candidate :8084]
+    Gateway --> Interview[Interview :8085]
+    Gateway --> Notification[Notification :8086]
+    Gateway --> Dashboard[Dashboard :8087]
+    Gateway --> Application[Application :8089]
+    Gateway --> Offer[Offer :8090]
 
-    subgraph Security & Routing Layer
-        Gateway -->|JwtAuthGlobalFilter| AuthSvc["Auth Service (Port 8081)"]
-        Gateway --> MasterSvc["MasterData Service (Port 8082)"]
-        Gateway --> RecruitSvc["Recruitment Service (Port 8083)"]
-        Gateway --> CandSvc["Candidate Service (Port 8084)"]
-        Gateway --> IntvSvc["Interview Service (Port 8085)"]
-        Gateway --> NotiSvc["Notification Service (Port 8086)"]
-    end
+    Auth --> PostgreSQL[(PostgreSQL)]
+    Master --> PostgreSQL
+    Recruitment --> PostgreSQL
+    Candidate --> PostgreSQL
+    Interview --> PostgreSQL
+    Notification --> PostgreSQL
+    Dashboard --> PostgreSQL
+    Application --> PostgreSQL
+    Offer --> PostgreSQL
 
-    subgraph Middleware & Databases (Docker)
-        PG[(PostgreSQL - Port 5432)]
-        RMQ[RabbitMQ - Port 5672/15672]
-        RDS[Redis - Port 6379]
-    end
-
-    AuthSvc --> PG
-    MasterSvc --> PG
-    RecruitSvc --> PG
-    CandSvc --> PG
-    IntvSvc --> PG
-    NotiSvc --> PG
-    AuthSvc --> RMQ
+    Auth <--> RabbitMQ[RabbitMQ]
+    Application <--> RabbitMQ
+    Interview <--> RabbitMQ
+    Offer <--> RabbitMQ
+    Notification <--> RabbitMQ
 ```
 
-### Công Nghệ Sử Dụng (Tech Stack)
+Mô tả đầy đủ hơn: [ATS_CURRENT_ARCHITECTURE.md](ATS_CURRENT_ARCHITECTURE.md).
 
-| Thành phần | Công nghệ / Thư viện | Ghi chú |
-| :--- | :--- | :--- |
-| **Backend Core** | Java 21, Spring Boot 3.x, Spring Data JPA | Khung phát triển Microservices |
-| **API Gateway** | Spring Cloud Gateway, Spring Security, JJWT | Định tuyến, CORS, kiểm tra JWT |
-| **Database** | PostgreSQL 16 | Mỗi service sử dụng 1 Database riêng |
-| **Message Broker** | RabbitMQ 3 (Management) | Xử lý sự kiện bất đồng bộ & gửi mail |
-| **Caching** | Redis 7 | Caching & quản lý session |
-| **Frontend** | React 19, TypeScript, Vite 8, Ant Design 6 | Giao diện SPA linh hoạt, tối ưu |
-| **State & Form** | Redux Toolkit (RTK Query), React Hook Form, Zod | Quản lý state & validate form |
-| **Containerization** | Docker, Docker Compose | Đóng gói môi trường hạ tầng |
+## 5. Microservices
 
----
+| Thành phần | Port local | Database | Chức năng |
+| --- | ---: | --- | --- |
+| API Gateway | 8080 | - | Routing, CORS, JWT validation, identity propagation |
+| Auth Service | 8081 | `ats_auth` | Login, registration, token lifecycle, account/company profile |
+| Master Data Service | 8082 | `ats_masterdata` | Department và danh mục tuyển dụng |
+| Recruitment Service | 8083 | `ats_recruitment` | Requisition và job posting |
+| Candidate Service | 8084 | `ats_candidate` | Candidate profile, CV, talent pool |
+| Interview Service | 8085 | `ats_interview` | Lịch, slot, evaluation, salary proposal |
+| Notification Service | 8086 | `ats_notification` | Notification và audit log |
+| Dashboard Service | 8087 | `ats_dashboard` | Dashboard tổng hợp |
+| Application Service | 8089 | `ats_application` | Application pipeline, comment, history |
+| Offer Service | 8090 | `ats_offer` | Offer lifecycle và candidate response |
+| Frontend | 5173 | - | Internal workspace và candidate portal |
 
-## 🗂️ 3. Danh Sách Microservices & Cấu Trúc CSDL
+## 6. Công Nghệ
 
-### Chi tiết các Microservices
+- Java 21, Spring Boot 3, Spring Security, Spring Data JPA, Flyway.
+- Spring Cloud Gateway và JJWT.
+- PostgreSQL 16, RabbitMQ, Redis.
+- React 19, TypeScript, Vite, Redux Toolkit, Ant Design.
+- Docker Compose cho môi trường local/demo.
 
-| Service | Port | Database | Mô tả chức năng |
-| :--- | :---: | :--- | :--- |
-| **`api-gateway`** | `8080` | N/A | Cổng giao tiếp đơn (Single Entry Point), validate JWT, inject header `X-User-Id`, `X-Tenant-Id`, `X-User-Role`. |
-| **`auth-service`** | `8081` | `ats_auth` | Đăng ký công ty, gửi OTP Email, xác thực tài khoản, đăng nhập & quản lý JWT. |
-| **`masterdata-service`** | `8082` | `ats_masterdata` | Quản lý Master Data (Department, Skill, Pipeline, JobTitle, EmailTemplate,...). |
-| **`recruitment-service`** | `8083` | `ats_recruitment` | Quản lý Phiếu yêu cầu tuyển dụng (Requisition) & Đăng tin tuyển dụng (Job Posting). |
-| **`candidate-service`** | `8084` | `ats_candidate` | Quản lý thông tin hồ sơ ứng viên và CV. |
-| **`interview-service`** | `8085` | `ats_interview` | Lên lịch phỏng vấn, phân công hội đồng & chấm điểm ứng viên. |
-| **`notification-service`**| `8086` | `ats_notification` | Nhận tin nhắn từ RabbitMQ để gửi mail/notification. |
-| **`frontend`** | `5173` | N/A | Giao diện React SPA dành cho Doanh nghiệp & Tuyển dụng. |
+## 7. Khởi Chạy
 
----
+Yêu cầu: JDK 21, Node.js 18+, npm, Maven wrapper và Docker Desktop.
 
-## 📁 4. Cấu Trúc Thư Mục Dự Án (Project Structure)
+### Cách 1: Docker Compose
 
-```text
-ATS/
-├── docker-compose.yml              # Cấu hình container PostgreSQL, RabbitMQ, Redis
-├── docker/
-│   └── postgres-init/
-│       └── init-databases.sql      # Script khởi tạo 6 databases cho các microservices
-├── api-gateway/                    # Spring Cloud Gateway (Port 8080)
-├── auth-service/                   # Service Xác thực & Đăng ký (Port 8081)
-├── masterdata-service/             # Service Danh mục dữ liệu dùng chung (Port 8082)
-├── recruitment-service/            # Service Yêu cầu & Tin tuyển dụng (Port 8083)
-├── candidate-service/              # Service Quản lý Ứng viên (Port 8084)
-├── interview-service/              # Service Quản lý Phỏng vấn (Port 8085)
-├── notification-service/           # Service Gửi Thông báo (Port 8086)
-└── frontend/                       # React + TypeScript + Vite + Ant Design Application
-    ├── src/
-    │   ├── components/            # Reusable UI components (ProtectedRoute, GuestRoute,...)
-    │   ├── features/              # Redux Slices, API & Pages chia theo tính năng (auth, masterdata, recruitment)
-    │   ├── pages/                 # Layout chính (DashboardPage)
-    │   └── routes/                # Cấu hình React Router (AppRoutes.tsx)
-    └── package.json
-```
-
----
-
-## ⚡ 5. Luồng Xử Lý Nổi Bật (Core Flows)
-
-### 1. Luồng Xác Thực JWT & Multi-tenancy qua API Gateway
-1. Request từ Frontend chứa Header: `Authorization: Bearer <token>`.
-2. `JwtAuthGlobalFilter` tại API Gateway kiểm tra tính hợp lệ của Token.
-3. Gateway tự động trích xuất các claims: `subject` (userId), `tenantId`, `role` và đính kèm vào Request Header trước khi chuyển tiếp:
-   - `X-User-Id`
-   - `X-Tenant-Id`
-   - `X-User-Role`
-4. Các Microservice phía sau lấy `X-Tenant-Id` từ Request Header để truy vấn đúng CSDL của công ty đó.
-
-### 2. Luồng Đăng Ký Công Ty & Xác Thực OTP Email
-1. Client gọi API `POST /api/auth/register-company`.
-2. `auth-service` khởi tạo công ty & tài khoản admin với trạng thái `UNVERIFIED`.
-3. Mã OTP ngẫu nhiên được khởi tạo (có thời hạn 10 phút) và gửi tới Email đăng ký.
-4. Client nhập mã OTP qua API `POST /api/auth/verify-email`. Sau khi xác thực thành công, tài khoản chuyển thành `ACTIVE` và có thể đăng nhập.
-
----
-
-## 🚀 6. Hướng Dẫn Khởi Chạy Dự Án (Getting Started)
-
-### Yêu Cầu Môi Trường (Prerequisites)
-- **Java JDK 21** trở lên
-- **Node.js** v18+ & **npm**
-- **Docker** & **Docker Desktop** (đã cài `docker-compose`)
-- **Maven** (hoặc sử dụng sẵn `./mvnw` đính kèm trong từng service)
-
----
-
-### Bước 1: Khởi động Hạ tầng Middleware (Docker Compose)
-Mở Terminal tại thư mục gốc của dự án (`ATS/`) và chạy:
+> `docker compose config` đã được kiểm tra, nhưng fresh-stack E2E chưa có. Hiện
+> migration V2 của application/interview/offer vẫn giả định bảng nghiệp vụ đã tồn
+> tại; database hoàn toàn mới có thể dừng trước bước Hibernate tạo schema. Đây là
+> runtime gap cần xử lý trước khi dùng Docker Compose làm kịch bản chấm chính thức.
 
 ```bash
-docker-compose up -d
+docker compose up -d --build
 ```
 
-> **Kiểm tra trạng thái container:**
-> - **PostgreSQL:** `localhost:5432` (User: `ats_user` | Pass: `ats_password`)
-> - **RabbitMQ UI:** `http://localhost:15672` (User: `ats_user` | Pass: `ats_password`)
-> - **Redis:** `localhost:6379`
+- Frontend: `http://localhost:5173`
+- API Gateway: `http://localhost:8080`
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- RabbitMQ Management: `http://localhost:15672`
 
----
+Các domain service chỉ `expose` trong Docker network; client phải đi qua gateway.
+Database init chỉ chạy khi volume PostgreSQL được tạo lần đầu.
 
-### Bước 2: Khởi chạy các Microservices Backend
+### Cách 2: Chạy service trên máy
 
-Mở từng cửa sổ Terminal độc lập cho từng microservice và chạy lệnh:
+Khởi động hạ tầng:
 
-#### 1. API Gateway (Port 8080)
-```bash
-cd api-gateway
-./mvnw spring-boot:run
-# Trên Windows PowerShell: .\mvnw.cmd spring-boot:run
+```powershell
+.\start-infrastructure.bat
 ```
 
-#### 2. Auth Service (Port 8081)
-```bash
-cd auth-service
-./mvnw spring-boot:run
-```
+Sau đó chạy backend và frontend:
 
-#### 3. MasterData Service (Port 8082)
-```bash
-cd masterdata-service
-./mvnw spring-boot:run
-```
-
-#### 4. Recruitment Service (Port 8083)
-```bash
-cd recruitment-service
-./mvnw spring-boot:run
-```
-
-*(Các dịch vụ `candidate-service`, `interview-service`, `notification-service` có thể khởi chạy tương tự khi cần phát triển thêm).*
-
----
-
-### Bước 3: Khởi chạy Giao diện Frontend
-
-Mở Terminal mới tại thư mục `frontend/`:
-
-```bash
+```powershell
+.\start-backend.bat
 cd frontend
 npm install
 npm run dev
 ```
 
-Ứng dụng sẽ được khởi tạo tại địa chỉ: **`http://localhost:5173`**
+Hoặc dùng `.\start-all.ps1` để mở các process phát triển cùng lúc.
 
----
+## 8. Tài Khoản Và Kịch Bản Demo
 
-## 📝 7. Đóng Góp & Phát Triển (Development Guidelines)
-- Mọi API mới dành cho Frontend phải được khai báo đính tuyến qua `api-gateway/src/main/resources/application.yml`.
-- Đảm bảo kiểm tra và truyền đúng `X-Tenant-Id` khi truy vấn database ở các service kinh doanh để đảm bảo an toàn dữ liệu Multi-tenancy.
+Tài khoản nội bộ cho database mới được mô tả tại
+[TEST_ACCOUNTS.md](TEST_ACCOUNTS.md). Candidate không dùng tài khoản seed trong
+kịch bản chính thức; hãy demo đúng nghiệp vụ qua `/register` và `/verify-email`.
+
+Luồng demo đề xuất:
+
+1. `COMPANY_ADMIN` cấu hình phòng ban và tạo tài khoản nội bộ.
+2. `HIRING_MANAGER` tạo và submit requisition trong phòng ban.
+3. `RECRUITER` duyệt requisition và publish job posting.
+4. Candidate xem `/careers`, tự đăng ký, xác thực email và cập nhật CV.
+5. Candidate ứng tuyển; recruiter xử lý pipeline, interview và offer.
+6. Candidate theo dõi và phản hồi offer trong portal của chính mình.
+
+## 9. API Documentation
+
+- Swagger aggregator: `http://localhost:8080/swagger-ui/index.html`.
+- OpenAPI JSON: `/api/<service>/v3/api-docs` qua gateway.
+- API surface và quy tắc gọi: [ATS_API_REFERENCE.md](ATS_API_REFERENCE.md).
+- Repo không có Postman collection; OpenAPI là nguồn API documentation hiện tại.
+
+Frontend và API client chỉ gửi `Authorization: Bearer <accessToken>`. Không gửi
+trực tiếp các header `X-User-*` hoặc `X-Department-Id`.
+
+## 10. Kiểm Thử
+
+Mỗi backend module có Maven wrapper và test độc lập:
+
+```powershell
+cd auth-service
+.\mvnw.cmd clean test
+```
+
+Frontend:
+
+```powershell
+cd frontend
+npm run build
+npm run lint
+```
+
+Chiến lược và ma trận hiện tại: [ATS_PHASE_11_TEST_STRATEGY.md](ATS_PHASE_11_TEST_STRATEGY.md).
+
+## 11. Giới Hạn Đã Biết
+
+- Không hỗ trợ nhiều doanh nghiệp, tenant switching hay `PLATFORM_ADMIN`.
+- Không có permission động/permission management UI.
+- Service-to-service cryptographic identity chưa được triển khai; Docker network là
+  trust boundary vận hành hiện tại.
+- Chưa có browser E2E, Docker E2E hoặc Testcontainers migration suite.
+- Access/refresh token frontend đang lưu trong `localStorage`; production nên đánh
+  giá lại cookie `HttpOnly` và CSRF strategy.
+- Các migration xóa cột tenant có guard để từ chối dữ liệu legacy nhiều tenant; cần
+  backup và reconcile trước khi chạy trên database cũ.
+- Account internal legacy thiếu `departmentId` chưa được backfill. List
+  specification đã fail-closed với trường hợp này (user không thấy gì thay vì thấy
+  toàn bộ), nhưng dữ liệu vẫn cần backfill để họ làm việc được.
+- Đồng bộ stage sau khi candidate accept/decline offer chạy bất đồng bộ qua
+  RabbitMQ. Nếu broker chết, offer vẫn được ghi nhận nhưng application chưa chuyển
+  stage; chưa có outbox/retry nên cần đối soát thủ công.
+- Automation còn lại dùng role `SYSTEM` (auto-advance sau đánh giá phỏng vấn tích
+  cực, notification tra cứu interview) vẫn bị downstream từ chối; đây là
+  best-effort và được nuốt lỗi, không chặn nghiệp vụ chính.
+- Google OAuth2 chưa được route đầy đủ qua gateway/Docker; email/password là flow
+  authentication chính thức cho demo hiện tại.
+- Admin status update chưa chặn việc activate candidate chưa verify email.
+
+## 12. Tài Liệu
+
+- [Kế hoạch refactor single-company](ATS_SINGLE_COMPANY_REFACTOR_PLAN.md)
+- [Kiến trúc hiện tại](ATS_CURRENT_ARCHITECTURE.md)
+- [API reference](ATS_API_REFERENCE.md)
+- [Báo cáo Phase 12](ATS_PHASE_12_CLEANUP_DOCUMENTATION.md)
+- `ATS_AUTHORIZATION_CURRENT_STATE.md` là snapshot lịch sử trước refactor, không
+  phải mô tả runtime hiện tại.

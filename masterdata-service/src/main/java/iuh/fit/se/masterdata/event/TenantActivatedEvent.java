@@ -1,3 +1,0 @@
-package iuh.fit.se.masterdata.event;
-
-public record TenantActivatedEvent(Long tenantId, String tenantCode) {}

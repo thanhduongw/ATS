@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ApplicationSummaryResponse(
-        Long id, Long candidateId, String candidateName, Long jobPostingId,
+        Long id, Long candidateId, String candidateName, Long jobPostingId, Long pipelineId,
+        Long departmentId, Long assignedRecruiterId,
         Integer currentStageOrder, String currentStageType
 ) {}

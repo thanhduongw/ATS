@@ -38,34 +38,34 @@ public class DefaultDataSeeder {
     private final InterviewCriteriaRepository interviewCriteriaRepository; // MỚI
 
     @Transactional
-    public void seedDefaults(Long tenantId) {
+    public void seedDefaults() {
         List.of("Toàn thời gian", "Bán thời gian", "Thực tập", "Cộng tác viên")
                 .forEach(name -> employmentTypeRepository.save(
-                        EmploymentType.builder().tenantId(tenantId).name(name).active(true).build()));
+                        EmploymentType.builder().name(name).active(true).build()));
 
         List.of("Thử việc", "Chính thức", "Thời vụ")
                 .forEach(name -> contractTypeRepository.save(
-                        ContractType.builder().tenantId(tenantId).name(name).active(true).build()));
+                        ContractType.builder().name(name).active(true).build()));
 
         List.of("Website công ty", "LinkedIn", "Giới thiệu nội bộ", "Facebook", "TopCV", "VietnamWorks")
                 .forEach(name -> recruitmentSourceRepository.save(
-                        RecruitmentSource.builder().tenantId(tenantId).name(name).active(true).build()));
+                        RecruitmentSource.builder().name(name).active(true).build()));
 
         String[] educationLevels = {"Trung học phổ thông", "Cao đẳng", "Đại học", "Thạc sĩ", "Tiến sĩ"};
         for (int i = 0; i < educationLevels.length; i++) {
             educationLevelRepository.save(EducationLevel.builder()
-                    .tenantId(tenantId).name(educationLevels[i]).orderNo(i + 1).active(true).build());
+                    .name(educationLevels[i]).orderNo(i + 1).active(true).build());
         }
 
         List.of("Không đủ kinh nghiệm", "Không đạt yêu cầu phỏng vấn", "Mức lương không phù hợp",
                         "Vị trí đã tuyển đủ", "Ứng viên tự rút hồ sơ", "Không phù hợp văn hóa công ty")
                 .forEach(name -> rejectionReasonRepository.save(
-                        RejectionReason.builder().tenantId(tenantId).name(name).active(true).build()));
+                        RejectionReason.builder().name(name).active(true).build()));
 
         String[] statuses = {"Bản nháp", "Chờ phê duyệt", "Đã phê duyệt", "Đang mở", "Tạm dừng", "Đã đóng", "Từ chối"};
         for (int i = 0; i < statuses.length; i++) {
             recruitmentStatusRepository.save(RecruitmentStatus.builder()
-                    .tenantId(tenantId).name(statuses[i]).orderNo(i + 1).active(true).build());
+                    .name(statuses[i]).orderNo(i + 1).active(true).build());
         }
 
         // MỚI: seed tiêu chí đánh giá phỏng vấn mặc định
@@ -76,14 +76,13 @@ public class DefaultDataSeeder {
                 "Thái độ & tư duy giải quyết vấn đề",
                 "Mức độ phù hợp với vị trí"
         ).forEach(name -> interviewCriteriaRepository.save(
-                InterviewCriteria.builder().tenantId(tenantId).name(name).active(true).build()));
+                InterviewCriteria.builder().name(name).active(true).build()));
 
-        seedDefaultPipeline(tenantId);
+        seedDefaultPipeline();
     }
 
-    private void seedDefaultPipeline(Long tenantId) {
+    private void seedDefaultPipeline() {
         RecruitmentPipeline pipeline = RecruitmentPipeline.builder()
-                .tenantId(tenantId)
                 .name("Quy trình tuyển dụng mặc định")
                 .isDefault(true)
                 .active(true)

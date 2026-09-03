@@ -10,17 +10,24 @@ public final class JobRequisitionSpecifications {
 
     private JobRequisitionSpecifications() {}
 
+    /**
+     * @param restrictToScope true for a non-admin actor whose visibility must be limited by
+     *                        department or approver assignment. When such an actor carries no
+     *                        usable scope (for example a legacy account without a department),
+     *                        the query fails closed instead of returning every requisition.
+     */
     public static Specification<JobRequisition> build(
-            Long tenantId,
             Long requesterId,
             Long approverId,
+            Long scopeDepartmentId,
+            Long scopeApproverId,
             RequisitionStatus status,
             Long departmentId,
-            String keyword) {
+            String keyword,
+            boolean restrictToScope) {
 
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("tenantId"), tenantId));
             predicates.add(cb.isNull(root.get("deletedAt")));
 
             if (requesterId != null) {
@@ -28,6 +35,17 @@ public final class JobRequisitionSpecifications {
             }
             if (approverId != null) {
                 predicates.add(cb.equal(root.get("approverId"), approverId));
+            }
+            if (scopeDepartmentId != null && scopeApproverId != null) {
+                predicates.add(cb.or(
+                        cb.equal(root.get("departmentId"), scopeDepartmentId),
+                        cb.equal(root.get("approverId"), scopeApproverId)));
+            } else if (scopeDepartmentId != null) {
+                predicates.add(cb.equal(root.get("departmentId"), scopeDepartmentId));
+            } else if (scopeApproverId != null) {
+                predicates.add(cb.equal(root.get("approverId"), scopeApproverId));
+            } else if (restrictToScope) {
+                predicates.add(cb.disjunction());
             }
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));

@@ -1,194 +1,67 @@
-import { useForm, Controller } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, Input, Button, App, Steps } from "antd";
-import { useNavigate } from "react-router-dom";
-import { BankOutlined, MailOutlined, LockOutlined, UserOutlined, SafetyOutlined, CheckCircleOutlined, RocketOutlined } from "@ant-design/icons";
+import { App, Button, Form, Input, Steps } from "antd";
+import { LockOutlined, MailOutlined, PhoneOutlined, UserOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
+import { useNavigate } from "react-router-dom";
+import { registerCandidate } from "../authApi";
 import { registerSchema, type RegisterFormValues } from "../schemas/registerSchema";
-import { registerCompany } from "../authApi";
 import type { ApiMessageResponse } from "../types";
 
 export default function RegisterPage() {
     const { message } = App.useApp();
     const navigate = useNavigate();
-
-    const {
-        control,
-        handleSubmit,
-        formState: { errors, isSubmitting },
-    } = useForm<RegisterFormValues>({
+    const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<RegisterFormValues>({
         resolver: zodResolver(registerSchema),
-        defaultValues: {
-            tenantCode: "",
-            companyName: "",
-            adminEmail: "",
-            adminPassword: "",
-            adminFullName: "",
-        },
+        defaultValues: { fullName: "", email: "", phone: "", password: "", confirmPassword: "" },
     });
 
     const onSubmit = async (data: RegisterFormValues) => {
         try {
-            await registerCompany(data);
-            message.success("Đăng ký thành công, vui lòng kiểm tra email để lấy mã OTP");
-            navigate("/verify-email", {
-                state: { tenantCode: data.tenantCode, email: data.adminEmail },
-            });
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Đăng ký thất bại");
+            await registerCandidate({ ...data, phone: data.phone?.trim() || null });
+            message.success("Tài khoản ứng viên đã được tạo. Vui lòng kiểm tra email.");
+            navigate("/verify-email", { state: { email: data.email } });
+        } catch (error) {
+            const apiError = error as AxiosError<ApiMessageResponse>;
+            message.error(apiError.response?.data?.message ?? "Không thể đăng ký tài khoản");
         }
     };
 
+    const fields = [
+        { name: "fullName" as const, label: "Họ và tên", icon: <UserOutlined />, type: "text" },
+        { name: "email" as const, label: "Email", icon: <MailOutlined />, type: "text" },
+        { name: "phone" as const, label: "Số điện thoại", icon: <PhoneOutlined />, type: "text" },
+        { name: "password" as const, label: "Mật khẩu", icon: <LockOutlined />, type: "password" },
+        { name: "confirmPassword" as const, label: "Xác nhận mật khẩu", icon: <LockOutlined />, type: "password" },
+    ];
+
     return (
         <div className="auth-page">
-            {/* ── Hero Side ─────────────────────── */}
             <div className="auth-hero">
                 <div className="auth-hero-content">
                     <div className="auth-hero-logo">ATS</div>
-                    <h1 className="auth-hero-title">
-                        Bắt đầu quản lý tuyển dụng chuyên nghiệp
-                    </h1>
-                    <p className="auth-hero-subtitle">
-                        Đăng ký công ty chỉ trong vài bước đơn giản. Hệ thống sẽ tự động
-                        thiết lập không gian làm việc riêng cho doanh nghiệp của bạn.
-                    </p>
-
-                    {/* Steps preview */}
-                    <Steps
-                        orientation="vertical"
-                        size="small"
-                        current={0}
-                        items={[
-                            { title: <span style={{ color: "#fff" }}>Đăng ký thông tin</span>, icon: <RocketOutlined style={{ color: "#D9F99D" }} /> },
-                            { title: <span style={{ color: "rgba(255,255,255,0.6)" }}>Xác thực Email (OTP)</span>, icon: <SafetyOutlined style={{ color: "rgba(255,255,255,0.4)" }} /> },
-                            { title: <span style={{ color: "rgba(255,255,255,0.6)" }}>Đăng nhập & Bắt đầu</span>, icon: <CheckCircleOutlined style={{ color: "rgba(255,255,255,0.4)" }} /> },
-                        ]}
-                        style={{ maxWidth: 300 }}
-                    />
+                    <h1 className="auth-hero-title">Tạo tài khoản ứng viên</h1>
+                    <p className="auth-hero-subtitle">Tài khoản này chỉ có quyền ứng viên. Vai trò được backend gán cố định.</p>
+                    <Steps orientation="vertical" current={0} items={[
+                        { title: "Đăng ký" }, { title: "Xác thực email" }, { title: "Nộp hồ sơ" },
+                    ]} />
                 </div>
             </div>
-
-            {/* ── Form Side ─────────────────────── */}
             <div className="auth-form-side">
                 <div className="auth-form-container">
-                    <div className="auth-form-header">
-                        <h2>Đăng ký công ty</h2>
-                        <p>Tạo tài khoản doanh nghiệp và quản trị viên đầu tiên.</p>
-                    </div>
-
+                    <div className="auth-form-header"><h2>Đăng ký ứng viên</h2><p>Nhập thông tin cá nhân để bắt đầu.</p></div>
                     <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
-                        <Form.Item
-                            label="Mã công ty (Tenant Code)"
-                            validateStatus={errors.tenantCode ? "error" : ""}
-                            help={errors.tenantCode?.message}
-                        >
-                            <Controller
-                                name="tenantCode"
-                                control={control}
-                                render={({ field }) => (
-                                    <Input
-                                        prefix={<BankOutlined style={{ color: "#9CA3AF" }} />}
-                                        placeholder="vd: iuhtech"
-                                        size="large"
-                                        {...field}
-                                    />
-                                )}
-                            />
-                        </Form.Item>
-
-                        <Form.Item
-                            label="Tên công ty"
-                            validateStatus={errors.companyName ? "error" : ""}
-                            help={errors.companyName?.message}
-                        >
-                            <Controller
-                                name="companyName"
-                                control={control}
-                                render={({ field }) => (
-                                    <Input
-                                        prefix={<BankOutlined style={{ color: "#9CA3AF" }} />}
-                                        placeholder="Tên đầy đủ công ty"
-                                        size="large"
-                                        {...field}
-                                    />
-                                )}
-                            />
-                        </Form.Item>
-
-                        <Form.Item
-                            label="Email quản trị"
-                            validateStatus={errors.adminEmail ? "error" : ""}
-                            help={errors.adminEmail?.message}
-                        >
-                            <Controller
-                                name="adminEmail"
-                                control={control}
-                                render={({ field }) => (
-                                    <Input
-                                        prefix={<MailOutlined style={{ color: "#9CA3AF" }} />}
-                                        placeholder="admin@company.com"
-                                        size="large"
-                                        {...field}
-                                    />
-                                )}
-                            />
-                        </Form.Item>
-
-                        <Form.Item
-                            label="Mật khẩu"
-                            validateStatus={errors.adminPassword ? "error" : ""}
-                            help={errors.adminPassword?.message}
-                        >
-                            <Controller
-                                name="adminPassword"
-                                control={control}
-                                render={({ field }) => (
-                                    <Input.Password
-                                        prefix={<LockOutlined style={{ color: "#9CA3AF" }} />}
-                                        placeholder="Tối thiểu 8 ký tự"
-                                        size="large"
-                                        {...field}
-                                    />
-                                )}
-                            />
-                        </Form.Item>
-
-                        <Form.Item
-                            label="Họ tên quản trị viên"
-                            validateStatus={errors.adminFullName ? "error" : ""}
-                            help={errors.adminFullName?.message}
-                        >
-                            <Controller
-                                name="adminFullName"
-                                control={control}
-                                render={({ field }) => (
-                                    <Input
-                                        prefix={<UserOutlined style={{ color: "#9CA3AF" }} />}
-                                        placeholder="Nguyễn Văn A"
-                                        size="large"
-                                        {...field}
-                                    />
-                                )}
-                            />
-                        </Form.Item>
-
-                        <Button
-                            type="primary"
-                            htmlType="submit"
-                            block
-                            size="large"
-                            loading={isSubmitting}
-                            style={{ height: 48, fontWeight: 600, fontSize: 15 }}
-                        >
-                            Đăng ký
-                        </Button>
+                        {fields.map((item) => (
+                            <Form.Item key={item.name} label={item.label} validateStatus={errors[item.name] ? "error" : ""} help={errors[item.name]?.message}>
+                                <Controller name={item.name} control={control} render={({ field }) => item.type === "password"
+                                    ? <Input.Password {...field} value={field.value ?? ""} size="large" maxLength={72} prefix={item.icon} autoComplete="new-password" />
+                                    : <Input {...field} value={field.value ?? ""} size="large" prefix={item.icon} />
+                                } />
+                            </Form.Item>
+                        ))}
+                        <Button type="primary" htmlType="submit" block size="large" loading={isSubmitting}>Tạo tài khoản ứng viên</Button>
                     </Form>
-
-                    <div className="auth-form-footer">
-                        Đã có tài khoản?{" "}
-                        <a onClick={() => navigate("/login")}>Đăng nhập</a>
-                    </div>
+                    <div className="auth-form-footer">Đã có tài khoản? <Button type="link" onClick={() => navigate("/login")}>Đăng nhập</Button></div>
                 </div>
             </div>
         </div>

@@ -25,23 +25,23 @@ public class NotificationService {
     private final AuthServiceClient authServiceClient;
     private final MasterDataServiceClient masterDataServiceClient;
 
-    public List<NotificationResponse> getAll(Long tenantId, Long userId) {
+    public List<NotificationResponse> getAll(Long userId) {
         return repository
-                .findByTenantIdAndRecipientUserIdOrderByCreatedAtDesc(tenantId, userId)
+                .findByRecipientUserIdOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
     }
 
-    public long countUnread(Long tenantId, Long userId) {
-        return repository.countByTenantIdAndRecipientUserIdAndReadFalse(tenantId, userId);
+    public long countUnread(Long userId) {
+        return repository.countByRecipientUserIdAndReadFalse(userId);
     }
 
     @Transactional
-    public void markAsRead(Long tenantId, Long userId, Long id) {
+    public void markAsRead(Long userId, Long id) {
         Notification n = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy thông báo"));
-        if (!n.getTenantId().equals(tenantId) || !n.getRecipientUserId().equals(userId)) {
+        if (!n.getRecipientUserId().equals(userId)) {
             throw new BusinessException("Không tìm thấy thông báo");
         }
         n.setRead(true);
@@ -49,9 +49,9 @@ public class NotificationService {
     }
 
     @Transactional
-    public void markAllAsRead(Long tenantId, Long userId) {
+    public void markAllAsRead(Long userId) {
         List<Notification> list =
-                repository.findByTenantIdAndRecipientUserIdOrderByCreatedAtDesc(tenantId, userId);
+                repository.findByRecipientUserIdOrderByCreatedAtDesc(userId);
         list.forEach(n -> n.setRead(true));
         repository.saveAll(list);
     }
@@ -62,7 +62,6 @@ public class NotificationService {
      */
     @Transactional
     public void createAndPush(
-            Long tenantId,
             Long recipientUserId,
             NotificationType type,
             String title,
@@ -76,7 +75,6 @@ public class NotificationService {
         }
 
         Notification saved = repository.save(Notification.builder()
-                .tenantId(tenantId)
                 .recipientUserId(recipientUserId)
                 .type(type)
                 .title(title)
@@ -94,14 +92,14 @@ public class NotificationService {
             log.warn("Realtime push thất bại userId={}: {}", recipientUserId, e.getMessage());
         }
 
-        trySendEmail(tenantId, recipientUserId, type, title, message, resourceType, resourceId);
+        trySendEmail(recipientUserId, type, title, message, resourceType, resourceId);
     }
 
     private void trySendEmail(
-            Long tenantId, Long recipientUserId, NotificationType type,
+            Long recipientUserId, NotificationType type,
             String title, String message, String resourceType, Long resourceId) {
         try {
-            UserSummaryResponse recipient = resolveUser(tenantId, recipientUserId);
+            UserSummaryResponse recipient = resolveUser(recipientUserId);
             if (recipient == null || recipient.email() == null || recipient.email().isBlank()) {
                 return;
             }
@@ -112,7 +110,7 @@ public class NotificationService {
             // Nếu công ty đã cấu hình mẫu email cho loại thông báo này (code = tên NotificationType)
             // thì render theo mẫu; nếu không có / lỗi thì fallback về title/message mặc định.
             try {
-                EmailTemplateResponse template = masterDataServiceClient.getByCode(tenantId, type.name());
+                EmailTemplateResponse template = masterDataServiceClient.getByCode(type.name());
                 if (template != null && template.active()) {
                     Map<String, String> data = Map.of(
                             "title", nullToEmpty(title),
@@ -124,7 +122,7 @@ public class NotificationService {
                     body = TemplateRenderer.render(template.body(), data);
                 }
             } catch (Exception e) {
-                log.debug("Không có mẫu email tùy chỉnh cho {} (tenantId={}), dùng nội dung mặc định", type, tenantId);
+                log.debug("No custom email template for {}; using default content", type);
             }
 
             emailNotificationService.sendSafe(recipient.email(), subject, body);
@@ -138,14 +136,14 @@ public class NotificationService {
     }
 
     /**
-     * Lấy thông tin user từ auth-service (danh sách user theo tenant, lọc theo id).
+     * Lấy thông tin user từ auth-service (danh sách người dùng của doanh nghiệp, lọc theo id).
      * Không cần endpoint mới trên auth.
      */
-    private UserSummaryResponse resolveUser(Long tenantId, Long userId) {
-        if (tenantId == null || userId == null) {
+    private UserSummaryResponse resolveUser(Long userId) {
+        if (userId == null) {
             return null;
         }
-        List<UserSummaryResponse> users = authServiceClient.getUsers(tenantId, null);
+        List<UserSummaryResponse> users = authServiceClient.getUsers(null);
         if (users == null || users.isEmpty()) {
             return null;
         }

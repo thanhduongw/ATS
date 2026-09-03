@@ -12,18 +12,34 @@ public final class OfferSpecifications {
     private OfferSpecifications() {}
 
     public static Specification<Offer> build(
-            Long tenantId,
             Long candidateId,
             Long approverId,
             Long applicationId,
             OfferStatus status,
             LocalDateTime createdFrom,
-            LocalDateTime createdTo) {
+            LocalDateTime createdTo,
+            Long scopeDepartmentId,
+            Long scopeAssignedRecruiterId,
+            Long scopeApproverId,
+            boolean candidateVisibleOnly) {
 
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("tenantId"), tenantId));
             predicates.add(cb.isNull(root.get("deletedAt")));
+
+            List<Predicate> scopePredicates = new ArrayList<>();
+            if (scopeDepartmentId != null) {
+                scopePredicates.add(cb.equal(root.get("departmentId"), scopeDepartmentId));
+            }
+            if (scopeAssignedRecruiterId != null) {
+                scopePredicates.add(cb.equal(root.get("assignedRecruiterId"), scopeAssignedRecruiterId));
+            }
+            if (scopeApproverId != null) {
+                scopePredicates.add(cb.equal(root.get("approverId"), scopeApproverId));
+            }
+            if (!scopePredicates.isEmpty()) {
+                predicates.add(cb.or(scopePredicates.toArray(new Predicate[0])));
+            }
 
             if (candidateId != null) {
                 predicates.add(cb.equal(root.get("candidateId"), candidateId));
@@ -36,6 +52,10 @@ public final class OfferSpecifications {
             }
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (candidateVisibleOnly) {
+                predicates.add(root.get("status").in(
+                        OfferStatus.APPROVED, OfferStatus.ACCEPTED, OfferStatus.DECLINED));
             }
             if (createdFrom != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), createdFrom));

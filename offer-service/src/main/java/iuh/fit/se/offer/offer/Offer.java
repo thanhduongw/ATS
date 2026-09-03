@@ -15,11 +15,14 @@ public class Offer {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
     @Column(name = "application_id", nullable = false)
     private Long applicationId;
+
+    @Column(name = "department_id")
+    private Long departmentId;
+
+    @Column(name = "assigned_recruiter_id")
+    private Long assignedRecruiterId;
 
     /** Filter offer cho Candidate */
     @Column(name = "candidate_id")

@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Spin, App } from "antd";
+import { App, Spin } from "antd";
+import { jwtDecode } from "jwt-decode";
 import type { AxiosError } from "axios";
 import { exchangeOAuth2Code } from "../authApi";
 import { setCredentials } from "../authSlice";
 import { useAppDispatch } from "../../../app/hooks";
-import type { ApiMessageResponse } from "../types";
+import { defaultRouteForRole } from "../../../app/roleNavigation";
+import type { ApiMessageResponse, JwtPayload } from "../types";
 
-/** Đích redirect sau khi Google SSO thành công — đổi mã dùng-một-lần lấy token thật rồi vào dashboard. */
 export default function OAuth2CallbackPage() {
     const { message } = App.useApp();
     const navigate = useNavigate();
@@ -18,7 +19,6 @@ export default function OAuth2CallbackPage() {
     useEffect(() => {
         if (exchangedRef.current) return;
         exchangedRef.current = true;
-
         const code = searchParams.get("code");
         if (!code) {
             message.error("Thiếu mã đăng nhập, vui lòng thử lại");
@@ -27,20 +27,21 @@ export default function OAuth2CallbackPage() {
         }
 
         exchangeOAuth2Code(code)
-            .then((res) => {
-                dispatch(setCredentials(res.data));
+            .then((response) => {
+                const payload = jwtDecode<JwtPayload>(response.data.accessToken);
+                dispatch(setCredentials(response.data));
                 message.success("Đăng nhập thành công");
-                navigate("/dashboard", { replace: true });
+                navigate(defaultRouteForRole(payload.role), { replace: true });
             })
-            .catch((err) => {
-                const axiosErr = err as AxiosError<ApiMessageResponse>;
-                message.error(axiosErr.response?.data?.message ?? "Đăng nhập bằng Google thất bại");
+            .catch((error) => {
+                const apiError = error as AxiosError<ApiMessageResponse>;
+                message.error(apiError.response?.data?.message ?? "Đăng nhập bằng Google thất bại");
                 navigate("/login", { replace: true });
             });
-    }, [searchParams, dispatch, navigate, message]);
+    }, [dispatch, message, navigate, searchParams]);
 
     return (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+        <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
             <Spin size="large" tip="Đang đăng nhập..." />
         </div>
     );

@@ -93,7 +93,7 @@ export default function EvaluationSummaryModal({ open, interviewId, onClose }: P
           <Spin tip="Đang tải đánh giá..." />
         </div>
       ) : error ? (
-        <Alert type="error" showIcon message={error} />
+        <Alert type="error" showIcon title={error} />
       ) : evaluations.length === 0 ? (
         <Empty description="Chưa có dữ liệu đánh giá" />
       ) : (
@@ -103,7 +103,7 @@ export default function EvaluationSummaryModal({ open, interviewId, onClose }: P
               type="info"
               showIcon
               style={{ marginBottom: 16 }}
-              message="Mức lương đề xuất chỉ HR được xem (theo quy định bảo mật nội bộ)."
+              title="Mức lương đề xuất chỉ HR được xem (theo quy định bảo mật nội bộ)."
             />
           )}
 

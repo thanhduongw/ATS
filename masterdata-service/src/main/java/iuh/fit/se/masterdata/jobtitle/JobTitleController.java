@@ -1,6 +1,7 @@
 package iuh.fit.se.masterdata.jobtitle;
 
-import iuh.fit.se.masterdata.common.AccessGuard;
+import iuh.fit.se.masterdata.security.AuthorizationPolicy;
+import iuh.fit.se.masterdata.security.CurrentUser;
 import iuh.fit.se.masterdata.jobtitle.dto.JobTitleRequest;
 import iuh.fit.se.masterdata.jobtitle.dto.JobTitleResponse;
 import jakarta.validation.Valid;
@@ -18,36 +19,30 @@ public class JobTitleController {
     private final JobTitleService service;
 
     @GetMapping
-    public ResponseEntity<List<JobTitleResponse>> getAll(@RequestHeader("X-Tenant-Id") Long tenantId) {
-        return ResponseEntity.ok(service.getAll(tenantId));
+    public ResponseEntity<List<JobTitleResponse>> getAll() {
+        return ResponseEntity.ok(service.getAll());
     }
 
     @PostMapping
     public ResponseEntity<JobTitleResponse> create(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody JobTitleRequest req) {
-        AccessGuard.requireQuickAddRole(role);
-        return ResponseEntity.ok(service.create(tenantId, req));
+        AuthorizationPolicy.requireInternal(CurrentUser.required());
+        return ResponseEntity.ok(service.create(req));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<JobTitleResponse> update(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
             @Valid @RequestBody JobTitleRequest req) {
-        AccessGuard.requireCompanyAdmin(role);
-        return ResponseEntity.ok(service.update(tenantId, id, req));
+        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        return ResponseEntity.ok(service.update(id, req));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id) {
-        AccessGuard.requireCompanyAdmin(role);
-        service.softDelete(tenantId, id);
+        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        service.softDelete(id);
         return ResponseEntity.ok(Map.of("message", "Xóa thành công"));
     }
 }

@@ -22,11 +22,10 @@ public class AuditLogService {
     private final AuthServiceClient authServiceClient;
 
     public List<AuditLogResponse> search(
-            Long tenantId, String resourceType, Long actorUserId, LocalDateTime from, LocalDateTime to) {
+            String resourceType, Long actorUserId, LocalDateTime from, LocalDateTime to) {
 
         Specification<AuditLog> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("tenantId"), tenantId));
             if (resourceType != null) predicates.add(cb.equal(root.get("resourceType"), resourceType));
             if (actorUserId != null) predicates.add(cb.equal(root.get("actorUserId"), actorUserId));
             if (from != null) predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from));
@@ -37,7 +36,7 @@ public class AuditLogService {
         List<AuditLog> logs = repository.findAll(spec,
                 org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
 
-        Map<Long, String> userNameMap = authServiceClient.getUsers(tenantId, null).stream()
+        Map<Long, String> userNameMap = authServiceClient.getUsers(null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
 
         return logs.stream().map(l -> new AuditLogResponse(

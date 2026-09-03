@@ -7,6 +7,7 @@ import type {
   InterviewListFilters,
   EvaluationSubmitRequest,
   EvaluationResponse,
+  CandidateInterviewResponse,
 } from "./types";
 
 export const getInterviews = (
@@ -19,6 +20,12 @@ export const getInterviews = (
 
 export const getInterviewById = (id: number) =>
   axiosClient.get<InterviewResponse>(`/interview/interviews/${id}`);
+
+export const getMyInterviews = () =>
+  axiosClient.get<CandidateInterviewResponse[]>("/interview/interviews/my");
+
+export const getMyInterviewById = (id: number) =>
+  axiosClient.get<CandidateInterviewResponse>(`/interview/interviews/my/${id}`);
 
 export const createInterview = (data: InterviewCreateRequest) =>
   axiosClient.post<InterviewResponse>("/interview/interviews", data);

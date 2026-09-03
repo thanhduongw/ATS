@@ -1,504 +1,209 @@
-import { useEffect, useState, useCallback } from "react";
-import { Card, Tabs, Form, Input, Button, Table, Tag, Modal, App, Space, Avatar, Divider, Badge } from "antd";
+import { useCallback, useEffect, useState } from "react";
+import { App, Avatar, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Table, Tabs, Tag, Typography } from "antd";
+import { BankOutlined, LockOutlined, PlusOutlined, TeamOutlined, UserOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
-import {
-    UserOutlined, LockOutlined, MailOutlined, BankOutlined,
-    EditOutlined, CheckCircleOutlined, StopOutlined,
-    TeamOutlined, SettingOutlined, BuildOutlined,
-} from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import {
-    getMyProfile, updateMyProfile, changePassword,
-    getCompany, updateCompany, getUsers, updateUserStatus,
+    changePassword, createInternalUser, getCompany, getMyProfile, getUsers,
+    updateCompany, updateMyProfile, updateUserStatus,
 } from "../authApi";
 import type {
-    UserProfileResponse, CompanyResponse, UserSummaryResponse,
-    ApiMessageResponse, UserRole,
+    ApiMessageResponse, CompanyResponse, CreateUserRequest, UpdateCompanyRequest,
+    UserProfileResponse, UserRole, UserStatus, UserSummaryResponse,
 } from "../types";
-import { useAppSelector } from "../../../app/hooks";
-import { COLORS, GRADIENTS } from "../../../app/theme";
+import { getCatalogItems } from "../../masterdata/masterdataApi";
+import type { CatalogItem } from "../../masterdata/types";
+import { useAppDispatch, useAppSelector } from "../../../app/hooks";
+import { logout, setUserProfile } from "../authSlice";
+import { useNavigate } from "react-router-dom";
 import { ROLE_LABELS } from "../../../app/roles";
-import { useTableScrollY } from "../../../app/useTableScrollY";
-import { listCardStyle } from "../../../components/ui/listStyles";
 
-const ROLE_COLORS: Record<string, string> = {
-    COMPANY_ADMIN: "purple",
-    RECRUITER: "blue",
-    HIRING_MANAGER: "cyan",
-    CANDIDATE: "default",
-    PLATFORM_ADMIN: "red",
-};
+const { Text, Title } = Typography;
+const INTERNAL_ROLES: Array<{ label: string; value: CreateUserRequest["role"] }> = [
+    { label: "Company Admin", value: "COMPANY_ADMIN" },
+    { label: "Recruiter", value: "RECRUITER" },
+    { label: "Hiring Manager", value: "HIRING_MANAGER" },
+];
 
-const STATUS_COLORS: Record<string, string> = {
-    ACTIVE: "success",
-    LOCKED: "error",
-    UNVERIFIED: "warning",
-};
+interface Props { initialTab?: "profile" | "users"; }
 
-export default function AuthManagementPage() {
+export default function AuthManagementPage({ initialTab = "profile" }: Props) {
     const { message } = App.useApp();
-    const currentUserRole = useAppSelector((state) => state.auth.user?.role);
-
-    const [profile, setProfile] = useState<UserProfileResponse | null>(null);
-    const [company, setCompany] = useState<CompanyResponse | null>(null);
+    const navigate = useNavigate();
+    const dispatch = useAppDispatch();
+    const currentRole = useAppSelector((state) => state.auth.user?.role);
+    const isAdmin = currentRole === "COMPANY_ADMIN";
+    const [profile, setProfile] = useState<UserProfileResponse>();
+    const [company, setCompany] = useState<CompanyResponse>();
     const [users, setUsers] = useState<UserSummaryResponse[]>([]);
+    const [departments, setDepartments] = useState<CatalogItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [createOpen, setCreateOpen] = useState(false);
+    const [passwordOpen, setPasswordOpen] = useState(false);
+    const [createForm] = Form.useForm<CreateUserRequest>();
+    const [passwordForm] = Form.useForm<{ currentPassword: string; newPassword: string }>();
 
-    const [loadingProfile, setLoadingProfile] = useState(false);
-    const [loadingCompany, setLoadingCompany] = useState(false);
-    const [loadingUsers, setLoadingUsers] = useState(false);
+    const loadAdminData = useCallback(async () => {
+        if (!isAdmin) return;
+        const [companyResponse, usersResponse, departmentResponse] = await Promise.all([
+            getCompany(), getUsers(), getCatalogItems("/masterdata/departments"),
+        ]);
+        setCompany(companyResponse.data);
+        setUsers(usersResponse.data);
+        setDepartments(departmentResponse.data.filter((department) => department.active));
+    }, [isAdmin]);
 
-    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-
-    const [passwordForm] = Form.useForm();
-    const [profileForm] = Form.useForm();
-    const { wrapRef, scrollY } = useTableScrollY([loadingUsers, users.length]);
-    // ❌ Bỏ companyForm hook — dùng initialValues + key thay thế
-
-    const fetchProfile = useCallback(async () => {
-        setLoadingProfile(true);
+    const load = useCallback(async () => {
+        setLoading(true);
         try {
-            const res = await getMyProfile();
-            setProfile(res.data);
-        } catch {
-            message.error("Không thể lấy thông tin cá nhân");
-        } finally {
-            setLoadingProfile(false);
-        }
-    }, [message]);
+            const profileResponse = await getMyProfile();
+            setProfile(profileResponse.data);
+            await loadAdminData();
+        } catch (error) {
+            const apiError = error as AxiosError<ApiMessageResponse>;
+            message.error(apiError.response?.data?.message ?? "Không tải được thông tin tài khoản");
+        } finally { setLoading(false); }
+    }, [loadAdminData, message]);
 
-    const fetchCompany = useCallback(async () => {
-        setLoadingCompany(true);
+    useEffect(() => { load(); }, [load]);
+
+    const updateProfile = async (values: { fullName: string; phone?: string }) => {
         try {
-            const res = await getCompany();
-            setCompany(res.data);
-        } catch {
-            message.error("Không thể lấy thông tin công ty");
-        } finally {
-            setLoadingCompany(false);
-        }
-    }, [message]);
-
-    const fetchUsers = useCallback(async () => {
-        setLoadingUsers(true);
-        try {
-            const res = await getUsers();
-            setUsers(res.data);
-        } catch {
-            message.error("Không thể lấy danh sách người dùng");
-        } finally {
-            setLoadingUsers(false);
-        }
-    }, [message]);
-
-    useEffect(() => {
-        fetchProfile();
-        fetchCompany();
-        fetchUsers();
-    }, [fetchProfile, fetchCompany, fetchUsers]);
-
-    useEffect(() => {
-        if (profile) {
-            profileForm.setFieldsValue({
-                fullName: profile.fullName,
-            });
-        }
-    }, [profile, profileForm]);
-
-    // ❌ Bỏ useEffect set companyForm — thay bằng initialValues + key trên Card
-
-    const handleUpdateProfile = async (values: { fullName: string }) => {
-        try {
-            const res = await updateMyProfile(values);
-            setProfile(res.data);
-            message.success("Cập nhật thông tin cá nhân thành công");
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Cập nhật thất bại");
+            const response = await updateMyProfile({ ...values, phone: values.phone || null });
+            setProfile(response.data);
+            dispatch(setUserProfile(response.data));
+            message.success("Đã cập nhật hồ sơ");
+        } catch (error) {
+            const apiError = error as AxiosError<ApiMessageResponse>;
+            message.error(apiError.response?.data?.message ?? "Cập nhật thất bại");
         }
     };
 
-    const handleUpdateCompany = async (values: {
-        name: string;
-        description?: string;
-        logoUrl?: string;
-        bannerUrl?: string;
-        dataRetentionMonths?: string | number;
-    }) => {
+    const saveCompany = async (values: UpdateCompanyRequest) => {
         try {
-            const res = await updateCompany({
-                ...values,
-                dataRetentionMonths: values.dataRetentionMonths
-                    ? Number(values.dataRetentionMonths)
-                    : null,
-            });
-            setCompany(res.data);
-            message.success("Cập nhật thông tin công ty thành công");
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Cập nhật thất bại");
+            const response = await updateCompany(values);
+            setCompany(response.data);
+            message.success("Đã cập nhật thông tin doanh nghiệp");
+        } catch (error) {
+            const apiError = error as AxiosError<ApiMessageResponse>;
+            message.error(apiError.response?.data?.message ?? "Cập nhật thất bại");
         }
     };
 
-    const handleChangePassword = async (values: { currentPassword: string; newPassword: string }) => {
+    const createUser = async (values: CreateUserRequest) => {
+        try {
+            await createInternalUser({ ...values, phone: values.phone || null, departmentId: values.departmentId ?? null });
+            message.success("Đã tạo tài khoản nội bộ");
+            setCreateOpen(false);
+            createForm.resetFields();
+            await loadAdminData();
+        } catch (error) {
+            const apiError = error as AxiosError<ApiMessageResponse>;
+            message.error(apiError.response?.data?.message ?? "Không thể tạo tài khoản");
+        }
+    };
+
+    const changeStatus = async (id: number, status: UserStatus) => {
+        try {
+            await updateUserStatus(id, { status });
+            message.success("Đã cập nhật trạng thái");
+            await loadAdminData();
+        } catch (error) {
+            const apiError = error as AxiosError<ApiMessageResponse>;
+            message.error(apiError.response?.data?.message ?? "Không thể cập nhật trạng thái");
+        }
+    };
+
+    const submitPassword = async (values: { currentPassword: string; newPassword: string }) => {
         try {
             await changePassword(values);
-            message.success("Đổi mật khẩu thành công");
-            setIsPasswordModalOpen(false);
-            passwordForm.resetFields();
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Đổi mật khẩu thất bại");
+            dispatch(logout());
+            message.success("Đã đổi mật khẩu. Vui lòng đăng nhập lại");
+            navigate("/login", { replace: true });
+        } catch (error) {
+            const apiError = error as AxiosError<ApiMessageResponse>;
+            message.error(apiError.response?.data?.message ?? "Đổi mật khẩu thất bại");
         }
     };
 
-    const handleToggleUserStatus = async (userId: number, currentStatus?: string) => {
-        const nextStatus = currentStatus === "LOCKED" ? "ACTIVE" : "LOCKED";
-        try {
-            await updateUserStatus(userId, { status: nextStatus });
-            message.success(`Đã ${nextStatus === "LOCKED" ? "khóa" : "mở khóa"} tài khoản`);
-            fetchUsers();
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Thao tác thất bại");
-        }
-    };
-
-    const getInitials = (name?: string, email?: string) => {
-        const src = name || email || "?";
-        const parts = src.split(" ").filter(Boolean);
-        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        return src.substring(0, 2).toUpperCase();
-    };
-
-    const userColumns: ColumnsType<UserSummaryResponse> = [
-        {
-            title: "Nhân sự",
-            key: "user",
-            render: (_, record) => (
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <Avatar
-                        size={36}
-                        style={{ background: GRADIENTS.primary, color: "#fff", fontWeight: 600, fontSize: 13, flexShrink: 0 }}
-                    >
-                        {getInitials(record.fullName, record.email)}
-                    </Avatar>
-                    <div>
-                        <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.textPrimary }}>{record.fullName || "—"}</div>
-                        <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{record.email}</div>
-                    </div>
-                </div>
-            ),
-        },
-        {
-            title: "Vai trò",
-            dataIndex: "role",
-            key: "role",
-            render: (role: UserRole) => (
-                <Tag color={ROLE_COLORS[role] || "default"} style={{ fontWeight: 500 }}>
-                    {ROLE_LABELS[role]?.vi ?? role}
-                </Tag>
-            ),
-        },
-        {
-            title: "Trạng thái",
-            dataIndex: "status",
-            key: "status",
-            render: (status: string) => (
-                <Badge
-                    status={(STATUS_COLORS[status] as "success" | "error" | "warning") ?? "default"}
-                    text={
-                        status === "ACTIVE" ? "Đang hoạt động"
-                            : status === "LOCKED" ? "Đã khóa"
-                                : status === "UNVERIFIED" ? "Chưa xác thực"
-                                    : status
-                    }
-                />
-            ),
-        },
-        {
-            title: "Thao tác",
-            key: "action",
-            render: (_, record) =>
-                currentUserRole === "COMPANY_ADMIN" ? (
-                    <Button
-                        size="small"
-                        danger={record.status !== "LOCKED"}
-                        icon={record.status === "LOCKED" ? <CheckCircleOutlined /> : <StopOutlined />}
-                        onClick={() => handleToggleUserStatus(record.id, record.status)}
-                    >
-                        {record.status === "LOCKED" ? "Mở khóa" : "Khóa tài khoản"}
-                    </Button>
-                ) : null,
-        },
+    const columns: ColumnsType<UserSummaryResponse> = [
+        { title: "Người dùng", render: (_, user) => <Space><Avatar>{user.fullName?.[0] || user.email[0]}</Avatar><div><Text strong>{user.fullName}</Text><br /><Text type="secondary">{user.email}</Text></div></Space> },
+        { title: "Vai trò", dataIndex: "role", render: (role: UserRole) => <Tag>{ROLE_LABELS[role].vi}</Tag> },
+        { title: "Phòng ban", dataIndex: "departmentId", render: (id: number | null) => id == null ? "-" : departments.find((department) => department.id === id)?.name ?? `#${id}` },
+        { title: "Trạng thái", dataIndex: "status", render: (status: UserStatus) => <Tag color={status === "ACTIVE" ? "green" : status === "LOCKED" ? "red" : "gold"}>{status}</Tag> },
+        { title: "Thao tác", render: (_, user) => <Select size="small" value={user.status} style={{ width: 150 }} onChange={(status) => changeStatus(user.id, status)} options={[
+            { value: "ACTIVE", label: "ACTIVE" }, { value: "LOCKED", label: "LOCKED" }, { value: "INACTIVE", label: "INACTIVE" },
+        ]} /> },
     ];
 
-    const tabItems = [
-        {
-            key: "profile",
-            label: (
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <UserOutlined />Hồ Sơ Cá Nhân
-                </span>
-            ),
-            children: (
-                <div style={{ maxWidth: 560, height: "100%", overflowY: "auto", paddingBottom: 12 }}>
-                    <div style={{
-                        display: "flex", alignItems: "center", gap: 20,
-                        padding: "20px 24px", background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)",
-                        borderRadius: 12, marginBottom: 24, border: "1px solid #BBF7D0",
-                    }}>
-                        <Avatar
-                            size={64}
-                            style={{ background: GRADIENTS.primary, color: "#fff", fontWeight: 700, fontSize: 24, flexShrink: 0 }}
-                        >
-                            {getInitials(profile?.fullName, profile?.email)}
-                        </Avatar>
-                        <div>
-                            <div style={{ fontWeight: 700, fontSize: 18, color: COLORS.textPrimary }}>
-                                {profile?.fullName || "—"}
-                            </div>
-                            <div style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 2 }}>
-                                <MailOutlined style={{ marginRight: 6 }} />{profile?.email}
-                            </div>
-                            <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
-                                <Tag color={ROLE_COLORS[profile?.role || ""] || "default"}>
-                                    {ROLE_LABELS[profile?.role as UserRole]?.vi ?? profile?.role}
-                                </Tag>
-                                <Tag color={STATUS_COLORS[profile?.status || ""] || "default"}>
-                                    {profile?.status === "ACTIVE" ? "Đang hoạt động" : profile?.status}
-                                </Tag>
-                            </div>
-                        </div>
-                    </div>
-
-                    <Card loading={loadingProfile} title={<><EditOutlined style={{ marginRight: 8, color: COLORS.primary }} />Cập nhật thông tin</>} style={{ marginBottom: 16, border: "1px solid #E5E7EB" }}>
-                        <Form layout="vertical" form={profileForm} onFinish={handleUpdateProfile}>
-                            <Form.Item label="Họ và tên" name="fullName" rules={[{ required: true }]}>
-                                <Input prefix={<UserOutlined style={{ color: "#9CA3AF" }} />} size="large" placeholder="Nguyễn Văn A" />
-                            </Form.Item>
-                            <Space>
-                                <Button type="primary" htmlType="submit" icon={<CheckCircleOutlined />}>
-                                    Cập Nhật Thông Tin
-                                </Button>
-                                <Button icon={<LockOutlined />} onClick={() => setIsPasswordModalOpen(true)}>
-                                    Đổi Mật Khẩu
-                                </Button>
-                            </Space>
-                        </Form>
-                    </Card>
-
-                    <Card title="Thông tin tài khoản" style={{ border: "1px solid #E5E7EB" }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: COLORS.textSecondary }}>Mã Tenant:</span>
-                                <Tag color="orange">{profile?.tenantId}</Tag>
-                            </div>
-                            <Divider style={{ margin: "4px 0" }} />
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: COLORS.textSecondary }}>Email:</span>
-                                <span style={{ fontWeight: 500 }}>{profile?.email}</span>
-                            </div>
-                            <Divider style={{ margin: "4px 0" }} />
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: COLORS.textSecondary }}>Vai trò:</span>
-                                <Tag color={ROLE_COLORS[profile?.role || ""] || "default"}>
-                                    {ROLE_LABELS[profile?.role as UserRole]?.vi ?? profile?.role}
-                                </Tag>
-                            </div>
-                        </div>
-                    </Card>
-                </div>
-            ),
-        },
-        {
-            key: "company",
-            label: (
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <BuildOutlined />Thông Tin Doanh Nghiệp
-                </span>
-            ),
-            children: (
-                <div style={{ maxWidth: 560, height: "100%", overflowY: "auto", paddingBottom: 12 }}>
-                    <div style={{
-                        display: "flex", alignItems: "center", gap: 20,
-                        padding: "20px 24px", background: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)",
-                        borderRadius: 12, marginBottom: 24, border: "1px solid #BFDBFE",
-                    }}>
-                        <div style={{
-                            width: 56, height: 56, borderRadius: 14,
-                            background: "linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            color: "#fff", fontWeight: 700, fontSize: 22, flexShrink: 0,
-                        }}>
-                            <BankOutlined />
-                        </div>
-                        <div>
-                            <div style={{ fontWeight: 700, fontSize: 18, color: COLORS.textPrimary }}>{company?.name || "—"}</div>
-                            <div style={{ marginTop: 6 }}>
-                                <Tag color="orange" icon={<SettingOutlined />}>
-                                    Mã: {company?.tenantCode}
-                                </Tag>
-                                <Tag color="blue">ID: {company?.id}</Tag>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ✅ Dùng key để remount + initialValues thay cho form hook */}
-                    <Card
-                        key={`company-${company?.id ?? "loading"}`}
-                        loading={loadingCompany}
-                        title={<><EditOutlined style={{ marginRight: 8, color: "#3B82F6" }} />Cập nhật công ty</>}
-                        style={{ border: "1px solid #E5E7EB" }}
-                    >
-                        <Form
-                            layout="vertical"
-                            onFinish={handleUpdateCompany}
-                            initialValues={{
-                                name: company?.name,
-                                description: company?.description,
-                                logoUrl: company?.logoUrl,
-                                bannerUrl: company?.bannerUrl,
-                                dataRetentionMonths: company?.dataRetentionMonths,
-                            }}
-                        >
-                            <Form.Item label="Tên công ty" name="name" rules={[{ required: true }]}>
-                                <Input
-                                    prefix={<BankOutlined style={{ color: "#9CA3AF" }} />}
-                                    size="large"
-                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
-                                    placeholder="Tên đầy đủ công ty"
-                                />
-                            </Form.Item>
-                            <Form.Item
-                                label="Giới thiệu công ty (hiển thị trên trang tuyển dụng công khai)"
-                                name="description"
-                            >
-                                <Input.TextArea
-                                    rows={4}
-                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
-                                    placeholder="Về chúng tôi, văn hóa, phúc lợi chung..."
-                                />
-                            </Form.Item>
-                            <Form.Item label="URL logo công ty" name="logoUrl">
-                                <Input
-                                    size="large"
-                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
-                                    placeholder="https://.../logo.png"
-                                />
-                            </Form.Item>
-                            <Form.Item label="URL ảnh banner trang tuyển dụng" name="bannerUrl">
-                                <Input
-                                    size="large"
-                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
-                                    placeholder="https://.../banner.jpg"
-                                />
-                            </Form.Item>
-                            <Form.Item
-                                label="Thời gian lưu trữ hồ sơ ứng viên (tháng, để trống = không giới hạn)"
-                                name="dataRetentionMonths"
-                            >
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    size="large"
-                                    disabled={currentUserRole !== "COMPANY_ADMIN"}
-                                    placeholder="VD: 24"
-                                />
-                            </Form.Item>
-                            {currentUserRole === "COMPANY_ADMIN" ? (
-                                <Button type="primary" htmlType="submit" icon={<CheckCircleOutlined />}>
-                                    Lưu Thông Tin Công Ty
-                                </Button>
-                            ) : (
-                                <p style={{ color: COLORS.textSecondary, fontSize: 13 }}>
-                                    Chỉ Company Admin mới có quyền sửa tên công ty.
-                                </p>
-                            )}
-                        </Form>
-                    </Card>
-                </div>
-            ),
-        },
-        {
-            key: "users",
-            label: (
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <TeamOutlined />Quản Lý Nhân Sự
-                </span>
-            ),
-            children: (
-                <Card
-                    loading={loadingUsers}
-                    style={{ border: "1px solid #E5E7EB", height: "100%" }}
-                    styles={{ body: { height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" } }}
-                >
-                    <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-                        <div>
-                            <div style={{ fontWeight: 600, fontSize: 16 }}>Danh sách nhân sự</div>
-                            <div style={{ fontSize: 13, color: COLORS.textSecondary }}>Tổng: {users.length} người</div>
-                        </div>
-                    </div>
-                    <div ref={wrapRef} className="table-scroll-wrap">
-                        <Table
-                            dataSource={users}
-                            columns={userColumns}
-                            rowKey="id"
-                            size="small"
-                            sticky
-                            scroll={{ y: scrollY }}
-                            pagination={{ pageSize: 10, size: "small" }}
-                        />
-                    </div>
-                </Card>
-            ),
-        },
-    ];
-
-    return (
-        <div className="page-shell animate-fade-in">
-            <Card
-                className="table-card-fill"
-                style={listCardStyle}
-                styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
-            >
-                <Tabs items={tabItems} size="large" className="tabs-fill" />
+    const profileTab = {
+        key: "profile",
+        label: <span><UserOutlined /> Tài khoản</span>,
+        children: <div style={{ maxWidth: 620 }}>
+            <Card loading={loading} style={{ marginBottom: 16 }}>
+                <Space size={16} align="start">
+                    <Avatar size={56}>{profile?.fullName?.[0] || profile?.email?.[0]}</Avatar>
+                    <div><Title level={4} style={{ margin: 0 }}>{profile?.fullName}</Title><Text>{profile?.email}</Text><br />{profile && <Tag>{ROLE_LABELS[profile.role].vi}</Tag>}</div>
+                </Space>
             </Card>
-
-            {/* ✅ forceRender để Form mount ngay từ đầu, tránh warning */}
-            <Modal
-                title={<><LockOutlined style={{ marginRight: 8, color: COLORS.primary }} />Đổi mật khẩu</>}
-                open={isPasswordModalOpen}
-                onCancel={() => setIsPasswordModalOpen(false)}
-                footer={null}
-                width={440}
-                forceRender
-            >
-                <Form layout="vertical" form={passwordForm} onFinish={handleChangePassword} style={{ marginTop: 16 }}>
-                    <Form.Item
-                        label="Mật khẩu hiện tại"
-                        name="currentPassword"
-                        rules={[{ required: true, message: "Vui lòng nhập mật khẩu hiện tại" }]}
-                    >
-                        <Input.Password prefix={<LockOutlined style={{ color: "#9CA3AF" }} />} size="large" />
-                    </Form.Item>
-                    <Form.Item
-                        label="Mật khẩu mới"
-                        name="newPassword"
-                        rules={[
-                            { required: true, message: "Vui lòng nhập mật khẩu mới" },
-                            { min: 6, message: "Mật khẩu mới phải từ 6 ký tự" },
-                        ]}
-                    >
-                        <Input.Password prefix={<LockOutlined style={{ color: "#9CA3AF" }} />} size="large" />
-                    </Form.Item>
-                    <Form.Item style={{ marginBottom: 0 }}>
-                        <Space style={{ justifyContent: "flex-end", width: "100%" }}>
-                            <Button onClick={() => setIsPasswordModalOpen(false)}>Hủy</Button>
-                            <Button type="primary" htmlType="submit">Xác Nhận Đổi</Button>
-                        </Space>
-                    </Form.Item>
+            <Card title="Thông tin cá nhân">
+                <Form
+                    key={profile?.id ?? "profile-form"}
+                    layout="vertical"
+                    initialValues={{ fullName: profile?.fullName, phone: profile?.phone ?? undefined }}
+                    onFinish={updateProfile}
+                >
+                    <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true }]}><Input /></Form.Item>
+                    <Form.Item name="phone" label="Số điện thoại"><Input /></Form.Item>
+                    <Space><Button type="primary" htmlType="submit">Lưu thay đổi</Button><Button icon={<LockOutlined />} onClick={() => setPasswordOpen(true)}>Đổi mật khẩu</Button></Space>
                 </Form>
-            </Modal>
-        </div>
+            </Card>
+        </div>,
+    };
+
+    const tabs = [profileTab];
+    if (isAdmin) tabs.push(
+        { key: "company", label: <span><BankOutlined /> Doanh nghiệp</span>, children: <Card loading={loading} style={{ maxWidth: 700 }}>
+            <Form key={company?.id} layout="vertical" initialValues={company} onFinish={saveCompany}>
+                <Form.Item name="name" label="Tên doanh nghiệp" rules={[{ required: true }]}><Input /></Form.Item>
+                <Form.Item name="description" label="Giới thiệu"><Input.TextArea rows={4} /></Form.Item>
+                <Form.Item name="logoUrl" label="URL logo"><Input /></Form.Item>
+                <Form.Item name="bannerUrl" label="URL banner"><Input /></Form.Item>
+                <Form.Item name="dataRetentionMonths" label="Thời gian lưu hồ sơ (tháng)"><InputNumber min={1} style={{ width: "100%" }} /></Form.Item>
+                <Button type="primary" htmlType="submit">Lưu thông tin</Button>
+            </Form>
+        </Card> },
+        { key: "users", label: <span><TeamOutlined /> Người dùng</span>, children: <Card loading={loading}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}><Title level={4} style={{ margin: 0 }}>Tài khoản nội bộ và candidate</Title><Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>Tạo tài khoản nội bộ</Button></div>
+            <Table rowKey="id" columns={columns} dataSource={users} pagination={{ pageSize: 10 }} scroll={{ x: 800 }} />
+        </Card> },
     );
+
+    return <div className="page-container animate-fade-in">
+        <Tabs defaultActiveKey={initialTab} items={tabs} />
+        <Modal title="Tạo tài khoản nội bộ" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null} forceRender>
+            <Form form={createForm} layout="vertical" onFinish={createUser} initialValues={{ status: "ACTIVE" }}>
+                <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true }]}><Input /></Form.Item>
+                <Form.Item name="email" label="Email" rules={[{ required: true }, { type: "email" }]}><Input /></Form.Item>
+                <Form.Item name="phone" label="Số điện thoại"><Input /></Form.Item>
+                <Form.Item name="tempPassword" label="Mật khẩu tạm" rules={[{ required: true }, { min: 8 }, { max: 72 }]}><Input.Password maxLength={72} /></Form.Item>
+                <Form.Item name="role" label="Vai trò" rules={[{ required: true }]}><Select options={INTERNAL_ROLES} /></Form.Item>
+                <Form.Item noStyle shouldUpdate={(before, after) => before.role !== after.role}>{({ getFieldValue }) => {
+                    const needsDepartment = ["RECRUITER", "HIRING_MANAGER"].includes(getFieldValue("role"));
+                    return <Form.Item name="departmentId" label="Phòng ban" rules={[{ required: needsDepartment, message: "Vai trò này phải thuộc một phòng ban" }]}>
+                        <Select allowClear options={departments.map((department) => ({ value: department.id, label: String(department.name) }))} />
+                    </Form.Item>;
+                }}</Form.Item>
+                <Form.Item name="status" label="Trạng thái" rules={[{ required: true }]}><Select options={[{ value: "ACTIVE", label: "ACTIVE" }, { value: "INACTIVE", label: "INACTIVE" }]} /></Form.Item>
+                <Button type="primary" htmlType="submit" block>Tạo tài khoản</Button>
+            </Form>
+        </Modal>
+        <Modal title="Đổi mật khẩu" open={passwordOpen} onCancel={() => setPasswordOpen(false)} footer={null} forceRender>
+            <Form form={passwordForm} layout="vertical" onFinish={submitPassword}>
+                <Form.Item name="currentPassword" label="Mật khẩu hiện tại" rules={[{ required: true }]}><Input.Password /></Form.Item>
+                <Form.Item name="newPassword" label="Mật khẩu mới" rules={[{ required: true }, { min: 8 }, { max: 72 }]}><Input.Password maxLength={72} /></Form.Item>
+                <Button type="primary" htmlType="submit" block>Xác nhận</Button>
+            </Form>
+        </Modal>
+    </div>;
 }

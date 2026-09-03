@@ -9,14 +9,12 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CandidateRepository extends JpaRepository<Candidate, Long>, JpaSpecificationExecutor<Candidate> {
-    List<Candidate> findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long tenantId);
-    Optional<Candidate> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
-    Optional<Candidate> findByTenantIdAndUserIdAndDeletedAtIsNull(Long tenantId, Long userId);
-    Optional<Candidate> findByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(Long tenantId, String email);
-    boolean existsByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(Long tenantId, String email);
+    List<Candidate> findByDeletedAtIsNullOrderByCreatedAtDesc();
+    Optional<Candidate> findByIdAndDeletedAtIsNull(Long id);
+    Optional<Candidate> findByUserIdAndDeletedAtIsNull(Long userId);
 
-    @Query("select distinct c.tenantId from Candidate c where c.deletedAt is null")
-    List<Long> findDistinctActiveTenantIds();
-
-    List<Candidate> findByTenantIdAndDeletedAtIsNullAndCreatedAtBefore(Long tenantId, LocalDateTime threshold);
+    Optional<Candidate> findFirstByCvFileUrlEndingWithAndDeletedAtIsNull(String fileName);
+    Optional<Candidate> findFirstByEmailIgnoreCaseAndDeletedAtIsNullOrderByIdAsc(String email);
+    boolean existsByEmailIgnoreCaseAndDeletedAtIsNull(String email);
+    List<Candidate> findByDeletedAtIsNullAndCreatedAtBefore(LocalDateTime threshold);
 }

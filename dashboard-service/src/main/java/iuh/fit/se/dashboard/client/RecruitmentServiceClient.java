@@ -15,16 +15,14 @@ import org.springframework.web.bind.annotation.RequestHeader;
 )
 public interface RecruitmentServiceClient {
 
-    /** No page/size sent on purpose: dashboard aggregation needs the full tenant dataset, not one page. */
+    /** No page/size sent on purpose: dashboard aggregation needs the full company dataset, not one page. */
     @GetMapping("/api/recruitment/requisitions")
     PageResponse<RequisitionSummary> getRequisitions(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role);
 
-    /** No page/size sent on purpose: dashboard aggregation needs the full tenant dataset, not one page. */
+    /** No page/size sent on purpose: dashboard aggregation needs the full company dataset, not one page. */
     @GetMapping("/api/recruitment/postings")
     PageResponse<PostingSummary> getPostings(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Role") String role);
 }

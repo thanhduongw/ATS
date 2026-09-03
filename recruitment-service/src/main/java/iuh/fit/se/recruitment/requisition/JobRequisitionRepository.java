@@ -7,5 +7,5 @@ import java.util.Optional;
 
 public interface JobRequisitionRepository extends JpaRepository<JobRequisition, Long>,
         JpaSpecificationExecutor<JobRequisition> {
-    Optional<JobRequisition> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
+    Optional<JobRequisition> findByIdAndDeletedAtIsNull(Long id);
 }

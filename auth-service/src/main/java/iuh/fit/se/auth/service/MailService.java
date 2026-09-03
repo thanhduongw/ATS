@@ -3,6 +3,7 @@ package iuh.fit.se.auth.service;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -15,36 +16,35 @@ public class MailService {
 
     private final JavaMailSender mailSender;
 
+    @Value("${app.mail.log-otp-on-failure:false}")
+    private boolean logOtpOnFailure;
+
     public void sendOtpEmail(String toEmail, String otp) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(toEmail);
-            message.setSubject("Xác thực đăng ký hệ thống ATS");
-            message.setText("Mã OTP xác thực của bạn là: " + otp + ". Mã có hiệu lực trong 10 phút.");
-            mailSender.send(message);
-            log.info("Đã gửi email OTP thành công tới {}", toEmail);
-        } catch (Exception e) {
-            log.warn("Không thể gửi mail qua SMTP ({}), in mã OTP ra console để test.", e.getMessage());
-            System.out.println("==================================================");
-            System.out.println("[DEV MODE REGISTRATION OTP] Email: " + toEmail + " | OTP: " + otp);
-            System.out.println("==================================================");
-        }
+        send(toEmail, "Xac thuc dang ky he thong ATS",
+                "Ma OTP xac thuc cua ban la: " + otp +
+                        ". Ma co hieu luc trong 10 phut.", otp, "REGISTRATION");
     }
 
     public void sendPasswordResetEmail(String toEmail, String otp) {
+        send(toEmail, "Khoi phuc mat khau he thong ATS",
+                "Ma OTP khoi phuc mat khau cua ban la: " + otp +
+                        ". Ma co hieu luc trong 15 phut. Khong chia se ma nay.",
+                otp, "PASSWORD_RESET");
+    }
+
+    private void send(String toEmail, String subject, String body, String otp, String purpose) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(toEmail);
-            message.setSubject("Mã OTP khôi phục mật khẩu hệ thống ATS");
-            message.setText("Mã OTP khôi phục mật khẩu của bạn là: " + otp + 
-                    ". Mã này có hiệu lực trong 15 phút. Vui lòng không chia sẻ mã này cho bất kỳ ai.");
+            message.setSubject(subject);
+            message.setText(body);
             mailSender.send(message);
-            log.info("Đã gửi email khôi phục mật khẩu tới {}", toEmail);
-        } catch (Exception e) {
-            log.warn("Không thể gửi mail qua SMTP ({}), in mã OTP ra console để test.", e.getMessage());
-            System.out.println("==================================================");
-            System.out.println("[DEV MODE RESET PASSWORD OTP] Email: " + toEmail + " | OTP: " + otp);
-            System.out.println("==================================================");
+            log.info("Auth email sent for purpose {}", purpose);
+        } catch (Exception exception) {
+            log.warn("Could not send auth email for purpose {}: {}", purpose, exception.getMessage());
+            if (logOtpOnFailure) {
+                log.warn("DEV ONLY OTP for {} at {}: {}", purpose, toEmail, otp);
+            }
         }
     }
 }

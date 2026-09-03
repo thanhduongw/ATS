@@ -15,7 +15,6 @@ public class AuditLogListener {
     @RabbitListener(queues = BusinessEventConfig.AUDIT_LOG_QUEUE)
     public void onAuditEvent(AuditEvent event) {
         repository.save(AuditLog.builder()
-                .tenantId(event.tenantId())
                 .actorUserId(event.actorUserId())
                 .action(event.action())
                 .resourceType(event.resourceType())

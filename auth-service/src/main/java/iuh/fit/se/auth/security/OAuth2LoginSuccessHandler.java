@@ -29,36 +29,29 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     @Override
     public void onAuthenticationSuccess(
-            HttpServletRequest request, HttpServletResponse response, Authentication authentication)
-            throws IOException {
-
-        Object tenantCodeAttr = request.getSession(true).getAttribute(OAuth2PreLoginController.TENANT_CODE_SESSION_KEY);
-        request.getSession().removeAttribute(OAuth2PreLoginController.TENANT_CODE_SESSION_KEY);
-
-        if (tenantCodeAttr == null) {
-            redirectWithError(response, "Thiếu mã công ty — vui lòng đăng nhập lại từ trang chủ");
-            return;
-        }
-
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Authentication authentication
+    ) throws IOException {
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
         String email = oAuth2User.getAttribute("email");
         Boolean emailVerified = oAuth2User.getAttribute("email_verified");
 
         if (email == null || Boolean.FALSE.equals(emailVerified)) {
-            redirectWithError(response, "Email Google chưa được xác thực");
+            redirectWithError(response, "Email Google chua duoc xac thuc");
             return;
         }
 
         try {
-            LoginResponse tokens = loginService.loginWithGoogle(String.valueOf(tenantCodeAttr), email);
+            LoginResponse tokens = loginService.loginWithGoogle(email);
             String code = tokenExchangeStore.store(tokens);
             String redirectUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/oauth2/callback")
                     .queryParam("code", code)
                     .build().encode().toUriString();
             response.sendRedirect(redirectUrl);
-        } catch (BusinessException e) {
-            log.warn("Google SSO login thất bại: {}", e.getMessage());
-            redirectWithError(response, e.getMessage());
+        } catch (BusinessException exception) {
+            log.warn("Google SSO login failed: {}", exception.getMessage());
+            redirectWithError(response, exception.getMessage());
         }
     }
 

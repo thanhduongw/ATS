@@ -13,14 +13,12 @@ import org.springframework.web.bind.annotation.RequestHeader;
 public interface ApplicationServiceClient {
     @GetMapping("/api/application/applications/{id}/summary")
     ApplicationSummaryResponse getApplicationById(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
             @PathVariable("id") Long id
     );
 
     /** Workflow automation: tự động chuyển vòng khi toàn bộ hội đồng đề xuất Hire/Strong Hire. */
     @PatchMapping("/api/application/applications/{id}/advance-stage")
     void advanceStage(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long actorUserId,
             @RequestHeader("X-User-Role") String role,
             @PathVariable("id") Long id,

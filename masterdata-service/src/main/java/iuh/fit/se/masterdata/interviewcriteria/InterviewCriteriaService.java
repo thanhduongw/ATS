@@ -15,18 +15,17 @@ public class InterviewCriteriaService {
 
     private final InterviewCriteriaRepository repository;
 
-    public List<InterviewCriteriaResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByNameAsc(tenantId)
+    public List<InterviewCriteriaResponse> getAll() {
+        return repository.findAllByOrderByNameAsc()
                 .stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public InterviewCriteriaResponse create(Long tenantId, InterviewCriteriaRequest req) {
-        if (repository.existsByTenantIdAndNameIgnoreCase(tenantId, req.name())) {
+    public InterviewCriteriaResponse create(InterviewCriteriaRequest req) {
+        if (repository.existsByNameIgnoreCase(req.name())) {
             throw new BusinessException("Tiêu chí đánh giá đã tồn tại");
         }
         InterviewCriteria saved = repository.save(InterviewCriteria.builder()
-                .tenantId(tenantId)
                 .name(req.name())
                 .description(req.description())
                 .active(true)
@@ -35,8 +34,8 @@ public class InterviewCriteriaService {
     }
 
     @Transactional
-    public InterviewCriteriaResponse update(Long tenantId, Long id, InterviewCriteriaRequest req) {
-        InterviewCriteria criteria = repository.findByIdAndTenantId(id, tenantId)
+    public InterviewCriteriaResponse update(Long id, InterviewCriteriaRequest req) {
+        InterviewCriteria criteria = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy tiêu chí đánh giá"));
         criteria.setName(req.name());
         criteria.setDescription(req.description());
@@ -44,8 +43,8 @@ public class InterviewCriteriaService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        InterviewCriteria criteria = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        InterviewCriteria criteria = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy tiêu chí đánh giá"));
         criteria.setActive(false);
         repository.save(criteria);

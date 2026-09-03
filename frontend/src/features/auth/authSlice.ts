@@ -3,6 +3,7 @@ import { jwtDecode } from "jwt-decode";
 import type { AuthUser, JwtPayload, LoginResponse, UserProfileResponse } from "./types";
 
 const STORAGE_KEY = "ats_auth";
+const SUPPORTED_ROLES = new Set(["COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER", "CANDIDATE"]);
 
 export interface AuthState {
     accessToken: string | null;
@@ -13,8 +14,27 @@ export interface AuthState {
 const loadFromStorage = (): AuthState | null => {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? (JSON.parse(raw) as AuthState) : null;
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as AuthState;
+        if (!parsed.accessToken) return null;
+        const decoded = jwtDecode<JwtPayload>(parsed.accessToken);
+        if (!SUPPORTED_ROLES.has(decoded.role) || !decoded.sub || !decoded.email) {
+            localStorage.removeItem(STORAGE_KEY);
+            return null;
+        }
+        return {
+            accessToken: parsed.accessToken,
+            refreshToken: parsed.refreshToken,
+            user: {
+                userId: decoded.sub,
+                email: decoded.email,
+                role: decoded.role,
+                departmentId: decoded.departmentId ?? null,
+                fullName: parsed.user?.fullName,
+            },
+        };
     } catch {
+        localStorage.removeItem(STORAGE_KEY);
         return null;
     }
 };
@@ -39,8 +59,9 @@ const authSlice = createSlice({
             state.refreshToken = refreshToken;
             state.user = {
                 userId: decoded.sub,
-                tenantId: decoded.tenantId,
+                email: decoded.email,
                 role: decoded.role,
+                departmentId: decoded.departmentId ?? null,
             };
 
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -55,6 +76,7 @@ const authSlice = createSlice({
             if (!state.user) return;
             state.user.fullName = action.payload.fullName;
             state.user.email = action.payload.email;
+            state.user.departmentId = action.payload.departmentId;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         },
     },

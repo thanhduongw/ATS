@@ -8,6 +8,7 @@ import type {
   ApplicationCommentResponse,
   PageResponse,
   BulkOperationResponse,
+  CandidateApplicationResponse,
 } from "./types";
 
 // ===== Application =====
@@ -25,6 +26,12 @@ export const getApplications = (params?: {
 
 export const getApplicationById = (id: number) =>
   axiosClient.get<ApplicationResponse>(`/application/applications/${id}`);
+
+export const getMyApplications = () =>
+  axiosClient.get<CandidateApplicationResponse[]>("/application/applications/my");
+
+export const getMyApplicationById = (id: number) =>
+  axiosClient.get<CandidateApplicationResponse>(`/application/applications/my/${id}`);
 
 export const getApplicationHistory = (id: number) =>
   axiosClient.get<ApplicationHistoryResponse[]>(`/application/applications/${id}/history`);
@@ -44,7 +51,7 @@ export const applyToJob = (data: {
   recruitmentSourceId: number;
   resumeUrl?: string | null;
   note?: string | null;
-}) => axiosClient.post<ApplicationResponse>("/application/applications", data);
+}) => axiosClient.post<CandidateApplicationResponse>("/application/applications", data);
 
 export const advanceApplicationStage = (id: number, data: ApplicationAdvanceStageRequest) =>
   axiosClient.patch<ApplicationResponse>(`/application/applications/${id}/advance-stage`, data);

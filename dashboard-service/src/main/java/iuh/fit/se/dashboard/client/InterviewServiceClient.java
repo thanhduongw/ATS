@@ -19,7 +19,6 @@ public interface InterviewServiceClient {
     /** Toàn bộ buổi phỏng vấn của 1 tin đăng — dùng để suy ra trạng thái PV gần nhất theo từng hồ sơ. */
     @GetMapping("/api/interview/interviews")
     List<InterviewSummary> getInterviewsByPosting(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
             @RequestParam("jobPostingId") Long jobPostingId);

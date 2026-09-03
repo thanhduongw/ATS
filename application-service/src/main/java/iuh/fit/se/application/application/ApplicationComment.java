@@ -17,9 +17,6 @@ public class ApplicationComment {
     @JoinColumn(name = "application_id", nullable = false)
     private Application application;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
     @Column(name = "author_user_id", nullable = false)
     private Long authorUserId;
 

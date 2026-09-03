@@ -14,23 +14,23 @@ public class WorkLocationService {
 
     private final WorkLocationRepository repository;
 
-    public List<WorkLocationResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByNameAsc(tenantId).stream().map(this::toResponse).toList();
+    public List<WorkLocationResponse> getAll() {
+        return repository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public WorkLocationResponse create(Long tenantId, WorkLocationRequest req) {
-        if (repository.existsByTenantIdAndNameIgnoreCase(tenantId, req.name())) {
+    public WorkLocationResponse create(WorkLocationRequest req) {
+        if (repository.existsByNameIgnoreCase(req.name())) {
             throw new BusinessException("Địa điểm làm việc đã tồn tại");
         }
         WorkLocation saved = repository.save(WorkLocation.builder()
-                .tenantId(tenantId).name(req.name()).address(req.address()).active(true).build());
+                .name(req.name()).address(req.address()).active(true).build());
         return toResponse(saved);
     }
 
     @Transactional
-    public WorkLocationResponse update(Long tenantId, Long id, WorkLocationRequest req) {
-        WorkLocation entity = repository.findByIdAndTenantId(id, tenantId)
+    public WorkLocationResponse update(Long id, WorkLocationRequest req) {
+        WorkLocation entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy địa điểm làm việc"));
         entity.setName(req.name());
         entity.setAddress(req.address());
@@ -38,8 +38,8 @@ public class WorkLocationService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        WorkLocation entity = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        WorkLocation entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy địa điểm làm việc"));
         entity.setActive(false);
         repository.save(entity);

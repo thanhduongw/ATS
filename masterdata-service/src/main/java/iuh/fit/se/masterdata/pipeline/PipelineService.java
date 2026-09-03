@@ -14,19 +14,18 @@ public class PipelineService {
 
     private final PipelineRepository pipelineRepository;
 
-    public List<PipelineResponse> getAll(Long tenantId) {
-        return pipelineRepository.findByTenantIdOrderByNameAsc(tenantId)
+    public List<PipelineResponse> getAll() {
+        return pipelineRepository.findAllByOrderByNameAsc()
                 .stream().map(this::toResponse).toList();
     }
 
-    public PipelineResponse getById(Long tenantId, Long id) {
-        return toResponse(findOwned(tenantId, id));
+    public PipelineResponse getById(Long id) {
+        return toResponse(findById(id));
     }
 
     @Transactional
-    public PipelineResponse create(Long tenantId, PipelineRequest req) {
+    public PipelineResponse create(PipelineRequest req) {
         RecruitmentPipeline pipeline = RecruitmentPipeline.builder()
-                .tenantId(tenantId)
                 .name(req.name())
                 .isDefault(false)
                 .active(true)
@@ -43,8 +42,8 @@ public class PipelineService {
     }
 
     @Transactional
-    public PipelineResponse update(Long tenantId, Long id, PipelineRequest req) {
-        RecruitmentPipeline pipeline = findOwned(tenantId, id);
+    public PipelineResponse update(Long id, PipelineRequest req) {
+        RecruitmentPipeline pipeline = findById(id);
         pipeline.setName(req.name());
 
         // MVP: xóa toàn bộ stage cũ, thêm lại theo danh sách mới (đơn giản hơn diff từng phần tử)
@@ -60,14 +59,14 @@ public class PipelineService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        RecruitmentPipeline pipeline = findOwned(tenantId, id);
+    public void softDelete(Long id) {
+        RecruitmentPipeline pipeline = findById(id);
         pipeline.setActive(false);
         pipelineRepository.save(pipeline);
     }
 
-    private RecruitmentPipeline findOwned(Long tenantId, Long id) {
-        return pipelineRepository.findByIdAndTenantId(id, tenantId)
+    private RecruitmentPipeline findById(Long id) {
+        return pipelineRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy quy trình tuyển dụng"));
     }
 

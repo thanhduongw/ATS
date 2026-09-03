@@ -2,16 +2,16 @@ package iuh.fit.se.recruitment.requisition;
 
 import iuh.fit.se.recruitment.client.AuthServiceClient;
 import iuh.fit.se.recruitment.client.dto.UserSummaryResponse;
-import iuh.fit.se.recruitment.common.AccessGuard;
 import iuh.fit.se.recruitment.event.AuditEventPublisher;
 import iuh.fit.se.recruitment.event.RequisitionEventPublisher;
 import iuh.fit.se.recruitment.exception.BusinessException;
 import iuh.fit.se.recruitment.common.PageResponse;
 import iuh.fit.se.recruitment.requisition.dto.*;
+import iuh.fit.se.recruitment.security.AuthorizationPolicy;
+import iuh.fit.se.recruitment.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,25 +30,25 @@ public class JobRequisitionService {
     private final AuditEventPublisher auditEventPublisher;
 
     public PageResponse<JobRequisitionResponse> getAll(
-            Long tenantId, Long userId, String role,
+            CurrentUser actor,
             RequisitionStatus status, Long departmentId, String keyword, Boolean assignedToMe,
             Integer page, Integer size) {
 
-        Long requesterId;
-        if (AccessGuard.isHr(role)) {
-            // HR / Company Admin: xem toàn bộ requisition của tenant
-            requesterId = null;
-        } else if (AccessGuard.isDepartment(role)) {
-            // Phòng ban: chỉ xem yêu cầu do mình tạo
-            requesterId = userId;
-        } else {
-            throw new AccessDeniedException("Bạn không có quyền xem danh sách yêu cầu tuyển dụng");
-        }
+        AuthorizationPolicy.requireInternal(actor);
+        AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
+        Long requesterId = null;
+        Long scopeDepartmentId = role == AuthorizationPolicy.Role.COMPANY_ADMIN ? null : actor.departmentId();
+        Long scopeApproverId = role == AuthorizationPolicy.Role.RECRUITER ? actor.userId() : null;
 
         // "Chờ tôi duyệt": chỉ có ý nghĩa với HR (approver), thu hẹp thêm theo approverId
-        Long approverId = (Boolean.TRUE.equals(assignedToMe) && AccessGuard.isHr(role)) ? userId : null;
+        Long approverId = Boolean.TRUE.equals(assignedToMe)
+                && (role == AuthorizationPolicy.Role.RECRUITER || role == AuthorizationPolicy.Role.COMPANY_ADMIN)
+                ? actor.userId() : null;
 
-        var spec = JobRequisitionSpecifications.build(tenantId, requesterId, approverId, status, departmentId, keyword);
+        var spec = JobRequisitionSpecifications.build(
+                requesterId, approverId, scopeDepartmentId, scopeApproverId,
+                status, departmentId, keyword,
+                role != AuthorizationPolicy.Role.COMPANY_ADMIN);
         Map<Long, String> userNameMap = buildUserNameMap();
 
         if (page == null && size == null) {
@@ -63,17 +63,19 @@ public class JobRequisitionService {
         return PageResponse.of(repository.findAll(spec, pageable).map(r -> toResponse(r, userNameMap)));
     }
 
-    public JobRequisitionResponse getById(Long tenantId, Long id) {
-        JobRequisition requisition = findOwned(tenantId, id);
+    public JobRequisitionResponse getById(Long id, CurrentUser actor) {
+        JobRequisition requisition = findById(id);
+        AuthorizationPolicy.requireCanViewJob(actor, requisition.getDepartmentId(), requisition.getApproverId());
         return toResponse(requisition, buildUserNameMap());
     }
 
     @Transactional
-    public JobRequisitionResponse create(Long tenantId, Long requesterId, JobRequisitionCreateRequest req) {
+    public JobRequisitionResponse create(CurrentUser actor, JobRequisitionCreateRequest req) {
+        AuthorizationPolicy.requireHiringManager(actor);
+        AuthorizationPolicy.requireSameDepartment(actor, req.departmentId());
         validateApprover(req.approverId());
 
         JobRequisition saved = repository.save(JobRequisition.builder()
-                .tenantId(tenantId)
                 .title(req.title())
                 .departmentId(req.departmentId())
                 .jobTitleId(req.jobTitleId())
@@ -94,7 +96,7 @@ public class JobRequisitionService {
                 .requirements(req.requirements())
                 .benefits(req.benefits())
                 .skillIds(req.skillIds() != null ? new java.util.ArrayList<>(req.skillIds()) : new java.util.ArrayList<>())
-                .requesterId(requesterId)
+                .requesterId(actor.userId())
                 .approverId(req.approverId())
                 .status(RequisitionStatus.DRAFT)
                 .build());
@@ -103,9 +105,12 @@ public class JobRequisitionService {
     }
 
     @Transactional
-    public JobRequisitionResponse update(Long tenantId, Long id, Long requesterId, JobRequisitionUpdateRequest req) {
-        JobRequisition requisition = findOwned(tenantId, id);
-        AccessGuard.requireOwner(requisition.getRequesterId(), requesterId);
+    public JobRequisitionResponse update(Long id, CurrentUser actor, JobRequisitionUpdateRequest req) {
+        JobRequisition requisition = findById(id);
+        AuthorizationPolicy.requireHiringManager(actor);
+        AuthorizationPolicy.requireSameDepartment(actor, requisition.getDepartmentId());
+        AuthorizationPolicy.requireSameDepartment(actor, req.departmentId());
+        AuthorizationPolicy.requireOwnerOrAdmin(actor, requisition.getRequesterId());
 
         if (requisition.getStatus() != RequisitionStatus.DRAFT
                 && requisition.getStatus() != RequisitionStatus.CHANGES_REQUESTED) {
@@ -143,9 +148,10 @@ public class JobRequisitionService {
     }
 
     @Transactional
-    public JobRequisitionResponse submit(Long tenantId, Long id, Long requesterId) {
-        JobRequisition requisition = findOwned(tenantId, id);
-        AccessGuard.requireOwner(requisition.getRequesterId(), requesterId);
+    public JobRequisitionResponse submit(Long id, CurrentUser actor) {
+        JobRequisition requisition = findById(id);
+        AuthorizationPolicy.requireSameDepartment(actor, requisition.getDepartmentId());
+        AuthorizationPolicy.requireOwnerOrAdmin(actor, requisition.getRequesterId());
 
         if (requisition.getStatus() != RequisitionStatus.DRAFT) {
             throw new BusinessException("Chỉ gửi duyệt được yêu cầu đang ở trạng thái bản nháp");
@@ -154,16 +160,17 @@ public class JobRequisitionService {
         requisition.setStatus(RequisitionStatus.PENDING_APPROVAL);
         JobRequisition saved = repository.save(requisition);
 
-        requisitionEventPublisher.publishSubmitted(tenantId, saved.getId(), saved.getApproverId(), saved.getTitle());
+        requisitionEventPublisher.publishSubmitted(saved.getId(), saved.getApproverId(), saved.getTitle());
 
         return toResponse(saved, buildUserNameMap());
     }
 
     @Transactional
-    public JobRequisitionResponse approve(Long tenantId, Long id, Long approverUserId,
+    public JobRequisitionResponse approve(Long id, CurrentUser actor,
                                           JobRequisitionApproveRequest req) {
-        JobRequisition requisition = findOwned(tenantId, id);
-        AccessGuard.requireApprover(requisition.getApproverId(), approverUserId);
+        JobRequisition requisition = findById(id);
+        AuthorizationPolicy.requireHr(actor);
+        AuthorizationPolicy.requireAssignedOrAdmin(actor, requisition.getApproverId());
 
         if (requisition.getStatus() != RequisitionStatus.PENDING_APPROVAL) {
             throw new BusinessException("Chỉ phê duyệt được yêu cầu đang chờ duyệt");
@@ -184,16 +191,17 @@ public class JobRequisitionService {
         requisition.setStatus(RequisitionStatus.APPROVED);
         JobRequisition saved = repository.save(requisition);
 
-        auditEventPublisher.publish(tenantId, approverUserId, "REQUISITION_APPROVED", "REQUISITION", saved.getId(),
+        auditEventPublisher.publish(actor.userId(), "REQUISITION_APPROVED", "REQUISITION", saved.getId(),
                 null);
 
         return toResponse(saved, buildUserNameMap());
     }
 
     @Transactional
-    public JobRequisitionResponse reject(Long tenantId, Long id, Long approverUserId, JobRequisitionRejectRequest req) {
-        JobRequisition requisition = findOwned(tenantId, id);
-        AccessGuard.requireApprover(requisition.getApproverId(), approverUserId);
+    public JobRequisitionResponse reject(Long id, CurrentUser actor, JobRequisitionRejectRequest req) {
+        JobRequisition requisition = findById(id);
+        AuthorizationPolicy.requireHr(actor);
+        AuthorizationPolicy.requireAssignedOrAdmin(actor, requisition.getApproverId());
 
         if (requisition.getStatus() != RequisitionStatus.PENDING_APPROVAL) {
             throw new BusinessException("Chỉ từ chối được yêu cầu đang chờ duyệt");
@@ -203,7 +211,7 @@ public class JobRequisitionService {
         requisition.setRejectReason(req.reason());
         JobRequisition saved = repository.save(requisition);
 
-        auditEventPublisher.publish(tenantId, approverUserId, "REQUISITION_REJECTED", "REQUISITION", saved.getId(),
+        auditEventPublisher.publish(actor.userId(), "REQUISITION_REJECTED", "REQUISITION", saved.getId(),
                 req.reason());
 
         return toResponse(saved, buildUserNameMap());
@@ -216,10 +224,11 @@ public class JobRequisitionService {
      * DRAFT) rồi gửi duyệt lại.
      */
     @Transactional
-    public JobRequisitionResponse requestChanges(Long tenantId, Long id, Long approverUserId,
+    public JobRequisitionResponse requestChanges(Long id, CurrentUser actor,
                                                  JobRequisitionRequestChangesRequest req) {
-        JobRequisition requisition = findOwned(tenantId, id);
-        AccessGuard.requireApprover(requisition.getApproverId(), approverUserId);
+        JobRequisition requisition = findById(id);
+        AuthorizationPolicy.requireHr(actor);
+        AuthorizationPolicy.requireAssignedOrAdmin(actor, requisition.getApproverId());
 
         if (requisition.getStatus() != RequisitionStatus.PENDING_APPROVAL) {
             throw new BusinessException("Chỉ yêu cầu chỉnh sửa được yêu cầu đang chờ duyệt");
@@ -229,21 +238,23 @@ public class JobRequisitionService {
         requisition.setHrNote(req.note());
         JobRequisition saved = repository.save(requisition);
 
-        auditEventPublisher.publish(tenantId, approverUserId, "REQUISITION_CHANGES_REQUESTED", "REQUISITION",
+        auditEventPublisher.publish(actor.userId(), "REQUISITION_CHANGES_REQUESTED", "REQUISITION",
                 saved.getId(), req.note());
 
         return toResponse(saved, buildUserNameMap());
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id, Long actorUserId) {
-        JobRequisition requisition = findOwned(tenantId, id);
+    public void softDelete(Long id, CurrentUser actor) {
+        JobRequisition requisition = findById(id);
+        AuthorizationPolicy.requireCanManageJob(actor, requisition.getDepartmentId(),
+                requisition.getRequesterId(), requisition.getApproverId());
         if (requisition.getStatus() == RequisitionStatus.APPROVED) {
             throw new BusinessException("Không thể xóa yêu cầu đã được phê duyệt (đã có thể phát sinh Job Posting)");
         }
         requisition.setDeletedAt(LocalDateTime.now());
         repository.save(requisition);
-        auditEventPublisher.publish(tenantId, actorUserId, "REQUISITION_DELETED", "REQUISITION", id, null);
+        auditEventPublisher.publish(actor.userId(), "REQUISITION_DELETED", "REQUISITION", id, null);
     }
 
     /**
@@ -266,8 +277,8 @@ public class JobRequisitionService {
                 .collect(java.util.stream.Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
     }
 
-    private JobRequisition findOwned(Long tenantId, Long id) {
-        return repository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
+    private JobRequisition findById(Long id) {
+        return repository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy yêu cầu tuyển dụng"));
     }
 

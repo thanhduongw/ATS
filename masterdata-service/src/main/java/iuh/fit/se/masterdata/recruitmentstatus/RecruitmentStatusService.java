@@ -14,23 +14,23 @@ public class RecruitmentStatusService {
 
     private final RecruitmentStatusRepository repository;
 
-    public List<RecruitmentStatusResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByOrderNoAsc(tenantId).stream().map(this::toResponse).toList();
+    public List<RecruitmentStatusResponse> getAll() {
+        return repository.findAllByOrderByOrderNoAsc().stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public RecruitmentStatusResponse create(Long tenantId, RecruitmentStatusRequest req) {
-        if (repository.existsByTenantIdAndNameIgnoreCase(tenantId, req.name())) {
+    public RecruitmentStatusResponse create(RecruitmentStatusRequest req) {
+        if (repository.existsByNameIgnoreCase(req.name())) {
             throw new BusinessException("Trạng thái tuyển dụng đã tồn tại");
         }
         RecruitmentStatus saved = repository.save(RecruitmentStatus.builder()
-                .tenantId(tenantId).name(req.name()).orderNo(req.orderNo()).active(true).build());
+                .name(req.name()).orderNo(req.orderNo()).active(true).build());
         return toResponse(saved);
     }
 
     @Transactional
-    public RecruitmentStatusResponse update(Long tenantId, Long id, RecruitmentStatusRequest req) {
-        RecruitmentStatus entity = repository.findByIdAndTenantId(id, tenantId)
+    public RecruitmentStatusResponse update(Long id, RecruitmentStatusRequest req) {
+        RecruitmentStatus entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy trạng thái tuyển dụng"));
         entity.setName(req.name());
         entity.setOrderNo(req.orderNo());
@@ -38,8 +38,8 @@ public class RecruitmentStatusService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        RecruitmentStatus entity = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        RecruitmentStatus entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy trạng thái tuyển dụng"));
         entity.setActive(false);
         repository.save(entity);

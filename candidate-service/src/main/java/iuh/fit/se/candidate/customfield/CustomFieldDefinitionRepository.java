@@ -6,8 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CustomFieldDefinitionRepository extends JpaRepository<CustomFieldDefinition, Long> {
-    List<CustomFieldDefinition> findByTenantIdOrderByFieldLabelAsc(Long tenantId);
-    List<CustomFieldDefinition> findByTenantIdAndActiveTrue(Long tenantId);
-    Optional<CustomFieldDefinition> findByIdAndTenantId(Long id, Long tenantId);
-    boolean existsByTenantIdAndFieldKeyIgnoreCase(Long tenantId, String fieldKey);
+    List<CustomFieldDefinition> findAllByOrderByFieldLabelAsc();
+    List<CustomFieldDefinition> findByActiveTrue();
+    boolean existsByFieldKeyIgnoreCase(String fieldKey);
 }

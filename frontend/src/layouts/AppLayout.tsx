@@ -1,297 +1,128 @@
-import { useEffect, useState } from "react";
-import { Avatar, Dropdown, Layout, Menu, Space, Typography, Breadcrumb, Button } from "antd";
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Avatar, Button, Dropdown, Layout, Menu, Space, Typography } from "antd";
 import {
-    DashboardOutlined, DatabaseOutlined, SolutionOutlined, TeamOutlined, AppstoreOutlined,
-    CalendarOutlined, FileTextOutlined, AuditOutlined, LogoutOutlined, UserOutlined,
-    ScheduleOutlined, GlobalOutlined, SettingOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
-    FolderOpenOutlined,
+    AppstoreOutlined, AuditOutlined, CalendarOutlined, DashboardOutlined,
+    DatabaseOutlined, FileTextOutlined, LogoutOutlined, MenuFoldOutlined,
+    MenuUnfoldOutlined, SettingOutlined, SolutionOutlined, TeamOutlined,
+    UserAddOutlined, UserOutlined,
 } from "@ant-design/icons";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import type { MenuProps } from "antd";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { logout, setUserProfile } from "../features/auth/authSlice";
-import { getMyProfile } from "../features/auth/authApi";
+import { getMyProfile, logoutRequest } from "../features/auth/authApi";
 import NotificationBell from "../features/notification/components/NotificationBell";
-import { COLORS, GRADIENTS } from "../app/theme";
-import type { UserRole } from "../features/auth/types";
 import { ROLE_LABELS } from "../app/roles";
-import { useI18n } from "../i18n/useI18n";
+import { COLORS, GRADIENTS } from "../app/theme";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
+type MenuItem = Required<MenuProps>["items"][number];
 
-/* ── Breadcrumb mapping ─────────────────────────── */
-const BREADCRUMB_MAP: Record<string, string> = {
-    "/dashboard": "Tổng quan",
-    "/masterdata": "Danh mục",
-    "/recruitment": "Tuyển dụng",
-    "/candidates": "Ứng viên",
-    "/applications": "Hồ sơ ứng tuyển",
-    "/scheduling": "Xếp lịch PV",
-    "/interviews": "Phỏng vấn",
-    "/offers": "Offer",
-    "/audit-logs": "Nhật ký",
-    "/settings": "Cài đặt",
-};
-
-/* Icon + màu đại diện cho từng khu vực — hiển thị gộp chung với breadcrumb trên header,
-   thay cho khối icon vuông + tiêu đề to lặp lại ở từng trang. */
-const PAGE_ICON_MAP: Record<string, { icon: React.ReactNode; gradient: string }> = {
-    "/masterdata": { icon: <DatabaseOutlined />, gradient: GRADIENTS.stat4 },
-    "/recruitment": { icon: <SolutionOutlined />, gradient: GRADIENTS.primary },
-    "/candidates": { icon: <UserOutlined />, gradient: GRADIENTS.stat2 },
-    "/applications": { icon: <FolderOpenOutlined />, gradient: GRADIENTS.stat2 },
-    "/interviews": { icon: <CalendarOutlined />, gradient: GRADIENTS.stat3 },
-    "/scheduling": { icon: <ScheduleOutlined />, gradient: GRADIENTS.stat4 },
-    "/offers": { icon: <FileTextOutlined />, gradient: GRADIENTS.stat3 },
-    "/settings": { icon: <SettingOutlined />, gradient: GRADIENTS.primary },
-};
+const item = (key: string, label: string, icon: React.ReactNode): MenuItem => ({ key, label, icon });
 
 export default function AppLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const dispatch = useAppDispatch();
-    const user = useAppSelector((s) => s.auth.user);
-    const { lang, setLang, t } = useI18n();
+    const user = useAppSelector((state) => state.auth.user);
+    const refreshToken = useAppSelector((state) => state.auth.refreshToken);
     const [collapsed, setCollapsed] = useState(false);
-    const [crumbLabel, setCrumbLabel] = useState<string | null>(null);
+    const [loggingOut, setLoggingOut] = useState(false);
 
-    // Đoạn cuối breadcrumb (ID trên URL) có thể được trang con ghi đè bằng tên thật — reset khi đổi route.
-    useEffect(() => { setCrumbLabel(null); }, [location.pathname]);
-
-    const all = {
-        dashboard: { key: "/dashboard", icon: <DashboardOutlined />, label: t("menu.dashboard") },
-        masterdata: { key: "/masterdata", icon: <DatabaseOutlined />, label: t("menu.masterdata") },
-        recruitment: { key: "/recruitment", icon: <SolutionOutlined />, label: t("menu.recruitment") },
-        candidates: { key: "/candidates", icon: <TeamOutlined />, label: t("menu.candidates") },
-        applications: { key: "/applications", icon: <AppstoreOutlined />, label: t("menu.applications") },
-        jobs: { key: "/jobs", icon: <SolutionOutlined />, label: lang === "vi" ? "Việc làm" : "Jobs" },
-        myApplications: { key: "/my-applications", icon: <AppstoreOutlined />, label: lang === "vi" ? "Đơn của tôi" : "My Applications" },
-        scheduling: { key: "/scheduling", icon: <ScheduleOutlined />, label: t("menu.scheduling") },
-        interviews: { key: "/interviews", icon: <CalendarOutlined />, label: t("menu.interviews") },
-        offers: { key: "/offers", icon: <FileTextOutlined />, label: t("menu.offers") },
-        audit: { key: "/audit-logs", icon: <AuditOutlined />, label: t("menu.audit") },
-        settings: { key: "/settings", icon: <SettingOutlined />, label: lang === "vi" ? "Cài đặt" : "Settings" },
-    };
-
-    const MENU_BY_ROLE: Record<UserRole, typeof all[keyof typeof all][]> = {
-        PLATFORM_ADMIN: [all.dashboard, all.audit],
-        COMPANY_ADMIN: [all.dashboard, all.masterdata, all.recruitment, all.candidates, all.applications, all.scheduling, all.interviews, all.offers, all.audit, all.settings],
-        RECRUITER: [all.dashboard, all.masterdata, all.recruitment, all.candidates,
-        // all.applications,
-        all.interviews, all.offers, all.settings],
-        HIRING_MANAGER: [all.dashboard, all.recruitment, all.candidates, all.interviews, all.offers, all.settings,],
-        CANDIDATE: [all.jobs, all.myApplications, all.scheduling],
-    };
-
-    const menuItems = user ? MENU_BY_ROLE[user.role] : [];
-
-    /* JWT chỉ chứa userId/tenantId/role — nạp thêm fullName/email để hiển thị đúng tên user */
     useEffect(() => {
         if (user && !user.fullName) {
-            getMyProfile()
-                .then((res) => dispatch(setUserProfile(res.data)))
-                .catch(() => { });
+            getMyProfile().then((response) => dispatch(setUserProfile(response.data))).catch(() => undefined);
         }
-    }, [user, dispatch]);
+    }, [dispatch, user]);
 
-    const handleLogout = () => { dispatch(logout()); navigate("/login"); };
+    const menuItems = useMemo<MenuItem[]>(() => {
+        if (!user) return [];
+        const dashboard = item("/dashboard", "Tổng quan", <DashboardOutlined />);
+        const recruitment = item("/recruitment", "Tuyển dụng", <SolutionOutlined />);
+        const candidates = item("/candidates", "Ứng viên", <TeamOutlined />);
+        const applications = item("/applications", "Hồ sơ ứng tuyển", <AppstoreOutlined />);
+        const interviews = item("/interviews", "Phỏng vấn", <CalendarOutlined />);
+        const offers = item("/offers", "Offer", <FileTextOutlined />);
+        const settings = item("/settings", "Cài đặt tài khoản", <SettingOutlined />);
 
-    /* Get user initials for avatar */
-    const getInitials = () => {
-        if (!user) return "U";
-        const name = user.fullName || user.email || "";
-        const parts = name.split(" ").filter(Boolean);
-        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        return name.substring(0, 2).toUpperCase();
+        if (user.role === "COMPANY_ADMIN") return [
+            dashboard,
+            item("/admin/users", "Quản lý người dùng", <UserAddOutlined />),
+            item("/masterdata", "Danh mục và phòng ban", <DatabaseOutlined />),
+            recruitment, candidates, applications, interviews, offers,
+            item("/audit-logs", "Nhật ký bảo mật", <AuditOutlined />),
+            settings,
+        ];
+        if (user.role === "RECRUITER") return [dashboard, recruitment, candidates, applications, interviews, offers, settings];
+        if (user.role === "HIRING_MANAGER") return [dashboard, recruitment, candidates, applications, interviews, offers, settings];
+        return [
+            item("/my-profile", "Hồ sơ của tôi", <UserOutlined />),
+            item("/jobs", "Việc làm", <SolutionOutlined />),
+            item("/my-applications", "Đơn của tôi", <AppstoreOutlined />),
+            item("/my-interviews", "Lịch phỏng vấn", <CalendarOutlined />),
+            item("/my-offers", "Offer của tôi", <FileTextOutlined />),
+            settings,
+        ];
+    }, [user]);
+
+    const selectedKey = menuItems
+        .map((entry) => entry && "key" in entry ? String(entry.key) : "")
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length)
+        .find((key) => location.pathname === key || location.pathname.startsWith(`${key}/`));
+
+    const initials = (user?.fullName || user?.email || "U")
+        .split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+
+    const handleLogout = async () => {
+        if (loggingOut) return;
+        setLoggingOut(true);
+        try {
+            if (refreshToken) await logoutRequest(refreshToken);
+        } finally {
+            dispatch(logout());
+            navigate("/login", { replace: true });
+        }
     };
 
-    /* Build breadcrumb — bỏ qua các đoạn ID/slug chưa được đặt tên ở giữa đường dẫn,
-       chỉ đoạn cuối mới fallback về giá trị thô (hoặc tên do trang con set qua crumbLabel).
-       Đoạn cuối được in đậm, sáng hơn — đóng vai trò tiêu đề trang luôn, thay cho khối
-       icon vuông + <h2> lặp lại riêng ở từng trang. */
-    const pathParts = location.pathname.split("/").filter(Boolean);
-    const breadcrumbItems: { title: React.ReactNode }[] = [];
-    pathParts.forEach((part, idx) => {
-        const path = "/" + pathParts.slice(0, idx + 1).join("/");
-        const isLast = idx === pathParts.length - 1;
-        const mapped = BREADCRUMB_MAP[path];
-        const label = mapped || (isLast ? crumbLabel || part : null);
-        if (label) {
-            breadcrumbItems.push({
-                title: isLast
-                    ? <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{label}</span>
-                    : label,
-            });
-        }
-    });
-
-    const pageIcon = PAGE_ICON_MAP["/" + (pathParts[0] ?? "")];
-
-    return (
-        /* ── Root: chiếm đúng 100vh, KHÔNG scroll toàn trang ── */
-        <Layout style={{ height: "100vh", overflow: "hidden" }}>
-
-            {/* ── Sidebar — cố định bên trái ─────────────────── */}
-            <Sider
-                collapsible
-                collapsed={collapsed}
-                onCollapse={setCollapsed}
-                trigger={null}
-                theme="light"
-                width={240}
-                collapsedWidth={64}
-                style={{
-                    height: "100vh",
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    borderRight: "1px solid #E5E7EB",
-                    boxShadow: "2px 0 8px rgba(0,0,0,0.04)",
-                    flexShrink: 0,
-                    position: "relative",
-                    zIndex: 10,
-                }}
-            >
-                {/* Logo — luôn cố định trên đầu sidebar */}
-                <div className={`sidebar-logo${collapsed ? " sidebar-logo--collapsed" : ""}`}>
-                    <div className="sidebar-logo-icon">A</div>
-                    {!collapsed && <span className="sidebar-logo-text">ATS</span>}
-                </div>
-
-                {/* Navigation menu — khu vực có thể scroll riêng */}
-                <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
-                    <Menu
-                        mode="inline"
-                        selectedKeys={[location.pathname]}
-                        items={menuItems}
-                        onClick={({ key }) => navigate(key)}
-                        inlineCollapsed={collapsed}
-                        style={{ borderInlineEnd: "none", padding: "8px 0" }}
-                    />
-                </div>
-
-                {/* User info — luôn cố định ở đáy sidebar */}
-                {user && !collapsed && (
-                    <div className="sidebar-user" style={{ flexShrink: 0 }}>
-                        <div className="sidebar-user-avatar">{getInitials()}</div>
-                        <div className="sidebar-user-info">
-                            <div className="sidebar-user-name">{user.fullName || user.email}</div>
-                            <div className="sidebar-user-role">{ROLE_LABELS[user.role][lang]}</div>
-                        </div>
-                    </div>
-                )}
-                {user && collapsed && (
-                    <div style={{
-                        padding: "12px 0",
-                        display: "flex",
-                        justifyContent: "center",
-                        borderTop: "1px solid #F3F4F6",
-                        flexShrink: 0,
-                    }}>
-                        <div className="sidebar-user-avatar" style={{ fontSize: 12 }}>{getInitials()}</div>
-                    </div>
-                )}
-            </Sider>
-
-            {/* ── Main Area — Header + Content cùng một cột ──── */}
-            <Layout style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
-
-                {/* Header — cố định trên đầu, không scroll */}
-                <Header
-                    className="app-header"
-                    style={{ flexShrink: 0, zIndex: 9 }}
-                >
-                    {/* Left: Toggle + Breadcrumb */}
-                    <div className="app-header-left">
-                        <Button
-                            type="text"
-                            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-                            onClick={() => setCollapsed(!collapsed)}
-                            style={{
-                                color: "rgba(255,255,255,0.8)",
-                                fontSize: 16,
-                                width: 36,
-                                height: 36,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                            }}
-                        />
-                        {pageIcon && (
-                            <div
-                                className="app-header-icon"
-                                style={{ background: pageIcon.gradient }}
-                            >
-                                {pageIcon.icon}
-                            </div>
-                        )}
-                        <Breadcrumb
-                            items={breadcrumbItems}
-                            style={{ margin: 0 }}
-                            separator={<span style={{ color: "rgba(255,255,255,0.3)" }}>/</span>}
-                        />
-                    </div>
-
-                    {/* Right: Lang + Bell + User */}
-                    <div className="app-header-right">
-                        <GlobalOutlined
-                            style={{ color: COLORS.accent, cursor: "pointer", fontSize: 16 }}
-                            onClick={() => setLang(lang === "vi" ? "en" : "vi")}
-                        />
-
-                        <NotificationBell />
-
-                        <Dropdown menu={{
-                            items: [
-                                {
-                                    key: "profile",
-                                    icon: <UserOutlined />,
-                                    label: lang === "vi" ? "Cài đặt tài khoản" : "Account Settings",
-                                    onClick: () => navigate("/settings"),
-                                },
-                                { type: "divider" },
-                                {
-                                    key: "logout",
-                                    icon: <LogoutOutlined />,
-                                    label: lang === "vi" ? "Đăng xuất" : "Logout",
-                                    danger: true,
-                                    onClick: handleLogout,
-                                },
-                            ]
-                        }}>
-                            <Space style={{ cursor: "pointer" }}>
-                                <Avatar
-                                    size={32}
-                                    style={{
-                                        background: "linear-gradient(135deg, #D9F99D 0%, #BEF264 100%)",
-                                        color: COLORS.header,
-                                        fontWeight: 700,
-                                        fontSize: 13,
-                                    }}
-                                >
-                                    {getInitials()}
-                                </Avatar>
-                                <Text style={{ color: "#fff", fontSize: 13, fontWeight: 500 }}>
-                                    {user?.fullName || user?.email || "User"}
-                                </Text>
-                            </Space>
-                        </Dropdown>
-                    </div>
-                </Header>
-
-                {/* Content — khu vực DUY NHẤT có scroll */}
-                <Content
-                    style={{
-                        flex: 1,
-                        overflowY: "auto",
-                        overflowX: "hidden",
-                        background: COLORS.body,
-                        minHeight: 0, // Quan trọng: cho phép flex item co lại
-                    }}
-                >
-                    <Outlet context={{ setBreadcrumbLabel: setCrumbLabel }} />
-                </Content>
-            </Layout>
+    return <Layout style={{ minHeight: "100vh" }}>
+        <Sider collapsible collapsed={collapsed} trigger={null} theme="light" width={240} collapsedWidth={64} style={{ borderRight: "1px solid #E5E7EB" }}>
+            <div className={`sidebar-logo${collapsed ? " sidebar-logo--collapsed" : ""}`}>
+                <div className="sidebar-logo-icon">A</div>
+                {!collapsed && <span className="sidebar-logo-text">ATS</span>}
+            </div>
+            <Menu mode="inline" selectedKeys={selectedKey ? [selectedKey] : []} items={menuItems} onClick={({ key }) => navigate(key)} style={{ borderInlineEnd: 0 }} />
+        </Sider>
+        <Layout>
+            <Header className="app-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: GRADIENTS.header }}>
+                <Button
+                    type="text"
+                    aria-label={collapsed ? "Mở menu" : "Thu gọn menu"}
+                    icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                    onClick={() => setCollapsed((value) => !value)}
+                    style={{ color: "#fff" }}
+                />
+                <Space size={16}>
+                    <NotificationBell />
+                    <Dropdown menu={{ items: [
+                        { key: "settings", icon: <SettingOutlined />, label: "Cài đặt", onClick: () => navigate("/settings") },
+                        { type: "divider" },
+                        { key: "logout", icon: <LogoutOutlined />, label: loggingOut ? "Đang xuất..." : "Đăng xuất", danger: true, disabled: loggingOut, onClick: handleLogout },
+                    ] }}>
+                        <Space style={{ cursor: "pointer" }}>
+                            <Avatar style={{ background: COLORS.primary }}>{initials}</Avatar>
+                            {!collapsed && <div style={{ lineHeight: 1.2 }}>
+                                <Text strong style={{ color: "#fff", display: "block" }}>{user?.fullName || user?.email}</Text>
+                                {user && <Text style={{ color: "rgba(255,255,255,.72)", fontSize: 12 }}>{ROLE_LABELS[user.role].vi}</Text>}
+                            </div>}
+                        </Space>
+                    </Dropdown>
+                </Space>
+            </Header>
+            <Content style={{ minHeight: 0, overflow: "auto", padding: 20, background: COLORS.body }}>
+                <Outlet />
+            </Content>
         </Layout>
-    );
+    </Layout>;
 }

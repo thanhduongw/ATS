@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface InterviewCriteriaRepository extends JpaRepository<InterviewCriteria, Long> {
-    List<InterviewCriteria> findByTenantIdOrderByNameAsc(Long tenantId);
-    Optional<InterviewCriteria> findByIdAndTenantId(Long id, Long tenantId);
-    boolean existsByTenantIdAndNameIgnoreCase(Long tenantId, String name);
+    List<InterviewCriteria> findAllByOrderByNameAsc();
+    boolean existsByNameIgnoreCase(String name);
 }

@@ -23,14 +23,11 @@ public class PostingStatsService {
     private final ApplicationServiceClient applicationServiceClient;
     private final InterviewServiceClient interviewServiceClient;
 
-    public PostingStatsResponse getStats(Long tenantId, Long userId, String role, Long jobPostingId) {
-        String safeRole = role != null ? role : "COMPANY_ADMIN";
-        Long safeUserId = userId != null ? userId : 0L;
-
+    public PostingStatsResponse getStats(Long userId, String role, Long jobPostingId) {
         List<ApplicationSummary> applications = safeList(() ->
-                applicationServiceClient.getApplicationsByPosting(tenantId, safeUserId, safeRole, jobPostingId).content());
+                applicationServiceClient.getApplicationsByPosting(userId, role, jobPostingId).content());
         List<InterviewSummary> interviews = safeList(() ->
-                interviewServiceClient.getInterviewsByPosting(tenantId, safeUserId, safeRole, jobPostingId));
+                interviewServiceClient.getInterviewsByPosting(userId, role, jobPostingId));
 
         Map<String, Long> byStage = applications.stream()
                 .collect(Collectors.groupingBy(

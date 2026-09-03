@@ -12,6 +12,10 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -35,6 +39,8 @@ app:
     refresh-token-expiration-ms: 604800000
   otp:
     expiration-minutes: 10
+  mail:
+    log-otp-on-failure: ${MAIL_LOG_OTP_ON_FAILURE:false}
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
   # Google SSO — để trống thì tính năng "Đăng nhập bằng Google" tự tắt, không ảnh hưởng khởi động service
   # (cố ý KHÔNG khai báo dưới spring.security.oauth2.client.registration.* — property đó bắt buộc
@@ -42,6 +48,10 @@ app:
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
     client-secret: ${GOOGLE_CLIENT_SECRET:}
+
+services:
+  masterdata-service:
+    url: ${SERVICES_MASTERDATA_SERVICE_URL:http://localhost:8082}
 
 springdoc:
   api-docs:

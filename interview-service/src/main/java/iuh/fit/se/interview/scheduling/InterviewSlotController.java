@@ -1,6 +1,8 @@
 package iuh.fit.se.interview.scheduling;
 
 import iuh.fit.se.interview.interview.dto.InterviewResponse;
+import iuh.fit.se.interview.security.AuthorizationPolicy;
+import iuh.fit.se.interview.security.CurrentUser;
 import iuh.fit.se.interview.scheduling.dto.InterviewSlotResponse;
 import iuh.fit.se.interview.scheduling.dto.SlotBatchCreateRequest;
 import iuh.fit.se.interview.scheduling.dto.SlotConfirmRequest;
@@ -20,44 +22,42 @@ public class InterviewSlotController {
 
     @PostMapping("/batch")
     public ResponseEntity<List<InterviewSlotResponse>> createBatch(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Id") Long actorUserId,
-            @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody SlotBatchCreateRequest req) {
-        return ResponseEntity.ok(service.createBatch(tenantId, actorUserId, role, req));
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireHr(actor);
+        return ResponseEntity.ok(service.createBatch(
+                actor.userId(), actor.role(), req));
     }
 
     @GetMapping
     public ResponseEntity<List<InterviewSlotResponse>> getSlots(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestParam Long applicationId) {
-        return ResponseEntity.ok(service.getSlots(tenantId, applicationId));
+        service.requireApplicationAccess(applicationId);
+        return ResponseEntity.ok(service.getSlots(applicationId));
     }
 
     @GetMapping("/my-pending")
-    public ResponseEntity<List<InterviewSlotResponse>> getMyPendingSlots(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Role") String role) {
-        return ResponseEntity.ok(service.getMyPendingSlots(tenantId, userId, role));
+    public ResponseEntity<List<InterviewSlotResponse>> getMyPendingSlots() {
+        CurrentUser actor = CurrentUser.required();
+        return ResponseEntity.ok(service.getMyPendingSlots(
+                actor.userId(), actor.role()));
     }
 
     @PostMapping("/{id}/confirm")
     public ResponseEntity<InterviewSlotResponse> confirmSlot(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
             @Valid @RequestBody SlotConfirmRequest req) {
-        return ResponseEntity.ok(service.confirmSlot(tenantId, userId, role, id, req));
+        CurrentUser actor = CurrentUser.required();
+        return ResponseEntity.ok(service.confirmSlot(
+                actor.userId(), actor.role(), id, req));
     }
 
     @PostMapping("/{id}/select")
     public ResponseEntity<InterviewResponse> selectSlot(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Id") Long actorUserId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id) {
-        return ResponseEntity.ok(service.selectSlot(tenantId, actorUserId, role, id));
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireHr(actor);
+        return ResponseEntity.ok(service.selectSlot(
+                actor.userId(), actor.role(), id));
     }
 }

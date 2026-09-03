@@ -5,7 +5,6 @@ import iuh.fit.se.application.client.dto.PipelineResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.util.List;
 
@@ -13,11 +12,11 @@ import java.util.List;
 public interface MasterDataServiceClient {
 
     @GetMapping("/api/masterdata/recruitment-sources")
-    List<CatalogItemResponse> getRecruitmentSources(@RequestHeader("X-Tenant-Id") Long tenantId);
+    List<CatalogItemResponse> getRecruitmentSources();
 
     @GetMapping("/api/masterdata/rejection-reasons")
-    List<CatalogItemResponse> getRejectionReasons(@RequestHeader("X-Tenant-Id") Long tenantId);
+    List<CatalogItemResponse> getRejectionReasons();
 
     @GetMapping("/api/masterdata/pipelines/{id}")
-    PipelineResponse getPipelineById(@RequestHeader("X-Tenant-Id") Long tenantId, @PathVariable("id") Long id);
+    PipelineResponse getPipelineById(@PathVariable("id") Long id);
 }

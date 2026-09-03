@@ -227,7 +227,7 @@ export default function OfferDetailModal({
         <Alert
           type="error"
           showIcon
-          message="Offer bị từ chối phê duyệt"
+          title="Offer bị từ chối phê duyệt"
           description={offer.rejectReason}
           style={{ marginBottom: 12, borderRadius: RADIUS.md }}
         />
@@ -236,7 +236,7 @@ export default function OfferDetailModal({
         <Alert
           type="warning"
           showIcon
-          message="Ứng viên từ chối offer"
+          title="Ứng viên từ chối offer"
           description={offer.declineReasonName + (offer.declineNote ? ` — ${offer.declineNote}` : "")}
           style={{ marginBottom: 12, borderRadius: RADIUS.md }}
         />

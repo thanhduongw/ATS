@@ -211,7 +211,7 @@ export default function AuditLogPage() {
                             Nhật ký hệ thống
                         </Title>
                         <Text type="secondary">
-                            Theo dõi thao tác quan trọng trên toàn tenant
+                            Theo dõi thao tác quan trọng trong toàn doanh nghiệp
                         </Text>
                     </div>
                 </div>

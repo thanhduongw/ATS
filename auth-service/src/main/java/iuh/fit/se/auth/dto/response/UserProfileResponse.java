@@ -2,9 +2,11 @@ package iuh.fit.se.auth.dto.response;
 
 public record UserProfileResponse(
         Long id,
-        Long tenantId,
         String email,
         String fullName,
+        String phone,
         String role,
-        String status
+        Long departmentId,
+        String status,
+        boolean emailVerified
 ) {}

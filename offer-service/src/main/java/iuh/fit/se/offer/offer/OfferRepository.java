@@ -7,6 +7,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface OfferRepository extends JpaRepository<Offer, Long>, JpaSpecificationExecutor<Offer> {
-    List<Offer> findByTenantIdAndApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long tenantId, Long applicationId);
-    Optional<Offer> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
+    List<Offer> findByApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long applicationId);
+    Optional<Offer> findByIdAndDeletedAtIsNull(Long id);
 }

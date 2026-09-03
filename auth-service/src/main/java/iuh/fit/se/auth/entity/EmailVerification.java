@@ -1,6 +1,11 @@
 package iuh.fit.se.auth.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
 
@@ -12,14 +17,11 @@ public class EmailVerification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
     @Column(nullable = false)
     private String email;
 
     @Column(name = "otp_code", nullable = false)
-    private String otpCode;
+    private String otpHash;
 
     @Column(name = "expiry_date", nullable = false)
     private LocalDateTime expiryDate;
@@ -27,51 +29,53 @@ public class EmailVerification {
     @Column(nullable = false)
     private boolean verified;
 
-    public EmailVerification() {}
+    @Column(name = "failed_attempts", nullable = false)
+    private int failedAttempts;
 
-    public EmailVerification(Long id, Long tenantId, String email, String otpCode, LocalDateTime expiryDate, boolean verified) {
+    public EmailVerification() {
+    }
+
+    public EmailVerification(Long id, String email, String otpHash,
+                             LocalDateTime expiryDate, boolean verified, int failedAttempts) {
         this.id = id;
-        this.tenantId = tenantId;
         this.email = email;
-        this.otpCode = otpCode;
+        this.otpHash = otpHash;
         this.expiryDate = expiryDate;
         this.verified = verified;
+        this.failedAttempts = failedAttempts;
     }
 
-    public static EmailVerificationBuilder builder() {
-        return new EmailVerificationBuilder();
-    }
+    public static EmailVerificationBuilder builder() { return new EmailVerificationBuilder(); }
 
     public static class EmailVerificationBuilder {
         private Long id;
-        private Long tenantId;
         private String email;
-        private String otpCode;
+        private String otpHash;
         private LocalDateTime expiryDate;
         private boolean verified;
+        private int failedAttempts;
 
         public EmailVerificationBuilder id(Long id) { this.id = id; return this; }
-        public EmailVerificationBuilder tenantId(Long tenantId) { this.tenantId = tenantId; return this; }
         public EmailVerificationBuilder email(String email) { this.email = email; return this; }
-        public EmailVerificationBuilder otpCode(String otpCode) { this.otpCode = otpCode; return this; }
+        public EmailVerificationBuilder otpHash(String otpHash) { this.otpHash = otpHash; return this; }
         public EmailVerificationBuilder expiryDate(LocalDateTime expiryDate) { this.expiryDate = expiryDate; return this; }
         public EmailVerificationBuilder verified(boolean verified) { this.verified = verified; return this; }
-
+        public EmailVerificationBuilder failedAttempts(int failedAttempts) { this.failedAttempts = failedAttempts; return this; }
         public EmailVerification build() {
-            return new EmailVerification(id, tenantId, email, otpCode, expiryDate, verified);
+            return new EmailVerification(id, email, otpHash, expiryDate, verified, failedAttempts);
         }
     }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public Long getTenantId() { return tenantId; }
-    public void setTenantId(Long tenantId) { this.tenantId = tenantId; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
-    public String getOtpCode() { return otpCode; }
-    public void setOtpCode(String otpCode) { this.otpCode = otpCode; }
+    public String getOtpHash() { return otpHash; }
+    public void setOtpHash(String otpHash) { this.otpHash = otpHash; }
     public LocalDateTime getExpiryDate() { return expiryDate; }
     public void setExpiryDate(LocalDateTime expiryDate) { this.expiryDate = expiryDate; }
     public boolean isVerified() { return verified; }
     public void setVerified(boolean verified) { this.verified = verified; }
+    public int getFailedAttempts() { return failedAttempts; }
+    public void setFailedAttempts(int failedAttempts) { this.failedAttempts = failedAttempts; }
 }

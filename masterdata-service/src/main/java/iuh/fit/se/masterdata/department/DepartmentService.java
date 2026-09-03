@@ -15,18 +15,24 @@ public class DepartmentService {
 
     private final DepartmentRepository repository;
 
-    public List<DepartmentResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByNameAsc(tenantId)
+    public List<DepartmentResponse> getAll() {
+        return repository.findAllByOrderByNameAsc()
                 .stream().map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
+    public boolean existsActive(Long id) {
+        return repository.findById(id)
+                .map(Department::isActive)
+                .orElse(false);
+    }
+
     @Transactional
-    public DepartmentResponse create(Long tenantId, DepartmentRequest req) {
-        if (repository.existsByTenantIdAndNameIgnoreCase(tenantId, req.name())) {
+    public DepartmentResponse create(DepartmentRequest req) {
+        if (repository.existsByNameIgnoreCase(req.name())) {
             throw new BusinessException("Phòng ban đã tồn tại");
         }
         Department saved = repository.save(Department.builder()
-                .tenantId(tenantId)
                 .name(req.name())
                 .description(req.description())
                 .active(true)
@@ -35,8 +41,8 @@ public class DepartmentService {
     }
 
     @Transactional
-    public DepartmentResponse update(Long tenantId, Long id, DepartmentRequest req) {
-        Department dept = repository.findByIdAndTenantId(id, tenantId)
+    public DepartmentResponse update(Long id, DepartmentRequest req) {
+        Department dept = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy phòng ban"));
         dept.setName(req.name());
         dept.setDescription(req.description());
@@ -44,8 +50,8 @@ public class DepartmentService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        Department dept = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        Department dept = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy phòng ban"));
         dept.setActive(false);
         repository.save(dept);

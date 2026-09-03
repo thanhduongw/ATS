@@ -14,23 +14,23 @@ public class EducationLevelService {
 
     private final EducationLevelRepository repository;
 
-    public List<EducationLevelResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByOrderNoAsc(tenantId).stream().map(this::toResponse).toList();
+    public List<EducationLevelResponse> getAll() {
+        return repository.findAllByOrderByOrderNoAsc().stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public EducationLevelResponse create(Long tenantId, EducationLevelRequest req) {
-        if (repository.existsByTenantIdAndNameIgnoreCase(tenantId, req.name())) {
+    public EducationLevelResponse create(EducationLevelRequest req) {
+        if (repository.existsByNameIgnoreCase(req.name())) {
             throw new BusinessException("Trình độ học vấn đã tồn tại");
         }
         EducationLevel saved = repository.save(EducationLevel.builder()
-                .tenantId(tenantId).name(req.name()).orderNo(req.orderNo()).active(true).build());
+                .name(req.name()).orderNo(req.orderNo()).active(true).build());
         return toResponse(saved);
     }
 
     @Transactional
-    public EducationLevelResponse update(Long tenantId, Long id, EducationLevelRequest req) {
-        EducationLevel entity = repository.findByIdAndTenantId(id, tenantId)
+    public EducationLevelResponse update(Long id, EducationLevelRequest req) {
+        EducationLevel entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy trình độ học vấn"));
         entity.setName(req.name());
         entity.setOrderNo(req.orderNo());
@@ -38,8 +38,8 @@ public class EducationLevelService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        EducationLevel entity = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        EducationLevel entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy trình độ học vấn"));
         entity.setActive(false);
         repository.save(entity);

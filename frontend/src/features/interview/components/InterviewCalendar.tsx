@@ -37,14 +37,14 @@ import type { ColumnsType } from "antd/es/table";
 import type { AxiosError } from "axios";
 
 import { getInterviews } from "../interviewApi";
-import { getUsers } from "../../auth/authApi";
+import { getUserDirectory } from "../../auth/authApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type {
   ApiMessageResponse,
   InterviewResponse,
   InterviewStatus as InterviewStatusType,
 } from "../types";
-import type { UserSummaryResponse, UserRole } from "../../auth/types";
+import type { UserDirectoryResponse, UserRole } from "../../auth/types";
 import InterviewDetailModal from "./InterviewDetailModal";
 import InterviewQuickCreateModal from "./InterviewQuickCreateModal";
 import BulkScheduleModal from "./BulkScheduleModal";
@@ -82,7 +82,7 @@ export default function InterviewCalendar() {
   const [quickCreateStart, setQuickCreateStart] = useState<Dayjs | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
 
-  const [interviewers, setInterviewers] = useState<UserSummaryResponse[]>([]);
+  const [interviewers, setInterviewers] = useState<UserDirectoryResponse[]>([]);
   const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
   const [interviewerId, setInterviewerId] = useState<number | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<InterviewStatusType | undefined>(undefined);
@@ -117,7 +117,7 @@ export default function InterviewCalendar() {
   }, [loadInterviews]);
 
   useEffect(() => {
-    if (isHr) getUsers("HIRING_MANAGER").then((r) => setInterviewers(r.data));
+    if (isHr) getUserDirectory("HIRING_MANAGER").then((r) => setInterviewers(r.data));
     getCatalogItems("/masterdata/work-locations").then((r) =>
       setWorkLocationMap(Object.fromEntries(r.data.map((w) => [w.id, String(w.name)]))),
     );

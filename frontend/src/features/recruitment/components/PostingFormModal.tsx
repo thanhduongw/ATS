@@ -264,7 +264,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     type="warning"
                     showIcon
                     style={{ marginBottom: 12, borderRadius: RADIUS.md }}
-                    message="Tin tuyển dụng này đã có ứng viên nộp hồ sơ nên không thể đổi Quy trình tuyển dụng."
+                    title="Tin tuyển dụng này đã có ứng viên nộp hồ sơ nên không thể đổi Quy trình tuyển dụng."
                 />
             )}
             {!editingItem && approvedRequisitions.length === 0 && (
@@ -272,7 +272,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     type="warning"
                     showIcon
                     style={{ marginBottom: 12, borderRadius: RADIUS.md }}
-                    message="Hiện chưa có yêu cầu tuyển dụng nào được HR phê duyệt để đăng tin."
+                    title="Hiện chưa có yêu cầu tuyển dụng nào được HR phê duyệt để đăng tin."
                 />
             )}
             {/* {!editingItem && (
@@ -280,7 +280,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     type="info"
                     showIcon
                     style={{ marginBottom: 12, borderRadius: RADIUS.md }}
-                    message="Chỉ đăng tin từ yêu cầu đã được HR phê duyệt. Các thông tin sẽ được điền sẵn theo yêu cầu, bạn có thể chỉnh lại trước khi đăng."
+                    title="Chỉ đăng tin từ yêu cầu đã được HR phê duyệt. Các thông tin sẽ được điền sẵn theo yêu cầu, bạn có thể chỉnh lại trước khi đăng."
                 />
             )} */}
             <Form layout="vertical">

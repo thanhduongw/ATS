@@ -12,9 +12,6 @@ public class EmailTemplate {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
     @Column(nullable = false)
     private String code; // vd: INTERVIEW_INVITATION, OFFER_LETTER, REJECTION_NOTICE
 

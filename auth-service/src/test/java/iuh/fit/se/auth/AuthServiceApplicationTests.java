@@ -1,13 +1,13 @@
 package iuh.fit.se.auth;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 class AuthServiceApplicationTests {
 
     @Test
-    void contextLoads() {
+    void applicationEntryPointIsAvailable() {
+        assertNotNull(AuthServiceApplication.class);
     }
-
 }

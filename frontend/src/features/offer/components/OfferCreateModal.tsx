@@ -19,11 +19,11 @@ import {
   type OfferCreateFormValues,
 } from "../schemas/offerCreateSchema";
 import { createOffer } from "../offerApi";
-import { getUsers } from "../../auth/authApi";
+import { getUserDirectory } from "../../auth/authApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { getApplications } from "../../candidate/applicationApi";
 import type { ApiMessageResponse } from "../types";
-import type { UserSummaryResponse } from "../../auth/types";
+import type { UserDirectoryResponse } from "../../auth/types";
 import type { CatalogItem } from "../../masterdata/types";
 import type { ApplicationResponse } from "../../candidate/types";
 import { FileAddOutlined } from "@ant-design/icons";
@@ -47,7 +47,7 @@ export default function OfferCreateModal({
   const prefillSalary = searchParams.get("salary");
   const prefillAppId = searchParams.get("applicationId");
 
-  const [approvers, setApprovers] = useState<UserSummaryResponse[]>([]);
+  const [approvers, setApprovers] = useState<UserDirectoryResponse[]>([]);
   const [contractTypes, setContractTypes] = useState<CatalogItem[]>([]);
   const [applications, setApplications] = useState<ApplicationResponse[]>([]);
 
@@ -65,8 +65,8 @@ export default function OfferCreateModal({
 
     Promise.all([
       getCatalogItems("/masterdata/contract-types"),
-      getUsers("HIRING_MANAGER"),
-      getUsers("COMPANY_ADMIN"),
+      getUserDirectory("HIRING_MANAGER"),
+      getUserDirectory("COMPANY_ADMIN"),
     ]).then(([ctRes, hmRes, adminRes]) => {
       setContractTypes(ctRes.data.filter((c) => c.active !== false));
       const combined = [...hmRes.data, ...adminRes.data];
@@ -143,7 +143,7 @@ export default function OfferCreateModal({
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message="Chỉ tạo Offer khi hồ sơ đã ở giai đoạn Offer. Sau khi tạo, gửi duyệt cho Phòng ban."
+        title="Chỉ tạo Offer khi hồ sơ đã ở giai đoạn Offer. Sau khi tạo, gửi duyệt cho Phòng ban."
       />
 
       <Form layout="vertical">

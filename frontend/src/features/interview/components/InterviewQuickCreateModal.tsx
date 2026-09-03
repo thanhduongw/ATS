@@ -26,10 +26,10 @@ import type { AxiosError } from "axios";
 
 import { createInterview, getInterviews } from "../interviewApi";
 import { getApplications } from "../../candidate/applicationApi";
-import { getUsers } from "../../auth/authApi";
+import { getUserDirectory } from "../../auth/authApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { ApplicationResponse } from "../../candidate/types";
-import type { UserSummaryResponse } from "../../auth/types";
+import type { UserDirectoryResponse } from "../../auth/types";
 import type { CatalogItem } from "../../masterdata/types";
 import type { ApiMessageResponse, InterviewFormat, InterviewResponse } from "../types";
 import { isSchedulable, applicationOptionLabel } from "../scheduleEligibility";
@@ -57,7 +57,7 @@ export default function InterviewQuickCreateModal({
     const { message } = App.useApp();
 
     const [applications, setApplications] = useState<ApplicationResponse[]>([]);
-    const [interviewers, setInterviewers] = useState<UserSummaryResponse[]>([]);
+    const [interviewers, setInterviewers] = useState<UserDirectoryResponse[]>([]);
     const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
     const [existingInterviews, setExistingInterviews] = useState<InterviewResponse[]>([]);
 
@@ -84,7 +84,7 @@ export default function InterviewQuickCreateModal({
         setNote("");
 
         getApplications({ size: 200 }).then((r) => setApplications(r.data.content));
-        getUsers("HIRING_MANAGER").then((r) => setInterviewers(r.data));
+        getUserDirectory("HIRING_MANAGER").then((r) => setInterviewers(r.data));
         getCatalogItems("/masterdata/work-locations").then((r) => setWorkLocations(r.data));
         getInterviews().then((r) => setExistingInterviews(r.data)).catch(() => setExistingInterviews([]));
     }, [open, defaultStart, lockedApplicationId]);
@@ -239,7 +239,7 @@ export default function InterviewQuickCreateModal({
                         type="warning"
                         showIcon
                         icon={<WarningOutlined />}
-                        message="Người phỏng vấn đã có lịch trùng khung giờ này"
+                        title="Người phỏng vấn đã có lịch trùng khung giờ này"
                         description={
                             <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
                                 {conflicts.map((c) => (

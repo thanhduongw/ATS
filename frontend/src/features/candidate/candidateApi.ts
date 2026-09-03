@@ -3,6 +3,8 @@ import type {
   CandidateResponse,
   CandidateCreateRequest,
   CandidateUpdateRequest,
+  CandidateSelfResponse,
+  CandidateSelfUpdateRequest,
   PageResponse,
   BulkOperationResponse,
 } from "./types";
@@ -36,8 +38,19 @@ export const uploadCandidateCv = (id: number, file: File) => {
 };
 
 /** Candidate tự tạo/lấy hồ sơ của mình — gọi 1 lần trước khi apply (idempotent). */
-export const ensureMyCandidateProfile = (data: { email: string; fullName: string }) =>
-  axiosClient.post<CandidateResponse>("/candidate/candidates/me", data);
+export const getMyCandidateProfile = () =>
+  axiosClient.get<CandidateSelfResponse>("/candidate/me");
+
+export const updateMyCandidateProfile = (data: CandidateSelfUpdateRequest) =>
+  axiosClient.patch<CandidateSelfResponse>("/candidate/me", data);
+
+export const uploadMyCandidateResume = (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return axiosClient.post<CandidateSelfResponse>("/candidate/me/resume", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 export const bulkDeleteCandidates = (ids: number[]) =>
   axiosClient.post<BulkOperationResponse>("/candidate/candidates/bulk-delete", { ids });
@@ -51,4 +64,4 @@ export const removeCandidateTag = (id: number, tagId: number) =>
 
 // ===== GDPR self-service =====
 export const requestOwnDataDeletion = () =>
-  axiosClient.post<{ message: string }>("/candidate/candidates/me/request-deletion");
+  axiosClient.post<{ message: string }>("/candidate/me/request-deletion");

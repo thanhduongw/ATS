@@ -1,6 +1,7 @@
 package iuh.fit.se.masterdata.interviewcriteria;
 
-import iuh.fit.se.masterdata.common.AccessGuard;
+import iuh.fit.se.masterdata.security.AuthorizationPolicy;
+import iuh.fit.se.masterdata.security.CurrentUser;
 import iuh.fit.se.masterdata.interviewcriteria.dto.InterviewCriteriaRequest;
 import iuh.fit.se.masterdata.interviewcriteria.dto.InterviewCriteriaResponse;
 import jakarta.validation.Valid;
@@ -20,36 +21,30 @@ public class InterviewCriteriaController {
 
     @GetMapping
     public ResponseEntity<List<InterviewCriteriaResponse>> getAll(
-            @RequestHeader("X-Tenant-Id") Long tenantId) {
-        return ResponseEntity.ok(service.getAll(tenantId));
+            ) {
+        return ResponseEntity.ok(service.getAll());
     }
 
     @PostMapping
     public ResponseEntity<InterviewCriteriaResponse> create(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody InterviewCriteriaRequest req) {
-        AccessGuard.requireCompanyAdmin(role);
-        return ResponseEntity.ok(service.create(tenantId, req));
+        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        return ResponseEntity.ok(service.create(req));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<InterviewCriteriaResponse> update(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
             @Valid @RequestBody InterviewCriteriaRequest req) {
-        AccessGuard.requireCompanyAdmin(role);
-        return ResponseEntity.ok(service.update(tenantId, id, req));
+        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        return ResponseEntity.ok(service.update(id, req));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id) {
-        AccessGuard.requireCompanyAdmin(role);
-        service.softDelete(tenantId, id);
+        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        service.softDelete(id);
         return ResponseEntity.ok(Map.of("message", "Xóa tiêu chí đánh giá thành công"));
     }
 }

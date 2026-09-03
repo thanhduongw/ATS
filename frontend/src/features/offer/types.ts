@@ -75,3 +75,22 @@ export interface OfferDeclineRequest {
 export interface ApiMessageResponse {
   message: string;
 }
+
+export interface CandidateOfferResponse {
+  id: number;
+  applicationId: number;
+  candidateName: string;
+  salaryOffered: number;
+  contractTypeId: number;
+  contractTypeName: string;
+  startDate: string;
+  probationMonths: number;
+  responseDeadline: string | null;
+  benefits: string | null;
+  allowance: number | null;
+  note: string | null;
+  status: OfferStatus;
+  declineReasonName: string | null;
+  declineNote: string | null;
+  createdAt: string;
+}

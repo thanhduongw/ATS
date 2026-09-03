@@ -38,7 +38,6 @@ public class StaleApplicationReminderJob {
             if (application.getAssignedRecruiterId() == null) continue;
             long days = Duration.between(application.getUpdatedAt(), LocalDateTime.now()).toDays();
             eventPublisher.publishApplicationStale(
-                    application.getTenantId(),
                     application.getId(),
                     application.getAssignedRecruiterId(),
                     application.getCandidateNameSnapshot(),

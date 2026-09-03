@@ -19,9 +19,6 @@ public class InterviewSlot {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
     @Column(name = "application_id", nullable = false)
     private Long applicationId;
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { List, Tag, Button, Segmented, message } from "antd";
+import { Button, Card, Empty, Segmented, Spin, Tag, message } from "antd";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { getInterviews } from "../interviewApi";
@@ -62,38 +62,44 @@ export default function MyEvaluationsList() {
         style={{ marginBottom: 16 }}
       />
 
-      <List
-        loading={loading}
-        bordered
-        dataSource={displayed}
-        renderItem={({ interview, submitted }) => (
-          <List.Item
-            actions={[
-              submitted ? (
-                <Tag color="green">Đã nộp</Tag>
-              ) : (
-                <Button
-                  type="primary"
-                  size="small"
-                  onClick={() => {
-                    setTargetInterviewId(interview.id);
-                    setSubmitModalOpen(true);
-                  }}
-                >
-                  Nộp đánh giá
-                </Button>
-              ),
-            ]}
-          >
-            <List.Item.Meta
-              title={interview.candidateName}
-              description={`${dayjs(interview.scheduledAt).format("HH:mm DD/MM/YYYY")} · ${
-                interview.format === "ONLINE" ? "Online" : "Offline"
-              }`}
-            />
-          </List.Item>
-        )}
-      />
+      {loading ? (
+        <div style={{ padding: 32, textAlign: "center" }}>
+          <Spin />
+        </div>
+      ) : displayed.length === 0 ? (
+        <Empty description="Không có lịch phỏng vấn phù hợp" />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {displayed.map(({ interview, submitted }) => (
+            <Card key={interview.id} size="small">
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{interview.candidateName}</div>
+                  <div style={{ color: "rgba(0,0,0,0.45)", fontSize: 13 }}>
+                    {`${dayjs(interview.scheduledAt).format("HH:mm DD/MM/YYYY")} · ${
+                      interview.format === "ONLINE" ? "Online" : "Offline"
+                    }`}
+                  </div>
+                </div>
+                {submitted ? (
+                  <Tag color="green" style={{ margin: 0 }}>Đã nộp</Tag>
+                ) : (
+                  <Button
+                    type="primary"
+                    size="small"
+                    onClick={() => {
+                      setTargetInterviewId(interview.id);
+                      setSubmitModalOpen(true);
+                    }}
+                  >
+                    Nộp đánh giá
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <EvaluationSubmitModal
         open={submitModalOpen}

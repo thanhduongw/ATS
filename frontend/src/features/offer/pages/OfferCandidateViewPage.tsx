@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import {
     Card,
     Button,
@@ -24,10 +24,11 @@ import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import {
     getOfferById,
+    getMyOffers,
     acceptOffer,
     declineOffer,
 } from "../offerCandidateApi";
-import type { ApiMessageResponse, OfferResponse } from "../types";
+import type { ApiMessageResponse, CandidateOfferResponse } from "../types";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
 
@@ -35,9 +36,10 @@ const { Title, Text, Paragraph } = Typography;
 
 export default function OfferCandidateViewPage() {
     const { id } = useParams();
+    const location = useLocation();
     const { message: msg } = App.useApp();
 
-    const [offer, setOffer] = useState<OfferResponse | null>(null);
+    const [offer, setOffer] = useState<CandidateOfferResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [forbidden, setForbidden] = useState(false);
     const [notFound, setNotFound] = useState(false);
@@ -53,9 +55,17 @@ export default function OfferCandidateViewPage() {
         setForbidden(false);
         setNotFound(false);
         try {
-            const r = await getOfferById(Number(id));
-            setOffer(r.data);
-            if (r.data.status === "ACCEPTED") setAccepted(true);
+            const byApplication = location.pathname.startsWith("/offers/candidate/");
+            const r = byApplication
+                ? await getMyOffers(Number(id))
+                : await getOfferById(Number(id));
+            const loadedOffer = Array.isArray(r.data) ? r.data[0] : r.data;
+            if (!loadedOffer) {
+                setNotFound(true);
+                return;
+            }
+            setOffer(loadedOffer);
+            if (loadedOffer.status === "ACCEPTED") setAccepted(true);
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
             if (e.response?.status === 403) setForbidden(true);
@@ -64,7 +74,7 @@ export default function OfferCandidateViewPage() {
         } finally {
             setLoading(false);
         }
-    }, [id, msg]);
+    }, [id, location.pathname, msg]);
 
     useEffect(() => {
         load();

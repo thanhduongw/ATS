@@ -5,5 +5,6 @@ public record UserSummaryResponse(
         String fullName,
         String email,
         String role,
+        Long departmentId,
         String status
 ) {}

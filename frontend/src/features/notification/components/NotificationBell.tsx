@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
     Badge,
     Dropdown,
-    List,
     Button,
     Empty,
     Typography,
@@ -30,6 +29,7 @@ import {
 } from "../notificationRoutes";
 import type { UserRole } from "../../auth/types";
 import { COLORS } from "../../../app/theme";
+import { ensureFreshAccessToken } from "../../../services/axiosClient";
 
 const { Text } = Typography;
 
@@ -71,24 +71,33 @@ export default function NotificationBell() {
 
     useEffect(() => {
         if (!accessToken) return;
+        let cancelled = false;
 
-        connectNotificationSocket(accessToken, (payload) => {
-            const n = payload as NotificationResponse;
-            if (!n?.id) return;
+        ensureFreshAccessToken()
+            .then((freshToken) => {
+                if (cancelled || !freshToken) return;
+                connectNotificationSocket(freshToken, (payload) => {
+                    const n = payload as NotificationResponse;
+                    if (!n?.id) return;
 
-            setNotifications((prev) => {
-                if (prev.some((x) => x.id === n.id)) return prev;
-                return [n, ...prev];
+                    setNotifications((prev) => {
+                        if (prev.some((x) => x.id === n.id)) return prev;
+                        return [n, ...prev];
+                    });
+                    setUnreadCount((prev) => prev + 1);
+
+                    antMessage.info({
+                        content: n.title || "Thông báo mới",
+                        duration: 3,
+                    });
+                });
+            })
+            .catch(() => {
+                // axiosClient sẽ điều hướng đăng nhập nếu refresh token không còn hợp lệ.
             });
-            setUnreadCount((prev) => prev + 1);
-
-            antMessage.info({
-                content: n.title || "Thông báo mới",
-                duration: 3,
-            });
-        });
 
         return () => {
+            cancelled = true;
             disconnectNotificationSocket();
         };
     }, [accessToken, antMessage]);
@@ -184,11 +193,10 @@ export default function NotificationBell() {
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                 />
             ) : (
-                <List
-                    style={{ maxHeight: 420, overflowY: "auto" }}
-                    dataSource={notifications.slice(0, 50)}
-                    renderItem={(item) => (
-                        <List.Item
+                <div style={{ maxHeight: 420, overflowY: "auto" }}>
+                    {notifications.slice(0, 50).map((item) => (
+                        <div
+                            key={item.id}
                             style={{
                                 padding: "10px 16px",
                                 margin: 0,
@@ -198,63 +206,56 @@ export default function NotificationBell() {
                             }}
                             onClick={() => handleClickItem(item)}
                         >
-                            <List.Item.Meta
-                                title={
-                                    <div
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    gap: 8,
+                                    alignItems: "flex-start",
+                                    marginBottom: 4,
+                                }}
+                            >
+                                <Text strong={!item.read} style={{ fontSize: 13 }}>
+                                    {item.title}
+                                </Text>
+                                {!item.read && (
+                                    <span
                                         style={{
-                                            display: "flex",
-                                            justifyContent: "space-between",
-                                            gap: 8,
-                                            alignItems: "flex-start",
+                                            width: 8,
+                                            height: 8,
+                                            borderRadius: "50%",
+                                            background: COLORS.primary || "#3B82F6",
+                                            flexShrink: 0,
+                                            marginTop: 6,
                                         }}
-                                    >
-                                        <Text strong={!item.read} style={{ fontSize: 13 }}>
-                                            {item.title}
-                                        </Text>
-                                        {!item.read && (
-                                            <span
-                                                style={{
-                                                    width: 8,
-                                                    height: 8,
-                                                    borderRadius: "50%",
-                                                    background: COLORS.primary || "#3B82F6",
-                                                    flexShrink: 0,
-                                                    marginTop: 6,
-                                                }}
-                                            />
-                                        )}
-                                    </div>
-                                }
-                                description={
-                                    <div>
-                                        {item.type && (
-                                            <Tag
-                                                style={{ marginBottom: 4, fontSize: 11 }}
-                                                color="default"
-                                            >
-                                                {NOTIFICATION_TYPE_LABEL[item.type] ?? item.type}
-                                            </Tag>
-                                        )}
-                                        <div
-                                            style={{
-                                                fontSize: 12,
-                                                color: "#4B5563",
-                                                lineHeight: 1.4,
-                                            }}
-                                        >
-                                            {item.message}
-                                        </div>
-                                        <Text type="secondary" style={{ fontSize: 11 }}>
-                                            {item.createdAt
-                                                ? new Date(item.createdAt).toLocaleString("vi-VN")
-                                                : ""}
-                                        </Text>
-                                    </div>
-                                }
-                            />
-                        </List.Item>
-                    )}
-                />
+                                    />
+                                )}
+                            </div>
+                            {item.type && (
+                                <Tag
+                                    style={{ marginBottom: 4, fontSize: 11 }}
+                                    color="default"
+                                >
+                                    {NOTIFICATION_TYPE_LABEL[item.type] ?? item.type}
+                                </Tag>
+                            )}
+                            <div
+                                style={{
+                                    fontSize: 12,
+                                    color: "#4B5563",
+                                    lineHeight: 1.4,
+                                }}
+                            >
+                                {item.message}
+                            </div>
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                                {item.createdAt
+                                    ? new Date(item.createdAt).toLocaleString("vi-VN")
+                                    : ""}
+                            </Text>
+                        </div>
+                    ))}
+                </div>
             )}
 
             <div

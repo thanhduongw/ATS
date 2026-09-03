@@ -18,10 +18,9 @@ import java.time.LocalDate;
 )
 public interface ApplicationServiceClient {
 
-    /** No page/size sent on purpose: dashboard aggregation needs the full tenant dataset, not one page. */
+    /** No page/size sent on purpose: dashboard aggregation needs the full company dataset, not one page. */
     @GetMapping("/api/application/applications")
     PageResponse<ApplicationSummary> getApplications(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFrom,
@@ -30,7 +29,6 @@ public interface ApplicationServiceClient {
     /** Dùng cho PostingStatsService — toàn bộ hồ sơ ứng tuyển của 1 tin đăng, không phân trang. */
     @GetMapping("/api/application/applications")
     PageResponse<ApplicationSummary> getApplicationsByPosting(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
             @RequestParam("jobPostingId") Long jobPostingId);

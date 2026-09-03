@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Card, List, Button, Tag, Typography, Empty, Space } from "antd";
+import { Card, Button, Tag, Typography, Empty, Space, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
 import {
     getNotifications,
@@ -62,16 +62,22 @@ export default function NotificationsPage() {
                 style={{ flex: 1, minHeight: 0 }}
                 styles={{ body: { height: "100%", overflowY: "auto" } }}
             >
-                <List
-                    loading={loading}
-                    dataSource={items}
-                    locale={{ emptyText: <Empty description="Chưa có thông báo" /> }}
-                    renderItem={(item) => (
-                        <List.Item
+                {loading ? (
+                    <div style={{ padding: 40, textAlign: "center" }}>
+                        <Spin />
+                    </div>
+                ) : items.length === 0 ? (
+                    <Empty description="Chưa có thông báo" />
+                ) : (
+                    <div>
+                        {items.map((item) => (
+                            <div
+                                key={item.id}
                             style={{
                                 background: item.read ? undefined : "#F0F7FF",
                                 padding: "12px 16px",
                                 cursor: "pointer",
+                                borderBottom: "1px solid #F3F4F6",
                             }}
                             onClick={async () => {
                                 if (!item.read) await markAsRead(item.id);
@@ -80,29 +86,22 @@ export default function NotificationsPage() {
                                 else load();
                             }}
                         >
-                            <List.Item.Meta
-                                title={
-                                    <Space>
-                                        <Text strong={!item.read}>
-                                            {item.title}
-                                        </Text>
-                                        <Tag>
-                                            {NOTIFICATION_TYPE_LABEL[item.type] ?? item.type}
-                                        </Tag>
-                                    </Space>
-                                }
-                                description={
-                                    <>
-                                        <div>{item.message}</div>
-                                        <Text type="secondary" style={{ fontSize: 12 }}>
-                                            {new Date(item.createdAt).toLocaleString("vi-VN")}
-                                        </Text>
-                                    </>
-                                }
-                            />
-                        </List.Item>
-                    )}
-                />
+                                <Space>
+                                    <Text strong={!item.read}>
+                                        {item.title}
+                                    </Text>
+                                    <Tag>
+                                        {NOTIFICATION_TYPE_LABEL[item.type] ?? item.type}
+                                    </Tag>
+                                </Space>
+                                <div>{item.message}</div>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                    {new Date(item.createdAt).toLocaleString("vi-VN")}
+                                </Text>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </Card>
         </div>
     );

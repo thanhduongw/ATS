@@ -17,9 +17,10 @@ public class FeignClientConfig {
             if (attributes == null) return;
 
             HttpServletRequest request = attributes.getRequest();
-            forwardHeader(request, requestTemplate, "X-Tenant-Id");
             forwardHeader(request, requestTemplate, "X-User-Id");
+            forwardHeader(request, requestTemplate, "X-User-Email");
             forwardHeader(request, requestTemplate, "X-User-Role");
+            forwardHeader(request, requestTemplate, "X-Department-Id");
         };
     }
 

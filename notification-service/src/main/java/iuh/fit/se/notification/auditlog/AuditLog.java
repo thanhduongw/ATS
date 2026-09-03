@@ -18,9 +18,6 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
     @Column(name = "actor_user_id", nullable = true)
     private Long actorUserId;
 

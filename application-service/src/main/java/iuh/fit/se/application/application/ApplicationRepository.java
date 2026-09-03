@@ -9,15 +9,15 @@ import java.util.Optional;
 
 public interface ApplicationRepository extends JpaRepository<Application, Long>, JpaSpecificationExecutor<Application> {
 
-    List<Application> findByTenantIdAndJobPostingIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long tenantId, Long jobPostingId);
+    List<Application> findByJobPostingIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long jobPostingId);
 
-    List<Application> findByTenantIdAndCandidateIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long tenantId, Long candidateId);
+    List<Application> findByCandidateIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long candidateId);
 
-    List<Application> findByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long tenantId);
+    List<Application> findByDeletedAtIsNullOrderByCreatedAtDesc();
 
-    Optional<Application> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
+    Optional<Application> findByIdAndDeletedAtIsNull(Long id);
 
-    boolean existsByTenantIdAndCandidateIdAndJobPostingIdAndDeletedAtIsNull(Long tenantId, Long candidateId, Long jobPostingId);
+    boolean existsByCandidateIdAndJobPostingIdAndDeletedAtIsNull(Long candidateId, Long jobPostingId);
 
     /** Hồ sơ chưa kết thúc quy trình (không HIRED/REJECTED) và không đổi giai đoạn quá lâu — dùng cho nhắc nhở tự động. */
     List<Application> findByDeletedAtIsNullAndCurrentStageTypeNotInAndUpdatedAtBefore(

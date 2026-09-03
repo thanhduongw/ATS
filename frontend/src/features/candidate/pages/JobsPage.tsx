@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { Card, Button, List, App, Select, Space, Typography, Tag, Spin } from "antd";
+import { Card, Button, App, Select, Space, Typography, Tag, Spin } from "antd";
 import { SendOutlined, DollarOutlined } from "@ant-design/icons";
 import { COLORS, RADIUS } from "../../../app/theme";
 import { formatSalaryRange } from "../../../app/money";
 import EmptyState from "../../../components/ui/EmptyState";
 import type { AxiosError } from "axios";
+import { useNavigate } from "react-router-dom";
 import { getOpenPostings } from "../../recruitment/recruitmentApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { applyToJob } from "../applicationApi";
-import { ensureMyCandidateProfile } from "../candidateApi";
-import { getMyProfile } from "../../auth/authApi";
+import { getMyCandidateProfile } from "../candidateApi";
 import type { JobPostingResponse } from "../../recruitment/types";
 import type { CatalogItem } from "../../masterdata/types";
 import type { ApiMessageResponse } from "../types";
@@ -18,24 +18,25 @@ const { Text, Title } = Typography;
 
 export default function JobsPage() {
     const { message } = App.useApp();
+    const navigate = useNavigate();
     const [jobs, setJobs] = useState<JobPostingResponse[]>([]);
     const [sources, setSources] = useState<CatalogItem[]>([]);
     const [sourceId, setSourceId] = useState<number | undefined>(undefined);
     const [loading, setLoading] = useState(true);
     const [applyingId, setApplyingId] = useState<number | null>(null);
     const [appliedIds, setAppliedIds] = useState<Set<number>>(new Set());
+    const [resumeUploaded, setResumeUploaded] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
         try {
             // Đảm bảo user CANDIDATE đã có hồ sơ candidate trước khi apply
-            const profile = await getMyProfile();
-            await ensureMyCandidateProfile({ email: profile.data.email, fullName: profile.data.fullName });
-
-            const [postingRes, sourceRes] = await Promise.all([
+            const [profileRes, postingRes, sourceRes] = await Promise.all([
+                getMyCandidateProfile(),
                 getOpenPostings(),
                 getCatalogItems("/masterdata/recruitment-sources"),
             ]);
+            setResumeUploaded(profileRes.data.resumeUploaded);
             setJobs(postingRes.data);
             setSources(sourceRes.data);
             if (sourceRes.data.length > 0) setSourceId(sourceRes.data[0].id);
@@ -52,6 +53,11 @@ export default function JobsPage() {
     }, [load]);
 
     const handleApply = async (jobPostingId: number) => {
+        if (!resumeUploaded) {
+            message.warning("Vui lòng tải CV trong Hồ sơ của tôi trước khi ứng tuyển");
+            navigate("/my-profile");
+            return;
+        }
         if (!sourceId) {
             message.warning("Vui lòng chọn nguồn ứng tuyển");
             return;
@@ -102,46 +108,44 @@ export default function JobsPage() {
                     />
                 </Card>
             ) : (
-                <List
-                    dataSource={jobs}
-                    renderItem={(job) => {
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {jobs.map((job) => {
                         const applied = appliedIds.has(job.id);
                         return (
-                            <List.Item key={job.id}>
-                                <Card
-                                    style={{ width: "100%", border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}
-                                    size="small"
-                                >
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <Title level={4} style={{ margin: 0 }}>{job.title}</Title>
-                                            <Space style={{ marginTop: 6 }} wrap>
-                                                <Tag color="success" style={{ margin: 0 }}>Đang mở</Tag>
-                                                <Tag icon={<DollarOutlined />} style={{ margin: 0 }}>
-                                                    {formatSalaryRange(job.salaryMin, job.salaryMax)}
-                                                </Tag>
-                                            </Space>
-                                            {job.description && (
-                                                <div style={{ marginTop: 10, color: COLORS.textSecondary, whiteSpace: "pre-wrap" }}>
-                                                    {job.description}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <Button
-                                            type="primary"
-                                            icon={<SendOutlined />}
-                                            loading={applyingId === job.id}
-                                            disabled={applied}
-                                            onClick={() => handleApply(job.id)}
-                                        >
-                                            {applied ? "Đã nộp" : "Ứng tuyển"}
-                                        </Button>
+                            <Card
+                                key={job.id}
+                                style={{ width: "100%", border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}
+                                size="small"
+                            >
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <Title level={4} style={{ margin: 0 }}>{job.title}</Title>
+                                        <Space style={{ marginTop: 6 }} wrap>
+                                            <Tag color="success" style={{ margin: 0 }}>Đang mở</Tag>
+                                            <Tag icon={<DollarOutlined />} style={{ margin: 0 }}>
+                                                {formatSalaryRange(job.salaryMin, job.salaryMax)}
+                                            </Tag>
+                                        </Space>
+                                        {job.description && (
+                                            <div style={{ marginTop: 10, color: COLORS.textSecondary, whiteSpace: "pre-wrap" }}>
+                                                {job.description}
+                                            </div>
+                                        )}
                                     </div>
-                                </Card>
-                            </List.Item>
+                                    <Button
+                                        type="primary"
+                                        icon={<SendOutlined />}
+                                        loading={applyingId === job.id}
+                                        disabled={applied}
+                                        onClick={() => handleApply(job.id)}
+                                    >
+                                        {applied ? "Đã nộp" : "Ứng tuyển"}
+                                    </Button>
+                                </div>
+                            </Card>
                         );
-                    }}
-                />
+                    })}
+                </div>
             )}
         </div>
     );

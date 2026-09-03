@@ -8,11 +8,9 @@ import java.util.Optional;
 
 @Repository
 public interface InterviewSlotRepository extends JpaRepository<InterviewSlot, Long> {
-    List<InterviewSlot> findByTenantIdAndApplicationIdOrderByStartTimeAsc(Long tenantId, Long applicationId);
+    List<InterviewSlot> findByApplicationIdOrderByStartTimeAsc(Long applicationId);
 
-    List<InterviewSlot> findByTenantIdAndStatusOrderByStartTimeAsc(Long tenantId, InterviewSlotStatus status);
+    List<InterviewSlot> findByStatusOrderByStartTimeAsc(InterviewSlotStatus status);
 
-    Optional<InterviewSlot> findByIdAndTenantId(Long id, Long tenantId);
-
-    List<InterviewSlot> findByTenantIdAndApplicationIdAndIdNot(Long tenantId, Long applicationId, Long id);
+    List<InterviewSlot> findByApplicationIdAndIdNot(Long applicationId, Long id);
 }

@@ -14,23 +14,23 @@ public class SkillService {
 
     private final SkillRepository repository;
 
-    public List<SkillResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByNameAsc(tenantId).stream().map(this::toResponse).toList();
+    public List<SkillResponse> getAll() {
+        return repository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public SkillResponse create(Long tenantId, SkillRequest req) {
-        if (repository.existsByTenantIdAndNameIgnoreCase(tenantId, req.name())) {
+    public SkillResponse create(SkillRequest req) {
+        if (repository.existsByNameIgnoreCase(req.name())) {
             throw new BusinessException("Kỹ năng đã tồn tại");
         }
         Skill saved = repository.save(Skill.builder()
-                .tenantId(tenantId).name(req.name()).category(req.category()).active(true).build());
+                .name(req.name()).category(req.category()).active(true).build());
         return toResponse(saved);
     }
 
     @Transactional
-    public SkillResponse update(Long tenantId, Long id, SkillRequest req) {
-        Skill entity = repository.findByIdAndTenantId(id, tenantId)
+    public SkillResponse update(Long id, SkillRequest req) {
+        Skill entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy kỹ năng"));
         entity.setName(req.name());
         entity.setCategory(req.category());
@@ -38,8 +38,8 @@ public class SkillService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        Skill entity = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        Skill entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy kỹ năng"));
         entity.setActive(false);
         repository.save(entity);

@@ -13,11 +13,17 @@ public class AuditEventPublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
-    public void publish(Long tenantId, Long actorUserId, String action, String resourceType, Long resourceId, String metadata) {
+    public void publishSingleCompany(
+            Long actorUserId,
+            String action,
+            String resourceType,
+            Long resourceId,
+            String metadata
+    ) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.AUDIT_LOG_ROUTING_KEY,
-                new AuditEvent(tenantId, actorUserId, action, resourceType, resourceId, metadata, LocalDateTime.now())
+                new AuditEvent(actorUserId, action, resourceType, resourceId, metadata, LocalDateTime.now())
         );
     }
 }

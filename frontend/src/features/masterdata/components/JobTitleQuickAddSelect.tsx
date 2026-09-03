@@ -64,7 +64,7 @@ export default function JobTitleQuickAddSelect({ value, onChange, placeholder }:
             optionFilterProp="label"
             searchValue={searchValue}
             onSearch={setSearchValue}
-            dropdownRender={(menu) => (
+            popupRender={(menu) => (
                 <>
                     {menu}
                     {canQuickAdd && (

@@ -14,27 +14,27 @@ public class ExperienceLevelService {
 
     private final ExperienceLevelRepository repository;
 
-    public List<ExperienceLevelResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByMinYearsAsc(tenantId).stream().map(this::toResponse).toList();
+    public List<ExperienceLevelResponse> getAll() {
+        return repository.findAllByOrderByMinYearsAsc().stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public ExperienceLevelResponse create(Long tenantId, ExperienceLevelRequest req) {
-        if (repository.existsByTenantIdAndNameIgnoreCase(tenantId, req.name())) {
+    public ExperienceLevelResponse create(ExperienceLevelRequest req) {
+        if (repository.existsByNameIgnoreCase(req.name())) {
             throw new BusinessException("Mức kinh nghiệm đã tồn tại");
         }
         if (req.maxYears() < req.minYears()) {
             throw new BusinessException("Số năm kinh nghiệm tối đa phải lớn hơn hoặc bằng tối thiểu");
         }
         ExperienceLevel saved = repository.save(ExperienceLevel.builder()
-                .tenantId(tenantId).name(req.name())
+                .name(req.name())
                 .minYears(req.minYears()).maxYears(req.maxYears()).active(true).build());
         return toResponse(saved);
     }
 
     @Transactional
-    public ExperienceLevelResponse update(Long tenantId, Long id, ExperienceLevelRequest req) {
-        ExperienceLevel entity = repository.findByIdAndTenantId(id, tenantId)
+    public ExperienceLevelResponse update(Long id, ExperienceLevelRequest req) {
+        ExperienceLevel entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy mức kinh nghiệm"));
         if (req.maxYears() < req.minYears()) {
             throw new BusinessException("Số năm kinh nghiệm tối đa phải lớn hơn hoặc bằng tối thiểu");
@@ -46,8 +46,8 @@ public class ExperienceLevelService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        ExperienceLevel entity = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        ExperienceLevel entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy mức kinh nghiệm"));
         entity.setActive(false);
         repository.save(entity);

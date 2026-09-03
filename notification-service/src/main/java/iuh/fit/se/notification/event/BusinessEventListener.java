@@ -47,7 +47,6 @@ public class BusinessEventListener {
     public void onRequisitionSubmitted(RequisitionSubmittedEvent event) {
         log.info("Nhận event requisition.submitted, requisitionId={}", event.requisitionId());
         notificationService.createAndPush(
-                event.tenantId(),
                 event.approverId(),
                 NotificationType.REQUISITION_PENDING_APPROVAL,
                 "Yêu cầu tuyển dụng cần bạn phê duyệt",
@@ -63,7 +62,6 @@ public class BusinessEventListener {
 
         if (event.assignedRecruiterId() != null) {
             notificationService.createAndPush(
-                    event.tenantId(),
                     event.assignedRecruiterId(),
                     NotificationType.APPLICATION_CREATED,
                     "Hồ sơ ứng tuyển mới",
@@ -75,11 +73,10 @@ public class BusinessEventListener {
         }
 
         try {
-            List<UserSummaryResponse> recruiters = authServiceClient.getUsers(event.tenantId(), "RECRUITER");
+            List<UserSummaryResponse> recruiters = authServiceClient.getUsers("RECRUITER");
             if (recruiters != null) {
                 for (UserSummaryResponse u : recruiters) {
                     notificationService.createAndPush(
-                            event.tenantId(),
                             u.id(),
                             NotificationType.APPLICATION_CREATED,
                             "Hồ sơ ứng tuyển mới",
@@ -102,7 +99,7 @@ public class BusinessEventListener {
 
         Long candidateUserId = event.candidateUserId();
         if (candidateUserId == null && event.candidateId() != null) {
-            candidateUserId = resolveCandidateUserId(event.tenantId(), event.candidateId());
+            candidateUserId = resolveCandidateUserId(event.candidateId());
         }
 
         String toType = event.toStageType() != null ? event.toStageType() : "";
@@ -110,7 +107,6 @@ public class BusinessEventListener {
         if (candidateUserId != null) {
             if ("REJECTED".equalsIgnoreCase(toType)) {
                 notificationService.createAndPush(
-                        event.tenantId(),
                         candidateUserId,
                         NotificationType.APPLICATION_REJECTED,
                         "Kết quả hồ sơ ứng tuyển",
@@ -119,7 +115,6 @@ public class BusinessEventListener {
                         event.applicationId());
             } else {
                 notificationService.createAndPush(
-                        event.tenantId(),
                         candidateUserId,
                         NotificationType.APPLICATION_STAGE_CHANGED,
                         "Cập nhật trạng thái hồ sơ",
@@ -132,7 +127,6 @@ public class BusinessEventListener {
 
         if (event.assignedRecruiterId() != null) {
             notificationService.createAndPush(
-                    event.tenantId(),
                     event.assignedRecruiterId(),
                     NotificationType.APPLICATION_STAGE_CHANGED,
                     "Hồ sơ đổi giai đoạn",
@@ -149,7 +143,6 @@ public class BusinessEventListener {
         log.info("Nhận event application.stale, applicationId={}, daysSinceUpdate={}",
                 event.applicationId(), event.daysSinceUpdate());
         notificationService.createAndPush(
-                event.tenantId(),
                 event.assignedRecruiterId(),
                 NotificationType.APPLICATION_STALE_REMINDER,
                 "Hồ sơ chưa xử lý lâu ngày",
@@ -165,7 +158,6 @@ public class BusinessEventListener {
         log.info("Nhận event application.comment_mention, applicationId={}, mentionedUserId={}",
                 event.applicationId(), event.mentionedUserId());
         notificationService.createAndPush(
-                event.tenantId(),
                 event.mentionedUserId(),
                 NotificationType.APPLICATION_COMMENT_MENTION,
                 nullSafe(event.authorName()) + " đã nhắc đến bạn",
@@ -179,7 +171,7 @@ public class BusinessEventListener {
     public void onInterviewScheduled(InterviewScheduledEvent event) {
         log.info("Nhận event interview.scheduled, interviewId={}", event.interviewId());
 
-        InterviewResponse interview = safeGetInterview(event.interviewId(), event.tenantId());
+        InterviewResponse interview = safeGetInterview(event.interviewId());
         if (interview == null) {
             return;
         }
@@ -187,7 +179,6 @@ public class BusinessEventListener {
         if (interview.interviewers() != null) {
             for (InterviewerSummary interviewer : interview.interviewers()) {
                 notificationService.createAndPush(
-                        event.tenantId(),
                         interviewer.interviewerId(),
                         NotificationType.INTERVIEW_SCHEDULED,
                         "Lịch phỏng vấn mới",
@@ -198,10 +189,9 @@ public class BusinessEventListener {
             }
         }
 
-        Long candidateUserId = resolveCandidateUserIdFromApplication(event.tenantId(), event.applicationId());
+        Long candidateUserId = resolveCandidateUserIdFromApplication(event.applicationId());
         if (candidateUserId != null) {
             notificationService.createAndPush(
-                    event.tenantId(),
                     candidateUserId,
                     NotificationType.INTERVIEW_SCHEDULED,
                     "Lịch phỏng vấn",
@@ -215,7 +205,7 @@ public class BusinessEventListener {
                 event.scheduledAt().minusHours(reminderHoursBefore)).toMillis();
         if (reminderDelay > 0) {
             delayedMessagePublisher.scheduleInterviewReminder(
-                    new InterviewReminderPayload(event.tenantId(), event.interviewId(), event.applicationId()),
+                    new InterviewReminderPayload(event.interviewId(), event.applicationId()),
                     reminderDelay);
         }
 
@@ -224,7 +214,7 @@ public class BusinessEventListener {
                 event.scheduledAt().plusHours(evaluationCheckHoursAfter)).toMillis();
         if (evalCheckDelay > 0) {
             delayedMessagePublisher.scheduleEvaluationCheck(
-                    new EvaluationCheckPayload(event.tenantId(), event.interviewId()),
+                    new EvaluationCheckPayload(event.interviewId()),
                     evalCheckDelay);
         }
     }
@@ -234,7 +224,7 @@ public class BusinessEventListener {
     public void onInterviewConfirmed(InterviewConfirmedEvent event) {
         log.info("Nhận event interview.confirmed, interviewId={}", event.interviewId());
 
-        InterviewResponse interview = safeGetInterview(event.interviewId(), event.tenantId());
+        InterviewResponse interview = safeGetInterview(event.interviewId());
         if (interview == null) {
             return;
         }
@@ -242,7 +232,6 @@ public class BusinessEventListener {
         if (interview.interviewers() != null) {
             for (InterviewerSummary interviewer : interview.interviewers()) {
                 notificationService.createAndPush(
-                        event.tenantId(),
                         interviewer.interviewerId(),
                         NotificationType.INTERVIEW_CONFIRMED,
                         "Ứng viên đã xác nhận lịch phỏng vấn",
@@ -258,7 +247,7 @@ public class BusinessEventListener {
     public void onInterviewReminderDue(InterviewReminderPayload payload) {
         log.info("Đến giờ nhắc phỏng vấn, interviewId={}", payload.interviewId());
 
-        InterviewResponse interview = safeGetInterview(payload.interviewId(), payload.tenantId());
+        InterviewResponse interview = safeGetInterview(payload.interviewId());
         if (interview == null) {
             return;
         }
@@ -270,7 +259,6 @@ public class BusinessEventListener {
         if (interview.interviewers() != null) {
             for (InterviewerSummary interviewer : interview.interviewers()) {
                 notificationService.createAndPush(
-                        payload.tenantId(),
                         interviewer.interviewerId(),
                         NotificationType.INTERVIEW_REMINDER,
                         "Sắp đến giờ phỏng vấn",
@@ -282,10 +270,9 @@ public class BusinessEventListener {
         }
 
         Long candidateUserId = resolveCandidateUserIdFromApplication(
-                payload.tenantId(), payload.applicationId());
+                payload.applicationId());
         if (candidateUserId != null) {
             notificationService.createAndPush(
-                    payload.tenantId(),
                     candidateUserId,
                     NotificationType.INTERVIEW_REMINDER,
                     "Nhắc lịch phỏng vấn",
@@ -300,7 +287,7 @@ public class BusinessEventListener {
     public void onEvaluationCheckDue(EvaluationCheckPayload payload) {
         log.info("Đến giờ kiểm tra evaluation, interviewId={}", payload.interviewId());
 
-        InterviewResponse interview = safeGetInterview(payload.interviewId(), payload.tenantId());
+        InterviewResponse interview = safeGetInterview(payload.interviewId());
         if (interview == null || interview.interviewers() == null) {
             return;
         }
@@ -314,7 +301,7 @@ public class BusinessEventListener {
         ApplicationSummaryResponse application = null;
         try {
             application = applicationServiceClient.getApplicationById(
-                    interview.applicationId(), payload.tenantId());
+                    interview.applicationId());
         } catch (Exception e) {
             log.warn("Không lấy được application summary: {}", e.getMessage());
         }
@@ -325,7 +312,6 @@ public class BusinessEventListener {
             }
 
             notificationService.createAndPush(
-                    payload.tenantId(),
                     interviewer.interviewerId(),
                     NotificationType.EVALUATION_INCOMPLETE_REMINDER,
                     "Bạn chưa nộp đánh giá phỏng vấn",
@@ -337,7 +323,6 @@ public class BusinessEventListener {
             if (application != null && application.assignedRecruiterId() != null) {
                 String name = interviewer.fullName() != null ? interviewer.fullName() : "Interviewer";
                 notificationService.createAndPush(
-                        payload.tenantId(),
                         application.assignedRecruiterId(),
                         NotificationType.EVALUATION_INCOMPLETE_REMINDER,
                         "Interviewer chưa nộp đánh giá",
@@ -355,7 +340,6 @@ public class BusinessEventListener {
 
         if (event.requesterId() != null) {
             notificationService.createAndPush(
-                    event.tenantId(),
                     event.requesterId(),
                     NotificationType.OFFER_PENDING_CONFIRMATION,
                     "Offer đã được duyệt",
@@ -364,13 +348,12 @@ public class BusinessEventListener {
                     event.offerId());
         }
 
-        Long candidateUserId = resolveCandidateUserId(event.tenantId(), event.candidateId());
+        Long candidateUserId = resolveCandidateUserId(event.candidateId());
         if (candidateUserId == null) {
-            candidateUserId = resolveCandidateUserIdFromApplication(event.tenantId(), event.applicationId());
+            candidateUserId = resolveCandidateUserIdFromApplication(event.applicationId());
         }
         if (candidateUserId != null) {
             notificationService.createAndPush(
-                    event.tenantId(),
                     candidateUserId,
                     NotificationType.OFFER_READY_FOR_CANDIDATE,
                     "Bạn nhận được thư đề nghị nhận việc",
@@ -389,7 +372,6 @@ public class BusinessEventListener {
         }
 
         notificationService.createAndPush(
-                event.tenantId(),
                 event.requesterId(),
                 NotificationType.OFFER_ACCEPTED,
                 "Ứng viên đã chấp nhận Offer",
@@ -409,7 +391,6 @@ public class BusinessEventListener {
 
         String extra = event.note() != null && !event.note().isBlank() ? " Lý do: " + event.note() : "";
         notificationService.createAndPush(
-                event.tenantId(),
                 event.requesterId(),
                 NotificationType.OFFER_DECLINED,
                 "Ứng viên đã từ chối Offer",
@@ -421,21 +402,21 @@ public class BusinessEventListener {
 
     // ---- helpers ----
 
-    private InterviewResponse safeGetInterview(Long interviewId, Long tenantId) {
+    private InterviewResponse safeGetInterview(Long interviewId) {
         try {
-            return interviewServiceClient.getInterviewById(interviewId, tenantId, 0L, "SYSTEM");
+            return interviewServiceClient.getInterviewById(interviewId, 0L, "SYSTEM");
         } catch (Exception e) {
             log.warn("Không lấy được interview {}: {}", interviewId, e.getMessage());
             return null;
         }
     }
 
-    private Long resolveCandidateUserId(Long tenantId, Long candidateId) {
+    private Long resolveCandidateUserId(Long candidateId) {
         if (candidateId == null) {
             return null;
         }
         try {
-            CandidateSummaryResponse c = candidateServiceClient.getCandidateSummary(tenantId, candidateId);
+            CandidateSummaryResponse c = candidateServiceClient.getCandidateSummary(candidateId);
             return c != null ? c.userId() : null;
         } catch (Exception e) {
             log.warn("resolveCandidateUserId thất bại candidateId={}: {}", candidateId, e.getMessage());
@@ -443,17 +424,17 @@ public class BusinessEventListener {
         }
     }
 
-    private Long resolveCandidateUserIdFromApplication(Long tenantId, Long applicationId) {
+    private Long resolveCandidateUserIdFromApplication(Long applicationId) {
         if (applicationId == null) {
             return null;
         }
         try {
             ApplicationSummaryResponse app =
-                    applicationServiceClient.getApplicationById(applicationId, tenantId);
+                    applicationServiceClient.getApplicationById(applicationId);
             if (app == null || app.candidateId() == null) {
                 return null;
             }
-            return resolveCandidateUserId(tenantId, app.candidateId());
+            return resolveCandidateUserId(app.candidateId());
         } catch (Exception e) {
             log.warn("resolveCandidateUserIdFromApplication thất bại applicationId={}: {}",
                     applicationId, e.getMessage());

@@ -15,7 +15,6 @@ public interface InterviewServiceClient {
     @GetMapping("/api/interview/interviews/{id}")
     InterviewResponse getInterviewById(
             @PathVariable("id") Long id,
-            @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestHeader(value = "X-User-Id", defaultValue = "0") Long userId,
             @RequestHeader(value = "X-User-Role", defaultValue = "SYSTEM") String role
     );

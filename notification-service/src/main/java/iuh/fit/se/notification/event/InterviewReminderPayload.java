@@ -1,3 +1,3 @@
 package iuh.fit.se.notification.event;
 
-public record InterviewReminderPayload(Long tenantId, Long interviewId, Long applicationId) {}
+public record InterviewReminderPayload(Long interviewId, Long applicationId) {}

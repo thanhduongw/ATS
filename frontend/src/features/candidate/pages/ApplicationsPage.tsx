@@ -13,14 +13,14 @@ import {
 } from "../applicationApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { getPostings } from "../../recruitment/recruitmentApi";
-import { getUsers } from "../../auth/authApi";
+import { getUserDirectory } from "../../auth/authApi";
 import type { ApplicationResponse, ApiMessageResponse, BulkOperationResponse } from "../types";
 import type { JobPostingResponse } from "../../recruitment/types";
 import type { CatalogItem, StageType } from "../../masterdata/types";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import { useTableScrollY } from "../../../app/useTableScrollY";
-import type { UserRole, UserSummaryResponse } from "../../auth/types";
+import type { UserRole, UserDirectoryResponse } from "../../auth/types";
 import { STAGE_TYPE_LABEL, stageTypeTagColor } from "../../../app/statusLabels";
 import { exportToExcel } from "../../../app/exportExcel";
 import {
@@ -83,7 +83,7 @@ export default function ApplicationsPage() {
 
     // Nguồn dữ liệu cho các dropdown lọc
     const [postings, setPostings] = useState<JobPostingResponse[]>([]);
-    const [recruiters, setRecruiters] = useState<UserSummaryResponse[]>([]);
+    const [recruiters, setRecruiters] = useState<UserDirectoryResponse[]>([]);
     const [sources, setSources] = useState<CatalogItem[]>([]);
 
     const [rejectOpen, setRejectOpen] = useState(false);
@@ -129,7 +129,7 @@ export default function ApplicationsPage() {
     useEffect(() => {
         getCatalogItems("/masterdata/rejection-reasons").then((r) => setReasons(r.data));
         getPostings().then((r) => setPostings(r.data.content));
-        getUsers("RECRUITER").then((r) => setRecruiters(r.data));
+        getUserDirectory("RECRUITER").then((r) => setRecruiters(r.data));
         getCatalogItems("/masterdata/recruitment-sources").then((r) => setSources(r.data));
         getApplications().then((r) => setAllApplications(r.data.content));
     }, []);

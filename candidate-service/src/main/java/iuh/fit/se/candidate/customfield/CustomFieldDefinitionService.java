@@ -15,17 +15,16 @@ public class CustomFieldDefinitionService {
 
     private final CustomFieldDefinitionRepository repository;
 
-    public List<CustomFieldDefinitionResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByFieldLabelAsc(tenantId).stream().map(this::toResponse).toList();
+    public List<CustomFieldDefinitionResponse> getAll() {
+        return repository.findAllByOrderByFieldLabelAsc().stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public CustomFieldDefinitionResponse create(Long tenantId, CustomFieldDefinitionRequest req) {
-        if (repository.existsByTenantIdAndFieldKeyIgnoreCase(tenantId, req.fieldKey())) {
+    public CustomFieldDefinitionResponse create(CustomFieldDefinitionRequest req) {
+        if (repository.existsByFieldKeyIgnoreCase(req.fieldKey())) {
             throw new BusinessException("Khóa trường tùy chỉnh đã tồn tại");
         }
         CustomFieldDefinition saved = repository.save(CustomFieldDefinition.builder()
-                .tenantId(tenantId)
                 .fieldKey(req.fieldKey())
                 .fieldLabel(req.fieldLabel())
                 .fieldType(req.fieldType())
@@ -35,8 +34,8 @@ public class CustomFieldDefinitionService {
     }
 
     @Transactional
-    public CustomFieldDefinitionResponse update(Long tenantId, Long id, CustomFieldDefinitionRequest req) {
-        CustomFieldDefinition entity = repository.findByIdAndTenantId(id, tenantId)
+    public CustomFieldDefinitionResponse update(Long id, CustomFieldDefinitionRequest req) {
+        CustomFieldDefinition entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy trường tùy chỉnh"));
         entity.setFieldLabel(req.fieldLabel());
         entity.setFieldType(req.fieldType());
@@ -44,8 +43,8 @@ public class CustomFieldDefinitionService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        CustomFieldDefinition entity = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        CustomFieldDefinition entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy trường tùy chỉnh"));
         entity.setActive(false);
         repository.save(entity);

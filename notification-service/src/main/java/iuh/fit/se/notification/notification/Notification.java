@@ -13,9 +13,6 @@ public class Notification {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
     @Column(name = "recipient_user_id", nullable = false)
     private Long recipientUserId;
 

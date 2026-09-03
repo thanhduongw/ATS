@@ -1,6 +1,7 @@
 package iuh.fit.se.masterdata.pipeline;
 
-import iuh.fit.se.masterdata.common.AccessGuard;
+import iuh.fit.se.masterdata.security.AuthorizationPolicy;
+import iuh.fit.se.masterdata.security.CurrentUser;
 import iuh.fit.se.masterdata.pipeline.dto.PipelineRequest;
 import iuh.fit.se.masterdata.pipeline.dto.PipelineResponse;
 import jakarta.validation.Valid;
@@ -19,42 +20,36 @@ public class PipelineController {
     private final PipelineService service;
 
     @GetMapping
-    public ResponseEntity<List<PipelineResponse>> getAll(@RequestHeader("X-Tenant-Id") Long tenantId) {
-        return ResponseEntity.ok(service.getAll(tenantId));
+    public ResponseEntity<List<PipelineResponse>> getAll() {
+        return ResponseEntity.ok(service.getAll());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<PipelineResponse> getById(
-            @RequestHeader("X-Tenant-Id") Long tenantId, @PathVariable Long id) {
-        return ResponseEntity.ok(service.getById(tenantId, id));
+            @PathVariable Long id) {
+        return ResponseEntity.ok(service.getById(id));
     }
 
     @PostMapping
     public ResponseEntity<PipelineResponse> create(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody PipelineRequest req) {
-        AccessGuard.requireCompanyAdmin(role);
-        return ResponseEntity.ok(service.create(tenantId, req));
+        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        return ResponseEntity.ok(service.create(req));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<PipelineResponse> update(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
             @Valid @RequestBody PipelineRequest req) {
-        AccessGuard.requireCompanyAdmin(role);
-        return ResponseEntity.ok(service.update(tenantId, id, req));
+        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        return ResponseEntity.ok(service.update(id, req));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id) {
-        AccessGuard.requireCompanyAdmin(role);
-        service.softDelete(tenantId, id);
+        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        service.softDelete(id);
         return ResponseEntity.ok(Map.of("message", "Xóa quy trình thành công"));
     }
 }

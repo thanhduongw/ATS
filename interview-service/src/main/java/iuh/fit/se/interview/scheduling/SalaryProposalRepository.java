@@ -8,7 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface SalaryProposalRepository extends JpaRepository<SalaryProposal, Long> {
-    List<SalaryProposal> findByTenantIdAndApplicationIdOrderByCreatedAtDesc(Long tenantId, Long applicationId);
-
-    Optional<SalaryProposal> findByIdAndTenantId(Long id, Long tenantId);
+    List<SalaryProposal> findByApplicationIdOrderByCreatedAtDesc(Long applicationId);
 }

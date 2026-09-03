@@ -5,6 +5,5 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PipelineRepository extends JpaRepository<RecruitmentPipeline, Long> {
-    List<RecruitmentPipeline> findByTenantIdOrderByNameAsc(Long tenantId);
-    Optional<RecruitmentPipeline> findByIdAndTenantId(Long id, Long tenantId);
+    List<RecruitmentPipeline> findAllByOrderByNameAsc();
 }

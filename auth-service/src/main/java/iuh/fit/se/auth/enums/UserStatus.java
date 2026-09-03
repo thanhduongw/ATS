@@ -1,5 +1,8 @@
 package iuh.fit.se.auth.enums;
 
 public enum UserStatus {
-    PENDING_VERIFICATION, ACTIVE, INACTIVE
+    PENDING_VERIFICATION,
+    ACTIVE,
+    LOCKED,
+    INACTIVE
 }

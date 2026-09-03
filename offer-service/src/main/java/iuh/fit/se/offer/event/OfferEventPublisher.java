@@ -12,7 +12,6 @@ public class OfferEventPublisher {
     private final RabbitTemplate rabbitTemplate;
 
     public void publishOfferApproved(
-            Long tenantId,
             Long offerId,
             Long applicationId,
             Long requesterId,
@@ -20,46 +19,48 @@ public class OfferEventPublisher {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.OFFER_APPROVED_ROUTING_KEY,
-                new OfferApprovedEvent(tenantId, offerId, applicationId, requesterId, candidateId)
+                new OfferApprovedEvent(offerId, applicationId, requesterId, candidateId)
         );
     }
 
     public void publishOfferAccepted(
-            Long tenantId,
             Long offerId,
             Long applicationId,
             Long requesterId,
-            String candidateName) {
+            String candidateName,
+            Long candidateUserId) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.OFFER_ACCEPTED_ROUTING_KEY,
                 new OfferAcceptedEvent(
-                        tenantId,
                         offerId,
                         applicationId,
                         requesterId,
-                        candidateName
+                        candidateName,
+                        candidateUserId
                 )
         );
     }
 
     public void publishOfferDeclined(
-            Long tenantId,
             Long offerId,
             Long applicationId,
             Long requesterId,
             String candidateName,
-            String note) {
+            String note,
+            Long declineReasonId,
+            Long candidateUserId) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.OFFER_DECLINED_ROUTING_KEY,
                 new OfferDeclinedEvent(
-                        tenantId,
                         offerId,
                         applicationId,
                         requesterId,
                         candidateName,
-                        note
+                        note,
+                        declineReasonId,
+                        candidateUserId
                 )
         );
     }

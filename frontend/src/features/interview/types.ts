@@ -100,3 +100,16 @@ export interface EvaluationResponse {
 export interface ApiMessageResponse {
   message: string;
 }
+
+export interface CandidateInterviewResponse {
+  id: number;
+  applicationId: number;
+  scheduledAt: string;
+  durationMinutes: number;
+  format: InterviewFormat;
+  workLocationId: number | null;
+  meetingLink: string | null;
+  status: InterviewStatus;
+  candidateConfirmed: boolean;
+  interviewerNames: string[];
+}

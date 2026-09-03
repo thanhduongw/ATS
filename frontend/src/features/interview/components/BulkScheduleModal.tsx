@@ -30,12 +30,12 @@ import type { AxiosError } from "axios";
 
 import { getPostings } from "../../recruitment/recruitmentApi";
 import { getApplications } from "../../candidate/applicationApi";
-import { getUsers } from "../../auth/authApi";
+import { getUserDirectory } from "../../auth/authApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { bulkScheduleInterviews, getInterviews } from "../interviewApi";
 import type { JobPostingResponse } from "../../recruitment/types";
 import type { ApplicationResponse } from "../../candidate/types";
-import type { UserSummaryResponse } from "../../auth/types";
+import type { UserDirectoryResponse } from "../../auth/types";
 import type { CatalogItem } from "../../masterdata/types";
 import type {
     ApiMessageResponse,
@@ -63,7 +63,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
     const [applicationsLoading, setApplicationsLoading] = useState(false);
     const [selectedApplicationIds, setSelectedApplicationIds] = useState<number[]>([]);
 
-    const [interviewers, setInterviewers] = useState<UserSummaryResponse[]>([]);
+    const [interviewers, setInterviewers] = useState<UserDirectoryResponse[]>([]);
     const [interviewerIds, setInterviewerIds] = useState<number[]>([]);
     const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
     const [existingInterviews, setExistingInterviews] = useState<InterviewResponse[]>([]);
@@ -96,7 +96,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
         if (!open) return;
         reset();
         getPostings({ size: 100 }).then((r) => setPostings(r.data.content));
-        getUsers("HIRING_MANAGER").then((r) => setInterviewers(r.data));
+        getUserDirectory("HIRING_MANAGER").then((r) => setInterviewers(r.data));
         getCatalogItems("/masterdata/work-locations").then((r) => setWorkLocations(r.data));
         getInterviews().then((r) => setExistingInterviews(r.data)).catch(() => setExistingInterviews([]));
     }, [open]);
@@ -244,7 +244,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                     <Alert
                         type="success"
                         showIcon
-                        message="Đã xếp lịch phỏng vấn thành công"
+                        title="Đã xếp lịch phỏng vấn thành công"
                         description="Hệ thống đã tự động chia khung giờ nối tiếp nhau; những khung giờ trùng lịch của người phỏng vấn đã được tự động dời sang thời điểm rảnh kế tiếp."
                         style={{ marginBottom: 16, borderRadius: RADIUS.md }}
                     />
@@ -427,7 +427,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                         <Alert
                             type="warning"
                             showIcon
-                            message={`Có ${conflicts.length} buổi phỏng vấn trùng giờ trong dải khung giờ này`}
+                            title={`Có ${conflicts.length} buổi phỏng vấn trùng giờ trong dải khung giờ này`}
                             description={
                                 <>
                                     <div style={{ marginBottom: 4 }}>

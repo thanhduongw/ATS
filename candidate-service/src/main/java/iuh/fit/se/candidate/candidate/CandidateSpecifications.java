@@ -7,6 +7,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public final class CandidateSpecifications {
 
@@ -17,13 +18,12 @@ public final class CandidateSpecifications {
      * so name matching can't happen inside this DB-only Specification).
      */
     public static Specification<Candidate> build(
-            Long tenantId, String keyword, Boolean hasCv, List<Long> matchedSkillIds, PoolStatus poolStatus) {
+            String keyword, Boolean hasCv, List<Long> matchedSkillIds, PoolStatus poolStatus) {
 
         return (root, query, cb) -> {
             query.distinct(true);
 
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("tenantId"), tenantId));
             predicates.add(cb.isNull(root.get("deletedAt")));
 
             if (poolStatus != null) {
@@ -53,5 +53,9 @@ public final class CandidateSpecifications {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    public static Specification<Candidate> accessibleIds(Set<Long> candidateIds) {
+        return (root, query, cb) -> root.get("id").in(candidateIds);
     }
 }

@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface JobLevelRepository extends JpaRepository<JobLevel, Long> {
-    List<JobLevel> findByTenantIdOrderByOrderNoAsc(Long tenantId);
-    Optional<JobLevel> findByIdAndTenantId(Long id, Long tenantId);
-    boolean existsByTenantIdAndNameIgnoreCase(Long tenantId, String name);
+    List<JobLevel> findAllByOrderByOrderNoAsc();
+    boolean existsByNameIgnoreCase(String name);
 }

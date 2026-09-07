@@ -1,68 +1,38 @@
-
 export type UserRole =
-    | "PLATFORM_ADMIN"
     | "COMPANY_ADMIN"
     | "RECRUITER"
     | "HIRING_MANAGER"
     | "CANDIDATE";
 
-// ===== Request DTO (khớp record bên Java) =====
-export interface RegisterCompanyRequest {
-    tenantCode: string;
-    companyName: string;
-    adminEmail: string;
-    adminPassword: string;
-    adminFullName: string;
-}
+export type UserStatus = "PENDING_VERIFICATION" | "ACTIVE" | "LOCKED" | "INACTIVE";
 
-export interface ResendOtpRequest {
-    tenantCode: string;
-    email: string;
-}
-
-export interface VerifyEmailRequest {
-    tenantCode: string;
-    email: string;
-    otpCode: string;
-}
-
-export interface LoginRequest {
-    tenantCode: string;
+export interface CandidateRegistrationRequest {
+    fullName: string;
     email: string;
     password: string;
+    confirmPassword: string;
+    phone?: string | null;
 }
 
-export interface RefreshTokenRequest {
-    refreshToken: string;
-}
-
-export interface ForgotPasswordRequest {
-    tenantCode: string;
-    email: string;
-}
-
-export interface ResetPasswordRequest {
-    tenantCode: string;
-    email: string;
-    otpCode: string;
-    newPassword: string;
-}
-
-export interface ChangePasswordRequest {
-    currentPassword: string;
-    newPassword: string;
-}
+export interface ResendOtpRequest { email: string; }
+export interface VerifyEmailRequest { email: string; otpCode: string; }
+export interface LoginRequest { email: string; password: string; }
+export interface RefreshTokenRequest { refreshToken: string; }
+export interface ForgotPasswordRequest { email: string; }
+export interface ResetPasswordRequest { email: string; otpCode: string; newPassword: string; }
+export interface ChangePasswordRequest { currentPassword: string; newPassword: string; }
 
 export interface CreateUserRequest {
     email: string;
     fullName: string;
     tempPassword: string;
-    role: UserRole;
+    role: Exclude<UserRole, "CANDIDATE">;
+    phone?: string | null;
+    departmentId?: number | null;
+    status: "ACTIVE" | "INACTIVE";
 }
 
-export interface UpdateProfileRequest {
-    fullName: string;
-}
+export interface UpdateProfileRequest { fullName: string; phone?: string | null; }
 
 export interface UpdateCompanyRequest {
     name: string;
@@ -72,56 +42,53 @@ export interface UpdateCompanyRequest {
     dataRetentionMonths?: number | null;
 }
 
-export interface UpdateUserStatusRequest {
-    status: "ACTIVE" | "PENDING_VERIFICATION" | "LOCKED" | "DEACTIVATED";
-}
-
-// ===== Response DTO =====
-export interface LoginResponse {
-    accessToken: string;
-    refreshToken: string;
-}
-
-export interface ApiMessageResponse {
-    message: string;
-}
+export interface UpdateUserStatusRequest { status: UserStatus; }
+export interface LoginResponse { accessToken: string; refreshToken: string; }
+export interface ApiMessageResponse { message: string; }
 
 export interface UserProfileResponse {
     id: number;
-    tenantId: number;
     email: string;
     fullName: string;
+    phone: string | null;
     role: UserRole;
-    status: string;
+    departmentId: number | null;
+    status: UserStatus;
+    emailVerified: boolean;
 }
 
 export interface CompanyResponse {
     id: number;
-    tenantId: number;
     name: string;
-    tenantCode: string;
     description: string | null;
     logoUrl: string | null;
     bannerUrl: string | null;
     dataRetentionMonths: number | null;
 }
 
-// ===== Payload giải mã từ JWT =====
 export interface JwtPayload {
-    sub: string; // userId
-    tenantId: number;
+    sub: string;
+    email: string;
     role: UserRole;
+    departmentId?: number;
     iat: number;
     exp: number;
 }
 
-// ===== Thông tin user lưu trong Redux =====
 export interface AuthUser {
     userId: string;
-    tenantId: number;
+    email: string;
     role: UserRole;
-    email?: string;
+    departmentId: number | null;
     fullName?: string;
+}
+
+/** Internal-staff picker entry from GET /auth/users/directory. No email or account status. */
+export interface UserDirectoryResponse {
+    id: number;
+    fullName: string;
+    role: UserRole;
+    departmentId: number | null;
 }
 
 export interface UserSummaryResponse {
@@ -129,5 +96,6 @@ export interface UserSummaryResponse {
     fullName: string;
     email: string;
     role: UserRole;
-    status?: string;
+    departmentId: number | null;
+    status: UserStatus;
 }

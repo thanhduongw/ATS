@@ -4,7 +4,9 @@ import iuh.fit.se.auth.dto.response.CompanyResponse;
 import iuh.fit.se.auth.service.CompanyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth/public")
@@ -13,12 +15,8 @@ public class PublicCompanyController {
 
     private final CompanyService companyService;
 
-    /**
-     * Career Portal: lấy thông tin công ty theo mã (tenantCode).
-     * Chỉ trả về nếu tenant ACTIVE.
-     */
-    @GetMapping("/companies/{tenantCode}")
-    public ResponseEntity<CompanyResponse> getByTenantCode(@PathVariable String tenantCode) {
-        return ResponseEntity.ok(companyService.getPublicByTenantCode(tenantCode));
+    @GetMapping("/company")
+    public ResponseEntity<CompanyResponse> getCompany() {
+        return ResponseEntity.ok(companyService.getPublicCompany());
     }
 }

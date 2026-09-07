@@ -16,7 +16,7 @@ import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { requisitionSchema, type RequisitionFormValues } from "../schemas/requisitionSchema";
 import { createRequisition, updateRequisition, submitRequisition } from "../recruitmentApi";
-import { getUsers } from "../../auth/authApi";
+import { getUserDirectory } from "../../auth/authApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import SkillMultiSelect from "../../masterdata/components/SkillMultiSelect";
@@ -83,8 +83,8 @@ export default function RequisitionFormModal({
             getCatalogItems("/masterdata/job-levels"),
             getCatalogItems("/masterdata/employment-types"),
             getCatalogItems("/masterdata/work-locations"),
-            getUsers("RECRUITER"),
-            getUsers("COMPANY_ADMIN"),
+            getUserDirectory("RECRUITER"),
+            getUserDirectory("COMPANY_ADMIN"),
         ]).then(([deptRes, levelRes, empTypeRes, locationRes, recruiterRes, adminRes]) => {
             setDepartments(deptRes.data);
             setJobLevels(levelRes.data);

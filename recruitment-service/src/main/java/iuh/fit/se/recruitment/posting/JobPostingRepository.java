@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface JobPostingRepository extends JpaRepository<JobPosting, Long>,
         JpaSpecificationExecutor<JobPosting> {
-    Optional<JobPosting> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
-    boolean existsByTenantIdAndRequisition_IdAndDeletedAtIsNull(Long tenantId, Long requisitionId);
-    List<JobPosting> findByTenantIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(Long tenantId, PostingStatus status);
+    Optional<JobPosting> findByIdAndDeletedAtIsNull(Long id);
+    boolean existsByRequisition_IdAndDeletedAtIsNull(Long requisitionId);
+    List<JobPosting> findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(PostingStatus status);
 }

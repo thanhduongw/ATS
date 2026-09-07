@@ -15,6 +15,8 @@ import iuh.fit.se.application.common.PageResponse;
 import iuh.fit.se.application.event.ApplicationEventPublisher;
 import iuh.fit.se.application.event.AuditEventPublisher;
 import iuh.fit.se.application.exception.BusinessException;
+import iuh.fit.se.application.security.AuthorizationPolicy;
+import iuh.fit.se.application.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,7 +25,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,6 +32,7 @@ import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,65 +53,118 @@ public class ApplicationService {
     private final AuditEventPublisher auditEventPublisher;
 
     public PageResponse<ApplicationResponse> getAll(
-            Long tenantId, Long userId, String role,
+            CurrentUser actor,
             Long jobPostingId, Long candidateId,
             Long assignedRecruiterId, Long recruitmentSourceId, String stageType,
             LocalDate appliedFrom, LocalDate appliedTo,
             Integer page, Integer size) {
 
-        Specification<Application> spec = ApplicationSpecifications.build(
-                tenantId, jobPostingId, candidateId, assignedRecruiterId, recruitmentSourceId, stageType,
-                appliedFrom != null ? appliedFrom.atStartOfDay() : null,
-                appliedTo != null ? appliedTo.atTime(LocalTime.MAX) : null);
-
-        Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources(tenantId));
-        Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons(tenantId));
-        Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
-                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
-
-        if (page == null && size == null) {
-            List<Application> applications = applicationRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
-            Map<Long, JobPostingResponse> postingMap = buildPostingMap(tenantId, applications);
-            return PageResponse.unpaged(applications.stream()
-                    .map(a -> toResponse(a, sourceMap, reasonMap, userMap, postingMap))
-                    .toList());
+        Long effectiveCandidateId = candidateId;
+        AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
+        Long scopeDepartmentId = null;
+        Long scopeAssignedRecruiterId = null;
+        boolean restrictToScope = false;
+        if (role == AuthorizationPolicy.Role.CANDIDATE) {
+            effectiveCandidateId = resolveCandidateId(actor.userId());
+        } else {
+            AuthorizationPolicy.requireInternal(actor);
+            if (role == AuthorizationPolicy.Role.RECRUITER) {
+                scopeDepartmentId = actor.departmentId();
+                scopeAssignedRecruiterId = actor.userId();
+                restrictToScope = true;
+            } else if (role == AuthorizationPolicy.Role.HIRING_MANAGER) {
+                scopeDepartmentId = actor.departmentId();
+                restrictToScope = true;
+            }
         }
 
-        Pageable pageable = PageRequest.of(
-                page != null ? page : 0,
-                size != null ? size : 10,
-                Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Application> result = applicationRepository.findAll(spec, pageable);
-        Map<Long, JobPostingResponse> postingMap = buildPostingMap(tenantId, result.getContent());
-        return PageResponse.of(result.map(a -> toResponse(a, sourceMap, reasonMap, userMap, postingMap)));
+        Specification<Application> spec = ApplicationSpecifications.build(
+                jobPostingId, effectiveCandidateId, assignedRecruiterId, recruitmentSourceId, stageType,
+                appliedFrom != null ? appliedFrom.atStartOfDay() : null,
+                appliedTo != null ? appliedTo.atTime(LocalTime.MAX) : null,
+                scopeDepartmentId, scopeAssignedRecruiterId, restrictToScope);
+
+        Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources());
+        Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons());
+        Map<Long, String> userMap = AuthorizationPolicy.roleOf(actor) == AuthorizationPolicy.Role.CANDIDATE
+                ? Map.of()
+                : authServiceClient.getUsers(null).stream()
+                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
+
+        List<Application> scopedApplications = applicationRepository
+                .findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Map<Long, JobPostingResponse> postingMap = buildPostingMap(scopedApplications);
+        List<ApplicationResponse> responses = scopedApplications.stream()
+                .map(application -> toResponse(application, sourceMap, reasonMap, userMap, postingMap))
+                .toList();
+
+        if (page == null && size == null) {
+            return PageResponse.unpaged(responses);
+        }
+
+        int pageNumber = page != null ? page : 0;
+        int pageSize = size != null ? size : 10;
+        int fromIndex = Math.min(pageNumber * pageSize, responses.size());
+        int toIndex = Math.min(fromIndex + pageSize, responses.size());
+        int totalPages = responses.isEmpty() ? 0 : (int) Math.ceil((double) responses.size() / pageSize);
+        return new PageResponse<>(responses.subList(fromIndex, toIndex), responses.size(),
+                totalPages, pageNumber, pageSize);
     }
 
     /** Lấy thông tin (title, department) của tất cả job posting liên quan (tránh N+1). */
-    private Map<Long, JobPostingResponse> buildPostingMap(Long tenantId, List<Application> applications) {
+    private Map<Long, JobPostingResponse> buildPostingMap(List<Application> applications) {
         return applications.stream()
                 .map(Application::getJobPostingId)
                 .distinct()
-                .collect(Collectors.toMap(id -> id, id -> safeGetPosting(tenantId, id), (a, b) -> a));
+                .collect(Collectors.toMap(id -> id, id -> safeGetPosting(id), (a, b) -> a));
     }
 
-    public ApplicationResponse getById(Long tenantId, Long userId, String role, Long id) {
-        Application application = findOwned(tenantId, id);
-        Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources(tenantId));
-        Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons(tenantId));
-        Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
-                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
+    public ApplicationResponse getById(CurrentUser actor, Long id) {
+        Application application = findById(id);
+        authorizeApplication(actor, application);
+        return buildDetailedResponse(
+                AuthorizationPolicy.roleOf(actor) != AuthorizationPolicy.Role.CANDIDATE,
+                application);
+    }
+
+    public List<CandidateApplicationResponse> getMyApplications(CurrentUser actor) {
+        AuthorizationPolicy.requireCandidate(actor);
+        Long candidateId = resolveCandidateId(actor.userId());
+        return applicationRepository
+                .findByCandidateIdAndDeletedAtIsNullOrderByCreatedAtDesc(candidateId)
+                .stream()
+                .map(application -> toCandidateResponse(application))
+                .toList();
+    }
+
+    public CandidateApplicationResponse getMyApplication(
+            CurrentUser actor, Long id) {
+        AuthorizationPolicy.requireCandidate(actor);
+        Application application = findById(id);
+        authorizeApplication(actor, application);
+        return toCandidateResponse(application);
+    }
+
+    private ApplicationResponse buildDetailedResponse(
+            boolean includeInternalUserNames, Application application) {
+        Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources());
+        Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons());
+        Map<Long, String> userMap = includeInternalUserNames
+                ? authServiceClient.getUsers(null).stream()
+                .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a))
+                : Map.of();
 
         Map<Long, JobPostingResponse> postingMap = Map.of(
                 application.getJobPostingId(),
-                safeGetPosting(tenantId, application.getJobPostingId())
+                safeGetPosting(application.getJobPostingId())
         );
 
         return toResponse(application, sourceMap, reasonMap, userMap, postingMap);
     }
 
-    private JobPostingResponse safeGetPosting(Long tenantId, Long jobPostingId) {
+    private JobPostingResponse safeGetPosting(Long jobPostingId) {
         try {
-            return recruitmentServiceClient.getPostingById(tenantId, jobPostingId);
+            return recruitmentServiceClient.getPostingById(jobPostingId);
         } catch (Exception e) {
             return new JobPostingResponse(jobPostingId, null, null, "Job #" + jobPostingId, null, null);
         }
@@ -131,7 +186,7 @@ public class ApplicationService {
                 a.getCandidateNameSnapshot(),
                 a.getJobPostingId(),
                 jobTitle,
-                posting != null ? posting.departmentId() : null,
+                a.getDepartmentId(),
                 posting != null ? posting.departmentName() : null,
                 a.getRecruitmentSourceId(),
                 sourceMap.getOrDefault(a.getRecruitmentSourceId(), "N/A"),
@@ -150,14 +205,18 @@ public class ApplicationService {
         );
     }
 
-    public ApplicationSummaryResponse getSummaryById(Long tenantId, Long id) {
-        Application application = findOwned(tenantId, id);
+    public ApplicationSummaryResponse getSummaryById(Long id, CurrentUser actor) {
+        Application application = findById(id);
+        authorizeApplication(actor, application);
         return new ApplicationSummaryResponse(
                 application.getId(),
                 application.getCandidateId(),
                 application.getCandidateNameSnapshot(),
                 application.getCandidateEmailSnapshot(),
                 application.getJobPostingId(),
+                application.getPipelineId(),
+                application.getDepartmentId(),
+                application.getAssignedRecruiterId(),
                 application.getCurrentStageOrder(),
                 application.getCurrentStageType(),
                 application.getCurrentStageName(),
@@ -166,41 +225,59 @@ public class ApplicationService {
     }
 
     @Transactional
-    public ApplicationResponse create(Long tenantId, Long actorUserId, String role, ApplicationCreateRequest req) {
-        CandidateSummaryResponse candidate = fetchCandidate(tenantId, req.candidateId());
+    public ApplicationResponse create(CurrentUser actor, ApplicationCreateRequest req) {
+        boolean candidateSelfApply = AuthorizationPolicy.roleOf(actor) == AuthorizationPolicy.Role.CANDIDATE;
+        Long effectiveCandidateId;
+        Long effectiveAssignedRecruiterId;
+        if (candidateSelfApply) {
+            effectiveCandidateId = resolveCandidateId(actor.userId());
+            effectiveAssignedRecruiterId = null;
+        } else {
+            AuthorizationPolicy.requireHr(actor);
+            if (req.candidateId() == null) {
+                throw new BusinessException("Vui long chon ung vien");
+            }
+            effectiveCandidateId = req.candidateId();
+            effectiveAssignedRecruiterId = req.assignedRecruiterId();
+        }
+        CandidateSummaryResponse candidate = fetchCandidate(effectiveCandidateId);
 
-        JobPostingResponse posting = fetchPosting(tenantId, req.jobPostingId());
+        JobPostingResponse posting = fetchPosting(req.jobPostingId());
         if (!"OPEN".equals(posting.status())) {
             throw new BusinessException("Chỉ ứng tuyển được vào tin tuyển dụng đang mở");
         }
 
-        if (applicationRepository.existsByTenantIdAndCandidateIdAndJobPostingIdAndDeletedAtIsNull(tenantId, req.candidateId(), req.jobPostingId())) {
+        if (applicationRepository.existsByCandidateIdAndJobPostingIdAndDeletedAtIsNull(
+                effectiveCandidateId, req.jobPostingId())) {
             throw new BusinessException("Ứng viên này đã nộp hồ sơ vào tin tuyển dụng này rồi");
         }
 
-        validateRecruitmentSource(tenantId, req.recruitmentSourceId());
-        if (req.assignedRecruiterId() != null) {
-            validateAssignedRecruiter(tenantId, req.assignedRecruiterId());
+        validateRecruitmentSource(req.recruitmentSourceId());
+        if (effectiveAssignedRecruiterId != null) {
+            validateAssignedRecruiter(effectiveAssignedRecruiterId);
         }
 
-        String resumeUrl = req.resumeUrl() != null ? req.resumeUrl() : candidate.cvFileUrl();
+        String resumeUrl = candidateSelfApply
+                ? candidate.cvFileUrl()
+                : (req.resumeUrl() != null ? req.resumeUrl() : candidate.cvFileUrl());
         if (resumeUrl == null) {
             throw new BusinessException("Ứng viên chưa có CV, vui lòng tải CV lên trước khi ứng tuyển");
         }
 
-        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(tenantId, posting.pipelineId());
+        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(posting.pipelineId());
         PipelineStageResponse firstStage = pipeline.stages().stream()
                 .min(Comparator.comparing(PipelineStageResponse::stageOrder))
                 .orElseThrow(() -> new BusinessException("Quy trình tuyển dụng chưa có giai đoạn nào"));
 
         Application application = applicationRepository.save(Application.builder()
-                .tenantId(tenantId)
                 .candidateId(candidate.id())
                 .candidateNameSnapshot(candidate.fullName())
                 .candidateEmailSnapshot(candidate.email())
                 .jobPostingId(req.jobPostingId())
+                .pipelineId(posting.pipelineId())
+                .departmentId(requirePostingDepartment(posting))
                 .recruitmentSourceId(req.recruitmentSourceId())
-                .assignedRecruiterId(req.assignedRecruiterId())
+                .assignedRecruiterId(effectiveAssignedRecruiterId)
                 .resumeUrl(resumeUrl)
                 .currentStageId(firstStage.id())
                 .currentStageName(firstStage.name())
@@ -209,22 +286,40 @@ public class ApplicationService {
                 .note(req.note())
                 .build());
 
-        saveHistory(application, null, firstStage.name(), "Ứng tuyển vào vị trí", actorUserId);
+        saveHistory(application, null, firstStage.name(), "Ứng tuyển vào vị trí", actor.userId());
 
         eventPublisher.publishApplicationCreated(
-                tenantId, req.jobPostingId(), application.getId(),
+                req.jobPostingId(), application.getId(),
                 application.getCandidateId(), application.getAssignedRecruiterId(), application.getCandidateNameSnapshot());
 
-        return getById(tenantId, actorUserId, role, application.getId());
+        return getById(actor, application.getId());
     }
 
     @Transactional
-    public ApplicationResponse advanceStage(Long tenantId, Long id, Long actorUserId, ApplicationAdvanceStageRequest req) {
-        Application application = findOwned(tenantId, id);
+    public CandidateApplicationResponse createForCandidate(
+            CurrentUser actor, ApplicationCreateRequest request) {
+        AuthorizationPolicy.requireCandidate(actor);
+        ApplicationResponse created = create(actor, request);
+        return getMyApplication(actor, created.id());
+    }
+
+    @Transactional
+    public ApplicationResponse advanceStage(Long id, Long actorUserId, ApplicationAdvanceStageRequest req) {
+        return buildDetailedResponse(true, applyAdvanceStage(id, actorUserId, req));
+    }
+
+    /**
+     * Stage transition without the response enrichment. Callers outside an HTTP request (event
+     * listeners) must use this method: {@link #buildDetailedResponse} resolves internal user names
+     * through Feign, which has no trusted identity to forward when there is no inbound request.
+     */
+    @Transactional
+    public Application applyAdvanceStage(Long id, Long actorUserId, ApplicationAdvanceStageRequest req) {
+        Application application = findById(id);
         ensureNotTerminal(application);
 
-        JobPostingResponse posting = fetchPosting(tenantId, application.getJobPostingId());
-        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(tenantId, posting.pipelineId());
+        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(
+                resolvePipelineId(application));
 
         int nextOrder = application.getCurrentStageOrder() + 1;
         PipelineStageResponse nextStage = pipeline.stages().stream()
@@ -245,24 +340,30 @@ public class ApplicationService {
 
         saveHistory(application, previousStageName, nextStage.name(), req.note(), actorUserId);
         eventPublisher.publishApplicationStatusChanged(
-                tenantId, application.getId(), application.getJobPostingId(),
+                application.getId(), application.getJobPostingId(),
                 application.getCandidateId(), application.getAssignedRecruiterId(),
                 previousStageName, nextStage.name(), nextStage.stageType());
-        auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_STAGE_CHANGED", "APPLICATION", application.getId(),
+        auditEventPublisher.publish(actorUserId, "APPLICATION_STAGE_CHANGED", "APPLICATION", application.getId(),
                 previousStageName + " → " + nextStage.name());
 
-        return getById(tenantId, actorUserId, null, application.getId());
+        return application;
     }
 
     @Transactional
-    public ApplicationResponse reject(Long tenantId, Long id, Long actorUserId, ApplicationRejectRequest req) {
-        Application application = findOwned(tenantId, id);
+    public ApplicationResponse reject(Long id, Long actorUserId, ApplicationRejectRequest req) {
+        return buildDetailedResponse(true, applyReject(id, actorUserId, req));
+    }
+
+    /** Rejection transition without response enrichment. See {@link #applyAdvanceStage}. */
+    @Transactional
+    public Application applyReject(Long id, Long actorUserId, ApplicationRejectRequest req) {
+        Application application = findById(id);
         ensureNotTerminal(application);
 
-        String reasonName = validateRejectionReason(tenantId, req.rejectionReasonId());
+        String reasonName = validateRejectionReason(req.rejectionReasonId());
 
-        JobPostingResponse posting = fetchPosting(tenantId, application.getJobPostingId());
-        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(tenantId, posting.pipelineId());
+        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(
+                resolvePipelineId(application));
 
         PipelineStageResponse rejectedStage = pipeline.stages().stream()
                 .filter(s -> STAGE_TYPE_REJECTED.equals(s.stageType()))
@@ -283,51 +384,51 @@ public class ApplicationService {
 
         saveHistory(application, previousStageName, rejectedStage.name(), req.note(), actorUserId);
         eventPublisher.publishApplicationStatusChanged(
-                tenantId, application.getId(), application.getJobPostingId(),
+                application.getId(), application.getJobPostingId(),
                 application.getCandidateId(), application.getAssignedRecruiterId(),
                 previousStageName, rejectedStage.name(), rejectedStage.stageType());
-        auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_REJECTED", "APPLICATION", application.getId(),
+        auditEventPublisher.publish(actorUserId, "APPLICATION_REJECTED", "APPLICATION", application.getId(),
                 "Từ chối hồ sơ: " + req.note());
 
         // Talent Pool: đưa ứng viên vào pool kèm tag lý do — best-effort, không chặn luồng reject chính
         try {
-            candidateServiceClient.markPool(tenantId, application.getCandidateId(), Map.of("tag", reasonName));
+            candidateServiceClient.markPool(application.getCandidateId(), Map.of("tag", reasonName));
         } catch (Exception e) {
             // bỏ qua — Talent Pool là tính năng phụ trợ, không được làm fail thao tác reject
         }
 
-        return getById(tenantId, actorUserId, null, application.getId());
+        return application;
     }
 
     @Transactional
-    public ApplicationResponse assignRecruiter(Long tenantId, Long id, Long actorUserId, Long assignedRecruiterId) {
-        Application application = findOwned(tenantId, id);
-        validateAssignedRecruiter(tenantId, assignedRecruiterId);
+    public ApplicationResponse assignRecruiter(Long id, Long actorUserId, Long assignedRecruiterId) {
+        Application application = findById(id);
+        validateAssignedRecruiter(assignedRecruiterId);
 
         application.setAssignedRecruiterId(assignedRecruiterId);
         applicationRepository.save(application);
 
-        auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_RECRUITER_ASSIGNED", "APPLICATION",
+        auditEventPublisher.publish(actorUserId, "APPLICATION_RECRUITER_ASSIGNED", "APPLICATION",
                 application.getId(), null);
 
-        return getById(tenantId, actorUserId, null, application.getId());
+        return buildDetailedResponse(true, application);
     }
 
     @Transactional
-    public BulkOperationResponse bulkAdvanceStage(Long tenantId, Long actorUserId, BulkAdvanceStageRequest req) {
+    public BulkOperationResponse bulkAdvanceStage(Long actorUserId, BulkAdvanceStageRequest req) {
         return runBulk(req.ids(), id ->
-                advanceStage(tenantId, id, actorUserId, new ApplicationAdvanceStageRequest(req.note())));
+                advanceStage(id, actorUserId, new ApplicationAdvanceStageRequest(req.note())));
     }
 
     @Transactional
-    public BulkOperationResponse bulkReject(Long tenantId, Long actorUserId, BulkRejectRequest req) {
+    public BulkOperationResponse bulkReject(Long actorUserId, BulkRejectRequest req) {
         return runBulk(req.ids(), id ->
-                reject(tenantId, id, actorUserId, new ApplicationRejectRequest(req.rejectionReasonId(), req.note())));
+                reject(id, actorUserId, new ApplicationRejectRequest(req.rejectionReasonId(), req.note())));
     }
 
     @Transactional
-    public BulkOperationResponse bulkAssignRecruiter(Long tenantId, Long actorUserId, BulkAssignRecruiterRequest req) {
-        return runBulk(req.ids(), id -> assignRecruiter(tenantId, id, actorUserId, req.assignedRecruiterId()));
+    public BulkOperationResponse bulkAssignRecruiter(Long actorUserId, BulkAssignRecruiterRequest req) {
+        return runBulk(req.ids(), id -> assignRecruiter(id, actorUserId, req.assignedRecruiterId()));
     }
 
     /** Chạy 1 thao tác cho từng id độc lập; lỗi ở 1 id không chặn các id còn lại. */
@@ -346,31 +447,38 @@ public class ApplicationService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id, Long actorUserId) {
-        Application application = findOwned(tenantId, id);
+    public void softDelete(Long id, Long actorUserId) {
+        Application application = findById(id);
         if (STAGE_TYPE_HIRED.equals(application.getCurrentStageType())) {
             throw new BusinessException("Không thể xóa hồ sơ đã tuyển dụng thành công");
         }
         application.setDeletedAt(LocalDateTime.now());
         applicationRepository.save(application);
-        auditEventPublisher.publish(tenantId, actorUserId, "APPLICATION_DELETED", "APPLICATION", id, null);
+        auditEventPublisher.publish(actorUserId, "APPLICATION_DELETED", "APPLICATION", id, null);
     }
 
-    public List<ApplicationHistoryResponse> getHistory(Long tenantId, Long id) {
-        Application application = findOwned(tenantId, id);
-        Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
+    public List<ApplicationHistoryResponse> getHistory(Long id) {
+        Application application = findById(id);
+        Map<Long, String> userMap = authServiceClient.getUsers(null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
+
+        // The name map only contains internal staff. The remaining actor a history row can carry is
+        // the owning candidate (self-apply, offer accept/decline), so fall back to that snapshot
+        // instead of exposing a candidate directory to every internal role.
+        String candidateName = application.getCandidateNameSnapshot() != null
+                ? application.getCandidateNameSnapshot() : "N/A";
 
         return historyRepository.findByApplicationIdOrderByChangedAtAsc(application.getId()).stream()
                 .map(h -> new ApplicationHistoryResponse(
                         h.getId(), h.getFromStageName(), h.getToStageName(), h.getNote(),
-                        h.getChangedByUserId(), userMap.getOrDefault(h.getChangedByUserId(), "N/A"), h.getChangedAt()))
+                        h.getChangedByUserId(),
+                        userMap.getOrDefault(h.getChangedByUserId(), candidateName), h.getChangedAt()))
                 .toList();
     }
 
-    public List<ApplicationCommentResponse> getComments(Long tenantId, Long id) {
-        Application application = findOwned(tenantId, id);
-        Map<Long, String> userMap = authServiceClient.getUsers(tenantId, null).stream()
+    public List<ApplicationCommentResponse> getComments(Long id) {
+        Application application = findById(id);
+        Map<Long, String> userMap = authServiceClient.getUsers(null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
 
         return commentRepository.findByApplicationIdOrderByCreatedAtAsc(application.getId()).stream()
@@ -381,15 +489,14 @@ public class ApplicationService {
     }
 
     @Transactional
-    public ApplicationCommentResponse addComment(Long tenantId, Long id, Long actorUserId, String content) {
-        Application application = findOwned(tenantId, id);
-        List<UserSummaryResponse> users = authServiceClient.getUsers(tenantId, null);
+    public ApplicationCommentResponse addComment(Long id, Long actorUserId, String content) {
+        Application application = findById(id);
+        List<UserSummaryResponse> users = authServiceClient.getUsers(null);
         Map<Long, String> userMap = users.stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
 
         ApplicationComment saved = commentRepository.save(ApplicationComment.builder()
                 .application(application)
-                .tenantId(tenantId)
                 .authorUserId(actorUserId)
                 .content(content)
                 .build());
@@ -401,7 +508,7 @@ public class ApplicationService {
             if (u.id().equals(actorUserId) || u.fullName() == null) continue;
             if (content.contains("@" + u.fullName())) {
                 eventPublisher.publishCommentMention(
-                        tenantId, application.getId(), u.id(), actorUserId, authorName, excerpt);
+                        application.getId(), u.id(), actorUserId, authorName, excerpt);
             }
         }
 
@@ -415,37 +522,37 @@ public class ApplicationService {
         }
     }
 
-    private CandidateSummaryResponse fetchCandidate(Long tenantId, Long candidateId) {
+    private CandidateSummaryResponse fetchCandidate(Long candidateId) {
         try {
-            return candidateServiceClient.getCandidateSummary(tenantId, candidateId);
+            return candidateServiceClient.getCandidateSummary(candidateId);
         } catch (Exception e) {
             throw new BusinessException("Không tìm thấy ứng viên");
         }
     }
 
-    private JobPostingResponse fetchPosting(Long tenantId, Long jobPostingId) {
+    private JobPostingResponse fetchPosting(Long jobPostingId) {
         try {
-            return recruitmentServiceClient.getPostingById(tenantId, jobPostingId);
+            return recruitmentServiceClient.getPostingById(jobPostingId);
         } catch (Exception e) {
             throw new BusinessException("Không tìm thấy tin tuyển dụng");
         }
     }
 
-    private void validateRecruitmentSource(Long tenantId, Long id) {
-        boolean valid = masterDataServiceClient.getRecruitmentSources(tenantId).stream().anyMatch(s -> s.id().equals(id));
+    private void validateRecruitmentSource(Long id) {
+        boolean valid = masterDataServiceClient.getRecruitmentSources().stream().anyMatch(s -> s.id().equals(id));
         if (!valid) throw new BusinessException("Nguồn tuyển dụng không hợp lệ");
     }
 
-    private String validateRejectionReason(Long tenantId, Long id) {
-        return masterDataServiceClient.getRejectionReasons(tenantId).stream()
+    private String validateRejectionReason(Long id) {
+        return masterDataServiceClient.getRejectionReasons().stream()
                 .filter(r -> r.id().equals(id))
                 .map(CatalogItemResponse::name)
                 .findFirst()
                 .orElseThrow(() -> new BusinessException("Lý do từ chối không hợp lệ"));
     }
 
-    private void validateAssignedRecruiter(Long tenantId, Long id) {
-        boolean valid = authServiceClient.getUsers(tenantId, "RECRUITER").stream().anyMatch(u -> u.id().equals(id));
+    private void validateAssignedRecruiter(Long id) {
+        boolean valid = authServiceClient.getUsers("RECRUITER").stream().anyMatch(u -> u.id().equals(id));
         if (!valid) throw new BusinessException("Người phụ trách không phải Recruiter hợp lệ");
     }
 
@@ -467,133 +574,90 @@ public class ApplicationService {
                 (a, b) -> a));
     }
 
-    private Application findOwned(Long tenantId, Long id) {
-        return applicationRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
+    private Application findById(Long id) {
+        return applicationRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy hồ sơ ứng tuyển"));
     }
 
-    /**
-     * Public Career Portal apply.
-     */
-    @Transactional
-    public PublicApplyResponse createPublicApply(
-            String tenantCode,
-            Long jobPostingId,
-            String fullName,
-            String email,
-            String phone,
-            String note,
-            boolean consentGiven,
-            MultipartFile file) {
-
-        if (file == null || file.isEmpty()) {
-            throw new BusinessException("Vui lòng đính kèm file CV");
-        }
-        if (fullName == null || fullName.isBlank()) {
-            throw new BusinessException("Họ tên không được để trống");
-        }
-        if (email == null || email.isBlank()) {
-            throw new BusinessException("Email không được để trống");
-        }
-        if (!consentGiven) {
-            throw new BusinessException("Vui lòng đồng ý cho phép lưu trữ thông tin để nộp hồ sơ");
-        }
-
-        // 1. Resolve tenant
-        var company = authServiceClient.getCompanyByTenantCode(tenantCode);
-        Long tenantId = company.tenantId();
-
-        // 2. Validate job OPEN
-        JobPostingResponse posting;
-        try {
-            posting = recruitmentServiceClient.getPublicOpenJob(tenantCode, jobPostingId);
-        } catch (Exception e) {
-            throw new BusinessException("Tin tuyển dụng không tồn tại hoặc đã đóng");
-        }
-        if (posting == null || !"OPEN".equalsIgnoreCase(String.valueOf(posting.status()))) {
-            throw new BusinessException("Chỉ ứng tuyển được vào tin đang mở");
-        }
-
-        // 3. Find or create candidate
-        CandidateSummaryResponse candidate = candidateServiceClient.findOrCreatePublic(
-                tenantCode,
-                new iuh.fit.se.application.client.dto.PublicCandidateCreateRequest(
-                        fullName.trim(), email.trim().toLowerCase(), phone, true)
-        );
-
-        // 4. Upload CV
-        candidate = candidateServiceClient.uploadCvPublic(tenantCode, candidate.id(), file);
-
-        // 5. Chống nộp trùng
-        if (applicationRepository.existsByTenantIdAndCandidateIdAndJobPostingIdAndDeletedAtIsNull(
-                tenantId, candidate.id(), jobPostingId)) {
-            throw new BusinessException("Bạn đã nộp hồ sơ vào vị trí này rồi");
-        }
-
-        // 6. Lấy nguồn tuyển dụng mặc định (Website / Career Site / cái đầu tiên)
-        Long sourceId = resolveDefaultRecruitmentSource(tenantId);
-
-        // 7. Lấy stage đầu của pipeline
-        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(tenantId, posting.pipelineId());
-        PipelineStageResponse firstStage = pipeline.stages().stream()
-                .min(Comparator.comparing(PipelineStageResponse::stageOrder))
-                .orElseThrow(() -> new BusinessException("Quy trình tuyển dụng chưa có giai đoạn nào"));
-
-        // 8. Tạo Application
-        Application application = applicationRepository.save(Application.builder()
-                .tenantId(tenantId)
-                .candidateId(candidate.id())
-                .candidateNameSnapshot(candidate.fullName())
-                .candidateEmailSnapshot(candidate.email())
-                .jobPostingId(jobPostingId)
-                .recruitmentSourceId(sourceId)
-                .resumeUrl(candidate.cvFileUrl())
-                .currentStageId(firstStage.id())
-                .currentStageName(firstStage.name())
-                .currentStageOrder(firstStage.stageOrder())
-                .currentStageType(firstStage.stageType())
-                .note(note)
-                .build());
-
-        saveHistory(application, null, firstStage.name(), "Ứng tuyển qua Career Portal", null);
-
-        // actorUserId = null vì public
-        eventPublisher.publishApplicationStatusChanged(
-                tenantId, application.getId(), application.getJobPostingId(),
-                application.getCandidateId(), null,
-                null, firstStage.name(), firstStage.stageType());
-
-        auditEventPublisher.publish(tenantId, null, "APPLICATION_CREATED_PUBLIC",
-                "APPLICATION", application.getId(), "Nộp qua Career Portal");
-
-        return new PublicApplyResponse(
+    private CandidateApplicationResponse toCandidateResponse(
+            Application application) {
+        JobPostingResponse posting = safeGetPosting(application.getJobPostingId());
+        Map<Long, String> reasonMap = application.getRejectionReasonId() == null
+                ? Map.of()
+                : buildMap(masterDataServiceClient.getRejectionReasons());
+        return new CandidateApplicationResponse(
                 application.getId(),
-                candidate.id(),
-                candidate.fullName(),
-                candidate.email(),
-                jobPostingId,
-                firstStage.name(),
+                application.getJobPostingId(),
+                posting.title(),
+                application.getDepartmentId(),
+                posting.departmentName(),
+                application.getCurrentStageName(),
+                application.getCurrentStageOrder(),
+                application.getCurrentStageType(),
+                application.getRejectionReasonId() == null
+                        ? null : reasonMap.get(application.getRejectionReasonId()),
                 application.getAppliedAt(),
-                "Nộp hồ sơ thành công. Chúng tôi sẽ liên hệ với bạn sớm."
-        );
+                application.getHiredAt());
     }
 
-    private Long resolveDefaultRecruitmentSource(Long tenantId) {
-        List<CatalogItemResponse> sources = masterDataServiceClient.getRecruitmentSources(tenantId);
-        if (sources == null || sources.isEmpty()) {
-            throw new BusinessException(
-                    "Công ty chưa cấu hình nguồn tuyển dụng. Vui lòng liên hệ HR.");
-        }
-        // Ưu tiên tên chứa Website / Career / Trang web / Portal
-        return sources.stream()
-                .filter(s -> {
-                    String n = s.name() == null ? "" : s.name().toLowerCase();
-                    return n.contains("website") || n.contains("career")
-                            || n.contains("trang web") || n.contains("portal")
-                            || n.contains("web");
-                })
-                .map(CatalogItemResponse::id)
-                .findFirst()
-                .orElse(sources.get(0).id());
+    public void requireAccess(Long id, CurrentUser actor) {
+        authorizeApplication(actor, findById(id));
     }
+
+    public Set<Long> getAccessibleCandidateIds(CurrentUser actor) {
+        AuthorizationPolicy.requireInternal(actor);
+        AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
+        if (role == AuthorizationPolicy.Role.COMPANY_ADMIN) {
+            return applicationRepository.findByDeletedAtIsNullOrderByCreatedAtDesc().stream()
+                    .map(Application::getCandidateId)
+                    .collect(Collectors.toSet());
+        }
+
+        Long scopeAssignedRecruiterId = role == AuthorizationPolicy.Role.RECRUITER
+                ? actor.userId() : null;
+        Specification<Application> spec = ApplicationSpecifications.build(
+                null, null, null, null, null, null, null,
+                actor.departmentId(), scopeAssignedRecruiterId, true);
+        return applicationRepository.findAll(spec).stream()
+                .map(Application::getCandidateId)
+                .collect(Collectors.toSet());
+    }
+
+    private void authorizeApplication(CurrentUser actor, Application application) {
+        if (AuthorizationPolicy.roleOf(actor) == AuthorizationPolicy.Role.CANDIDATE) {
+            Long ownCandidateId = resolveCandidateId(actor.userId());
+            if (!ownCandidateId.equals(application.getCandidateId())) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Candidate cannot access another candidate's application");
+            }
+            return;
+        }
+
+        AuthorizationPolicy.requireInternal(actor);
+        AuthorizationPolicy.requireCanAccessApplication(
+                actor, null, application.getDepartmentId(), application.getAssignedRecruiterId());
+    }
+
+    private Long requirePostingDepartment(JobPostingResponse posting) {
+        if (posting.departmentId() == null) {
+            throw new BusinessException("Tin tuyển dụng chưa được gắn phòng ban");
+        }
+        return posting.departmentId();
+    }
+
+    private Long resolvePipelineId(Application application) {
+        if (application.getPipelineId() != null) {
+            return application.getPipelineId();
+        }
+        return fetchPosting(application.getJobPostingId()).pipelineId();
+    }
+
+    private Long resolveCandidateId(Long userId) {
+        try {
+            return candidateServiceClient.getByUserId(userId).id();
+        } catch (Exception exception) {
+            throw new BusinessException("Không tìm thấy hồ sơ ứng viên gắn với tài khoản");
+        }
+    }
+
 }

@@ -1,8 +1,9 @@
 package iuh.fit.se.candidate.customfield;
 
-import iuh.fit.se.candidate.common.AccessGuard;
 import iuh.fit.se.candidate.customfield.dto.CustomFieldDefinitionRequest;
 import iuh.fit.se.candidate.customfield.dto.CustomFieldDefinitionResponse;
+import iuh.fit.se.candidate.security.AuthorizationPolicy;
+import iuh.fit.se.candidate.security.CurrentUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,36 +20,31 @@ public class CustomFieldDefinitionController {
     private final CustomFieldDefinitionService service;
 
     @GetMapping
-    public ResponseEntity<List<CustomFieldDefinitionResponse>> getAll(@RequestHeader("X-Tenant-Id") Long tenantId) {
-        return ResponseEntity.ok(service.getAll(tenantId));
+    public ResponseEntity<List<CustomFieldDefinitionResponse>> getAll() {
+        AuthorizationPolicy.requireInternal(CurrentUser.required());
+        return ResponseEntity.ok(service.getAll());
     }
 
     @PostMapping
     public ResponseEntity<CustomFieldDefinitionResponse> create(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody CustomFieldDefinitionRequest req) {
-        AccessGuard.requireCompanyAdmin(role);
-        return ResponseEntity.ok(service.create(tenantId, req));
+        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        return ResponseEntity.ok(service.create(req));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<CustomFieldDefinitionResponse> update(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id,
             @Valid @RequestBody CustomFieldDefinitionRequest req) {
-        AccessGuard.requireCompanyAdmin(role);
-        return ResponseEntity.ok(service.update(tenantId, id, req));
+        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        return ResponseEntity.ok(service.update(id, req));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id) {
-        AccessGuard.requireCompanyAdmin(role);
-        service.softDelete(tenantId, id);
+        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        service.softDelete(id);
         return ResponseEntity.ok(Map.of("message", "Xóa thành công"));
     }
 }

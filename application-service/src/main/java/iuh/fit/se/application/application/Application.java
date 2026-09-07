@@ -13,9 +13,6 @@ public class Application {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
     @Column(name = "candidate_id", nullable = false)
     private Long candidateId;
 
@@ -27,6 +24,13 @@ public class Application {
 
     @Column(name = "job_posting_id", nullable = false)
     private Long jobPostingId;
+
+    /** Authorization snapshot inherited from the job posting/requisition. */
+    @Column(name = "department_id")
+    private Long departmentId;
+
+    @Column(name = "pipeline_id")
+    private Long pipelineId;
 
     @Column(name = "recruitment_source_id", nullable = false)
     private Long recruitmentSourceId;

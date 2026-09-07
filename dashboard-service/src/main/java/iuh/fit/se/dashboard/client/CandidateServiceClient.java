@@ -5,7 +5,6 @@ import iuh.fit.se.dashboard.client.dto.PageResponse;
 import iuh.fit.se.dashboard.config.FeignClientConfig;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 
 @FeignClient(
         name = "candidate-service",
@@ -14,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 )
 public interface CandidateServiceClient {
 
-    /** No page/size sent on purpose: dashboard aggregation needs the full tenant dataset, not one page. */
+    /** No page/size sent on purpose: dashboard aggregation needs the full company dataset, not one page. */
     @GetMapping("/api/candidate/candidates")
-    PageResponse<CandidateSummary> getCandidates(@RequestHeader("X-Tenant-Id") Long tenantId);
+    PageResponse<CandidateSummary> getCandidates();
 }

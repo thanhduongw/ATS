@@ -12,9 +12,6 @@ public class Company {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
     @Column(nullable = false)
     private String name;
 
@@ -40,11 +37,10 @@ public class Company {
 
     public Company() {}
 
-    public Company(Long id, Long tenantId, String name, String address, String phone,
+    public Company(Long id, String name, String address, String phone,
                     String description, String logoUrl, String bannerUrl, Integer dataRetentionMonths,
                     LocalDateTime createdAt) {
         this.id = id;
-        this.tenantId = tenantId;
         this.name = name;
         this.address = address;
         this.phone = phone;
@@ -61,7 +57,6 @@ public class Company {
 
     public static class CompanyBuilder {
         private Long id;
-        private Long tenantId;
         private String name;
         private String address;
         private String phone;
@@ -72,7 +67,6 @@ public class Company {
         private LocalDateTime createdAt;
 
         public CompanyBuilder id(Long id) { this.id = id; return this; }
-        public CompanyBuilder tenantId(Long tenantId) { this.tenantId = tenantId; return this; }
         public CompanyBuilder name(String name) { this.name = name; return this; }
         public CompanyBuilder address(String address) { this.address = address; return this; }
         public CompanyBuilder phone(String phone) { this.phone = phone; return this; }
@@ -83,7 +77,7 @@ public class Company {
         public CompanyBuilder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
 
         public Company build() {
-            return new Company(id, tenantId, name, address, phone, description, logoUrl, bannerUrl,
+            return new Company(id, name, address, phone, description, logoUrl, bannerUrl,
                     dataRetentionMonths, createdAt);
         }
     }
@@ -97,8 +91,6 @@ public class Company {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public Long getTenantId() { return tenantId; }
-    public void setTenantId(Long tenantId) { this.tenantId = tenantId; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getAddress() { return address; }

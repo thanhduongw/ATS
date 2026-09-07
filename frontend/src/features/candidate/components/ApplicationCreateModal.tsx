@@ -12,11 +12,11 @@ import {
 import { createApplication, getCandidates } from "../candidateApi";
 import { getPostings } from "../../recruitment/recruitmentApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
-import { getUsers } from "../../auth/authApi";
+import { getUserDirectory } from "../../auth/authApi";
 import type { CandidateResponse } from "../types";
 import type { JobPostingResponse } from "../../recruitment/types";
 import type { CatalogItem } from "../../masterdata/types";
-import type { UserSummaryResponse } from "../../auth/types";
+import type { UserDirectoryResponse } from "../../auth/types";
 import type { ApiMessageResponse } from "../types";
 
 interface Props {
@@ -37,7 +37,7 @@ export default function ApplicationCreateModal({
   const [candidates, setCandidates] = useState<CandidateResponse[]>([]);
   const [postings, setPostings] = useState<JobPostingResponse[]>([]);
   const [sources, setSources] = useState<CatalogItem[]>([]);
-  const [recruiters, setRecruiters] = useState<UserSummaryResponse[]>([]);
+  const [recruiters, setRecruiters] = useState<UserDirectoryResponse[]>([]);
 
   const {
     control,
@@ -52,7 +52,7 @@ export default function ApplicationCreateModal({
       getCandidates(),
       getPostings(),
       getCatalogItems("/masterdata/recruitment-sources"),
-      getUsers("RECRUITER"),
+      getUserDirectory("RECRUITER"),
     ]).then(([candRes, postRes, srcRes, recRes]) => {
       setCandidates(candRes.data.content);
       setPostings(postRes.data.content.filter((p) => p.status === "OPEN"));

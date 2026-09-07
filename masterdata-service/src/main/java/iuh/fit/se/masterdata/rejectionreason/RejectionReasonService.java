@@ -14,31 +14,31 @@ public class RejectionReasonService {
 
     private final RejectionReasonRepository repository;
 
-    public List<RejectionReasonResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByNameAsc(tenantId).stream().map(this::toResponse).toList();
+    public List<RejectionReasonResponse> getAll() {
+        return repository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public RejectionReasonResponse create(Long tenantId, RejectionReasonRequest req) {
-        if (repository.existsByTenantIdAndNameIgnoreCase(tenantId, req.name())) {
+    public RejectionReasonResponse create(RejectionReasonRequest req) {
+        if (repository.existsByNameIgnoreCase(req.name())) {
             throw new BusinessException("Lý do từ chối đã tồn tại");
         }
         RejectionReason saved = repository.save(RejectionReason.builder()
-                .tenantId(tenantId).name(req.name()).active(true).build());
+                .name(req.name()).active(true).build());
         return toResponse(saved);
     }
 
     @Transactional
-    public RejectionReasonResponse update(Long tenantId, Long id, RejectionReasonRequest req) {
-        RejectionReason entity = repository.findByIdAndTenantId(id, tenantId)
+    public RejectionReasonResponse update(Long id, RejectionReasonRequest req) {
+        RejectionReason entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy lý do từ chối"));
         entity.setName(req.name());
         return toResponse(repository.save(entity));
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        RejectionReason entity = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        RejectionReason entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy lý do từ chối"));
         entity.setActive(false);
         repository.save(entity);

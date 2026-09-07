@@ -12,6 +12,10 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
   rabbitmq:
     host: localhost
     port: 5672
@@ -29,6 +33,8 @@ services:
     url: ${SERVICES_MASTERDATA_SERVICE_URL:http://localhost:8082}
   recruitment-service:
     url: ${SERVICES_RECRUITMENT_SERVICE_URL:http://localhost:8083}
+  application-service:
+    url: ${SERVICES_APPLICATION_SERVICE_URL:http://localhost:8089}
 
 aws:
   s3:

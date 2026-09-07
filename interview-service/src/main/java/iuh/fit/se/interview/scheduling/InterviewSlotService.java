@@ -41,18 +41,17 @@ public class InterviewSlotService {
 
     @Transactional
     public List<InterviewSlotResponse> createBatch(
-            Long tenantId, Long actorUserId, String role, SlotBatchCreateRequest req) {
+            Long actorUserId, String role, SlotBatchCreateRequest req) {
 
         AccessGuard.requireHr(role);
 
-        ApplicationSummaryResponse application = fetchApplication(tenantId, req.applicationId());
+        ApplicationSummaryResponse application = fetchApplication(req.applicationId());
         if ("REJECTED".equals(application.currentStageType()) || "HIRED".equals(application.currentStageType())) {
             throw new BusinessException("Không thể tạo khung giờ cho hồ sơ đã kết thúc");
         }
 
         List<InterviewSlot> slotsToSave = req.slots().stream()
                 .map(s -> InterviewSlot.builder()
-                        .tenantId(tenantId)
                         .applicationId(req.applicationId())
                         .candidateNameSnapshot(application.candidateName())
                         .startTime(s.startTime())
@@ -72,24 +71,28 @@ public class InterviewSlotService {
     }
 
     @Transactional(readOnly = true)
-    public List<InterviewSlotResponse> getSlots(Long tenantId, Long applicationId) {
-        return slotRepository.findByTenantIdAndApplicationIdOrderByStartTimeAsc(tenantId, applicationId)
+    public List<InterviewSlotResponse> getSlots(Long applicationId) {
+        return slotRepository.findByApplicationIdOrderByStartTimeAsc(applicationId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
     }
 
+    public void requireApplicationAccess(Long applicationId) {
+        fetchApplication(applicationId);
+    }
+
     @Transactional(readOnly = true)
-    public List<InterviewSlotResponse> getMyPendingSlots(Long tenantId, Long userId, String role) {
-        List<InterviewSlot> proposed = slotRepository.findByTenantIdAndStatusOrderByStartTimeAsc(
-                tenantId, InterviewSlotStatus.PROPOSED);
+    public List<InterviewSlotResponse> getMyPendingSlots(Long userId, String role) {
+        List<InterviewSlot> proposed = slotRepository.findByStatusOrderByStartTimeAsc(
+                InterviewSlotStatus.PROPOSED);
 
         if (AccessGuard.isCandidate(role)) {
-            Long candidateId = resolveCandidateId(tenantId, userId);
+            Long candidateId = resolveCandidateId(userId);
             return proposed.stream()
                     .filter(s -> {
                         try {
-                            ApplicationSummaryResponse app = fetchApplication(tenantId, s.getApplicationId());
+                            ApplicationSummaryResponse app = fetchApplication(s.getApplicationId());
                             return candidateId.equals(app.candidateId()) && !s.isCandidateConfirmed();
                         } catch (Exception e) {
                             return false;
@@ -102,19 +105,28 @@ public class InterviewSlotService {
         if (AccessGuard.isDepartment(role)) {
             return proposed.stream()
                     .filter(s -> !s.isDepartmentConfirmed())
+                    .filter(s -> canAccessApplication(s.getApplicationId()))
                     .map(this::toResponse)
                     .toList();
         }
 
-        return proposed.stream().map(this::toResponse).toList();
+        if ("COMPANY_ADMIN".equals(role)) {
+            return proposed.stream().map(this::toResponse).toList();
+        }
+
+        return proposed.stream()
+                .filter(s -> canAccessApplication(s.getApplicationId()))
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional
     public InterviewSlotResponse confirmSlot(
-            Long tenantId, Long userId, String role, Long slotId, SlotConfirmRequest req) {
+            Long userId, String role, Long slotId, SlotConfirmRequest req) {
 
-        InterviewSlot slot = slotRepository.findByIdAndTenantId(slotId, tenantId)
+        InterviewSlot slot = slotRepository.findById(slotId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy khung giờ"));
+        fetchApplication(slot.getApplicationId());
 
         if (slot.getStatus() != InterviewSlotStatus.PROPOSED) {
             throw new BusinessException("Chỉ xác nhận được khung giờ đang đề xuất");
@@ -135,18 +147,19 @@ public class InterviewSlotService {
     }
 
     @Transactional
-    public InterviewResponse selectSlot(Long tenantId, Long actorUserId, String role, Long slotId) {
+    public InterviewResponse selectSlot(Long actorUserId, String role, Long slotId) {
         AccessGuard.requireHr(role);
 
-        InterviewSlot slot = slotRepository.findByIdAndTenantId(slotId, tenantId)
+        InterviewSlot slot = slotRepository.findById(slotId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy khung giờ"));
+        ApplicationSummaryResponse application = fetchApplication(slot.getApplicationId());
 
         slot.setStatus(InterviewSlotStatus.SELECTED);
         slotRepository.save(slot);
 
         // Cancel other proposed slots of the same application
-        List<InterviewSlot> others = slotRepository.findByTenantIdAndApplicationIdAndIdNot(
-                tenantId, slot.getApplicationId(), slot.getId());
+        List<InterviewSlot> others = slotRepository.findByApplicationIdAndIdNot(
+                slot.getApplicationId(), slot.getId());
         others.forEach(o -> {
             if (o.getStatus() == InterviewSlotStatus.PROPOSED) {
                 o.setStatus(InterviewSlotStatus.CANCELLED);
@@ -155,19 +168,19 @@ public class InterviewSlotService {
         slotRepository.saveAll(others);
 
         // Automatically create Interview
-        ApplicationSummaryResponse application = fetchApplication(tenantId, slot.getApplicationId());
         long duration = Duration.between(slot.getStartTime(), slot.getEndTime()).toMinutes();
         int durationMinutes = duration > 0 ? (int) duration : 60;
 
-        List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers(tenantId, "HIRING_MANAGER");
+        List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers("HIRING_MANAGER");
         List<Long> interviewerIds = interviewerPool != null && !interviewerPool.isEmpty()
                 ? List.of(interviewerPool.get(0).id())
                 : List.of();
 
         Interview interview = Interview.builder()
-                .tenantId(tenantId)
                 .applicationId(slot.getApplicationId())
                 .jobPostingId(application.jobPostingId())
+                .departmentId(application.departmentId())
+                .assignedRecruiterId(application.assignedRecruiterId())
                 .candidateId(application.candidateId())
                 .candidateNameSnapshot(application.candidateName())
                 .scheduledAt(slot.getStartTime())
@@ -202,22 +215,31 @@ public class InterviewSlotService {
         ));
 
         eventPublisher.publishInterviewScheduled(
-                tenantId, savedInterview.getId(), savedInterview.getApplicationId(), savedInterview.getScheduledAt());
+                savedInterview.getId(), savedInterview.getApplicationId(), savedInterview.getScheduledAt());
 
         return toInterviewResponse(savedInterview);
     }
 
-    private ApplicationSummaryResponse fetchApplication(Long tenantId, Long applicationId) {
+    private ApplicationSummaryResponse fetchApplication(Long applicationId) {
         try {
-            return applicationServiceClient.getApplicationById(tenantId, applicationId);
+            return applicationServiceClient.getApplicationById(applicationId);
         } catch (Exception e) {
             throw new BusinessException("Không tìm thấy hồ sơ ứng tuyển");
         }
     }
 
-    private Long resolveCandidateId(Long tenantId, Long userId) {
+    private boolean canAccessApplication(Long applicationId) {
         try {
-            CandidateSummaryResponse res = candidateServiceClient.getByUserId(tenantId, userId);
+            fetchApplication(applicationId);
+            return true;
+        } catch (RuntimeException exception) {
+            return false;
+        }
+    }
+
+    private Long resolveCandidateId(Long userId) {
+        try {
+            CandidateSummaryResponse res = candidateServiceClient.getByUserId(userId);
             return res.id();
         } catch (Exception e) {
             throw new BusinessException("Không tìm thấy hồ sơ ứng viên");

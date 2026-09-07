@@ -1,6 +1,6 @@
 import axiosClient from "../../services/axiosClient";
 import type {
-    RegisterCompanyRequest,
+    CandidateRegistrationRequest,
     ResendOtpRequest,
     VerifyEmailRequest,
     LoginRequest,
@@ -13,12 +13,14 @@ import type {
     UpdateProfileRequest,
     CompanyResponse,
     UpdateCompanyRequest,
+    UserDirectoryResponse,
     UserSummaryResponse,
     UpdateUserStatusRequest,
+    CreateUserRequest,
 } from "./types";
 
-export const registerCompany = (data: RegisterCompanyRequest) =>
-    axiosClient.post<ApiMessageResponse>("/auth/register-company", data);
+export const registerCandidate = (data: CandidateRegistrationRequest) =>
+    axiosClient.post<ApiMessageResponse>("/auth/register", data);
 
 export const resendOtp = (data: ResendOtpRequest) =>
     axiosClient.post<ApiMessageResponse>("/auth/resend-otp", data);
@@ -60,8 +62,18 @@ export const getCompany = () =>
 export const updateCompany = (data: UpdateCompanyRequest) =>
     axiosClient.put<CompanyResponse>("/auth/company", data);
 
+/** Full directory incl. candidates, email and status. COMPANY_ADMIN only on the backend. */
 export const getUsers = (role?: string) =>
     axiosClient.get<UserSummaryResponse[]>("/auth/users", { params: role ? { role } : {} });
+
+/** Internal-staff names for assignment pickers. Available to every internal role. */
+export const getUserDirectory = (role?: string) =>
+    axiosClient.get<UserDirectoryResponse[]>("/auth/users/directory", {
+        params: role ? { role } : {},
+    });
+
+export const createInternalUser = (data: CreateUserRequest) =>
+    axiosClient.post<ApiMessageResponse>("/auth/admin/users", data);
 
 export const updateUserStatus = (userId: number, data: UpdateUserStatusRequest) =>
     axiosClient.patch<ApiMessageResponse>(`/auth/users/${userId}/status`, data);

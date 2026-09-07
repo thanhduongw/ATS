@@ -1,269 +1,108 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import {
-    Card,
-    List,
-    Typography,
-    Tag,
-    Button,
-    Empty,
-    Spin,
-    Space,
-    App,
-    Statistic,
-    Select,
-} from "antd";
-import {
-    SendOutlined,
-    DollarOutlined,
-    CalendarOutlined,
-    BankOutlined,
-} from "@ant-design/icons";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { App, Button, Card, Empty, Select, Space, Spin, Tag, Typography } from "antd";
+import { BankOutlined, CalendarOutlined, DollarOutlined, SendOutlined } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 import { getPublicCompany, getPublicJobs } from "../publicApi";
-import type { PublicCompanyResponse, PublicJobPosting, ApiMessageResponse } from "../types";
+import type { ApiMessageResponse, PublicCompanyResponse, PublicJobPosting } from "../types";
 import { COLORS } from "../../../app/theme";
 
-const { Title, Text, Paragraph } = Typography;
+const { Paragraph, Text, Title } = Typography;
 
 function formatSalary(min: number | null, max: number | null): string {
     if (min == null && max == null) return "Thỏa thuận";
-    const fmt = (n: number) =>
-        n >= 1_000_000
-            ? `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)} triệu`
-            : n.toLocaleString("vi-VN");
-    if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
-    if (min != null) return `Từ ${fmt(min)}`;
-    return `Đến ${fmt(max!)}`;
+    const fmt = (value: number) => value.toLocaleString("vi-VN") + " VND";
+    if (min != null && max != null) return `${fmt(min)} - ${fmt(max)}`;
+    return min != null ? `Từ ${fmt(min)}` : `Đến ${fmt(max!)}`;
 }
 
 export default function CompanyJobsPage() {
-    const { tenantCode } = useParams<{ tenantCode: string }>();
     const navigate = useNavigate();
     const { message } = App.useApp();
-
     const [company, setCompany] = useState<PublicCompanyResponse | null>(null);
     const [jobs, setJobs] = useState<PublicJobPosting[]>([]);
     const [loading, setLoading] = useState(true);
-    const [employmentTypeFilter, setEmploymentTypeFilter] = useState<string | undefined>();
-    const [workLocationFilter, setWorkLocationFilter] = useState<string | undefined>();
+    const [employmentType, setEmploymentType] = useState<string>();
+    const [workLocation, setWorkLocation] = useState<string>();
 
     const load = useCallback(async () => {
-        if (!tenantCode) return;
         setLoading(true);
         try {
-            const [companyRes, jobsRes] = await Promise.all([
-                getPublicCompany(tenantCode),
-                getPublicJobs(tenantCode),
+            const [companyResponse, jobsResponse] = await Promise.all([
+                getPublicCompany(),
+                getPublicJobs(),
             ]);
-            setCompany(companyRes.data);
-            setJobs(jobsRes.data);
-        } catch (err) {
-            const e = err as AxiosError<ApiMessageResponse>;
-            message.error(
-                e.response?.data?.message ?? "Không tải được trang tuyển dụng"
-            );
-            setCompany(null);
-            setJobs([]);
+            setCompany(companyResponse.data);
+            setJobs(jobsResponse.data);
+        } catch (error) {
+            const apiError = error as AxiosError<ApiMessageResponse>;
+            message.error(apiError.response?.data?.message ?? "Không tải được trang tuyển dụng");
         } finally {
             setLoading(false);
         }
-    }, [tenantCode, message]);
+    }, [message]);
 
-    useEffect(() => {
-        load();
-    }, [load]);
+    useEffect(() => { load(); }, [load]);
 
-    // Lọc phía client theo tên loại hình/địa điểm (đã có sẵn trong danh sách job) — không cần gọi lại API
-    const employmentTypeOptions = Array.from(
-        new Set(jobs.map((j) => j.employmentTypeName).filter((n): n is string => !!n))
-    );
-    const workLocationOptions = Array.from(
-        new Set(jobs.map((j) => j.workLocationName).filter((n): n is string => !!n))
-    );
-    const filteredJobs = jobs.filter(
-        (j) =>
-            (!employmentTypeFilter || j.employmentTypeName === employmentTypeFilter) &&
-            (!workLocationFilter || j.workLocationName === workLocationFilter)
-    );
+    const employmentOptions = useMemo(() =>
+        [...new Set(jobs.map((job) => job.employmentTypeName).filter(Boolean))]
+            .map((value) => ({ label: value!, value: value! })), [jobs]);
+    const locationOptions = useMemo(() =>
+        [...new Set(jobs.map((job) => job.workLocationName).filter(Boolean))]
+            .map((value) => ({ label: value!, value: value! })), [jobs]);
+    const filteredJobs = jobs.filter((job) =>
+        (!employmentType || job.employmentTypeName === employmentType) &&
+        (!workLocation || job.workLocationName === workLocation));
 
-    if (loading) {
-        return (
-            <div style={{ textAlign: "center", padding: 80 }}>
-                <Spin size="large" />
-            </div>
-        );
-    }
-
-    if (!company) {
-        return (
-            <Empty
-                description="Không tìm thấy công ty hoặc công ty không hoạt động"
-                style={{ marginTop: 80 }}
-            >
-            </Empty>
-        );
-    }
+    if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin size="large" /></div>;
+    if (!company) return <Empty description="Không tải được thông tin doanh nghiệp" />;
 
     return (
         <div>
-            {/* Hero company */}
-            <Card
-                style={{
-                    marginBottom: 28,
-                    borderRadius: 16,
-                    background: company.bannerUrl
-                        ? `linear-gradient(135deg, rgba(240,253,244,0.9) 0%, rgba(236,253,245,0.9) 100%), url(${company.bannerUrl}) center/cover`
-                        : "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)",
-                    border: `1px solid ${COLORS.borderLight}`,
-                }}
-                styles={{ body: { padding: "28px 32px" } }}
-            >
+            <section style={{ padding: "20px 0 32px", borderBottom: `1px solid ${COLORS.borderLight}` }}>
                 <Space align="start" size={20}>
                     {company.logoUrl ? (
-                        <img
-                            src={company.logoUrl}
-                            alt={company.name}
-                            style={{ width: 64, height: 64, borderRadius: 14, objectFit: "cover", flexShrink: 0 }}
-                        />
-                    ) : (
-                        <div
-                            style={{
-                                width: 64,
-                                height: 64,
-                                borderRadius: 14,
-                                background: COLORS.primary,
-                                color: "#fff",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: 28,
-                                fontWeight: 700,
-                                flexShrink: 0,
-                            }}
-                        >
-                            <BankOutlined />
-                        </div>
-                    )}
+                        <img src={company.logoUrl} alt={company.name} style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8 }} />
+                    ) : <BankOutlined style={{ fontSize: 48, color: COLORS.primary }} />}
                     <div>
-                        <Title level={3} style={{ margin: 0 }}>
-                            {company.name}
-                        </Title>
-                        <Text type="secondary">
-                            Mã công ty: <Text code>{company.tenantCode}</Text>
-                        </Text>
-                        {company.description && (
-                            <Paragraph style={{ marginTop: 8, marginBottom: 0, maxWidth: 640 }}>
-                                {company.description}
-                            </Paragraph>
-                        )}
-                        <div style={{ marginTop: 12 }}>
-                            <Statistic
-                                title="Vị trí đang tuyển"
-                                value={jobs.length}
-                                styles={{ content: { color: COLORS.primary, fontSize: 28 } }}
-                            />
-                        </div>
+                        <Title level={2} style={{ margin: 0 }}>{company.name}</Title>
+                        {company.description && <Paragraph style={{ maxWidth: 720 }}>{company.description}</Paragraph>}
+                        <Text strong>{jobs.length} vị trí đang tuyển</Text>
                     </div>
                 </Space>
-            </Card>
+            </section>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
-                <Title level={4} style={{ margin: 0 }}>
-                    Việc làm đang mở
-                </Title>
-                {jobs.length > 0 && (
-                    <Space wrap>
-                        <Select
-                            allowClear
-                            placeholder="Loại hình"
-                            style={{ width: 180 }}
-                            value={employmentTypeFilter}
-                            onChange={setEmploymentTypeFilter}
-                            options={employmentTypeOptions.map((n) => ({ value: n, label: n }))}
-                        />
-                        <Select
-                            allowClear
-                            placeholder="Địa điểm"
-                            style={{ width: 180 }}
-                            value={workLocationFilter}
-                            onChange={setWorkLocationFilter}
-                            options={workLocationOptions.map((n) => ({ value: n, label: n }))}
-                        />
-                    </Space>
-                )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", margin: "28px 0 16px" }}>
+                <Title level={4} style={{ margin: 0 }}>Việc làm đang mở</Title>
+                <Space wrap>
+                    <Select allowClear placeholder="Loại hình" style={{ width: 180 }} options={employmentOptions} value={employmentType} onChange={setEmploymentType} />
+                    <Select allowClear placeholder="Địa điểm" style={{ width: 180 }} options={locationOptions} value={workLocation} onChange={setWorkLocation} />
+                </Space>
             </div>
 
             {filteredJobs.length === 0 ? (
-                <Empty description="Hiện chưa có tin tuyển dụng nào đang mở" />
+                <Empty description="Hiện chưa có vị trí đang mở" />
             ) : (
-                <List
-                    grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 2 }}
-                    dataSource={filteredJobs}
-                    renderItem={(job) => (
-                        <List.Item>
-                            <Card
-                                hoverable
-                                style={{ borderRadius: 12, height: "100%" }}
-                                styles={{ body: { padding: 20 } }}
-                                onClick={() =>
-                                    navigate(`/c/${tenantCode}/jobs/${job.id}`)
-                                }
-                            >
-                                <Space direction="vertical" size={10} style={{ width: "100%" }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                                        <Title level={5} style={{ margin: 0, flex: 1 }}>
-                                            {job.title}
-                                        </Title>
-                                        <Tag color="green">Đang mở</Tag>
-                                    </div>
-
-                                    <Space wrap size={[12, 4]}>
-                                        <Text type="secondary">
-                                            <DollarOutlined style={{ marginRight: 4 }} />
-                                            {formatSalary(job.salaryMin, job.salaryMax)}
-                                        </Text>
-                                        {job.publishedAt && (
-                                            <Text type="secondary">
-                                                <CalendarOutlined style={{ marginRight: 4 }} />
-                                                {new Date(job.publishedAt).toLocaleDateString("vi-VN")}
-                                            </Text>
-                                        )}
-                                    </Space>
-
-                                    {(job.employmentTypeName || job.workLocationName) && (
-                                        <Space wrap size={4}>
-                                            {job.employmentTypeName && <Tag>{job.employmentTypeName}</Tag>}
-                                            {job.workLocationName && <Tag>{job.workLocationName}</Tag>}
-                                        </Space>
-                                    )}
-
-                                    {job.description && (
-                                        <Paragraph
-                                            type="secondary"
-                                            ellipsis={{ rows: 2 }}
-                                            style={{ marginBottom: 0 }}
-                                        >
-                                            {job.description}
-                                        </Paragraph>
-                                    )}
-
-                                    <Button
-                                        type="primary"
-                                        icon={<SendOutlined />}
-                                        block
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigate(`/c/${tenantCode}/jobs/${job.id}`);
-                                        }}
-                                    >
-                                        Ứng tuyển ngay
-                                    </Button>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
+                    {filteredJobs.map((job) => (
+                        <Card key={job.id} hoverable onClick={() => navigate(`/careers/jobs/${job.id}`)} style={{ height: "100%", borderRadius: 8 }}>
+                            <Space orientation="vertical" size={10} style={{ width: "100%" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                                    <Title level={5} style={{ margin: 0 }}>{job.title}</Title>
+                                    <Tag color="green">Đang mở</Tag>
+                                </div>
+                                <Text type="secondary"><DollarOutlined /> {formatSalary(job.salaryMin, job.salaryMax)}</Text>
+                                {job.publishedAt && <Text type="secondary"><CalendarOutlined /> {new Date(job.publishedAt).toLocaleDateString("vi-VN")}</Text>}
+                                <Space wrap>
+                                    {job.employmentTypeName && <Tag>{job.employmentTypeName}</Tag>}
+                                    {job.workLocationName && <Tag>{job.workLocationName}</Tag>}
                                 </Space>
-                            </Card>
-                        </List.Item>
-                    )}
-                />
+                                {job.description && <Paragraph ellipsis={{ rows: 2 }}>{job.description}</Paragraph>}
+                                <Button type="primary" block icon={<SendOutlined />}>Xem chi tiết</Button>
+                            </Space>
+                        </Card>
+                    ))}
+                </div>
             )}
         </div>
     );

@@ -14,19 +14,19 @@ public class EmailTemplateService {
 
     private final EmailTemplateRepository repository;
 
-    public List<EmailTemplateResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByCodeAsc(tenantId).stream().map(this::toResponse).toList();
+    public List<EmailTemplateResponse> getAll() {
+        return repository.findAllByOrderByCodeAsc().stream().map(this::toResponse).toList();
     }
 
     /** Internal / Feign — lấy template active theo code, dùng lúc gửi email thật. */
-    public EmailTemplateResponse getByCode(Long tenantId, String code) {
-        return repository.findByTenantIdAndCodeIgnoreCaseAndActiveTrue(tenantId, code)
+    public EmailTemplateResponse getByCode(String code) {
+        return repository.findByCodeIgnoreCaseAndActiveTrue(code)
                 .map(this::toResponse)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy mẫu email active cho code: " + code));
     }
 
-    public java.util.Map<String, String> preview(Long tenantId, Long id, java.util.Map<String, String> sampleData) {
-        EmailTemplate entity = repository.findByIdAndTenantId(id, tenantId)
+    public java.util.Map<String, String> preview(Long id, java.util.Map<String, String> sampleData) {
+        EmailTemplate entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy mẫu email"));
         return java.util.Map.of(
                 "subject", TemplateRenderer.render(entity.getSubject(), sampleData),
@@ -34,12 +34,11 @@ public class EmailTemplateService {
     }
 
     @Transactional
-    public EmailTemplateResponse create(Long tenantId, EmailTemplateRequest req) {
-        if (repository.existsByTenantIdAndCodeIgnoreCase(tenantId, req.code())) {
+    public EmailTemplateResponse create(EmailTemplateRequest req) {
+        if (repository.existsByCodeIgnoreCase(req.code())) {
             throw new BusinessException("Mã mẫu email đã tồn tại");
         }
         EmailTemplate saved = repository.save(EmailTemplate.builder()
-                .tenantId(tenantId)
                 .code(req.code())
                 .subject(req.subject())
                 .body(req.body())
@@ -49,8 +48,8 @@ public class EmailTemplateService {
     }
 
     @Transactional
-    public EmailTemplateResponse update(Long tenantId, Long id, EmailTemplateRequest req) {
-        EmailTemplate entity = repository.findByIdAndTenantId(id, tenantId)
+    public EmailTemplateResponse update(Long id, EmailTemplateRequest req) {
+        EmailTemplate entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy mẫu email"));
         entity.setCode(req.code());
         entity.setSubject(req.subject());
@@ -59,8 +58,8 @@ public class EmailTemplateService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        EmailTemplate entity = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        EmailTemplate entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy mẫu email"));
         entity.setActive(false);
         repository.save(entity);

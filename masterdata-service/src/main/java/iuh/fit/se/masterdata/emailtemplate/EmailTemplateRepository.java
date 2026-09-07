@@ -5,8 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface EmailTemplateRepository extends JpaRepository<EmailTemplate, Long> {
-    List<EmailTemplate> findByTenantIdOrderByCodeAsc(Long tenantId);
-    Optional<EmailTemplate> findByIdAndTenantId(Long id, Long tenantId);
-    boolean existsByTenantIdAndCodeIgnoreCase(Long tenantId, String code);
-    Optional<EmailTemplate> findByTenantIdAndCodeIgnoreCaseAndActiveTrue(Long tenantId, String code);
+    List<EmailTemplate> findAllByOrderByCodeAsc();
+    boolean existsByCodeIgnoreCase(String code);
+    Optional<EmailTemplate> findByCodeIgnoreCaseAndActiveTrue(String code);
 }

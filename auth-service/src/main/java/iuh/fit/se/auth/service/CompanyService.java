@@ -3,11 +3,8 @@ package iuh.fit.se.auth.service;
 import iuh.fit.se.auth.dto.request.UpdateCompanyRequest;
 import iuh.fit.se.auth.dto.response.CompanyResponse;
 import iuh.fit.se.auth.entity.Company;
-import iuh.fit.se.auth.entity.Tenant;
-import iuh.fit.se.auth.enums.TenantStatus;
 import iuh.fit.se.auth.exception.BusinessException;
 import iuh.fit.se.auth.repository.CompanyRepository;
-import iuh.fit.se.auth.repository.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,56 +14,34 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompanyService {
 
     private final CompanyRepository companyRepository;
-    private final TenantRepository tenantRepository;
 
-    public CompanyResponse getCompanyInfo(Long tenantId) {
-        Company company = companyRepository.findByTenantId(tenantId)
-                .orElseThrow(() -> new BusinessException("Không tìm thấy thông tin công ty"));
-        Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new BusinessException("Không tìm thấy mã công ty"));
-
-        return toResponse(company, tenant.getTenantCode());
+    public CompanyResponse getCompanyInfo() {
+        return toResponse(requireCompany());
     }
 
-    /**
-     * Public: lấy công ty theo tenantCode (chỉ khi ACTIVE).
-     */
-    public CompanyResponse getPublicByTenantCode(String tenantCode) {
-        if (tenantCode == null || tenantCode.isBlank()) {
-            throw new BusinessException("Mã công ty không hợp lệ");
-        }
-        Tenant tenant = tenantRepository.findByTenantCode(tenantCode.trim().toUpperCase())
-                .orElseThrow(() -> new BusinessException("Không tìm thấy công ty với mã: " + tenantCode));
-
-        if (tenant.getStatus() != TenantStatus.ACTIVE) {
-            throw new BusinessException("Công ty này hiện không hoạt động");
-        }
-
-        Company company = companyRepository.findByTenantId(tenant.getId())
-                .orElseThrow(() -> new BusinessException("Không tìm thấy thông tin công ty"));
-
-        return toResponse(company, tenant.getTenantCode());
+    public CompanyResponse getPublicCompany() {
+        return getCompanyInfo();
     }
 
     @Transactional
-    public CompanyResponse updateCompanyInfo(Long tenantId, UpdateCompanyRequest req) {
-        Company company = companyRepository.findByTenantId(tenantId)
-                .orElseThrow(() -> new BusinessException("Không tìm thấy thông tin công ty"));
-
+    public CompanyResponse updateCompanyInfo(UpdateCompanyRequest req) {
+        Company company = requireCompany();
         company.setName(req.name());
         company.setDescription(req.description());
         company.setLogoUrl(req.logoUrl());
         company.setBannerUrl(req.bannerUrl());
         company.setDataRetentionMonths(req.dataRetentionMonths());
-        companyRepository.save(company);
-
-        return getCompanyInfo(tenantId);
+        return toResponse(companyRepository.save(company));
     }
 
-    private CompanyResponse toResponse(Company company, String tenantCode) {
+    private Company requireCompany() {
+        return companyRepository.findFirstByOrderByIdAsc()
+                .orElseThrow(() -> new BusinessException("Company profile was not found"));
+    }
+
+    private CompanyResponse toResponse(Company company) {
         return new CompanyResponse(
-                company.getId(), company.getTenantId(), company.getName(), tenantCode,
-                company.getDescription(), company.getLogoUrl(), company.getBannerUrl(),
-                company.getDataRetentionMonths());
+                company.getId(), company.getName(), company.getDescription(), company.getLogoUrl(),
+                company.getBannerUrl(), company.getDataRetentionMonths());
     }
 }

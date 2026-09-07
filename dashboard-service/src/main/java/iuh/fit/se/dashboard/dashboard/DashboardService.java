@@ -37,18 +37,15 @@ public class DashboardService {
     private final CandidateServiceClient candidateServiceClient;
     private final ApplicationServiceClient applicationServiceClient;
 
-    public DashboardSummaryResponse getSummary(Long tenantId, Long userId, String role, LocalDate from, LocalDate to) {
-        String safeRole = role != null ? role : "COMPANY_ADMIN";
-        Long safeUserId = userId != null ? userId : 0L;
-
+    public DashboardSummaryResponse getSummary(Long userId, String role, LocalDate from, LocalDate to) {
         List<RequisitionSummary> requisitions = safeList(
-                () -> recruitmentServiceClient.getRequisitions(tenantId, safeUserId, safeRole).content());
+                () -> recruitmentServiceClient.getRequisitions(userId, role).content());
         List<PostingSummary> postings = safeList(
-                () -> recruitmentServiceClient.getPostings(tenantId, safeRole).content());
+                () -> recruitmentServiceClient.getPostings(role).content());
         List<CandidateSummary> candidates = safeList(
-                () -> candidateServiceClient.getCandidates(tenantId).content());
+                () -> candidateServiceClient.getCandidates().content());
         List<ApplicationSummary> applications = safeList(
-                () -> applicationServiceClient.getApplications(tenantId, safeUserId, safeRole, from, to).content());
+                () -> applicationServiceClient.getApplications(userId, role, from, to).content());
 
         long openPostings = postings.stream()
                 .filter(p -> p.status() != null && "OPEN".equalsIgnoreCase(p.status()))

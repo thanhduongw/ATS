@@ -14,23 +14,23 @@ public class JobLevelService {
 
     private final JobLevelRepository repository;
 
-    public List<JobLevelResponse> getAll(Long tenantId) {
-        return repository.findByTenantIdOrderByOrderNoAsc(tenantId).stream().map(this::toResponse).toList();
+    public List<JobLevelResponse> getAll() {
+        return repository.findAllByOrderByOrderNoAsc().stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public JobLevelResponse create(Long tenantId, JobLevelRequest req) {
-        if (repository.existsByTenantIdAndNameIgnoreCase(tenantId, req.name())) {
+    public JobLevelResponse create(JobLevelRequest req) {
+        if (repository.existsByNameIgnoreCase(req.name())) {
             throw new BusinessException("Cấp bậc đã tồn tại");
         }
         JobLevel saved = repository.save(JobLevel.builder()
-                .tenantId(tenantId).name(req.name()).orderNo(req.orderNo()).active(true).build());
+                .name(req.name()).orderNo(req.orderNo()).active(true).build());
         return toResponse(saved);
     }
 
     @Transactional
-    public JobLevelResponse update(Long tenantId, Long id, JobLevelRequest req) {
-        JobLevel entity = repository.findByIdAndTenantId(id, tenantId)
+    public JobLevelResponse update(Long id, JobLevelRequest req) {
+        JobLevel entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy cấp bậc"));
         entity.setName(req.name());
         entity.setOrderNo(req.orderNo());
@@ -38,8 +38,8 @@ public class JobLevelService {
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id) {
-        JobLevel entity = repository.findByIdAndTenantId(id, tenantId)
+    public void softDelete(Long id) {
+        JobLevel entity = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy cấp bậc"));
         entity.setActive(false);
         repository.save(entity);

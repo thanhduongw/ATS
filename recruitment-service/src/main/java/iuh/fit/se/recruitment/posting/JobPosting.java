@@ -17,9 +17,6 @@ public class JobPosting {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "requisition_id", nullable = false)
     private JobRequisition requisition;

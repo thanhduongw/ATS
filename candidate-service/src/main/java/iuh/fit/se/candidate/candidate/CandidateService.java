@@ -1,6 +1,7 @@
 package iuh.fit.se.candidate.candidate;
 
 import iuh.fit.se.candidate.candidate.dto.*;
+import iuh.fit.se.candidate.client.ApplicationServiceClient;
 import iuh.fit.se.candidate.client.MasterDataServiceClient;
 import iuh.fit.se.candidate.client.dto.CatalogItemResponse;
 import iuh.fit.se.candidate.common.PageResponse;
@@ -9,7 +10,10 @@ import iuh.fit.se.candidate.customfield.CandidateCustomFieldValueRepository;
 import iuh.fit.se.candidate.customfield.CustomFieldDefinition;
 import iuh.fit.se.candidate.customfield.CustomFieldDefinitionRepository;
 import iuh.fit.se.candidate.event.AuditEventPublisher;
+import iuh.fit.se.candidate.event.CandidateRegisteredEvent;
 import iuh.fit.se.candidate.exception.BusinessException;
+import iuh.fit.se.candidate.security.AuthorizationPolicy;
+import iuh.fit.se.candidate.security.CurrentUser;
 import iuh.fit.se.candidate.storage.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,19 +22,25 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class CandidateService {
 
+    private static final long MAX_RESUME_SIZE_BYTES = 10L * 1024 * 1024;
+    private static final Set<String> ALLOWED_RESUME_EXTENSIONS = Set.of("pdf", "doc", "docx");
+
     private final CandidateRepository candidateRepository;
+    private final ApplicationServiceClient applicationServiceClient;
     private final CandidateSkillRepository candidateSkillRepository;
     private final CandidateTagRepository candidateTagRepository;
     private final CustomFieldDefinitionRepository customFieldDefinitionRepository;
@@ -39,10 +49,40 @@ public class CandidateService {
     private final S3Service s3Service;
     private final AuditEventPublisher auditEventPublisher;
 
+    @Transactional
+    public Candidate provisionRegisteredCandidate(CandidateRegisteredEvent event) {
+        Candidate byUser = candidateRepository.findByUserIdAndDeletedAtIsNull(event.userId())
+                .orElse(null);
+        if (byUser != null) {
+            return byUser;
+        }
+
+        Candidate byEmail = candidateRepository
+                .findFirstByEmailIgnoreCaseAndDeletedAtIsNullOrderByIdAsc(event.email())
+                .orElse(null);
+        if (byEmail != null) {
+            if (byEmail.getUserId() != null && !byEmail.getUserId().equals(event.userId())) {
+                throw new BusinessException("Candidate email is already linked to another user");
+            }
+            byEmail.setUserId(event.userId());
+            if (byEmail.getPhone() == null) byEmail.setPhone(event.phone());
+            return candidateRepository.save(byEmail);
+        }
+
+        return candidateRepository.save(Candidate.builder()
+                .userId(event.userId())
+                .fullName(event.fullName())
+                .email(event.email())
+                .phone(event.phone())
+                .build());
+    }
+
     public PageResponse<CandidateResponse> getAll(
-            Long tenantId, String keyword, Boolean hasCv, PoolStatus poolStatus, Integer page, Integer size) {
-        Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels(tenantId));
-        List<CatalogItemResponse> allSkills = masterDataServiceClient.getSkills(tenantId);
+            CurrentUser actor, String keyword, Boolean hasCv,
+            PoolStatus poolStatus, Integer page, Integer size) {
+        AuthorizationPolicy.requireInternal(actor);
+        Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels());
+        List<CatalogItemResponse> allSkills = masterDataServiceClient.getSkills();
         Map<Long, String> skillMap = buildCatalogMap(allSkills);
 
         List<Long> matchedSkillIds = (keyword == null || keyword.isBlank())
@@ -52,7 +92,14 @@ public class CandidateService {
                         .map(CatalogItemResponse::id)
                         .toList();
 
-        Specification<Candidate> spec = CandidateSpecifications.build(tenantId, keyword, hasCv, matchedSkillIds, poolStatus);
+        Specification<Candidate> spec = CandidateSpecifications.build(keyword, hasCv, matchedSkillIds, poolStatus);
+        if (AuthorizationPolicy.roleOf(actor) != AuthorizationPolicy.Role.COMPANY_ADMIN) {
+            Set<Long> accessibleIds = loadAccessibleCandidateIds();
+            if (accessibleIds.isEmpty()) {
+                return emptyPage(page, size);
+            }
+            spec = spec.and(CandidateSpecifications.accessibleIds(accessibleIds));
+        }
 
         if (page == null && size == null) {
             List<Candidate> candidates = candidateRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -67,21 +114,46 @@ public class CandidateService {
         return PageResponse.of(result.map(c -> toResponse(c, educationMap, skillMap)));
     }
 
-    public CandidateResponse getById(Long tenantId, Long id) {
-        Candidate candidate = findOwned(tenantId, id);
-        Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels(tenantId));
-        Map<Long, String> skillMap = buildCatalogMap(masterDataServiceClient.getSkills(tenantId));
+    public CandidateResponse getById(Long id) {
+        Candidate candidate = findById(id);
+        Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels());
+        Map<Long, String> skillMap = buildCatalogMap(masterDataServiceClient.getSkills());
         return toResponse(candidate, educationMap, skillMap);
     }
 
-    public CandidateSummaryResponse getSummaryById(Long tenantId, Long id) {
-        Candidate candidate = findOwned(tenantId, id);
+    public CandidateResponse getByIdForActor(Long id, CurrentUser actor) {
+        Candidate candidate = findById(id);
+        authorizeCandidateRecord(actor, candidate);
+        return getById(candidate.getId());
+    }
+
+    public CandidateSummaryResponse getSummaryById(Long id) {
+        Candidate candidate = findById(id);
         return toSummary(candidate);
     }
 
-    public CandidateSummaryResponse getSummaryByUserId(Long tenantId, Long userId) {
+    public CandidateSummaryResponse getSummaryByIdForActor(Long id, CurrentUser actor) {
+        Candidate candidate = findById(id);
+        authorizeCandidateRecord(actor, candidate);
+        return toSummary(candidate);
+    }
+
+    private void authorizeCandidateRecord(CurrentUser actor, Candidate candidate) {
+        AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
+        if (role == AuthorizationPolicy.Role.CANDIDATE) {
+            AuthorizationPolicy.requireSelf(actor, candidate.getUserId());
+            return;
+        }
+        AuthorizationPolicy.requireInternal(actor);
+        if (role != AuthorizationPolicy.Role.COMPANY_ADMIN
+                && !loadAccessibleCandidateIds().contains(candidate.getId())) {
+            throw new AccessDeniedException("Candidate is outside the user's department or assignment scope");
+        }
+    }
+
+    public CandidateSummaryResponse getSummaryByUserId(Long userId) {
         Candidate candidate = candidateRepository
-                .findByTenantIdAndUserIdAndDeletedAtIsNull(tenantId, userId)
+                .findByUserIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy hồ sơ ứng viên cho tài khoản này"));
         return new CandidateSummaryResponse(
                 candidate.getId(),
@@ -93,68 +165,115 @@ public class CandidateService {
         );
     }
 
+    public CandidateSummaryResponse getSummaryByUserIdForActor(
+            Long userId, CurrentUser actor) {
+        Candidate candidate = candidateRepository.findByUserIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy hồ sơ ứng viên cho tài khoản này"));
+        authorizeCandidateRecord(actor, candidate);
+        return toSummary(candidate);
+    }
+
+    public CandidateSelfResponse getMyProfile(CurrentUser actor) {
+        AuthorizationPolicy.requireCandidate(actor);
+        Candidate candidate = findByUserId(actor.userId());
+        return toSelfResponse(candidate);
+    }
+
+    @Transactional
+    public CandidateSelfResponse updateMyProfile(
+            CurrentUser actor, CandidateSelfUpdateRequest request) {
+        AuthorizationPolicy.requireCandidate(actor);
+        Candidate candidate = findByUserId(actor.userId());
+        validateEducationLevel(request.educationLevelId());
+        validateSkills(request.skillIds());
+
+        candidate.setFullName(request.fullName().trim());
+        candidate.setPhone(trimToNull(request.phone()));
+        candidate.setDateOfBirth(request.dateOfBirth());
+        candidate.setGender(trimToNull(request.gender()));
+        candidate.setAddress(trimToNull(request.address()));
+        candidate.setCurrentPosition(trimToNull(request.currentPosition()));
+        candidate.setEducationLevelId(request.educationLevelId());
+        candidate.getSkills().clear();
+        candidateRepository.save(candidate);
+        attachSkills(candidate, request.skillIds());
+
+        return toSelfResponse(candidate);
+    }
+
+    @Transactional
+    public CandidateSelfResponse uploadMyResume(
+            CurrentUser actor, MultipartFile file) {
+        AuthorizationPolicy.requireCandidate(actor);
+        validateResume(file);
+        Candidate candidate = findByUserId(actor.userId());
+        String url = s3Service.uploadFile(
+                file, "candidates/" + candidate.getId());
+        candidate.setCvFileUrl(url);
+        candidateRepository.save(candidate);
+        return toSelfResponse(candidate);
+    }
+
     /**
      * Candidate lần đầu login: gắn userId vào candidate cùng email, hoặc tạo mới.
      */
     @Transactional
     public CandidateResponse linkOrCreateForUser(
-            Long tenantId, Long userId, String email, String fullName) {
+            Long userId, String email, String fullName) {
 
-        var byUser = candidateRepository.findByTenantIdAndUserIdAndDeletedAtIsNull(tenantId, userId);
+        var byUser = candidateRepository.findByUserIdAndDeletedAtIsNull(userId);
         if (byUser.isPresent()) {
-            return getById(tenantId, byUser.get().getId());
+            return getById(byUser.get().getId());
         }
 
-        var byEmail = candidateRepository.findByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(tenantId, email);
+        var byEmail = candidateRepository.findFirstByEmailIgnoreCaseAndDeletedAtIsNullOrderByIdAsc(email);
         if (byEmail.isPresent()) {
             Candidate c = byEmail.get();
             c.setUserId(userId);
             candidateRepository.save(c);
-            return getById(tenantId, c.getId());
+            return getById(c.getId());
         }
 
         Candidate created = candidateRepository.save(Candidate.builder()
-                .tenantId(tenantId)
                 .userId(userId)
                 .fullName(fullName != null ? fullName : email)
                 .email(email)
                 .build());
-        return getById(tenantId, created.getId());
+        return getById(created.getId());
     }
 
     /** Candidate tự tạo/lấy hồ sơ của mình khi lần đầu vào hệ thống (self-service). */
     @Transactional
-    public CandidateResponse getOrCreateMyProfile(Long tenantId, Long userId, CandidateSelfProfileRequest req) {
-        Candidate candidate = candidateRepository.findByTenantIdAndUserIdAndDeletedAtIsNull(tenantId, userId)
+    public CandidateResponse getOrCreateMyProfile(Long userId, CandidateSelfProfileRequest req) {
+        Candidate candidate = candidateRepository.findByUserIdAndDeletedAtIsNull(userId)
                 .orElseGet(() -> {
                     // Nếu HR đã tạo sẵn candidate cùng email (import/seed) thì gắn userId vào, không tạo trùng
                     Candidate byEmail = candidateRepository
-                            .findByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(tenantId, req.email())
+                            .findFirstByEmailIgnoreCaseAndDeletedAtIsNullOrderByIdAsc(req.email())
                             .orElse(null);
                     if (byEmail != null) {
                         byEmail.setUserId(userId);
                         return candidateRepository.save(byEmail);
                     }
                     return candidateRepository.save(Candidate.builder()
-                            .tenantId(tenantId)
                             .userId(userId)
                             .fullName(req.fullName())
                             .email(req.email())
                             .build());
                 });
-        return getById(tenantId, candidate.getId());
+        return getById(candidate.getId());
     }
 
     @Transactional
-    public CandidateResponse create(Long tenantId, CandidateCreateRequest req) {
-        if (candidateRepository.existsByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(tenantId, req.email())) {
+    public CandidateResponse create(CurrentUser actor, CandidateCreateRequest req) {
+        AuthorizationPolicy.requireAdmin(actor);
+        if (candidateRepository.existsByEmailIgnoreCaseAndDeletedAtIsNull(req.email())) {
             throw new BusinessException("Ứng viên với email này đã tồn tại trong hệ thống");
         }
-        validateEducationLevel(tenantId, req.educationLevelId());
-        validateSkills(tenantId, req.skillIds());
+        validateEducationLevel(req.educationLevelId());
+        validateSkills(req.skillIds());
 
         Candidate candidate = candidateRepository.save(Candidate.builder()
-                .tenantId(tenantId)
                 .fullName(req.fullName())
                 .email(req.email())
                 .phone(req.phone())
@@ -167,16 +286,22 @@ public class CandidateService {
                 .build());
 
         attachSkills(candidate, req.skillIds());
-        saveCustomFields(tenantId, candidate, req.customFields());
+        saveCustomFields(candidate, req.customFields());
 
-        return getById(tenantId, candidate.getId());
+        return getById(candidate.getId());
     }
 
     @Transactional
-    public CandidateResponse update(Long tenantId, Long id, CandidateUpdateRequest req) {
-        Candidate candidate = findOwned(tenantId, id);
-        validateEducationLevel(tenantId, req.educationLevelId());
-        validateSkills(tenantId, req.skillIds());
+    public CandidateResponse update(Long id, CurrentUser actor, CandidateUpdateRequest req) {
+        Candidate candidate = findById(id);
+        authorizeCandidateRecord(actor, candidate);
+        return updateCandidate(candidate, req);
+    }
+
+    private CandidateResponse updateCandidate(
+            Candidate candidate, CandidateUpdateRequest req) {
+        validateEducationLevel(req.educationLevelId());
+        validateSkills(req.skillIds());
 
         candidate.setFullName(req.fullName());
         candidate.setEmail(req.email());
@@ -191,45 +316,53 @@ public class CandidateService {
         candidate.getSkills().clear();
         candidateRepository.save(candidate);
         attachSkills(candidate, req.skillIds());
-        saveCustomFields(tenantId, candidate, req.customFields());
+        saveCustomFields(candidate, req.customFields());
 
-        return getById(tenantId, id);
+        return getById(candidate.getId());
     }
 
     @Transactional
-    public CandidateResponse uploadCv(Long tenantId, Long id, MultipartFile file) {
-        Candidate candidate = findOwned(tenantId, id);
-        String url = s3Service.uploadFile(file, "candidates/" + tenantId + "/" + id);
+    public CandidateResponse uploadCv(Long id, CurrentUser actor, MultipartFile file) {
+        Candidate candidate = findById(id);
+        authorizeCandidateRecord(actor, candidate);
+        return uploadCandidate(candidate, file);
+    }
+
+    private CandidateResponse uploadCandidate(
+            Candidate candidate, MultipartFile file) {
+        Long id = candidate.getId();
+        String url = s3Service.uploadFile(file, "candidates/" + id);
         candidate.setCvFileUrl(url);
         candidateRepository.save(candidate);
-        return getById(tenantId, id);
+        return getById(id);
     }
 
     /** GDPR self-service: ứng viên tự yêu cầu xóa dữ liệu của mình. */
     @Transactional
-    public void requestOwnDataDeletion(Long tenantId, Long userId) {
-        Candidate candidate = candidateRepository.findByTenantIdAndUserIdAndDeletedAtIsNull(tenantId, userId)
+    public void requestOwnDataDeletion(Long userId) {
+        Candidate candidate = candidateRepository.findByUserIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy hồ sơ ứng viên của bạn"));
         candidate.setDeletedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
-        auditEventPublisher.publish(tenantId, userId, "CANDIDATE_SELF_DELETION_REQUEST", "CANDIDATE", candidate.getId(), null);
+        auditEventPublisher.publish(userId, "CANDIDATE_SELF_DELETION_REQUEST", "CANDIDATE", candidate.getId(), null);
     }
 
     @Transactional
-    public void softDelete(Long tenantId, Long id, Long actorUserId) {
-        Candidate candidate = findOwned(tenantId, id);
+    public void softDelete(Long id, CurrentUser actor) {
+        Candidate candidate = findById(id);
+        authorizeCandidateRecord(actor, candidate);
         candidate.setDeletedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
-        auditEventPublisher.publish(tenantId, actorUserId, "CANDIDATE_DELETED", "CANDIDATE", id, null);
+        auditEventPublisher.publish(actor.userId(), "CANDIDATE_DELETED", "CANDIDATE", id, null);
     }
 
     @Transactional
-    public BulkOperationResponse bulkDelete(Long tenantId, Long actorUserId, List<Long> ids) {
+    public BulkOperationResponse bulkDelete(CurrentUser actor, List<Long> ids) {
         List<Long> succeeded = new java.util.ArrayList<>();
         Map<Long, String> failed = new java.util.LinkedHashMap<>();
         for (Long id : ids) {
             try {
-                softDelete(tenantId, id, actorUserId);
+                softDelete(id, actor);
                 succeeded.add(id);
             } catch (BusinessException e) {
                 failed.put(id, e.getMessage());
@@ -240,26 +373,29 @@ public class CandidateService {
 
     /** Internal / Feign — application-service gọi khi reject hồ sơ, để đưa ứng viên vào Talent Pool. */
     @Transactional
-    public void markPool(Long tenantId, Long id, String tag) {
-        Candidate candidate = findOwned(tenantId, id);
+    public void markPool(Long id, CurrentUser actor, String tag) {
+        Candidate candidate = findById(id);
+        authorizeCandidateRecord(actor, candidate);
         candidate.setPoolStatus(PoolStatus.IN_POOL);
         candidateRepository.save(candidate);
         addTagIfAbsent(candidate, tag);
     }
 
     @Transactional
-    public CandidateResponse addTag(Long tenantId, Long id, String tag) {
-        Candidate candidate = findOwned(tenantId, id);
+    public CandidateResponse addTag(Long id, CurrentUser actor, String tag) {
+        Candidate candidate = findById(id);
+        authorizeCandidateRecord(actor, candidate);
         addTagIfAbsent(candidate, tag);
-        return getById(tenantId, id);
+        return getById(id);
     }
 
     @Transactional
-    public CandidateResponse removeTag(Long tenantId, Long id, Long tagId) {
-        Candidate candidate = findOwned(tenantId, id);
+    public CandidateResponse removeTag(Long id, CurrentUser actor, Long tagId) {
+        Candidate candidate = findById(id);
+        authorizeCandidateRecord(actor, candidate);
         candidate.getTags().removeIf(t -> t.getId().equals(tagId));
         candidateRepository.save(candidate);
-        return getById(tenantId, id);
+        return getById(id);
     }
 
     private void addTagIfAbsent(Candidate candidate, String tag) {
@@ -269,11 +405,11 @@ public class CandidateService {
         candidateTagRepository.save(CandidateTag.builder().candidate(candidate).tag(trimmed).build());
     }
 
-    private void saveCustomFields(Long tenantId, Candidate candidate, Map<String, String> customFields) {
+    private void saveCustomFields(Candidate candidate, Map<String, String> customFields) {
         if (customFields == null || customFields.isEmpty()) return;
 
         Map<String, CustomFieldDefinition> activeDefsByKey = customFieldDefinitionRepository
-                .findByTenantIdAndActiveTrue(tenantId).stream()
+                .findByActiveTrue().stream()
                 .collect(Collectors.toMap(CustomFieldDefinition::getFieldKey, d -> d));
 
         customFields.forEach((key, value) -> {
@@ -307,19 +443,22 @@ public class CandidateService {
 
     private void attachSkills(Candidate candidate, List<Long> skillIds) {
         if (skillIds == null) return;
-        skillIds.forEach(skillId -> candidateSkillRepository.save(
-                CandidateSkill.builder().candidate(candidate).skillId(skillId).build()));
+        skillIds.forEach(skillId -> {
+            CandidateSkill skill = candidateSkillRepository.save(
+                    CandidateSkill.builder().candidate(candidate).skillId(skillId).build());
+            candidate.getSkills().add(skill);
+        });
     }
 
-    private void validateEducationLevel(Long tenantId, Long id) {
+    private void validateEducationLevel(Long id) {
         if (id == null) return;
-        boolean valid = masterDataServiceClient.getEducationLevels(tenantId).stream().anyMatch(e -> e.id().equals(id));
+        boolean valid = masterDataServiceClient.getEducationLevels().stream().anyMatch(e -> e.id().equals(id));
         if (!valid) throw new BusinessException("Trình độ học vấn không hợp lệ");
     }
 
-    private void validateSkills(Long tenantId, List<Long> skillIds) {
+    private void validateSkills(List<Long> skillIds) {
         if (skillIds == null || skillIds.isEmpty()) return;
-        List<Long> validIds = masterDataServiceClient.getSkills(tenantId).stream().map(CatalogItemResponse::id).toList();
+        List<Long> validIds = masterDataServiceClient.getSkills().stream().map(CatalogItemResponse::id).toList();
         boolean allValid = validIds.containsAll(skillIds);
         if (!allValid) throw new BusinessException("Danh sách kỹ năng chứa giá trị không hợp lệ");
     }
@@ -329,14 +468,92 @@ public class CandidateService {
         return items.stream().collect(Collectors.toMap(CatalogItemResponse::id, CatalogItemResponse::name, (a, b) -> a));
     }
 
-    private Candidate findOwned(Long tenantId, Long id) {
-        return candidateRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
+    private Candidate findById(Long id) {
+        return candidateRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy ứng viên"));
+    }
+
+    private Candidate findByUserId(Long userId) {
+        return candidateRepository.findByUserIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new BusinessException(
+                        "Khong tim thay ho so ung vien gan voi tai khoan"));
+    }
+
+    private void validateResume(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("CV khong duoc de trong");
+        }
+        if (file.getSize() > MAX_RESUME_SIZE_BYTES) {
+            throw new BusinessException("CV vuot qua dung luong toi da 10 MB");
+        }
+        String filename = file.getOriginalFilename();
+        int extensionSeparator = filename == null ? -1 : filename.lastIndexOf('.');
+        String extension = extensionSeparator < 0
+                ? ""
+                : filename.substring(extensionSeparator + 1).toLowerCase(java.util.Locale.ROOT);
+        if (!ALLOWED_RESUME_EXTENSIONS.contains(extension)) {
+            throw new BusinessException("CV chi chap nhan dinh dang PDF, DOC hoac DOCX");
+        }
+    }
+
+    public void requireCvFileAccess(CurrentUser actor, String fileName) {
+        Candidate candidate = candidateRepository
+                .findFirstByCvFileUrlEndingWithAndDeletedAtIsNull(fileName)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy CV"));
+        authorizeCandidateRecord(actor, candidate);
+    }
+
+    private Set<Long> loadAccessibleCandidateIds() {
+        try {
+            Set<Long> ids = applicationServiceClient.getAccessibleCandidateIds();
+            return ids != null ? ids : Set.of();
+        } catch (AccessDeniedException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new AccessDeniedException("Cannot verify candidate department scope", exception);
+        }
+    }
+
+    private PageResponse<CandidateResponse> emptyPage(Integer page, Integer size) {
+        if (page == null && size == null) {
+            return PageResponse.unpaged(List.of());
+        }
+        int pageNumber = page != null ? page : 0;
+        int pageSize = size != null ? size : 10;
+        return new PageResponse<>(List.of(), 0, 0, pageNumber, pageSize);
     }
 
     private CandidateSummaryResponse toSummary(Candidate c) {
         return new CandidateSummaryResponse(
                 c.getId(), c.getFullName(), c.getEmail(), c.getPhone(), c.getCvFileUrl(), c.getUserId());
+    }
+
+    private CandidateSelfResponse toSelfResponse(Candidate candidate) {
+        Map<Long, String> educationMap = buildCatalogMap(masterDataServiceClient.getEducationLevels());
+        Map<Long, String> skillMap = buildCatalogMap(masterDataServiceClient.getSkills());
+        List<Long> skillIds = candidate.getSkills().stream().map(CandidateSkill::getSkillId).toList();
+        List<String> skillNames = skillIds.stream()
+                .map(id -> skillMap.getOrDefault(id, "N/A"))
+                .toList();
+        return new CandidateSelfResponse(
+                candidate.getFullName(),
+                candidate.getEmail(),
+                candidate.getPhone(),
+                candidate.getDateOfBirth(),
+                candidate.getGender(),
+                candidate.getAddress(),
+                candidate.getCurrentPosition(),
+                candidate.getEducationLevelId(),
+                candidate.getEducationLevelId() == null
+                        ? null : educationMap.get(candidate.getEducationLevelId()),
+                skillIds,
+                skillNames,
+                candidate.getCvFileUrl() != null,
+                candidate.getCvFileUrl());
+    }
+
+    private String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private CandidateResponse toResponse(Candidate c, Map<Long, String> educationMap, Map<Long, String> skillMap) {
@@ -355,45 +572,44 @@ public class CandidateService {
         );
     }
 
-    public CandidateResponse getOwnById(Long tenantId, Long userId, Long id) {
-        Candidate candidate = findOwned(tenantId, id);
+    public CandidateResponse getOwnById(Long userId, Long id) {
+        Candidate candidate = findById(id);
         if (candidate.getUserId() == null || !candidate.getUserId().equals(userId)) {
             throw new BusinessException("Không thể xem hồ sơ ứng viên khác");
         }
-        return getById(tenantId, id);
+        return getById(id);
     }
 
     @Transactional
-    public CandidateResponse updateOwn(Long tenantId, Long userId, Long id, CandidateUpdateRequest req) {
-        Candidate candidate = findOwned(tenantId, id);
+    public CandidateResponse updateOwn(Long userId, Long id, CandidateUpdateRequest req) {
+        Candidate candidate = findById(id);
         if (candidate.getUserId() == null || !candidate.getUserId().equals(userId)) {
             throw new BusinessException("Không thể cập nhật hồ sơ ứng viên khác");
         }
-        return update(tenantId, id, req);
+        return updateCandidate(candidate, req);
     }
 
     @Transactional
-    public CandidateResponse uploadCvOwn(Long tenantId, Long userId, Long id, MultipartFile file) {
-        Candidate candidate = findOwned(tenantId, id);
+    public CandidateResponse uploadCvOwn(Long userId, Long id, MultipartFile file) {
+        Candidate candidate = findById(id);
         if (candidate.getUserId() == null || !candidate.getUserId().equals(userId)) {
             throw new BusinessException("Không thể tải CV cho hồ sơ ứng viên khác");
         }
-        return uploadCv(tenantId, id, file);
+        return uploadCandidate(candidate, file);
     }
 
     /**
      * Public apply: tìm candidate theo email, nếu chưa có thì tạo mới.
      */
     @Transactional
-    public CandidateSummaryResponse findOrCreatePublic(Long tenantId, PublicCandidateCreateRequest req) {
+    public CandidateSummaryResponse findOrCreatePublic(PublicCandidateCreateRequest req) {
         if (!req.consentGiven()) {
             throw new BusinessException("Vui lòng đồng ý cho phép lưu trữ thông tin để nộp hồ sơ");
         }
 
         Candidate candidate = candidateRepository
-                .findByTenantIdAndEmailIgnoreCaseAndDeletedAtIsNull(tenantId, req.email().trim())
+                .findFirstByEmailIgnoreCaseAndDeletedAtIsNullOrderByIdAsc(req.email().trim())
                 .orElseGet(() -> candidateRepository.save(Candidate.builder()
-                        .tenantId(tenantId)
                         .fullName(req.fullName().trim())
                         .email(req.email().trim().toLowerCase())
                         .phone(req.phone() != null ? req.phone().trim() : null)
@@ -436,12 +652,12 @@ public class CandidateService {
      * Public apply: upload CV, gắn vào candidate.
      */
     @Transactional
-    public CandidateSummaryResponse uploadCvPublic(Long tenantId, Long candidateId, MultipartFile file) {
+    public CandidateSummaryResponse uploadCvPublic(Long candidateId, MultipartFile file) {
         Candidate candidate = candidateRepository
-                .findByIdAndTenantIdAndDeletedAtIsNull(candidateId, tenantId)
+                .findByIdAndDeletedAtIsNull(candidateId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy ứng viên"));
 
-        String url = s3Service.uploadFile(file, "cv/" + tenantId);
+        String url = s3Service.uploadFile(file, "candidates/" + candidateId);
         candidate.setCvFileUrl(url);
         candidateRepository.save(candidate);
 

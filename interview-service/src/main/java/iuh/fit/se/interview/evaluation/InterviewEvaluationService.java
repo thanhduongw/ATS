@@ -12,7 +12,9 @@ import iuh.fit.se.interview.evaluation.dto.EvaluationSubmitRequest;
 import iuh.fit.se.interview.exception.BusinessException;
 import iuh.fit.se.interview.interview.Interview;
 import iuh.fit.se.interview.interview.InterviewRepository;
+import iuh.fit.se.interview.interview.InterviewService;
 import iuh.fit.se.interview.interview.InterviewStatus;
+import iuh.fit.se.interview.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -32,26 +34,26 @@ public class InterviewEvaluationService {
 
     private final InterviewEvaluationRepository evaluationRepository;
     private final InterviewRepository interviewRepository;
+    private final InterviewService interviewService;
     private final MasterDataServiceClient masterDataServiceClient;
     private final ApplicationServiceClient applicationServiceClient;
 
     @Transactional
     public EvaluationResponse submit(
-            Long tenantId,
             Long interviewId,
-            Long actorUserId,
-            String role,
+            CurrentUser actor,
             EvaluationSubmitRequest req) {
 
-        Interview interview = interviewRepository.findByIdAndTenantId(interviewId, tenantId)
+        Interview interview = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy buổi phỏng vấn"));
+        interviewService.requireCanView(interview, actor);
 
         if (interview.getStatus() == InterviewStatus.CANCELLED) {
             throw new BusinessException("Buổi phỏng vấn đã bị hủy");
         }
 
         InterviewEvaluation evaluation = evaluationRepository
-                .findByInterviewIdAndInterviewerId(interviewId, actorUserId)
+                .findByInterviewIdAndInterviewerId(interviewId, actor.userId())
                 .orElseThrow(() -> new AccessDeniedException(
                         "Bạn không được phân công phỏng vấn cho buổi này"));
 
@@ -91,7 +93,7 @@ public class InterviewEvaluationService {
         if (allSubmitted && allEvaluations.stream()
                 .allMatch(e -> POSITIVE_RECOMMENDATIONS.contains(e.getOverallRecommendation()))) {
             try {
-                applicationServiceClient.advanceStage(tenantId, actorUserId, "SYSTEM", interview.getApplicationId(),
+                applicationServiceClient.advanceStage(actor.userId(), "SYSTEM", interview.getApplicationId(),
                         new ApplicationAdvanceStageRequest(
                                 "Tự động chuyển vòng — toàn bộ hội đồng đề xuất Hire"));
             } catch (Exception e) {
@@ -105,26 +107,19 @@ public class InterviewEvaluationService {
     }
 
     public List<EvaluationResponse> getByInterview(
-            Long tenantId, Long interviewId, Long viewerUserId, String role) {
+            Long interviewId, CurrentUser actor) {
 
-        Interview interview = interviewRepository.findByIdAndTenantId(interviewId, tenantId)
+        Interview interview = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy buổi phỏng vấn"));
+        interviewService.requireCanView(interview, actor);
 
-        if (AccessGuard.isDepartment(role)) {
-            boolean assigned = interview.getInterviewers().stream()
-                    .anyMatch(i -> i.getInterviewerId().equals(viewerUserId));
-            if (!assigned) {
-                throw new AccessDeniedException("Bạn không được phân công buổi phỏng vấn này");
-            }
-        }
-
-        boolean isHr = AccessGuard.isHr(role);
+        boolean isHr = AccessGuard.isHr(actor.role());
 
         return evaluationRepository.findByInterviewId(interviewId).stream()
                 // Chỉ trả evaluation đã nộp (tránh hàng placeholder rỗng)
                 .filter(e -> e.getSubmittedAt() != null)
                 .map(e -> {
-                    boolean includeSalary = isHr || e.getInterviewerId().equals(viewerUserId);
+                    boolean includeSalary = isHr || e.getInterviewerId().equals(actor.userId());
                     return toResponse(e, interview, includeSalary);
                 })
                 .toList();

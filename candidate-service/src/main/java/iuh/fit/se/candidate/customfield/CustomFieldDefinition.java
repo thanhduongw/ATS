@@ -13,10 +13,7 @@ public class CustomFieldDefinition {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
-    /** Khóa duy nhất trong tenant, dùng làm key khi lưu giá trị (vd: "referral_code"). */
+    /** Khóa duy nhất trong hệ thống, dùng làm key khi lưu giá trị (vd: "referral_code"). */
     @Column(name = "field_key", nullable = false)
     private String fieldKey;
 

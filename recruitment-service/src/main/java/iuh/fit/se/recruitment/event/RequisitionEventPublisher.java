@@ -11,11 +11,11 @@ public class RequisitionEventPublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
-    public void publishSubmitted(Long tenantId, Long requisitionId, Long approverId, String title) {
+    public void publishSubmitted(Long requisitionId, Long approverId, String title) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.REQUISITION_SUBMITTED_ROUTING_KEY,
-                new RequisitionSubmittedEvent(tenantId, requisitionId, approverId, title)
+                new RequisitionSubmittedEvent(requisitionId, approverId, title)
         );
     }
 }

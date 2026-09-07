@@ -5,29 +5,28 @@ import iuh.fit.se.auth.dto.response.LoginResponse;
 import iuh.fit.se.auth.entity.AppUser;
 import iuh.fit.se.auth.entity.RefreshToken;
 import iuh.fit.se.auth.entity.Role;
-import iuh.fit.se.auth.entity.Tenant;
-import iuh.fit.se.auth.enums.TenantStatus;
 import iuh.fit.se.auth.enums.UserStatus;
 import iuh.fit.se.auth.event.AuditEventPublisher;
 import iuh.fit.se.auth.exception.BusinessException;
 import iuh.fit.se.auth.repository.AppUserRepository;
 import iuh.fit.se.auth.repository.RefreshTokenRepository;
 import iuh.fit.se.auth.repository.RoleRepository;
-import iuh.fit.se.auth.repository.TenantRepository;
 import iuh.fit.se.auth.security.JwtUtil;
+import iuh.fit.se.auth.security.OpaqueTokenUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class LoginService {
 
-    private final TenantRepository tenantRepository;
     private final AppUserRepository appUserRepository;
     private final RoleRepository roleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -35,110 +34,103 @@ public class LoginService {
     private final JwtUtil jwtUtil;
     private final AuditEventPublisher auditEventPublisher;
 
+    @Value("${app.jwt.refresh-token-expiration-ms}")
+    private long refreshTokenExpirationMs;
+
     @Transactional
     public LoginResponse login(LoginRequest req) {
-        Tenant tenant = tenantRepository.findByTenantCode(req.tenantCode())
-                .orElseThrow(() -> new BusinessException("Sai mã công ty hoặc thông tin đăng nhập"));
-
-        if (tenant.getStatus() != TenantStatus.ACTIVE) {
-            throw new BusinessException("Công ty chưa được kích hoạt");
-        }
-
-        AppUser user = appUserRepository.findByTenantIdAndEmail(tenant.getId(), req.email())
-                .orElseThrow(() -> new BusinessException("Sai mã công ty hoặc thông tin đăng nhập"));
-
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new BusinessException("Tài khoản chưa được kích hoạt");
-        }
-
+        AppUser user = appUserRepository.findByEmailIgnoreCase(normalizeEmail(req.email()))
+                .orElseThrow(() -> new BusinessException("Email hoac mat khau khong chinh xac"));
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
-            throw new BusinessException("Sai mã công ty hoặc thông tin đăng nhập");
+            throw new BusinessException("Email hoac mat khau khong chinh xac");
         }
-
-        Role role = roleRepository.findById(user.getRoleId())
-                .orElseThrow(() -> new BusinessException("Vai trò không hợp lệ"));
-
-        LoginResponse response = issueTokens(user, tenant.getId(), role.getName().name());
-
-        auditEventPublisher.publish(tenant.getId(), user.getId(), "LOGIN", "USER", user.getId(), null);
-
+        requireActive(user);
+        Role role = requiredRole(user);
+        LoginResponse response = issueTokens(user, role.getName().name());
+        auditEventPublisher.publishSingleCompany(user.getId(), "LOGIN", "USER", user.getId(), null);
         return response;
     }
 
-    /**
-     * Đăng nhập qua Google SSO — chỉ dùng làm phương thức xác thực thay thế cho tài khoản
-     * ĐÃ ĐƯỢC Company Admin tạo sẵn trước đó (không tự động tạo tài khoản/tenant mới ở đây,
-     * để tránh rủi ro chiếm quyền tài khoản qua việc khớp domain email chưa xác thực).
-     */
     @Transactional
-    public LoginResponse loginWithGoogle(String tenantCode, String email) {
-        Tenant tenant = tenantRepository.findByTenantCode(tenantCode)
-                .orElseThrow(() -> new BusinessException("Sai mã công ty"));
-
-        if (tenant.getStatus() != TenantStatus.ACTIVE) {
-            throw new BusinessException("Công ty chưa được kích hoạt");
-        }
-
-        AppUser user = appUserRepository.findByTenantIdAndEmail(tenant.getId(), email)
+    public LoginResponse loginWithGoogle(String email) {
+        AppUser user = appUserRepository.findByEmailIgnoreCase(normalizeEmail(email))
                 .orElseThrow(() -> new BusinessException(
-                        "Tài khoản chưa được đăng ký trong công ty này. Vui lòng liên hệ quản trị viên."));
-
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new BusinessException("Tài khoản chưa được kích hoạt");
-        }
-
-        Role role = roleRepository.findById(user.getRoleId())
-                .orElseThrow(() -> new BusinessException("Vai trò không hợp lệ"));
-
-        LoginResponse response = issueTokens(user, tenant.getId(), role.getName().name());
-        auditEventPublisher.publish(tenant.getId(), user.getId(), "LOGIN_GOOGLE", "USER", user.getId(), null);
+                        "Tai khoan chua duoc dang ky. Vui long lien he quan tri vien."));
+        requireActive(user);
+        Role role = requiredRole(user);
+        LoginResponse response = issueTokens(user, role.getName().name());
+        auditEventPublisher.publishSingleCompany(
+                user.getId(), "LOGIN_GOOGLE", "USER", user.getId(), null);
         return response;
     }
 
     @Transactional
-    public LoginResponse refreshToken(String refreshTokenValue) {
-        RefreshToken stored = refreshTokenRepository.findByToken(refreshTokenValue)
-                .orElseThrow(() -> new BusinessException("Refresh token không hợp lệ"));
+    public LoginResponse refreshToken(String rawRefreshToken) {
+        String tokenHash = OpaqueTokenUtil.sha256(rawRefreshToken);
+        RefreshToken stored = refreshTokenRepository.findForUpdateByTokenHash(tokenHash)
+                .orElseThrow(() -> new BusinessException("Refresh token khong hop le"));
 
-        if (stored.isRevoked() || stored.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("Refresh token đã hết hạn hoặc bị thu hồi");
+        LocalDateTime now = LocalDateTime.now();
+        if (stored.isRevoked() || stored.getExpiryDate() == null
+                || !stored.getExpiryDate().isAfter(now)) {
+            throw new BusinessException("Refresh token da het han hoac bi thu hoi");
         }
 
         AppUser user = appUserRepository.findById(stored.getUserId())
-                .orElseThrow(() -> new BusinessException("Không tìm thấy tài khoản"));
-        Role role = roleRepository.findById(user.getRoleId())
-                .orElseThrow(() -> new BusinessException("Vai trò không hợp lệ"));
+                .orElseThrow(() -> new BusinessException("Khong tim thay tai khoan"));
+        requireActive(user);
+        Role role = requiredRole(user);
 
         stored.setRevoked(true);
         refreshTokenRepository.save(stored);
-
-        return issueTokens(user, user.getTenantId(), role.getName().name());
+        return issueTokens(user, role.getName().name());
     }
 
     @Transactional
-    public void logout(String refreshTokenValue) {
-        refreshTokenRepository.findByToken(refreshTokenValue).ifPresent(rt -> {
-            rt.setRevoked(true);
-            refreshTokenRepository.save(rt);
-
-            AppUser user = appUserRepository.findById(rt.getUserId()).orElse(null);
-            if (user != null) {
-                auditEventPublisher.publish(user.getTenantId(), user.getId(), "LOGOUT", "USER", user.getId(), null);
+    public void logout(String rawRefreshToken) {
+        String tokenHash = OpaqueTokenUtil.sha256(rawRefreshToken);
+        refreshTokenRepository.findForUpdateByTokenHash(tokenHash).ifPresent(refreshToken -> {
+            if (!refreshToken.isRevoked()) {
+                refreshToken.setRevoked(true);
+                refreshTokenRepository.save(refreshToken);
+                appUserRepository.findById(refreshToken.getUserId()).ifPresent(user ->
+                        auditEventPublisher.publishSingleCompany(
+                                user.getId(), "LOGOUT", "USER", user.getId(), null));
             }
         });
     }
 
-    private LoginResponse issueTokens(AppUser user, Long tenantId, String roleName) {
-        String accessToken = jwtUtil.generateAccessToken(user.getId(), tenantId, roleName, user.getEmail());
-
-        String refreshTokenValue = UUID.randomUUID().toString();
+    private LoginResponse issueTokens(AppUser user, String roleName) {
+        String accessToken = jwtUtil.generateAccessToken(
+                user.getId(), user.getEmail(), roleName, user.getDepartmentId());
+        String rawRefreshToken = OpaqueTokenUtil.generate();
         refreshTokenRepository.save(RefreshToken.builder()
                 .userId(user.getId())
-                .token(refreshTokenValue)
-                .expiryDate(LocalDateTime.now().plusDays(7))
+                .tokenHash(OpaqueTokenUtil.sha256(rawRefreshToken))
+                .expiryDate(LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpirationMs)))
                 .revoked(false)
                 .build());
+        return new LoginResponse(accessToken, rawRefreshToken);
+    }
 
-        return new LoginResponse(accessToken, refreshTokenValue);
+    private Role requiredRole(AppUser user) {
+        return roleRepository.findById(user.getRoleId())
+                .orElseThrow(() -> new BusinessException("Vai tro khong hop le"));
+    }
+
+    private void requireActive(AppUser user) {
+        if (user.getStatus() == UserStatus.LOCKED) {
+            throw new BusinessException("Tai khoan da bi khoa");
+        }
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            throw new BusinessException("Tai khoan da bi vo hieu hoa");
+        }
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new BusinessException("Tai khoan chua duoc kich hoat");
+        }
+    }
+
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

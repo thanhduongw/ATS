@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface EmploymentTypeRepository extends JpaRepository<EmploymentType, Long> {
-    List<EmploymentType> findByTenantIdOrderByNameAsc(Long tenantId);
-    Optional<EmploymentType> findByIdAndTenantId(Long id, Long tenantId);
-    boolean existsByTenantIdAndNameIgnoreCase(Long tenantId, String name);
+    List<EmploymentType> findAllByOrderByNameAsc();
+    boolean existsByNameIgnoreCase(String name);
 }

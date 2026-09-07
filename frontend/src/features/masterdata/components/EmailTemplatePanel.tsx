@@ -213,7 +213,7 @@ export default function EmailTemplatePanel({ config }: Props) {
                 type="info"
                 showIcon
                 style={{ marginBottom: 12, borderRadius: RADIUS.md }}
-                message="Biến khả dụng trong Tiêu đề/Nội dung"
+                title="Biến khả dụng trong Tiêu đề/Nội dung"
                 description={
                     <span>
                         Dùng cú pháp <Text code>{"{{tên_biến}}"}</Text> — ví dụ <Text code>{"{{recipientName}}"}</Text>.

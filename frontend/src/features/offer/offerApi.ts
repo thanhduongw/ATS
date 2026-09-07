@@ -1,5 +1,6 @@
 import axiosClient from "../../services/axiosClient";
 import type {
+  CandidateOfferResponse,
   OfferResponse,
   OfferCreateRequest,
   OfferUpdateRequest,
@@ -37,11 +38,12 @@ export const approveOffer = (id: number) =>
 export const rejectOffer = (id: number, data: OfferRejectRequest) =>
   axiosClient.patch<OfferResponse>(`/offer/offers/${id}/reject`, data);
 
+// Candidate-only endpoints: the backend answers with the candidate-facing DTO.
 export const acceptOffer = (id: number) =>
-  axiosClient.patch<OfferResponse>(`/offer/offers/${id}/accept`);
+  axiosClient.patch<CandidateOfferResponse>(`/offer/offers/${id}/accept`);
 
 export const declineOffer = (id: number, data: OfferDeclineRequest) =>
-  axiosClient.patch<OfferResponse>(`/offer/offers/${id}/decline`, data);
+  axiosClient.patch<CandidateOfferResponse>(`/offer/offers/${id}/decline`, data);
 
 export const deleteOffer = (id: number) =>
   axiosClient.delete<ApiMessageResponse>(`/offer/offers/${id}`);

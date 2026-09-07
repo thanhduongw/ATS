@@ -546,7 +546,7 @@ export default function RequisitionDetailModal({
                         <Alert
                             type="warning"
                             showIcon
-                            message="HR yêu cầu chỉnh sửa"
+                            title="HR yêu cầu chỉnh sửa"
                             description={
                                 requisition.hrNote
                             }
@@ -562,7 +562,7 @@ export default function RequisitionDetailModal({
                         <Alert
                             type="error"
                             showIcon
-                            message="Yêu cầu đã bị từ chối"
+                            title="Yêu cầu đã bị từ chối"
                             description={
                                 requisition.rejectReason
                             }
@@ -579,7 +579,7 @@ export default function RequisitionDetailModal({
                         <Alert
                             type="success"
                             showIcon
-                            message="Yêu cầu đã được phê duyệt"
+                            title="Yêu cầu đã được phê duyệt"
                             description={
                                 requisition.hrNote
                             }
@@ -1202,7 +1202,7 @@ export default function RequisitionDetailModal({
                     type="info"
                     showIcon
                     icon={<InfoCircleOutlined />}
-                    message="Kiểm tra mức lương trước khi phê duyệt"
+                    title="Kiểm tra mức lương trước khi phê duyệt"
                     description="HR có thể điều chỉnh mức lương cuối cùng phù hợp với ngân sách và chính sách công ty."
                     style={{
                         marginBottom: 12,
@@ -1291,7 +1291,7 @@ export default function RequisitionDetailModal({
                 <Alert
                     type="warning"
                     showIcon
-                    message="Yêu cầu sẽ được gửi lại cho phòng ban"
+                    title="Yêu cầu sẽ được gửi lại cho phòng ban"
                     description="Hãy mô tả rõ những nội dung cần được điều chỉnh để người tạo có thể xử lý nhanh hơn."
                     style={{
                         marginBottom: 12,
@@ -1353,7 +1353,7 @@ export default function RequisitionDetailModal({
                 <Alert
                     type="error"
                     showIcon
-                    message="Xác nhận từ chối yêu cầu"
+                    title="Xác nhận từ chối yêu cầu"
                     description="Vui lòng cung cấp lý do cụ thể để phòng ban hiểu và có thể điều chỉnh hoặc tạo yêu cầu mới."
                     style={{
                         marginBottom: 12,

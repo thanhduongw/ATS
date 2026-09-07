@@ -1,12 +1,12 @@
 package iuh.fit.se.interview.evaluation;
 
-import iuh.fit.se.interview.common.AccessGuard;
 import iuh.fit.se.interview.evaluation.dto.EvaluationResponse;
 import iuh.fit.se.interview.evaluation.dto.EvaluationSubmitRequest;
+import iuh.fit.se.interview.security.AuthorizationPolicy;
+import iuh.fit.se.interview.security.CurrentUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,13 +24,12 @@ public class InterviewEvaluationController {
      */
     @PostMapping
     public ResponseEntity<EvaluationResponse> submit(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Id") Long actorUserId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long interviewId,
             @Valid @RequestBody EvaluationSubmitRequest req) {
-        AccessGuard.requireHrOrDepartment(role);
-        return ResponseEntity.ok(service.submit(tenantId, interviewId, actorUserId, role, req));
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireInternal(actor);
+        return ResponseEntity.ok(service.submit(
+                interviewId, actor, req));
     }
 
     /**
@@ -40,14 +39,10 @@ public class InterviewEvaluationController {
      */
     @GetMapping
     public ResponseEntity<List<EvaluationResponse>> getAll(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long interviewId) {
-        if (AccessGuard.isCandidate(role)) {
-            throw new AccessDeniedException("Ứng viên không xem được đánh giá nội bộ");
-        }
-        AccessGuard.requireHrOrDepartment(role);
-        return ResponseEntity.ok(service.getByInterview(tenantId, interviewId, userId, role));
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireInternal(actor);
+        return ResponseEntity.ok(service.getByInterview(
+                interviewId, actor));
     }
 }

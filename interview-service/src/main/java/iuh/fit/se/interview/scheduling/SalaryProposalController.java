@@ -2,6 +2,8 @@ package iuh.fit.se.interview.scheduling;
 
 import iuh.fit.se.interview.scheduling.dto.SalaryProposalRequest;
 import iuh.fit.se.interview.scheduling.dto.SalaryProposalResponse;
+import iuh.fit.se.interview.security.AuthorizationPolicy;
+import iuh.fit.se.interview.security.CurrentUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,25 +20,24 @@ public class SalaryProposalController {
 
     @PostMapping
     public ResponseEntity<SalaryProposalResponse> submit(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Id") Long actorUserId,
             @Valid @RequestBody SalaryProposalRequest req) {
-        return ResponseEntity.ok(service.submit(tenantId, actorUserId, req));
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireInternal(actor);
+        return ResponseEntity.ok(service.submit(actor, req));
     }
 
     @GetMapping
     public ResponseEntity<List<SalaryProposalResponse>> getByApplicationId(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
             @RequestParam Long applicationId) {
-        return ResponseEntity.ok(service.getByApplicationId(tenantId, applicationId));
+        AuthorizationPolicy.requireInternal(CurrentUser.required());
+        return ResponseEntity.ok(service.getByApplicationId(applicationId));
     }
 
     @PostMapping("/{id}/approve")
     public ResponseEntity<SalaryProposalResponse> approve(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader("X-User-Id") Long actorUserId,
-            @RequestHeader("X-User-Role") String role,
             @PathVariable Long id) {
-        return ResponseEntity.ok(service.approve(tenantId, actorUserId, role, id));
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireHr(actor);
+        return ResponseEntity.ok(service.approve(actor.userId(), actor.role(), id));
     }
 }

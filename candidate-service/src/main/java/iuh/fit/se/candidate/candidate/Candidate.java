@@ -16,10 +16,7 @@ public class Candidate {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
-
-    @Column(name = "user_id")
+    @Column(name = "user_id", unique = true)
     private Long userId;
 
     @Column(name = "full_name", nullable = false)

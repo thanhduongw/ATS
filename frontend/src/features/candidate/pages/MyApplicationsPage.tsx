@@ -5,9 +5,9 @@ import {
 } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
-import { getApplications } from "../applicationApi";
+import { getMyApplications } from "../applicationApi";
 import { requestOwnDataDeletion } from "../candidateApi";
-import type { ApplicationResponse, ApiMessageResponse } from "../types";
+import type { CandidateApplicationResponse, ApiMessageResponse } from "../types";
 import { COLORS, RADIUS } from "../../../app/theme";
 import { stageTypeTagColor } from "../../../app/statusLabels";
 import EmptyState from "../../../components/ui/EmptyState";
@@ -20,7 +20,7 @@ export default function MyApplicationsPage() {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const { modal, message } = App.useApp();
-    const [applications, setApplications] = useState<ApplicationResponse[]>([]);
+    const [applications, setApplications] = useState<CandidateApplicationResponse[]>([]);
     const [loading, setLoading] = useState(true);
 
     const handleRequestDeletion = () => {
@@ -43,8 +43,8 @@ export default function MyApplicationsPage() {
     };
 
     useEffect(() => {
-        getApplications()
-            .then(res => setApplications(res.data.content))
+        getMyApplications()
+            .then(res => setApplications(res.data))
             .catch(() => setApplications([]))
             .finally(() => setLoading(false));
     }, []);
@@ -86,7 +86,7 @@ export default function MyApplicationsPage() {
                                         {app.currentStageName}
                                     </Tag>
                                     <Title level={4} style={{ marginTop: 8, marginBottom: 4 }}>
-                                        {app.jobPostingTitle ?? app.jobTitle ?? `Hồ sơ #${app.id}`}
+                                        {app.jobTitle ?? `Hồ sơ #${app.id}`}
                                     </Title>
                                     <Text type="secondary">
                                         Ứng tuyển ngày: {new Date(app.appliedAt).toLocaleDateString("vi-VN")}
@@ -98,7 +98,7 @@ export default function MyApplicationsPage() {
                                         <Button
                                             type="primary"
                                             icon={<FileTextOutlined />}
-                                            onClick={() => navigate(`/offers/candidate/${app.id}`)}
+                                            onClick={() => navigate("/my-offers")}
                                         >
                                             Xem Offer
                                         </Button>
@@ -106,7 +106,7 @@ export default function MyApplicationsPage() {
                                     {app.currentStageType.includes("INTERVIEW") && (
                                         <Button
                                             icon={<ScheduleOutlined />}
-                                            onClick={() => navigate(`/scheduling?applicationId=${app.id}`)}
+                                            onClick={() => navigate("/my-interviews")}
                                         >
                                             Xác nhận lịch họp
                                         </Button>

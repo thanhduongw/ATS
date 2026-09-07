@@ -65,7 +65,7 @@ export default function SkillMultiSelect({ value, onChange, placeholder }: Skill
             optionFilterProp="label"
             searchValue={searchValue}
             onSearch={setSearchValue}
-            dropdownRender={(menu) => (
+            popupRender={(menu) => (
                 <>
                     {menu}
                     {canQuickAdd && (

@@ -19,6 +19,47 @@ export interface CandidateResponse {
   createdAt: string;
 }
 
+export interface CandidateSelfResponse {
+  fullName: string;
+  email: string;
+  phone: string | null;
+  dateOfBirth: string | null;
+  gender: string | null;
+  address: string | null;
+  currentPosition: string | null;
+  educationLevelId: number | null;
+  educationLevelName: string | null;
+  skillIds: number[];
+  skillNames: string[];
+  resumeUploaded: boolean;
+  resumeUrl: string | null;
+}
+
+export interface CandidateSelfUpdateRequest {
+  fullName: string;
+  phone?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  address?: string | null;
+  currentPosition?: string | null;
+  educationLevelId?: number | null;
+  skillIds?: number[];
+}
+
+export interface CandidateApplicationResponse {
+  id: number;
+  jobPostingId: number;
+  jobTitle: string;
+  departmentId: number | null;
+  departmentName: string | null;
+  currentStageName: string;
+  currentStageOrder: number;
+  currentStageType: string;
+  rejectionReasonName: string | null;
+  appliedAt: string;
+  hiredAt: string | null;
+}
+
 export interface CandidateTag {
   id: number;
   tag: string;

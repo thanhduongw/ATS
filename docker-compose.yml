@@ -58,12 +58,13 @@ services:
       context: ./auth-service
       dockerfile: Dockerfile
     container_name: ats-auth-service
-    ports:
-      - "8081:8081"
+    expose:
+      - "8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_auth
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATA_REDIS_HOST: redis
+      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,8 +78,8 @@ services:
       context: ./masterdata-service
       dockerfile: Dockerfile
     container_name: ats-masterdata-service
-    ports:
-      - "8082:8082"
+    expose:
+      - "8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_masterdata
       SPRING_RABBITMQ_HOST: rabbitmq
@@ -94,8 +95,8 @@ services:
       context: ./recruitment-service
       dockerfile: Dockerfile
     container_name: ats-recruitment-service
-    ports:
-      - "8083:8083"
+    expose:
+      - "8083"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_recruitment
       SPRING_RABBITMQ_HOST: rabbitmq
@@ -113,8 +114,8 @@ services:
       context: ./candidate-service
       dockerfile: Dockerfile
     container_name: ats-candidate-service
-    ports:
-      - "8084:8084"
+    expose:
+      - "8084"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_candidate
       SPRING_RABBITMQ_HOST: rabbitmq
@@ -122,6 +123,7 @@ services:
       SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
       SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
       SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
+      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin
     depends_on:
@@ -136,8 +138,8 @@ services:
       context: ./interview-service
       dockerfile: Dockerfile
     container_name: ats-interview-service
-    ports:
-      - "8085:8085"
+    expose:
+      - "8085"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_interview
       SPRING_RABBITMQ_HOST: rabbitmq
@@ -158,8 +160,8 @@ services:
       context: ./notification-service
       dockerfile: Dockerfile
     container_name: ats-notification-service
-    ports:
-      - "8086:8086"
+    expose:
+      - "8086"
     env_file:
       - ./notification-service/.env
     environment:
@@ -184,8 +186,8 @@ services:
       context: ./dashboard-service
       dockerfile: Dockerfile
     container_name: ats-dashboard-service
-    ports:
-      - "8087:8087"
+    expose:
+      - "8087"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_dashboard
       SPRING_RABBITMQ_HOST: rabbitmq
@@ -204,8 +206,8 @@ services:
       context: ./application-service
       dockerfile: Dockerfile
     container_name: ats-application-service
-    ports:
-      - "8089:8089"
+    expose:
+      - "8089"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_application
       SPRING_RABBITMQ_HOST: rabbitmq
@@ -225,8 +227,8 @@ services:
       context: ./offer-service
       dockerfile: Dockerfile
     container_name: ats-offer-service
-    ports:
-      - "8090:8090"
+    expose:
+      - "8090"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_offer
       SPRING_RABBITMQ_HOST: rabbitmq

@@ -1,11 +1,14 @@
 package iuh.fit.se.auth.config;
 
 import iuh.fit.se.auth.security.OAuth2LoginSuccessHandler;
+import iuh.fit.se.auth.security.TrustedHeaderAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -14,13 +17,16 @@ import org.springframework.security.oauth2.client.registration.InMemoryClientReg
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final TrustedHeaderAuthenticationFilter trustedHeaderAuthenticationFilter;
 
     @Value("${app.google.client-id:}")
     private String googleClientId;
@@ -32,27 +38,36 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                // OAuth2 login (Google SSO) cần session để lưu tạm authorization request + tenantCode
-                // giữa bước redirect và callback; các endpoint REST khác không dùng session này.
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, exception) -> response.sendError(401))
+                        .accessDeniedHandler((request, response, exception) -> response.sendError(403)))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/auth/register-company",
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/auth/register",
                                 "/api/auth/verify-email",
+                                "/api/auth/resend-otp",
                                 "/api/auth/login",
                                 "/api/auth/refresh-token",
-                                "/api/auth/oauth2/exchange",
+                                "/api/auth/logout",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/auth/oauth2/exchange"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/auth/public/**",
                                 "/oauth2/**",
                                 "/login/oauth2/**"
                         ).permitAll()
-                        .anyRequest().permitAll() // MVP: Gateway đã chặn phía trước; service tự tin header X-User-Id/X-Tenant-Id
-                );
+                        .requestMatchers("/error", "/swagger-ui/**", "/v3/api-docs/**",
+                                "/api/auth/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/auth/register-company").denyAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/admin/users").hasRole("COMPANY_ADMIN")
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(trustedHeaderAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        // Chỉ bật OAuth2 login khi đã cấu hình Google Client ID/Secret — nếu để trống (mặc định),
-        // bỏ qua hoàn toàn thay vì để Spring tự động cấu hình (client-id rỗng sẽ làm service crash lúc start).
         if (!googleClientId.isBlank() && !googleClientSecret.isBlank()) {
-            // Endpoint chuẩn, ổn định của Google (thay cho CommonOAuth2Provider.GOOGLE — không có sẵn
-            // trong bản spring-security-oauth2-client đang dùng).
             ClientRegistration googleRegistration = ClientRegistration.withRegistrationId("google")
                     .clientId(googleClientId)
                     .clientSecret(googleClientSecret)

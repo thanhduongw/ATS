@@ -46,6 +46,22 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
             "/api/auth/oauth2/exchange"
     );
 
+    /**
+     * Google SSO chay qua chinh entrypoint cong khai: browser khong the gan Authorization
+     * cho cac buoc redirect nay, nen chung phai public o gateway. Danh tinh that su duoc
+     * auth-service tu quyet dinh sau khi Google tra ve; identity header cua client van bi xoa.
+     */
+    static final String OAUTH2_PRE_LOGIN_PATH = "/api/auth/oauth2/pre-login";
+    static final String OAUTH2_AUTHORIZATION_PATH_PREFIX = "/api/auth/oauth2/authorization/";
+    static final String OAUTH2_CALLBACK_PATH_PREFIX = "/api/auth/login/oauth2/code/";
+
+    /**
+     * SockJS/STOMP handshake: browser WebSocket API khong gui duoc header Authorization,
+     * nen JWT duoc ep o STOMP CONNECT frame trong notification-service. Gateway chi cho qua
+     * va van xoa moi X-User-* do client tu gui.
+     */
+    static final String WEBSOCKET_PATH_PREFIX = "/ws/";
+
     @Value("${app.jwt.secret}")
     private String secret;
 
@@ -148,7 +164,19 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
         if (HttpMethod.GET.equals(method) && "/api/auth/public/company".equals(path)) {
             return true;
         }
+        if (HttpMethod.GET.equals(method) && isOauth2EntrypointPath(path)) {
+            return true;
+        }
+        if (path.startsWith(WEBSOCKET_PATH_PREFIX)) {
+            return true;
+        }
         return path.startsWith("/swagger-ui") || path.contains("/v3/api-docs");
+    }
+
+    private boolean isOauth2EntrypointPath(String path) {
+        return OAUTH2_PRE_LOGIN_PATH.equals(path)
+                || path.startsWith(OAUTH2_AUTHORIZATION_PATH_PREFIX)
+                || path.startsWith(OAUTH2_CALLBACK_PATH_PREFIX);
     }
 
     private ServerWebExchange stripIdentityHeaders(ServerWebExchange exchange) {

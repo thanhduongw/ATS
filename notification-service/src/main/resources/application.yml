@@ -36,6 +36,8 @@ spring:
 services:
   auth-service:
     url: ${SERVICES_AUTH_SERVICE_URL:http://localhost:8081}
+  masterdata-service:
+    url: ${SERVICES_MASTERDATA_SERVICE_URL:http://localhost:8082}
   interview-service:
     url: ${SERVICES_INTERVIEW_SERVICE_URL:http://localhost:8085}
   candidate-service:

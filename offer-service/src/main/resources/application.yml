@@ -27,6 +27,8 @@ services:
     url: ${SERVICES_AUTH_SERVICE_URL:http://localhost:8081}
   masterdata-service:
     url: ${SERVICES_MASTERDATA_SERVICE_URL:http://localhost:8082}
+  candidate-service:
+    url: ${SERVICES_CANDIDATE_SERVICE_URL:http://localhost:8084}
   application-service:
     url: ${SERVICES_APPLICATION_SERVICE_URL:http://localhost:8089}
 

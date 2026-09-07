@@ -12,8 +12,7 @@ import { login as loginApi } from "../authApi";
 import { setCredentials } from "../authSlice";
 import { loginSchema, type LoginFormValues } from "../schemas/loginSchema";
 import type { ApiMessageResponse, JwtPayload } from "../types";
-
-const AUTH_SERVICE_URL = import.meta.env.VITE_AUTH_SERVICE_URL || "http://localhost:8081";
+import { OAUTH2_PRE_LOGIN_URL } from "../../../config";
 
 export default function LoginPage() {
     const { message } = App.useApp();
@@ -83,7 +82,7 @@ export default function LoginPage() {
                     </Form>
                     <Divider plain>hoặc</Divider>
                     <Button icon={<GoogleOutlined />} block size="large" onClick={() => {
-                        window.location.href = `${AUTH_SERVICE_URL}/oauth2/pre-login`;
+                        window.location.href = OAUTH2_PRE_LOGIN_URL;
                     }}>Đăng nhập bằng Google</Button>
                     <div className="auth-form-footer">
                         Bạn là ứng viên? <Button type="link" onClick={() => navigate("/register")}>Tạo tài khoản</Button>

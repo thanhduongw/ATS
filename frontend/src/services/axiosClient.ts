@@ -3,12 +3,12 @@ import { store } from "../app/store";
 import { setCredentials, logout } from "../features/auth/authSlice";
 import type { JwtPayload, LoginResponse } from "../features/auth/types";
 import { jwtDecode } from "jwt-decode";
+import { API_BASE_URL } from "../config";
 
 interface RetriableRequestConfig extends InternalAxiosRequestConfig {
     _retry?: boolean;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 const REFRESH_SKEW_MS = 30_000;
 const SUPPORTED_ROLES = new Set(["COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER", "CANDIDATE"]);
 

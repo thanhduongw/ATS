@@ -28,11 +28,30 @@ public class SecurityConfig {
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final TrustedHeaderAuthenticationFilter trustedHeaderAuthenticationFilter;
 
+    /**
+     * Toan bo entrypoint OAuth2 nam duoi /api/auth/** de di chung route gateway va chung
+     * location nginx voi REST — khong can publish port 8081 ra host, va khong dung do
+     * route SPA /oauth2/callback.
+     */
+    static final String OAUTH2_PRE_LOGIN_PATH = "/api/auth/oauth2/pre-login";
+    static final String OAUTH2_AUTHORIZATION_BASE_URI = "/api/auth/oauth2/authorization";
+    static final String OAUTH2_CALLBACK_BASE_URI = "/api/auth/login/oauth2/code/*";
+    private static final String DEFAULT_REDIRECT_URI_TEMPLATE =
+            "{baseUrl}/api/auth/login/oauth2/code/{registrationId}";
+
     @Value("${app.google.client-id:}")
     private String googleClientId;
 
     @Value("${app.google.client-secret:}")
     private String googleClientSecret;
+
+    /**
+     * De trong thi suy ra tu request (can server.forward-headers-strategy=framework khi
+     * chay sau nginx + gateway). Set GOOGLE_REDIRECT_URI de co gia tri tuyet doi, khong
+     * phu thuoc header proxy — day la gia tri phai khop voi Google Cloud Console.
+     */
+    @Value("${app.google.redirect-uri:}")
+    private String googleRedirectUri;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -56,8 +75,9 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/auth/public/**",
-                                "/oauth2/**",
-                                "/login/oauth2/**"
+                                OAUTH2_PRE_LOGIN_PATH,
+                                OAUTH2_AUTHORIZATION_BASE_URI + "/*",
+                                OAUTH2_CALLBACK_BASE_URI
                         ).permitAll()
                         .requestMatchers("/error", "/swagger-ui/**", "/v3/api-docs/**",
                                 "/api/auth/v3/api-docs/**").permitAll()
@@ -73,7 +93,7 @@ public class SecurityConfig {
                     .clientSecret(googleClientSecret)
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                     .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                    .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
+                    .redirectUri(googleRedirectUri.isBlank() ? DEFAULT_REDIRECT_URI_TEMPLATE : googleRedirectUri)
                     .scope("email", "profile")
                     .authorizationUri("https://accounts.google.com/o/oauth2/v2/auth")
                     .tokenUri("https://www.googleapis.com/oauth2/v4/token")
@@ -84,6 +104,8 @@ public class SecurityConfig {
                     .build();
             http.oauth2Login(oauth2 -> oauth2
                     .clientRegistrationRepository(new InMemoryClientRegistrationRepository(googleRegistration))
+                    .authorizationEndpoint(endpoint -> endpoint.baseUri(OAUTH2_AUTHORIZATION_BASE_URI))
+                    .redirectionEndpoint(endpoint -> endpoint.baseUri(OAUTH2_CALLBACK_BASE_URI))
                     .successHandler(oAuth2LoginSuccessHandler));
         }
 

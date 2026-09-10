@@ -17,6 +17,7 @@ import {
 } from "antd";
 import {
     ThunderboltOutlined,
+    ApartmentOutlined,
     TeamOutlined,
     UserOutlined,
     VideoCameraOutlined,
@@ -57,6 +58,8 @@ interface Props {
 export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
     const { message } = App.useApp();
 
+    const [departments, setDepartments] = useState<CatalogItem[]>([]);
+    const [departmentId, setDepartmentId] = useState<number | undefined>(undefined);
     const [postings, setPostings] = useState<JobPostingResponse[]>([]);
     const [postingId, setPostingId] = useState<number | undefined>(undefined);
     const [applications, setApplications] = useState<ApplicationResponse[]>([]);
@@ -79,6 +82,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
     const [results, setResults] = useState<InterviewBulkScheduleItem[] | null>(null);
 
     const reset = () => {
+        setDepartmentId(undefined);
         setPostingId(undefined);
         setApplications([]);
         setSelectedApplicationIds([]);
@@ -98,6 +102,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
         getPostings({ size: 100 }).then((r) => setPostings(r.data.content));
         getUserDirectory("HIRING_MANAGER").then((r) => setInterviewers(r.data));
         getCatalogItems("/masterdata/work-locations").then((r) => setWorkLocations(r.data));
+        getCatalogItems("/masterdata/departments").then((r) => setDepartments(r.data));
         getInterviews().then((r) => setExistingInterviews(r.data)).catch(() => setExistingInterviews([]));
     }, [open]);
 
@@ -116,7 +121,50 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
             .finally(() => setApplicationsLoading(false));
     }, [postingId]);
 
+    const departmentNameById = useMemo(() => {
+        const map = new Map<number, string>();
+        departments.forEach((d) => map.set(d.id, String(d.name)));
+        return map;
+    }, [departments]);
+
+    /** Chi liet ke phong ban thuc su co tin tuyen dung, tranh chon vao roi khong co gi. */
+    const departmentOptions = useMemo(() => {
+        const seen = new Map<number, string>();
+        postings.forEach((p) => {
+            if (p.departmentId == null) return;
+            seen.set(p.departmentId, p.departmentName ?? departmentNameById.get(p.departmentId) ?? `Phòng ban #${p.departmentId}`);
+        });
+        return [...seen.entries()]
+            .map(([value, label]) => ({ value, label }))
+            .sort((a, b) => a.label.localeCompare(b.label, "vi"));
+    }, [postings, departmentNameById]);
+
+    /** Label gop ten + phong ban: the da chon va o tim kiem deu thay duoc phong ban. */
+    const interviewerOptions = useMemo(
+        () =>
+            interviewers.map((u) => {
+                const departmentName = u.departmentId != null ? departmentNameById.get(u.departmentId) : undefined;
+                return {
+                    value: u.id,
+                    fullName: u.fullName,
+                    departmentName,
+                    label: departmentName ? `${u.fullName} — ${departmentName}` : u.fullName,
+                };
+            }),
+        [interviewers, departmentNameById],
+    );
+
+    const postingsInDepartment = useMemo(
+        () => (departmentId ? postings.filter((p) => p.departmentId === departmentId) : []),
+        [postings, departmentId],
+    );
+
     const eligibleApplications = useMemo(() => applications.filter(isSchedulable), [applications]);
+
+    const allEligibleSelected =
+        eligibleApplications.length > 0 && selectedApplicationIds.length === eligibleApplications.length;
+    const someEligibleSelected =
+        selectedApplicationIds.length > 0 && !allEligibleSelected;
 
     const selectedApplications = useMemo(
         () => eligibleApplications.filter((a) => selectedApplicationIds.includes(a.id)),
@@ -146,6 +194,10 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                 return true;
             });
     }, [previewSlots, existingInterviews, interviewerIds, durationMinutes]);
+
+    const toggleAllApplications = (checked: boolean) => {
+        setSelectedApplicationIds(checked ? eligibleApplications.map((a) => a.id) : []);
+    };
 
     const toggleApplication = (id: number, checked: boolean) => {
         setSelectedApplicationIds((prev) =>
@@ -286,14 +338,36 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                 </div>
             ) : (
                 <Form layout="vertical" style={{ marginTop: 12 }}>
+                    <Form.Item label={<Space><ApartmentOutlined />Phòng ban</Space>}>
+                        <Select
+                            placeholder="Chọn phòng ban"
+                            value={departmentId}
+                            onChange={(value) => {
+                                setDepartmentId(value);
+                                setPostingId(undefined);
+                            }}
+                            allowClear
+                            showSearch
+                            optionFilterProp="label"
+                            options={departmentOptions}
+                            notFoundContent="Chưa có phòng ban nào đang có tin tuyển dụng"
+                        />
+                    </Form.Item>
+
                     <Form.Item label={<Space><TeamOutlined />Tin tuyển dụng</Space>}>
                         <Select
-                            placeholder="Chọn tin tuyển dụng để lấy danh sách ứng viên"
+                            placeholder={
+                                departmentId
+                                    ? "Chọn tin tuyển dụng để lấy danh sách ứng viên"
+                                    : "Chọn phòng ban trước"
+                            }
+                            disabled={!departmentId}
                             value={postingId}
                             onChange={setPostingId}
                             showSearch
                             optionFilterProp="label"
-                            options={postings.map((p) => ({ value: p.id, label: p.title }))}
+                            options={postingsInDepartment.map((p) => ({ value: p.id, label: p.title }))}
+                            notFoundContent="Phòng ban này chưa có tin tuyển dụng nào"
                         />
                     </Form.Item>
 
@@ -314,6 +388,27 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                                         padding: 8,
                                     }}
                                 >
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            padding: "6px 8px",
+                                            borderBottom: `1px solid ${COLORS.borderLight}`,
+                                            marginBottom: 4,
+                                        }}
+                                    >
+                                        <Checkbox
+                                            checked={allEligibleSelected}
+                                            indeterminate={someEligibleSelected}
+                                            onChange={(e) => toggleAllApplications(e.target.checked)}
+                                        >
+                                            <span style={{ fontWeight: 600 }}>Chọn tất cả</span>
+                                        </Checkbox>
+                                        <span style={{ fontSize: 12, color: COLORS.textMuted }}>
+                                            Đã chọn {selectedApplicationIds.length}/{eligibleApplications.length}
+                                        </span>
+                                    </div>
                                     {eligibleApplications.map((a) => (
                                         <div
                                             key={a.id}
@@ -344,7 +439,24 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                             placeholder="Chọn người phỏng vấn..."
                             value={interviewerIds}
                             onChange={setInterviewerIds}
-                            options={interviewers.map((u) => ({ value: u.id, label: u.fullName }))}
+                            showSearch
+                            optionFilterProp="label"
+                            options={interviewerOptions}
+                            optionRender={(option) => (
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        gap: 12,
+                                    }}
+                                >
+                                    <span>{option.data.fullName}</span>
+                                    {option.data.departmentName && (
+                                        <Tag style={{ margin: 0 }}>{option.data.departmentName}</Tag>
+                                    )}
+                                </div>
+                            )}
                         />
                     </Form.Item>
 

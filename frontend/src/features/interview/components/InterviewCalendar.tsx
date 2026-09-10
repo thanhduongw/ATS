@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   Calendar,
   Card,
@@ -24,7 +24,6 @@ import {
   PlusOutlined,
   UserOutlined,
   ThunderboltOutlined,
-  MailOutlined,
   ClockCircleOutlined,
   FileDoneOutlined,
   VideoCameraOutlined,
@@ -66,7 +65,6 @@ type QuickFilter = "pendingConfirm" | "needEvaluation" | null;
 export default function InterviewCalendar() {
   const { message } = App.useApp();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
   const isHr = !!role && HR_ROLES.includes(role);
 
@@ -209,13 +207,11 @@ export default function InterviewCalendar() {
   const createMenuItems: MenuProps["items"] = [
     { key: "single", icon: <UserOutlined />, label: "1 ứng viên — chọn giờ cụ thể" },
     { key: "bulk", icon: <ThunderboltOutlined />, label: "Nhiều ứng viên — tự chia slot" },
-    { key: "propose", icon: <MailOutlined />, label: "Gửi khung giờ — 3 bên chốt" },
   ];
 
   const onCreateMenuClick: MenuProps["onClick"] = ({ key }) => {
     if (key === "single") openQuickCreate(null);
     if (key === "bulk") setBulkOpen(true);
-    if (key === "propose") navigate("/scheduling");
   };
 
   /* ── Cột bảng cho chế độ Danh sách ────────────────────── */

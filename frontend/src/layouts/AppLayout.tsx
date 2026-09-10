@@ -86,15 +86,23 @@ export default function AppLayout() {
         }
     };
 
-    return <Layout style={{ minHeight: "100vh" }}>
-        <Sider collapsible collapsed={collapsed} trigger={null} theme="light" width={240} collapsedWidth={64} style={{ borderRight: "1px solid #E5E7EB" }}>
+    return <Layout style={{ height: "100vh", overflow: "hidden" }}>
+        <Sider
+            collapsible
+            collapsed={collapsed}
+            trigger={null}
+            theme="light"
+            width={240}
+            collapsedWidth={64}
+            style={{ borderRight: "1px solid #E5E7EB", height: "100%", overflowY: "auto" }}
+        >
             <div className={`sidebar-logo${collapsed ? " sidebar-logo--collapsed" : ""}`}>
                 <div className="sidebar-logo-icon">A</div>
                 {!collapsed && <span className="sidebar-logo-text">ATS</span>}
             </div>
             <Menu mode="inline" selectedKeys={selectedKey ? [selectedKey] : []} items={menuItems} onClick={({ key }) => navigate(key)} style={{ borderInlineEnd: 0 }} />
         </Sider>
-        <Layout>
+        <Layout style={{ minWidth: 0, minHeight: 0, overflow: "hidden" }}>
             <Header className="app-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: GRADIENTS.header }}>
                 <Button
                     type="text"
@@ -120,7 +128,7 @@ export default function AppLayout() {
                     </Dropdown>
                 </Space>
             </Header>
-            <Content style={{ minHeight: 0, overflow: "auto", padding: 20, background: COLORS.body }}>
+            <Content style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: 20, background: COLORS.body }}>
                 <Outlet />
             </Content>
         </Layout>

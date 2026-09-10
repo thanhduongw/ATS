@@ -20,6 +20,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,13 +69,15 @@ class CandidateAuthorizationTest {
     }
 
     @Test
-    void recruiterCanReadCandidateFromAssignedApplication() {
+    void recruiterCanReadCandidateWithoutApplicationScope() {
+        // HR phu trach tuyen dung toan cong ty: doc duoc moi ung vien, ke ca ung vien
+        // chua nop don nao - nen khong can hoi application-service ve pham vi tiep can.
         Candidate target = candidate(7L, 200L);
         when(candidateRepository.findByIdAndDeletedAtIsNull(7L)).thenReturn(Optional.of(target));
-        when(applicationServiceClient.getAccessibleCandidateIds()).thenReturn(Set.of(7L));
         CurrentUser actor = new CurrentUser(400L, "recruiter@example.com", "RECRUITER", 10L);
 
         assertEquals(7L, candidateService.getSummaryByIdForActor(7L, actor).id());
+        verifyNoInteractions(applicationServiceClient);
     }
 
     @Test

@@ -57,7 +57,6 @@ public class OfferService {
 
         Long candidateId = null;
         Long scopeDepartmentId = null;
-        Long scopeAssignedRecruiterId = null;
         Long scopeApproverId = null;
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
         if (role == AuthorizationPolicy.Role.CANDIDATE) {
@@ -65,18 +64,16 @@ public class OfferService {
         } else if (role == AuthorizationPolicy.Role.HIRING_MANAGER) {
             scopeDepartmentId = actor.departmentId();
             scopeApproverId = actor.userId();
-        } else if (role == AuthorizationPolicy.Role.RECRUITER) {
-            scopeDepartmentId = actor.departmentId();
-            scopeAssignedRecruiterId = actor.userId();
         } else {
-            AuthorizationPolicy.requireAdmin(actor);
+            // COMPANY_ADMIN va HR (RECRUITER) deu xem duoc toan bo offer cua cong ty.
+            AuthorizationPolicy.requireHr(actor);
         }
 
         var spec = OfferSpecifications.build(
                 candidateId, null, applicationId, status,
                 createdFrom != null ? createdFrom.atStartOfDay() : null,
                 createdTo != null ? createdTo.atTime(LocalTime.MAX) : null,
-                scopeDepartmentId, scopeAssignedRecruiterId, scopeApproverId,
+                scopeDepartmentId, null, scopeApproverId,
                 role == AuthorizationPolicy.Role.CANDIDATE);
 
         Map<Long, String> userNameMap = role == AuthorizationPolicy.Role.CANDIDATE
@@ -360,17 +357,13 @@ public class OfferService {
 
     void assertCanView(Offer offer, CurrentUser actor) {
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
-        if (role == AuthorizationPolicy.Role.COMPANY_ADMIN) {
+        // COMPANY_ADMIN va HR (RECRUITER) deu phu trach toan cong ty, khong gioi han phong ban.
+        if (role == AuthorizationPolicy.Role.COMPANY_ADMIN
+                || role == AuthorizationPolicy.Role.RECRUITER) {
             return;
         }
         boolean sameDepartment = actor.departmentId() != null
                 && actor.departmentId().equals(offer.getDepartmentId());
-        if (role == AuthorizationPolicy.Role.RECRUITER) {
-            if (!sameDepartment && !Objects.equals(offer.getAssignedRecruiterId(), actor.userId())) {
-                throw new AccessDeniedException("Offer thuộc phòng ban khác");
-            }
-            return;
-        }
         if (role == AuthorizationPolicy.Role.HIRING_MANAGER) {
             if (!sameDepartment && !Objects.equals(offer.getApproverId(), actor.userId())) {
                 throw new AccessDeniedException("Offer thuộc phòng ban khác và bạn không phải người duyệt");

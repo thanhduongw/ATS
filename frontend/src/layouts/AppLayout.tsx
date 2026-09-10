@@ -41,7 +41,6 @@ export default function AppLayout() {
         const dashboard = item("/dashboard", "Tổng quan", <DashboardOutlined />);
         const recruitment = item("/recruitment", "Tuyển dụng", <SolutionOutlined />);
         const candidates = item("/candidates", "Ứng viên", <TeamOutlined />);
-        const applications = item("/applications", "Hồ sơ ứng tuyển", <AppstoreOutlined />);
         const interviews = item("/interviews", "Phỏng vấn", <CalendarOutlined />);
         const offers = item("/offers", "Offer", <FileTextOutlined />);
         const settings = item("/settings", "Cài đặt tài khoản", <SettingOutlined />);
@@ -50,12 +49,12 @@ export default function AppLayout() {
             dashboard,
             item("/admin/users", "Quản lý người dùng", <UserAddOutlined />),
             item("/masterdata", "Danh mục và phòng ban", <DatabaseOutlined />),
-            recruitment, candidates, applications, interviews, offers,
+            recruitment, candidates, interviews, offers,
             item("/audit-logs", "Nhật ký bảo mật", <AuditOutlined />),
             settings,
         ];
-        if (user.role === "RECRUITER") return [dashboard, recruitment, candidates, applications, interviews, offers, settings];
-        if (user.role === "HIRING_MANAGER") return [dashboard, recruitment, candidates, applications, interviews, offers, settings];
+        if (user.role === "RECRUITER") return [dashboard, recruitment, candidates, interviews, offers, settings];
+        if (user.role === "HIRING_MANAGER") return [dashboard, recruitment, candidates, interviews, offers, settings];
         return [
             item("/my-profile", "Hồ sơ của tôi", <UserOutlined />),
             item("/jobs", "Việc làm", <SolutionOutlined />),

@@ -38,6 +38,8 @@ interface ActivityItem {
     content: ReactNode;
 }
 
+const INTERVIEW_STAGE_TYPES = ["TECHNICAL_INTERVIEW", "HR_INTERVIEW", "FINAL_INTERVIEW"];
+
 function InfoRow({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
     return (
         <div style={{ marginBottom: 14 }}>
@@ -200,15 +202,14 @@ export default function CandidateApplicationDetailPage() {
 
     const isRejected = application.currentStageType === "REJECTED";
     const isHired = application.currentStageType === "HIRED";
-    const isTerminal = isHired || isRejected;
 
     const mainStages = stages.filter((s) => s.stageType !== "REJECTED");
     const currentStageIndex = mainStages.findIndex((s) => s.id === application.currentStageId);
     const nextStage = currentStageIndex >= 0 && currentStageIndex < mainStages.length - 1
         ? mainStages[currentStageIndex + 1] : null;
 
-    // Nút hành động chỉ hiện đúng theo trạng thái hồ sơ: PV khi chưa tới vòng Offer, Offer chỉ khi đang ở vòng Offer.
-    const showInterviewBtn = !isTerminal && application.currentStageType !== "OFFER";
+    // Chỉ cho phép lên lịch khi hồ sơ đang thực sự ở một vòng phỏng vấn.
+    const showInterviewBtn = INTERVIEW_STAGE_TYPES.includes(application.currentStageType);
     const showOfferBtn = application.currentStageType === "OFFER";
 
     const activity: ActivityItem[] = [
@@ -252,14 +253,14 @@ export default function CandidateApplicationDetailPage() {
                 background: "#fff", border: `1px solid ${COLORS.borderLight}`, borderRadius: 16,
                 boxShadow: SHADOWS.card,
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                gap: 16, flexWrap: "wrap", padding: "16px 20px", marginBottom: 14,
+                gap: 16, padding: "16px 20px", marginBottom: 14,
             }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
                     <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Quay lại</Button>
                     <Avatar size={48} style={{ background: COLORS.primary, color: "#fff", fontWeight: 600, fontSize: 16, flexShrink: 0 }}>
                         {getInitials(candidate.fullName)}
                     </Avatar>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{candidate.fullName}</h2>
                             <Tag color={stageTypeTagColor(application.currentStageType)} style={{ borderRadius: 6 }}>
@@ -282,31 +283,25 @@ export default function CandidateApplicationDetailPage() {
                         <CloseCircleOutlined /> Hồ sơ đã bị từ chối
                     </Tag>
                 ) : isHr ? (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-                        <Space wrap size={8}>
-                            <Button type="text" danger icon={<CloseCircleOutlined />} onClick={() => setRejectModalOpen(true)}>
-                                Từ chối hồ sơ
+                    <Space size={8} style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
+                        <Button type="text" danger icon={<CloseCircleOutlined />} onClick={() => setRejectModalOpen(true)}>
+                            Từ chối hồ sơ
+                        </Button>
+                        <Button type="primary" icon={<CheckCircleOutlined />} loading={actionLoading} onClick={handlePass}>
+                            {nextStage ? `Chuyển sang "${nextStage.name}"` : "Chuyển vòng tiếp theo"}
+                        </Button>
+                        {showInterviewBtn && (
+                            <Button icon={<CalendarOutlined />} onClick={() => setInterviewModalOpen(true)}>
+                                Lên lịch phỏng vấn
                             </Button>
-                            <Button type="primary" icon={<CheckCircleOutlined />} loading={actionLoading} onClick={handlePass}>
-                                {nextStage ? `Chuyển sang "${nextStage.name}"` : "Chuyển vòng tiếp theo"}
-                            </Button>
-                        </Space>
-                        {(showInterviewBtn || showOfferBtn) && (
-                            <Space wrap size={8}>
-                                {showInterviewBtn && (
-                                    <Button icon={<CalendarOutlined />} onClick={() => setInterviewModalOpen(true)}>
-                                        Lên lịch phỏng vấn
-                                    </Button>
-                                )}
-                                {showOfferBtn && (
-                                    <Button icon={<DollarOutlined />} style={{ background: "#722ed1", color: "#fff", borderColor: "#722ed1" }}
-                                        onClick={() => setOfferModalOpen(true)}>
-                                        Tạo Offer
-                                    </Button>
-                                )}
-                            </Space>
                         )}
-                    </div>
+                        {showOfferBtn && (
+                            <Button icon={<DollarOutlined />} style={{ background: "#722ed1", color: "#fff", borderColor: "#722ed1" }}
+                                onClick={() => setOfferModalOpen(true)}>
+                                Tạo Offer
+                            </Button>
+                        )}
+                    </Space>
                 ) : null}
             </div>
 

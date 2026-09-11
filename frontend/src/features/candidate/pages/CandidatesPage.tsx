@@ -3,6 +3,7 @@ import { App, Card, Table, Button, Input, Select, Tooltip, Avatar, Modal, Form, 
 import {
     PlusOutlined, SearchOutlined, UserOutlined, DownloadOutlined,
     UserAddOutlined, FileSearchOutlined, CalendarOutlined, TrophyOutlined, MailOutlined, CloseCircleOutlined,
+    RobotOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
@@ -14,7 +15,9 @@ import type { CatalogItem } from "../../masterdata/types";
 import { getPostings } from "../../recruitment/recruitmentApi";
 import type { ApiMessageResponse, CandidateResponse, ApplicationResponse, CandidateWithApplications, BulkOperationResponse } from "../types";
 import CandidateFormModal from "../components/CandidateFormModal";
+import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
 import AiScoreBadge from "../../../components/AiScoreBadge";
+import type { CandidateFormValues } from "../schemas/candidateSchema";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 import { exportToExcel } from "../../../app/exportExcel";
 import { useAppSelector } from "../../../app/hooks";
@@ -62,10 +65,15 @@ export default function CandidatesPage() {
     const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
 
     const [formModalOpen, setFormModalOpen] = useState(false);
+    const [aiModalOpen, setAiModalOpen] = useState(false);
+    const [aiPrefilledData, setAiPrefilledData] = useState<Partial<CandidateFormValues> | null>(null);
+    const [aiPrefilledFile, setAiPrefilledFile] = useState<File | null>(null);
 
     const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
     const [rejectReasons, setRejectReasons] = useState<CatalogItem[]>([]);
     const [allDepartments, setAllDepartments] = useState<CatalogItem[]>([]);
+    const [allSkills, setAllSkills] = useState<CatalogItem[]>([]);
+    const [allEducationLevels, setAllEducationLevels] = useState<CatalogItem[]>([]);
     const [allPositions, setAllPositions] = useState<string[]>([]);
     const [allStatuses, setAllStatuses] = useState<string[]>([]);
     const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
@@ -84,6 +92,8 @@ export default function CandidatesPage() {
     useEffect(() => {
         getCatalogItems("/masterdata/rejection-reasons").then((r) => setRejectReasons(r.data));
         getCatalogItems("/masterdata/departments").then((r) => setAllDepartments(r.data));
+        getCatalogItems("/masterdata/skills").then((r) => setAllSkills(r.data));
+        getCatalogItems("/masterdata/education-levels").then((r) => setAllEducationLevels(r.data));
         getPostings({ size: 1000 }).then((r) =>
             setAllPositions(Array.from(new Set(r.data.content.map((p) => p.title))).sort()));
         getPipelines().then((r) =>
@@ -476,6 +486,11 @@ export default function CandidatesPage() {
                             Xuất Excel
                         </Button>
                         {isHr && (
+                            <Button icon={<RobotOutlined />} onClick={() => setAiModalOpen(true)}>
+                                AI Parse CV
+                            </Button>
+                        )}
+                        {isHr && (
                             <Button type="primary" icon={<PlusOutlined />} onClick={() => setFormModalOpen(true)}>
                                 Thêm ứng viên
                             </Button>
@@ -590,8 +605,31 @@ export default function CandidatesPage() {
                 </div>
             </Card>
 
-            <CandidateFormModal open={formModalOpen} editingItem={null}
-                onClose={() => setFormModalOpen(false)} onSuccess={loadData} />
+            <CandidateFormModal
+                open={formModalOpen}
+                editingItem={null}
+                initialValues={aiPrefilledData}
+                initialFile={aiPrefilledFile}
+                onClose={() => {
+                    setFormModalOpen(false);
+                    setAiPrefilledData(null);
+                    setAiPrefilledFile(null);
+                }}
+                onSuccess={loadData}
+            />
+
+            <AiCvUploadModal
+                open={aiModalOpen}
+                availableSkills={allSkills}
+                availableEducationLevels={allEducationLevels}
+                onClose={() => setAiModalOpen(false)}
+                onFillCandidate={(data, file) => {
+                    setAiPrefilledData(data);
+                    setAiPrefilledFile(file ?? null);
+                    setAiModalOpen(false);
+                    setFormModalOpen(true);
+                }}
+            />
 
             <Modal
                 title={`Từ chối hàng loạt (${selectedRowKeys.length} ứng viên)`}

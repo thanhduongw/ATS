@@ -43,11 +43,15 @@ import type { ApiMessageResponse, CandidateResponse, CustomFieldDefinition } fro
 interface Props {
   open: boolean;
   editingItem: CandidateResponse | null;
+  /** Pre-filled values from AI extraction or other sources */
+  initialValues?: Partial<CandidateFormValues> | null;
+  /** Pre-attached CV file from AI extraction or other sources */
+  initialFile?: File | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function CandidateFormModal({ open, editingItem, onClose, onSuccess }: Props) {
+export default function CandidateFormModal({ open, editingItem, initialValues, initialFile, onClose, onSuccess }: Props) {
   const [educationLevels, setEducationLevels] = useState<CatalogItem[]>([]);
   const [skills, setSkills] = useState<CatalogItem[]>([]);
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([]);
@@ -94,22 +98,22 @@ export default function CandidateFormModal({ open, editingItem, onClose, onSucce
       setCvError(null);
     } else {
       reset({
-        fullName: "",
-        email: "",
-        phone: "",
-        dateOfBirth: null,
-        gender: null,
-        address: "",
-        currentPosition: "",
-        educationLevelId: null,
-        skillIds: [],
-        internalNote: "",
+        fullName: initialValues?.fullName ?? "",
+        email: initialValues?.email ?? "",
+        phone: initialValues?.phone ?? "",
+        dateOfBirth: initialValues?.dateOfBirth ?? null,
+        gender: initialValues?.gender ?? null,
+        address: initialValues?.address ?? "",
+        currentPosition: initialValues?.currentPosition ?? "",
+        educationLevelId: initialValues?.educationLevelId ?? null,
+        skillIds: initialValues?.skillIds ?? [],
+        internalNote: initialValues?.internalNote ?? "",
       });
       setCustomFieldValues({});
-      setCvFile(null);
+      setCvFile(initialFile ?? null);
       setCvError(null);
     }
-  }, [editingItem, open, reset]);
+  }, [editingItem, initialValues, initialFile, open, reset]);
 
   const handleCvChange: UploadProps["onChange"] = (info) => {
     const file = info.fileList[0]?.originFileObj as File | undefined;

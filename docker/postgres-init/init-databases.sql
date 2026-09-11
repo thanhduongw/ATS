@@ -9,6 +9,7 @@ CREATE DATABASE ats_notification;
 CREATE DATABASE ats_dashboard;
 CREATE DATABASE ats_application;
 CREATE DATABASE ats_offer;
+CREATE DATABASE ats_ai;
 
 \c ats_auth;
 
@@ -87,3 +88,78 @@ VALUES (1, 'Human Resources', 'Default department for seeded internal users', TR
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('department_id_seq', (SELECT MAX(id) FROM department));
+
+-- ============================================================
+-- AI Service Database (ats_ai) — pgvector + AI tables
+-- ============================================================
+\c ats_ai;
+
+-- Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- 1. AI Processing Jobs — tracks each AI processing run
+CREATE TABLE IF NOT EXISTS ai_jobs (
+    id BIGSERIAL PRIMARY KEY,
+    application_id BIGINT NOT NULL,
+    candidate_id BIGINT NOT NULL,
+    job_posting_id BIGINT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'QUEUED',
+    current_stage VARCHAR(50),
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+
+    -- Provenance
+    extraction_model VARCHAR(100),
+    extraction_prompt_version VARCHAR(20),
+    scoring_model VARCHAR(100),
+    scoring_prompt_version VARCHAR(20),
+
+    -- Quality
+    extraction_confidence NUMERIC(3,2),
+    ocr_used BOOLEAN DEFAULT FALSE,
+    injection_detected BOOLEAN DEFAULT FALSE,
+    guardrail_warnings JSONB,
+
+    -- Cost tracking
+    total_input_tokens INTEGER,
+    total_output_tokens INTEGER,
+    estimated_cost_usd NUMERIC(6,4),
+    total_latency_ms INTEGER,
+
+    error_message TEXT,
+    retry_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_jobs_application ON ai_jobs (application_id);
+CREATE INDEX IF NOT EXISTS idx_ai_jobs_status ON ai_jobs (status);
+
+-- 2. CV Document Chunks — vector embeddings for RAG
+CREATE TABLE IF NOT EXISTS cv_document_chunks (
+    id BIGSERIAL PRIMARY KEY,
+    application_id BIGINT NOT NULL,
+    candidate_id BIGINT NOT NULL,
+    chunk_type VARCHAR(50) NOT NULL,
+    content TEXT NOT NULL,
+    embedding vector(1024),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_cv_chunks_app ON cv_document_chunks (application_id);
+CREATE INDEX IF NOT EXISTS idx_cv_chunks_embedding ON cv_document_chunks
+    USING hnsw (embedding vector_cosine_ops);
+
+-- 3. AI Feedback — recruiter corrections
+CREATE TABLE IF NOT EXISTS ai_feedback (
+    id BIGSERIAL PRIMARY KEY,
+    application_id BIGINT NOT NULL,
+    ai_job_id BIGINT REFERENCES ai_jobs(id),
+    user_id BIGINT NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    original_score NUMERIC(5,2),
+    corrected_score NUMERIC(5,2),
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_feedback_application ON ai_feedback (application_id);

@@ -31,6 +31,9 @@ import { stageTypeTagColor, INTERVIEW_STATUS, statusMeta } from "../../../app/st
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
+import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
+import CvParseResultPanel from "../../ai/components/CvParseResultPanel";
+import type { CVExtractionResult, ExtractionProvenance } from "../../ai/types";
 
 interface ActivityItem {
     kind: "history" | "comment";
@@ -118,6 +121,9 @@ export default function CandidateApplicationDetailPage() {
     const [interviewModalOpen, setInterviewModalOpen] = useState(false);
     const [offerModalOpen, setOfferModalOpen] = useState(false);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
+    const [aiModalOpen, setAiModalOpen] = useState(false);
+    const [aiResult, setAiResult] = useState<CVExtractionResult | null>(null);
+    const [aiProvenance, setAiProvenance] = useState<ExtractionProvenance | null>(null);
 
     const applicationId = Number(applicationIdParam);
 
@@ -444,31 +450,46 @@ export default function CandidateApplicationDetailPage() {
                         )}
                     </SectionCard>
 
-                    {/* AI CV Screening — placeholder, chưa có dữ liệu thật */}
+                    {/* AI CV Screening — functional */}
                     <SectionCard
-                        title={<span><RobotOutlined style={{ marginRight: 8, color: "#8B5CF6" }} />AI CV Screening</span>}
+                        title={<span><RobotOutlined style={{ marginRight: 8, color: "#8B5CF6" }} />AI Trích Xuất CV</span>}
                         extra={<Tag color="purple" style={{ borderRadius: 6 }}>AI</Tag>}
                     >
-                        <div style={{
-                            display: "flex", alignItems: "center", gap: 16, padding: "16px 4px",
-                            color: COLORS.textSecondary,
-                        }}>
+                        {aiResult && aiProvenance ? (
+                            <div>
+                                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+                                    <Button
+                                        size="small"
+                                        icon={<RobotOutlined />}
+                                        onClick={() => setAiModalOpen(true)}
+                                    >
+                                        Phân tích lại
+                                    </Button>
+                                </div>
+                                <CvParseResultPanel result={aiResult} provenance={aiProvenance} />
+                            </div>
+                        ) : (
                             <div style={{
-                                width: 56, height: 56, borderRadius: "50%", background: "#F5F3FF",
-                                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                                display: "flex", alignItems: "center", gap: 16, padding: "16px 4px",
+                                color: COLORS.textSecondary,
                             }}>
-                                <RobotOutlined style={{ fontSize: 24, color: "#8B5CF6" }} />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: 2 }}>
-                                    Tính năng đang được phát triển
+                                <div style={{
+                                    width: 56, height: 56, borderRadius: "50%", background: "#F5F3FF",
+                                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                                }}>
+                                    <RobotOutlined style={{ fontSize: 24, color: "#8B5CF6" }} />
                                 </div>
-                                <div style={{ fontSize: 13 }}>
-                                    Chấm điểm và phân tích CV tự động bằng AI sẽ sớm ra mắt trong giai đoạn tiếp theo.
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: 2 }}>
+                                        Phân tích CV bằng AI
+                                    </div>
+                                    <div style={{ fontSize: 13 }}>
+                                        Tải lên CV của ứng viên để AI tự động trích xuất và phân tích thông tin.
+                                    </div>
                                 </div>
+                                <Button icon={<RobotOutlined />} onClick={() => setAiModalOpen(true)}>Phân tích CV</Button>
                             </div>
-                            <Button disabled icon={<RobotOutlined />}>Chạy phân tích AI</Button>
-                        </div>
+                        )}
                     </SectionCard>
                 </Col>
 
@@ -551,6 +572,14 @@ export default function CandidateApplicationDetailPage() {
                 applicationId={application.id}
                 onClose={() => setRejectModalOpen(false)}
                 onSuccess={() => { setRejectModalOpen(false); loadAll(); }}
+            />
+            <AiCvUploadModal
+                open={aiModalOpen}
+                onClose={() => setAiModalOpen(false)}
+                onParseSuccess={(r, p) => {
+                    setAiResult(r);
+                    setAiProvenance(p);
+                }}
             />
         </div>
     );

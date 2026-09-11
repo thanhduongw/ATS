@@ -24,3 +24,13 @@ Thumbs.db
 
 # Docker
 docker-volume-data/
+
+# Python
+**/__pycache__/
+*.py[cod]
+*$py.class
+**/.pytest_cache/
+**/.venv/
+**/venv/
+**/.coverage
+**/htmlcov/

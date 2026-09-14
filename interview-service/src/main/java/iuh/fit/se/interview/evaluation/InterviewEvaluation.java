@@ -16,9 +16,17 @@ public class InterviewEvaluation {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Buoi phong van duoc cham. De trong khi danh gia thuoc mot vong khong co phong van
+     * (vi du HR cham o vong Sang loc CV).
+     */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "interview_id", nullable = false)
+    @JoinColumn(name = "interview_id")
     private Interview interview;
+
+    /** Ho so ung tuyen ma danh gia nay thuoc ve — luon co, ke ca khi khong gan buoi phong van. */
+    @Column(name = "application_id", nullable = false)
+    private Long applicationId;
 
     @Column(name = "interviewer_id", nullable = false)
     private Long interviewerId;

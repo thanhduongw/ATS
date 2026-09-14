@@ -103,7 +103,7 @@ export default function MyEvaluationsList() {
 
       <EvaluationSubmitModal
         open={submitModalOpen}
-        interviewId={targetInterviewId}
+        target={targetInterviewId != null ? { kind: "interview", interviewId: targetInterviewId } : null}
         criteria={criteria}
         onClose={() => setSubmitModalOpen(false)}
         onSuccess={loadData}

@@ -19,6 +19,14 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
+/** Nhan tieng Viet cho de xuat tong the — tranh hien enum tho ra giao dien. */
+const RECOMMENDATION_LABEL: Record<string, string> = {
+  STRONG_YES: "Rất khuyến nghị nhận",
+  YES: "Khuyến nghị nhận",
+  NO: "Không khuyến nghị",
+  STRONG_NO: "Kiên quyết không nhận",
+};
+
 export default function InterviewsPage() {
   const { interviewId } = useParams();
   const id = Number(interviewId);
@@ -83,10 +91,22 @@ export default function InterviewsPage() {
                 <Card key={idx} size="small" style={{ background: "#fafafa", border: "1px solid #f0f0f0" }}>
                   <Flex justify="space-between" align="center">
                     <div style={{ fontWeight: 600 }}>{e.interviewerName}</div>
-                    <Tag color="blue">{e.overallRecommendation ?? "pending"}</Tag>
+                    {e.submittedAt == null ? (
+                      <Tag>Chưa nộp</Tag>
+                    ) : e.contentVisible ? (
+                      <Tag color="blue">
+                        {e.overallRecommendation
+                          ? RECOMMENDATION_LABEL[e.overallRecommendation]
+                          : "—"}
+                      </Tag>
+                    ) : (
+                      <Tag color="warning">Đã nộp — chưa mở khóa</Tag>
+                    )}
                   </Flex>
                   <Divider style={{ margin: "8px 0" }} />
-                  <div style={{ color: "#666", fontSize: 13 }}>{e.generalComment ?? "-"}</div>
+                  <div style={{ color: "#666", fontSize: 13 }}>
+                    {e.contentVisible ? (e.generalComment ?? "-") : "Nội dung chỉ hiện sau khi bạn nộp đánh giá của mình."}
+                  </div>
                 </Card>
               ))
             )}

@@ -64,13 +64,12 @@ public class S3Service {
                 return String.format("%s/%s/%s", publicUrl.replaceAll("/+$", ""), bucket, key);
             }
             if (endpoint != null && !endpoint.isBlank()) {
-                String clientEndpoint = endpoint.replace("http://minio:9000", "http://localhost:9000");
-                return String.format("%s/%s/%s", clientEndpoint.replaceAll("/+$", ""), bucket, key);
+                return String.format("%s/%s/%s", endpoint.replaceAll("/+$", ""), bucket, key);
             }
             return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key);
 
         } catch (Exception e) {
-            log.warn("S3/MinIO upload failed ({}), falling back to local file storage...", e.getMessage());
+            log.warn("Tai file len S3 that bai ({}), tam luu vao dia cuc bo", e.getMessage());
             return saveLocally(file, safeFileName);
         }
     }

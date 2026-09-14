@@ -120,6 +120,9 @@ services:
       context: ./candidate-service
       dockerfile: Dockerfile
     container_name: ats-candidate-service
+    # Khoa AWS doc tu ./candidate-service/.env, khong commit vao repo.
+    env_file:
+      - ./candidate-service/.env
     expose:
       - "8084"
     environment:
@@ -130,8 +133,6 @@ services:
       SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
       SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
       SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
-      AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin
     depends_on:
       postgres:
         condition: service_healthy

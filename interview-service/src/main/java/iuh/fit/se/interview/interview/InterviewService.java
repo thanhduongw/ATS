@@ -207,6 +207,7 @@ public class InterviewService {
         req.interviewerIds().forEach(interviewerId ->
                 evaluationRepository.save(InterviewEvaluation.builder()
                         .interview(saved)
+                        .applicationId(saved.getApplicationId())
                         .interviewerId(interviewerId)
                         .build()));
 
@@ -318,6 +319,7 @@ public class InterviewService {
             req.interviewerIds().forEach(interviewerId ->
                     evaluationRepository.save(InterviewEvaluation.builder()
                             .interview(saved)
+                            .applicationId(saved.getApplicationId())
                             .interviewerId(interviewerId)
                             .build()));
 
@@ -473,6 +475,7 @@ public class InterviewService {
         return new InterviewResponse(
                 interview.getId(),
                 interview.getApplicationId(),
+                interview.getCandidateId(),
                 interview.getCandidateNameSnapshot(),
                 interview.getScheduledAt(),
                 interview.getDurationMinutes(),
@@ -482,7 +485,8 @@ public class InterviewService {
                 interview.getNote(),
                 interview.getStatus(),
                 interview.getCandidateConfirmedAt() != null,
-                interviewerSummaries
+                interviewerSummaries,
+                interview.getCreatedAt()
         );
     }
 }

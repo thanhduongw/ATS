@@ -273,6 +273,7 @@ public class InterviewSlotService {
         return new InterviewResponse(
                 interview.getId(),
                 interview.getApplicationId(),
+                interview.getCandidateId(),
                 interview.getCandidateNameSnapshot(),
                 interview.getScheduledAt(),
                 interview.getDurationMinutes(),
@@ -282,7 +283,8 @@ public class InterviewSlotService {
                 interview.getNote(),
                 interview.getStatus(),
                 interview.getCandidateConfirmedAt() != null,
-                interviewerSummaries
+                interviewerSummaries,
+                interview.getCreatedAt()
         );
     }
 }

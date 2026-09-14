@@ -11,6 +11,8 @@ export interface InterviewerSummary {
 export interface InterviewResponse {
   id: number;
   applicationId: number;
+  /** Dung de dieu huong sang trang ho so ung tuyen cua ung vien. */
+  candidateId: number | null;
   candidateName: string;
   scheduledAt: string;
   durationMinutes: number;
@@ -21,6 +23,8 @@ export interface InterviewResponse {
   status: InterviewStatus;
   candidateConfirmed?: boolean;
   interviewers: InterviewerSummary[];
+  /** Moc tao buoi phong van — doi chieu voi lich su chuyen vong de suy ra vong phong van. */
+  createdAt?: string | null;
 }
 
 export interface InterviewCreateRequest {
@@ -67,6 +71,15 @@ export interface EvaluationScoreRequest {
   comment?: string | null;
 }
 
+/** Ban nhap: moi truong deu tuy chon, chi gui cac tieu chi da cham diem. */
+export interface EvaluationDraftRequest {
+  overallRecommendation?: RecommendationType | null;
+  generalComment?: string | null;
+  salaryProposed?: number | null;
+  salaryNote?: string | null;
+  scores?: EvaluationScoreRequest[];
+}
+
 export interface EvaluationSubmitRequest {
   overallRecommendation: RecommendationType;
   generalComment?: string | null;
@@ -87,6 +100,9 @@ export interface EvaluationScoreResponse {
 export type EvaluationScoreDetail = EvaluationScoreResponse;
 
 export interface EvaluationResponse {
+  id: number;
+  /** Buổi phỏng vấn được chấm; null khi đây là bài HR chấm cho vòng không có phỏng vấn. */
+  interviewId: number | null;
   interviewerId: number;
   interviewerName: string;
   overallRecommendation: RecommendationType | null;
@@ -94,6 +110,12 @@ export interface EvaluationResponse {
   salaryProposed: number | null;
   salaryNote: string | null;
   submittedAt: string | null;
+  /**
+   * Người đang xem có được đọc nội dung bài chấm này không. false khi bài bị che
+   * (đồng nghiệp chưa mở khóa, hoặc mình chưa nộp bài của mình) — lúc đó chỉ
+   * interviewerName và submittedAt là có nghĩa.
+   */
+  contentVisible: boolean;
   scores: EvaluationScoreResponse[];
 }
 

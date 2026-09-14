@@ -14,10 +14,10 @@ import java.net.URI;
 @Configuration
 public class S3Config {
 
-    @Value("${aws.access-key-id:minioadmin}")
+    @Value("${aws.access-key-id:}")
     private String accessKeyId;
 
-    @Value("${aws.secret-access-key:minioadmin}")
+    @Value("${aws.secret-access-key:}")
     private String secretAccessKey;
 
     @Value("${aws.s3.region:us-east-1}")
@@ -28,14 +28,16 @@ public class S3Config {
 
     @Bean
     public S3Client s3Client() {
-        String keyId = (accessKeyId == null || accessKeyId.isBlank()) ? "minioadmin" : accessKeyId;
-        String secretKey = (secretAccessKey == null || secretAccessKey.isBlank()) ? "minioadmin" : secretAccessKey;
         String reg = (region == null || region.isBlank()) ? "us-east-1" : region;
+        boolean hasStaticKeys = accessKeyId != null && !accessKeyId.isBlank()
+                && secretAccessKey != null && !secretAccessKey.isBlank();
 
-        S3ClientBuilder builder = S3Client.builder()
-                .region(Region.of(reg))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(keyId, secretKey)));
+        S3ClientBuilder builder = S3Client.builder().region(Region.of(reg));
+        // Co key trong cau hinh thi dung; khong thi de SDK tu tim (IAM role, ~/.aws/credentials).
+        if (hasStaticKeys) {
+            builder.credentialsProvider(StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(accessKeyId, secretAccessKey)));
+        }
 
         if (endpoint != null && !endpoint.isBlank()) {
             builder.endpointOverride(URI.create(endpoint))

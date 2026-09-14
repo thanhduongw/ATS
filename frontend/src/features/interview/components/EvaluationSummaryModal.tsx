@@ -98,14 +98,14 @@ export default function EvaluationSummaryModal({ open, interviewId, onClose }: P
         <Empty description="Chưa có dữ liệu đánh giá" />
       ) : (
         <>
-          {!isHr && (
+          {/* {!isHr && (
             <Alert
               type="info"
               showIcon
               style={{ marginBottom: 16 }}
               title="Mức lương đề xuất chỉ HR được xem (theo quy định bảo mật nội bộ)."
             />
-          )}
+          )} */}
 
           <Space style={{ marginBottom: 12 }} wrap>
             <Tag color="blue">Đã nộp: {submitted.length}</Tag>
@@ -116,6 +116,7 @@ export default function EvaluationSummaryModal({ open, interviewId, onClose }: P
             defaultActiveKey={submitted.map((e) => String(e.interviewerId))}
             items={evaluations.map((e) => {
               const hasSubmitted = e.submittedAt != null;
+              const locked = hasSubmitted && !e.contentVisible;
               const rec = e.overallRecommendation ?? "";
 
               return {
@@ -123,16 +124,23 @@ export default function EvaluationSummaryModal({ open, interviewId, onClose }: P
                 label: (
                   <Space wrap>
                     <Text strong>{e.interviewerName || `Interviewer #${e.interviewerId}`}</Text>
-                    {hasSubmitted ? (
+                    {!hasSubmitted ? (
+                      <Tag color="default">Chưa nộp</Tag>
+                    ) : locked ? (
+                      <Tag color="warning">Đã nộp — chưa mở khóa</Tag>
+                    ) : (
                       <Tag color={RECOMMENDATION_COLOR[rec] ?? "default"}>
                         {RECOMMENDATION_LABEL[rec] ?? rec}
                       </Tag>
-                    ) : (
-                      <Tag color="default">Chưa nộp</Tag>
                     )}
                   </Space>
                 ),
-                children: hasSubmitted ? (
+                children: locked ? (
+                  <Text type="secondary">
+                    Bạn cần nộp đánh giá của mình trước, sau đó mới đọc được bài chấm
+                    của người phỏng vấn khác.
+                  </Text>
+                ) : hasSubmitted ? (
                   <div>
                     {/* Điểm theo tiêu chí */}
                     <Descriptions

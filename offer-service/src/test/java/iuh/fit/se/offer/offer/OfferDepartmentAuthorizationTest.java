@@ -50,11 +50,12 @@ class OfferDepartmentAuthorizationTest {
     }
 
     @Test
-    void recruiterCanViewCrossDepartmentOfferOnlyWhenApplicationAssigned() {
+    void recruiterCanViewOfferFromEveryDepartment() {
         CurrentUser actor = new CurrentUser(60L, "recruiter@example.com", "RECRUITER", 10L);
 
-        assertThrows(AccessDeniedException.class,
-                () -> offerService.assertCanView(offer(20L, 90L, 91L), actor));
+        // HR phu trach tuyen dung toan cong ty: xem duoc offer cua phong ban khac
+        // ke ca khi offer khong duoc gan cho minh.
+        assertDoesNotThrow(() -> offerService.assertCanView(offer(20L, 90L, 91L), actor));
         assertDoesNotThrow(() -> offerService.assertCanView(offer(20L, 60L, 91L), actor));
     }
 

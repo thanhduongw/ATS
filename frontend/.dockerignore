@@ -1,0 +1,27 @@
+# Dockerfile chay `npm ci` roi moi `COPY . .`, nen node_modules cua host phai bi loai
+# (neu khong se ghi de len ket qua npm ci) va .env cua host khong duoc nuong vao bundle.
+
+# Secret / cau hinh cuc bo — build container dung mac dinh same-origin trong src/config.ts
+.env
+.env.*
+!.env.example
+
+# Phu thuoc va ket qua build tren host
+node_modules
+dist
+dist-ssr
+.vite
+
+# IDE / VCS / OS
+.idea/
+.vscode/
+.git
+.gitignore
+.DS_Store
+Thumbs.db
+
+# Tai lieu va log
+docs/
+*.md
+*.log
+npm-debug.log*

@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-    App, Card, Row, Col, Tag, Button, Space, Spin, Avatar, Timeline, Empty, Popconfirm, Tabs,
+    App, Card, Row, Col, Tag, Button, Space, Spin, Avatar, Timeline, Popconfirm, Tabs,
 } from "antd";
 import {
     ArrowLeftOutlined, CalendarOutlined, DollarOutlined, CommentOutlined, SwapOutlined,
     DownloadOutlined, ExpandOutlined, RobotOutlined, CheckCircleOutlined, CloseCircleOutlined,
-    FileUnknownOutlined, MailOutlined, PhoneOutlined, EnvironmentOutlined, IdcardOutlined,
+    FileUnknownOutlined, MailOutlined, PhoneOutlined, EnvironmentOutlined,
     VideoCameraOutlined, LinkOutlined, TeamOutlined, ClockCircleOutlined, StopOutlined,
 } from "@ant-design/icons";
 import type { AxiosError } from "axios";
@@ -26,6 +26,7 @@ import InterviewQuickCreateModal from "../../interview/components/InterviewQuick
 import OfferCreateModal from "../../offer/components/OfferCreateModal";
 import { getInterviews, cancelInterview } from "../../interview/interviewApi";
 import type { InterviewResponse } from "../../interview/types";
+import ApplicationEvaluationPanel from "../components/ApplicationEvaluationPanel";
 import { COLORS, SHADOWS } from "../../../app/theme";
 import { stageTypeTagColor, INTERVIEW_STATUS, statusMeta } from "../../../app/statusLabels";
 import { useAppSelector } from "../../../app/hooks";
@@ -38,57 +39,97 @@ interface ActivityItem {
     content: ReactNode;
 }
 
-function InfoRow({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
+const INTERVIEW_STAGE_TYPES = ["TECHNICAL_INTERVIEW", "HR_INTERVIEW", "FINAL_INTERVIEW"];
+
+const formatDate = (value?: string | null) =>
+    value ? new Date(value).toLocaleDateString("vi-VN") : "—";
+
+/** Một ô nhãn — giá trị trong lưới thông tin. */
+function Field({ label, value }: { label: string; value: ReactNode }) {
     return (
-        <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, color: COLORS.textMuted, display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                {icon} {label}
+        <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 3 }}>
+                {label}
             </div>
-            <div style={{ fontSize: 14, color: COLORS.textPrimary, fontWeight: 500 }}>{value ?? "—"}</div>
+            <div style={{ fontSize: 14.5, color: COLORS.textPrimary, fontWeight: 500 }}>
+                {value || "—"}
+            </div>
         </div>
     );
 }
 
-function SectionCard({ title, extra, children }: { title: ReactNode; extra?: ReactNode; children: ReactNode }) {
+/** Tiêu đề một khối nội dung trong tab, có gạch chân nhạt. */
+function Section({ title, extra, children }: { title: string; extra?: ReactNode; children: ReactNode }) {
     return (
-        <Card
-            style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, marginBottom: 20 }}
-            title={<span style={{ fontSize: 15, fontWeight: 600 }}>{title}</span>}
-            extra={extra}
-        >
+        <section style={{ marginBottom: 32 }}>
+            <div
+                style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    gap: 12, fontSize: 15, fontWeight: 600, color: COLORS.textPrimary,
+                    marginBottom: 16, paddingBottom: 8, borderBottom: `1px solid ${COLORS.borderLight}`,
+                }}
+            >
+                <span>{title}</span>
+                {extra}
+            </div>
             {children}
-        </Card>
+        </section>
     );
 }
 
-/** Thanh tiến trình quy trình tuyển dụng — bước đã qua (xanh nhạt), bước hiện tại (xanh đậm, nổi bật), bước sau (xám). */
-function PipelineStepper({ stages, currentStageId, rejected }: {
-    stages: PipelineStageResponse[]; currentStageId: number; rejected: boolean;
+/**
+ * Dải quy trình tuyển dụng: bước đã qua, bước hiện tại và bước còn lại,
+ * kèm ngày chuyển vòng lấy từ lịch sử hồ sơ.
+ */
+function ProcessTimeline({ stages, currentStageId, rejected, stageDates }: {
+    stages: PipelineStageResponse[];
+    currentStageId: number;
+    rejected: boolean;
+    stageDates: Record<string, string>;
 }) {
     const currentIndex = stages.findIndex((s) => s.id === currentStageId);
     return (
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", overflowX: "auto", paddingBottom: 8 }}>
             {stages.map((stage, index) => {
                 const isPast = !rejected && currentIndex >= 0 && index < currentIndex;
                 const isActive = !rejected && index === currentIndex;
+                const dotBg = rejected ? "#FEE2E2" : isActive ? COLORS.accentWarm : isPast ? COLORS.primary : "#E5E7EB";
+                const dotColor = rejected ? COLORS.error : isActive || isPast ? "#fff" : COLORS.textMuted;
                 return (
-                    <div key={stage.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
-                        <div style={{
-                            width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 13, fontWeight: 700, border: "2px solid #fff",
-                            background: rejected ? "#FEE2E2" : isActive ? COLORS.primaryLight : isPast ? "#DCFCE7" : "#E5E7EB",
-                            color: rejected ? COLORS.error : isActive ? "#fff" : isPast ? COLORS.primaryDark : COLORS.textMuted,
-                            boxShadow: isActive ? `0 0 0 4px rgba(16, 185, 129, 0.15)` : undefined,
-                        }}>
+                    <div
+                        key={stage.id}
+                        style={{ flex: 1, minWidth: 130, textAlign: "center", position: "relative", padding: "0 8px" }}
+                    >
+                        {index < stages.length - 1 && (
+                            <span
+                                style={{
+                                    position: "absolute", top: 17, left: "50%", width: "100%", height: 3, zIndex: 0,
+                                    background: isPast ? COLORS.primary : "#E5E7EB",
+                                }}
+                            />
+                        )}
+                        <div
+                            style={{
+                                width: 36, height: 36, borderRadius: "50%", margin: "0 auto 10px",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 14, fontWeight: 600, position: "relative", zIndex: 1,
+                                border: "3px solid #fff", boxShadow: `0 0 0 2px ${dotBg}`,
+                                background: dotBg, color: dotColor,
+                            }}
+                        >
                             {rejected ? <CloseCircleOutlined /> : isPast ? <CheckCircleOutlined /> : index + 1}
                         </div>
-                        <div style={{
-                            fontSize: 12, textAlign: "center", lineHeight: 1.3,
-                            fontWeight: isActive ? 700 : isPast ? 600 : 500,
-                            color: rejected ? COLORS.error : isActive ? COLORS.primaryLight : isPast ? COLORS.primaryDark : COLORS.textMuted,
-                        }}>
+                        <div
+                            style={{
+                                fontSize: 13, lineHeight: 1.35,
+                                fontWeight: isActive || isPast ? 600 : 500,
+                                color: isActive || isPast ? COLORS.textPrimary : COLORS.textMuted,
+                            }}
+                        >
                             {stage.name}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 3 }}>
+                            {stageDates[stage.name] ? formatDate(stageDates[stage.name]) : "—"}
                         </div>
                     </div>
                 );
@@ -103,6 +144,8 @@ export default function CandidateApplicationDetailPage() {
     const { message } = App.useApp();
     const role = useAppSelector((s) => s.auth.user?.role);
     const isHr = !!role && HR_ROLES.includes(role);
+    const currentUserIdRaw = useAppSelector((st) => st.auth.user?.userId);
+    const currentUserId = currentUserIdRaw ? Number(currentUserIdRaw) : null;
 
     const [application, setApplication] = useState<ApplicationResponse | null>(null);
     const [candidate, setCandidate] = useState<CandidateResponse | null>(null);
@@ -153,6 +196,17 @@ export default function CandidateApplicationDetailPage() {
 
     useEffect(() => { loadAll(); }, [loadAll]);
 
+    /** Ngày hồ sơ bước vào từng vòng — lấy lần chuyển vào vòng đó sớm nhất. */
+    const stageDates = useMemo(() => {
+        const map: Record<string, string> = {};
+        [...history]
+            .sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime())
+            .forEach((h) => {
+                if (!map[h.toStageName]) map[h.toStageName] = h.changedAt;
+            });
+        return map;
+    }, [history]);
+
     const handlePass = async () => {
         if (!application) return;
         setActionLoading(true);
@@ -200,15 +254,14 @@ export default function CandidateApplicationDetailPage() {
 
     const isRejected = application.currentStageType === "REJECTED";
     const isHired = application.currentStageType === "HIRED";
-    const isTerminal = isHired || isRejected;
 
     const mainStages = stages.filter((s) => s.stageType !== "REJECTED");
     const currentStageIndex = mainStages.findIndex((s) => s.id === application.currentStageId);
     const nextStage = currentStageIndex >= 0 && currentStageIndex < mainStages.length - 1
         ? mainStages[currentStageIndex + 1] : null;
 
-    // Nút hành động chỉ hiện đúng theo trạng thái hồ sơ: PV khi chưa tới vòng Offer, Offer chỉ khi đang ở vòng Offer.
-    const showInterviewBtn = !isTerminal && application.currentStageType !== "OFFER";
+    // Chỉ cho phép lên lịch khi hồ sơ đang thực sự ở một vòng phỏng vấn.
+    const showInterviewBtn = INTERVIEW_STAGE_TYPES.includes(application.currentStageType);
     const showOfferBtn = application.currentStageType === "OFFER";
 
     const activity: ActivityItem[] = [
@@ -245,294 +298,372 @@ export default function CandidateApplicationDetailPage() {
         return name.substring(0, 2).toUpperCase();
     };
 
+    const metaItem = (icon: ReactNode, value: ReactNode) => (
+        <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13.5, color: COLORS.textSecondary }}>
+            {icon} {value}
+        </span>
+    );
+
+    /* ── Tab 1: Tổng quan ─────────────────────────────── */
+    const overviewTab = (
+        <>
+            {mainStages.length > 0 && (
+                <Section title="Quy trình tuyển dụng">
+                    <ProcessTimeline
+                        stages={mainStages}
+                        currentStageId={application.currentStageId}
+                        rejected={isRejected}
+                        stageDates={stageDates}
+                    />
+                </Section>
+            )}
+
+            {/* Ho ten, email, dien thoai, dia chi da nam tren the dinh danh phia tren
+                nen khong lap lai o day. */}
+            <Section title="Thông tin cơ bản">
+                <Row gutter={48}>
+                    <Col xs={24} md={12}>
+                        <Field label="Ngày sinh" value={formatDate(candidate.dateOfBirth)} />
+                        <Field label="Vị trí hiện tại" value={candidate.currentPosition} />
+                    </Col>
+                    <Col xs={24} md={12}>
+                        <Field label="Giới tính" value={candidate.gender} />
+                        <Field label="Học vấn" value={candidate.educationLevelName} />
+                    </Col>
+                </Row>
+                {candidate.skillNames?.length > 0 && (
+                    <div>
+                        <div style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 6 }}>
+                            Kỹ năng
+                        </div>
+                        <Space wrap size={4}>
+                            {candidate.skillNames.map((s) => (
+                                <Tag key={s} color="blue" style={{ borderRadius: 6 }}>{s}</Tag>
+                            ))}
+                        </Space>
+                    </div>
+                )}
+            </Section>
+
+            <Section title="Thông tin ứng tuyển">
+                <Row gutter={48}>
+                    <Col xs={24} md={12}>
+                        <Field label="Phòng ban" value={application.departmentName} />
+                        <Field label="Nguồn ứng tuyển" value={application.recruitmentSourceName} />
+                    </Col>
+                    <Col xs={24} md={12}>
+                        {application.rejectionReasonName && (
+                            <Field label="Lý do từ chối" value={application.rejectionReasonName} />
+                        )}
+                    </Col>
+                </Row>
+                {application.note && (
+                    <Field label="Ghi chú ứng tuyển" value={application.note} />
+                )}
+            </Section>
+
+        </>
+    );
+
+    /* ── Tab: Phỏng vấn ──────────────────────────────── */
+    const interviewTab = (
+        <Section
+            title="Lịch phỏng vấn"
+            extra={isHr && showInterviewBtn ? (
+                <Button size="small" icon={<CalendarOutlined />} onClick={() => setInterviewModalOpen(true)}>
+                    Lên lịch
+                </Button>
+            ) : undefined}
+        >
+            {interviews.length === 0 ? (
+                <div style={{ color: COLORS.textMuted, fontSize: 13, padding: "8px 0" }}>
+                    Chưa có lịch phỏng vấn nào cho hồ sơ này.
+                </div>
+            ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {interviews.map((iv) => {
+                        const meta = statusMeta(INTERVIEW_STATUS, iv.status);
+                        const cancellable = iv.status === "SCHEDULED" || iv.status === "CONFIRMED";
+                        const scheduled = new Date(iv.scheduledAt);
+                        return (
+                            <div key={iv.id} style={{
+                                display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16,
+                                padding: "14px 16px", borderRadius: 10, border: `1px solid ${COLORS.borderLight}`, background: "#F9FAFB",
+                            }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                                        <span style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
+                                            <CalendarOutlined style={{ color: COLORS.textMuted }} />
+                                            {scheduled.toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}
+                                        </span>
+                                        <Tag color={meta.color} style={{ borderRadius: 6, margin: 0 }}>{meta.label}</Tag>
+                                    </div>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 13, color: COLORS.textSecondary }}>
+                                        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                            <ClockCircleOutlined /> {iv.durationMinutes} phút
+                                        </span>
+                                        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                            <VideoCameraOutlined /> {iv.format === "ONLINE" ? "Trực tuyến" : "Tại văn phòng"}
+                                        </span>
+                                        {iv.format === "ONLINE" && iv.meetingLink ? (
+                                            <a href={iv.meetingLink} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                <LinkOutlined /> Link họp
+                                            </a>
+                                        ) : iv.workLocationId ? (
+                                            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                <EnvironmentOutlined /> {workLocationMap[iv.workLocationId] ?? "—"}
+                                            </span>
+                                        ) : null}
+                                        {iv.interviewers.length > 0 && (
+                                            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                <TeamOutlined /> {iv.interviewers.map((p) => p.fullName).join(", ")}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {iv.note && (
+                                        <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 6 }}>{iv.note}</div>
+                                    )}
+                                </div>
+                                {isHr && cancellable && (
+                                    <Popconfirm
+                                        title="Hủy lịch phỏng vấn này?"
+                                        description="Ứng viên và người phỏng vấn sẽ nhận được thông báo hủy."
+                                        okText="Hủy lịch"
+                                        cancelText="Đóng"
+                                        okButtonProps={{ danger: true }}
+                                        onConfirm={() => handleCancelInterview(iv.id)}
+                                    >
+                                        <Button size="small" danger icon={<StopOutlined />} loading={cancelingInterviewId === iv.id}>
+                                            Hủy lịch
+                                        </Button>
+                                    </Popconfirm>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </Section>
+
+    );
+
+    /* ── Tab: Hoạt động ──────────────────────────────── */
+    const activityTab = (
+        <Section title="Lịch sử hoạt động">
+            {activity.length === 0 ? (
+                <div style={{ color: COLORS.textMuted, fontSize: 13, padding: "8px 0" }}>
+                    Chưa có hoạt động nào.
+                </div>
+            ) : (
+                <Timeline
+                    items={activity.map((item) => ({
+                        dot: item.kind === "comment" ? <CommentOutlined /> : <SwapOutlined />,
+                        children: item.content,
+                    }))}
+                />
+            )}
+        </Section>
+    );
+
+    /* ── Tab 2: Hồ sơ CV ──────────────────────────────── */
+    const resumeTab = (
+        <Row gutter={24}>
+            <Col xs={24} lg={15}>
+                <div style={{
+                    border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, overflow: "hidden",
+                    background: "#F8FAFC", minHeight: 620, display: "flex", flexDirection: "column",
+                }}>
+                    <div style={{
+                        background: "#F1F5F9", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`,
+                        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                        fontSize: 13, fontWeight: 500,
+                    }}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {application.resumeUrl ? "CV ứng viên" : "Chưa có CV"}
+                        </span>
+                        {application.resumeUrl && (
+                            <Space size={8}>
+                                <a href={application.resumeUrl} target="_blank" rel="noopener noreferrer">
+                                    <Button size="small" icon={<DownloadOutlined />}>Tải xuống</Button>
+                                </a>
+                                <a href={application.resumeUrl} target="_blank" rel="noopener noreferrer">
+                                    <Button size="small" icon={<ExpandOutlined />}>Mở tab mới</Button>
+                                </a>
+                            </Space>
+                        )}
+                    </div>
+                    {application.resumeUrl ? (
+                        <iframe
+                            src={application.resumeUrl}
+                            title="CV ứng viên"
+                            style={{ width: "100%", flex: 1, minHeight: 560, border: "none" }}
+                        />
+                    ) : (
+                        <div style={{
+                            flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
+                            justifyContent: "center", gap: 12, padding: 40, color: COLORS.textSecondary,
+                        }}>
+                            <FileUnknownOutlined style={{ fontSize: 56, opacity: 0.4 }} />
+                            <div style={{ fontWeight: 600, color: COLORS.textPrimary }}>Ứng viên chưa tải CV lên</div>
+                        </div>
+                    )}
+                </div>
+            </Col>
+
+            <Col xs={24} lg={9}>
+                <div style={{
+                    background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 12, padding: "18px 20px",
+                }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                        <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI</Tag>
+                        <span style={{ fontSize: 14.5, fontWeight: 600 }}>Nhận xét tự động</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                        <div style={{
+                            width: 52, height: 52, borderRadius: "50%", background: "#EDE9FE", flexShrink: 0,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                            <RobotOutlined style={{ fontSize: 22, color: "#8B5CF6" }} />
+                        </div>
+                        <div style={{ fontSize: 13.5, color: COLORS.textSecondary, lineHeight: 1.55 }}>
+                            <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: 2 }}>
+                                Tính năng đang được phát triển
+                            </div>
+                            Chấm điểm và phân tích CV tự động sẽ ra mắt ở giai đoạn tiếp theo.
+                        </div>
+                    </div>
+                    <Button disabled block icon={<RobotOutlined />} style={{ marginTop: 16 }}>
+                        Chạy phân tích AI
+                    </Button>
+                </div>
+            </Col>
+        </Row>
+    );
+
     return (
-        <div className="page-shell animate-fade-in">
-            {/* Header — cố định trên cùng, trang không cuộn toàn bộ. Trái: định danh ứng viên. Phải: thanh hành động xếp 2 hàng theo mức ưu tiên. */}
-            <div className="page-shell-fixed" style={{
-                background: "#fff", border: `1px solid ${COLORS.borderLight}`, borderRadius: 16,
-                boxShadow: SHADOWS.card,
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                gap: 16, flexWrap: "wrap", padding: "16px 20px", marginBottom: 14,
-            }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Quay lại</Button>
-                    <Avatar size={48} style={{ background: COLORS.primary, color: "#fff", fontWeight: 600, fontSize: 16, flexShrink: 0 }}>
+        <div className="page-container animate-fade-in" style={{ maxWidth: 1280 }}>
+            {/* Link quay lai dat rieng mot dong, khong chiem cho trong hang dinh danh. */}
+            <Button
+                type="text"
+                size="small"
+                icon={<ArrowLeftOutlined />}
+                onClick={() => navigate(-1)}
+                style={{ paddingLeft: 0, marginBottom: 8, color: COLORS.textSecondary }}
+            >
+                Quay lại
+            </Button>
+
+            {/* ── Thẻ định danh ứng viên ───────────────────── */}
+            <Card
+                style={{
+                    border: `1px solid ${COLORS.borderLight}`, borderRadius: 12,
+                    boxShadow: SHADOWS.card, marginBottom: 20,
+                }}
+                styles={{ body: { padding: "24px 28px" } }}
+            >
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
+                    <Avatar
+                        size={88}
+                        style={{ background: COLORS.primary, color: "#fff", fontWeight: 600, fontSize: 30, flexShrink: 0 }}
+                    >
                         {getInitials(candidate.fullName)}
                     </Avatar>
-                    <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{candidate.fullName}</h2>
-                            <Tag color={stageTypeTagColor(application.currentStageType)} style={{ borderRadius: 6 }}>
-                                {application.currentStageName}
-                            </Tag>
+
+                    <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+                        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: COLORS.textPrimary }}>
+                            {candidate.fullName}
+                        </h1>
+                        <div style={{ fontSize: 15, color: COLORS.primary, fontWeight: 500, margin: "4px 0 12px" }}>
+                            {application.jobTitle || `Tin tuyển dụng #${application.jobPostingId}`}
                         </div>
-                        <div style={{ fontSize: 13, color: COLORS.textSecondary }}>
-                            Ứng tuyển: {application.jobTitle || `Job #${application.jobPostingId}`}
-                            {application.departmentName ? ` · ${application.departmentName}` : ""}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 22px" }}>
+                            {metaItem(<MailOutlined />, candidate.email)}
+                            {candidate.phone && metaItem(<PhoneOutlined />, candidate.phone)}
+                            {candidate.address && metaItem(<EnvironmentOutlined />, candidate.address)}
+                            {metaItem(<CalendarOutlined />, `Ứng tuyển: ${formatDate(application.appliedAt)}`)}
                         </div>
+                    </div>
+
+                    {/* Trang thai luon bam phai cung hang voi ten; nhom nut xuong hang rieng ben duoi
+                        de khong bi day lech khi ten hoac tieu de tin tuyen dung dai. */}
+                    <div style={{ marginLeft: "auto", flexShrink: 0 }}>
+                        <Tag
+                            color={stageTypeTagColor(application.currentStageType)}
+                            style={{ margin: 0, borderRadius: 20, padding: "5px 14px", fontSize: 13, fontWeight: 500 }}
+                        >
+                            {application.currentStageName}
+                        </Tag>
                     </div>
                 </div>
 
-                {isHired ? (
-                    <Tag color="success" style={{ borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, margin: 0 }}>
-                        <CheckCircleOutlined /> Đã tuyển dụng thành công
-                    </Tag>
-                ) : isRejected ? (
-                    <Tag color="error" style={{ borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, margin: 0 }}>
-                        <CloseCircleOutlined /> Hồ sơ đã bị từ chối
-                    </Tag>
-                ) : isHr ? (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-                        <Space wrap size={8}>
-                            <Button type="text" danger icon={<CloseCircleOutlined />} onClick={() => setRejectModalOpen(true)}>
-                                Từ chối hồ sơ
-                            </Button>
-                            <Button type="primary" icon={<CheckCircleOutlined />} loading={actionLoading} onClick={handlePass}>
-                                {nextStage ? `Chuyển sang "${nextStage.name}"` : "Chuyển vòng tiếp theo"}
-                            </Button>
-                        </Space>
-                        {(showInterviewBtn || showOfferBtn) && (
-                            <Space wrap size={8}>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+                    <div>
+                        {isHired ? (
+                            <Tag color="success" style={{ margin: 0, borderRadius: 8, padding: "6px 14px", fontWeight: 600 }}>
+                                <CheckCircleOutlined /> Đã tuyển dụng thành công
+                            </Tag>
+                        ) : isRejected ? (
+                            <Tag color="error" style={{ margin: 0, borderRadius: 8, padding: "6px 14px", fontWeight: 600 }}>
+                                <CloseCircleOutlined /> Hồ sơ đã bị từ chối
+                            </Tag>
+                        ) : isHr ? (
+                            <Space wrap size={8} style={{ justifyContent: "flex-end" }}>
+                                <Button type="text" danger icon={<CloseCircleOutlined />} onClick={() => setRejectModalOpen(true)}>
+                                    Từ chối hồ sơ
+                                </Button>
                                 {showInterviewBtn && (
                                     <Button icon={<CalendarOutlined />} onClick={() => setInterviewModalOpen(true)}>
                                         Lên lịch phỏng vấn
                                     </Button>
                                 )}
                                 {showOfferBtn && (
-                                    <Button icon={<DollarOutlined />} style={{ background: "#722ed1", color: "#fff", borderColor: "#722ed1" }}
-                                        onClick={() => setOfferModalOpen(true)}>
-                                        Tạo Offer
+                                    <Button
+                                        icon={<DollarOutlined />}
+                                        style={{ background: "#722ED1", color: "#fff", borderColor: "#722ED1" }}
+                                        onClick={() => setOfferModalOpen(true)}
+                                    >
+                                        Tạo đề nghị nhận việc
                                     </Button>
                                 )}
+                                <Button type="primary" icon={<CheckCircleOutlined />} loading={actionLoading} onClick={handlePass}>
+                                    {nextStage ? `Chuyển sang "${nextStage.name}"` : "Chuyển vòng tiếp theo"}
+                                </Button>
                             </Space>
-                        )}
+                        ) : null}
                     </div>
-                ) : null}
-            </div>
+                </div>
+            </Card>
 
-            {/* Pipeline stepper */}
-            {mainStages.length > 0 && (
-                <Card size="small" className="page-shell-fixed" style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, marginBottom: 14 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.4 }}>
-                        Quy trình tuyển dụng
-                    </div>
-                    <PipelineStepper stages={mainStages} currentStageId={application.currentStageId} rejected={isRejected} />
-                </Card>
-            )}
-
-            {/* Nội dung chính — 2 cột, mỗi cột tự cuộn riêng trong phần còn lại của màn hình. */}
-            <Row gutter={12} style={{ flex: 1, minHeight: 0 }}>
-                <Col xs={24} lg={13} style={{ height: "100%", overflowY: "auto", paddingBottom: 4 }}>
-
-                    {/* Lịch phỏng vấn — hiện lại ngay sau khi tạo, không còn "biến mất" sau khi đóng modal */}
-                    <SectionCard title="Lịch phỏng vấn">
-                        {interviews.length === 0 ? (
-                            <div style={{ color: COLORS.textMuted, fontSize: 13, textAlign: "center", padding: "16px 0" }}>
-                                Chưa có lịch phỏng vấn nào cho hồ sơ này.
-                            </div>
-                        ) : (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                {interviews.map((iv) => {
-                                    const meta = statusMeta(INTERVIEW_STATUS, iv.status);
-                                    const cancellable = iv.status === "SCHEDULED" || iv.status === "CONFIRMED";
-                                    const scheduled = new Date(iv.scheduledAt);
-                                    return (
-                                        <div key={iv.id} style={{
-                                            display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16,
-                                            padding: "14px 16px", borderRadius: 10, border: `1px solid ${COLORS.borderLight}`, background: "#F9FAFB",
-                                        }}>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-                                                    <span style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
-                                                        <CalendarOutlined style={{ color: COLORS.textMuted }} />
-                                                        {scheduled.toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}
-                                                    </span>
-                                                    <Tag color={meta.color} style={{ borderRadius: 6, margin: 0 }}>{meta.label}</Tag>
-                                                </div>
-                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 13, color: COLORS.textSecondary }}>
-                                                    <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                        <ClockCircleOutlined /> {iv.durationMinutes} phút
-                                                    </span>
-                                                    <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                        <VideoCameraOutlined /> {iv.format === "ONLINE" ? "Online" : "Offline"}
-                                                    </span>
-                                                    {iv.format === "ONLINE" && iv.meetingLink ? (
-                                                        <a href={iv.meetingLink} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                            <LinkOutlined /> Link họp
-                                                        </a>
-                                                    ) : iv.workLocationId ? (
-                                                        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                            <EnvironmentOutlined /> {workLocationMap[iv.workLocationId] ?? "—"}
-                                                        </span>
-                                                    ) : null}
-                                                    {iv.interviewers.length > 0 && (
-                                                        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                            <TeamOutlined /> {iv.interviewers.map((p) => p.fullName).join(", ")}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {iv.note && (
-                                                    <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 6 }}>{iv.note}</div>
-                                                )}
-                                            </div>
-                                            {isHr && cancellable && (
-                                                <Popconfirm
-                                                    title="Hủy lịch phỏng vấn này?"
-                                                    description="Ứng viên và người phỏng vấn sẽ nhận được thông báo hủy."
-                                                    okText="Hủy lịch"
-                                                    cancelText="Đóng"
-                                                    okButtonProps={{ danger: true }}
-                                                    onConfirm={() => handleCancelInterview(iv.id)}
-                                                >
-                                                    <Button size="small" danger icon={<StopOutlined />} loading={cancelingInterviewId === iv.id}>
-                                                        Hủy lịch
-                                                    </Button>
-                                                </Popconfirm>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </SectionCard>
-
-                    <SectionCard title="Thông tin ứng viên">
-                        <Row gutter={12}>
-                            <Col span={12}>
-                                <InfoRow icon={<IdcardOutlined />} label="Họ và tên" value={candidate.fullName} />
-                                <InfoRow icon={<PhoneOutlined />} label="Điện thoại" value={candidate.phone} />
-                                <InfoRow icon={<MailOutlined />} label="Email" value={candidate.email} />
-                            </Col>
-                            <Col span={12}>
-                                <InfoRow icon={<EnvironmentOutlined />} label="Địa chỉ" value={candidate.address} />
-                                <InfoRow icon={<IdcardOutlined />} label="Vị trí hiện tại" value={candidate.currentPosition} />
-                                <InfoRow icon={<IdcardOutlined />} label="Học vấn" value={candidate.educationLevelName} />
-                            </Col>
-                        </Row>
-                        {candidate.skillNames?.length > 0 && (
-                            <div style={{ marginTop: 4 }}>
-                                <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 6 }}>Kỹ năng</div>
-                                <Space wrap size={4}>
-                                    {candidate.skillNames.map((s) => (
-                                        <Tag key={s} color="blue" style={{ borderRadius: 6 }}>{s}</Tag>
-                                    ))}
-                                </Space>
-                            </div>
-                        )}
-                    </SectionCard>
-
-                    <SectionCard title="Đơn ứng tuyển">
-                        <Row gutter={12}>
-                            <Col span={12}>
-                                <InfoRow icon={<IdcardOutlined />} label="Phòng ban" value={application.departmentName} />
-                                <InfoRow icon={<IdcardOutlined />} label="Vị trí" value={application.jobTitle} />
-                                <InfoRow icon={<IdcardOutlined />} label="Người phụ trách" value={application.assignedRecruiterName} />
-                            </Col>
-                            <Col span={12}>
-                                <InfoRow icon={<IdcardOutlined />} label="Nguồn ứng tuyển" value={application.recruitmentSourceName} />
-                                <InfoRow icon={<CalendarOutlined />} label="Ngày ứng tuyển" value={new Date(application.appliedAt).toLocaleDateString("vi-VN")} />
-                                {application.rejectionReasonName && (
-                                    <InfoRow icon={<CloseCircleOutlined />} label="Lý do từ chối" value={application.rejectionReasonName} />
-                                )}
-                            </Col>
-                        </Row>
-                        {application.note && (
-                            <div style={{ marginTop: 4 }}>
-                                <div style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 2 }}>Ghi chú ứng tuyển</div>
-                                <div style={{ fontSize: 13 }}>{application.note}</div>
-                            </div>
-                        )}
-                    </SectionCard>
-
-                    {/* AI CV Screening — placeholder, chưa có dữ liệu thật */}
-                    <SectionCard
-                        title={<span><RobotOutlined style={{ marginRight: 8, color: "#8B5CF6" }} />AI CV Screening</span>}
-                        extra={<Tag color="purple" style={{ borderRadius: 6 }}>AI</Tag>}
-                    >
-                        <div style={{
-                            display: "flex", alignItems: "center", gap: 16, padding: "16px 4px",
-                            color: COLORS.textSecondary,
-                        }}>
-                            <div style={{
-                                width: 56, height: 56, borderRadius: "50%", background: "#F5F3FF",
-                                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                            }}>
-                                <RobotOutlined style={{ fontSize: 24, color: "#8B5CF6" }} />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: 2 }}>
-                                    Tính năng đang được phát triển
-                                </div>
-                                <div style={{ fontSize: 13 }}>
-                                    Chấm điểm và phân tích CV tự động bằng AI sẽ sớm ra mắt trong giai đoạn tiếp theo.
-                                </div>
-                            </div>
-                            <Button disabled icon={<RobotOutlined />}>Chạy phân tích AI</Button>
-                        </div>
-                    </SectionCard>
-                </Col>
-
-                {/* Cột phải — CV & lịch sử hoạt động, mỗi tab tự cuộn trong phần còn lại. */}
-                <Col xs={24} lg={11} style={{ height: "100%" }}>
-                    <Card
-                        className="table-card-fill"
-                        style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, height: "100%" }}
-                        styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 } }}
-                    >
-                        <Tabs
-                            className="tabs-fill"
-                            style={{ padding: "0 16px" }}
-                            items={[
-                                {
-                                    key: "cv",
-                                    label: "Hồ sơ / CV",
-                                    children: (
-                                        <div style={{ height: "100%", display: "flex", flexDirection: "column", paddingBottom: 12 }}>
-                                            {application.resumeUrl && (
-                                                <Space style={{ marginBottom: 10, flexShrink: 0 }}>
-                                                    <a href={application.resumeUrl} target="_blank" rel="noopener noreferrer">
-                                                        <Button size="small" icon={<DownloadOutlined />}>Tải xuống</Button>
-                                                    </a>
-                                                    <a href={application.resumeUrl} target="_blank" rel="noopener noreferrer">
-                                                        <Button size="small" icon={<ExpandOutlined />}>Toàn màn hình</Button>
-                                                    </a>
-                                                </Space>
-                                            )}
-                                            {application.resumeUrl ? (
-                                                <iframe
-                                                    src={application.resumeUrl}
-                                                    title="CV"
-                                                    style={{ width: "100%", flex: 1, minHeight: 0, border: `1px solid ${COLORS.borderLight}`, borderRadius: 8, background: "#F8FAFC" }}
-                                                />
-                                            ) : (
-                                                <Empty image={<FileUnknownOutlined style={{ fontSize: 40, color: COLORS.textMuted }} />} description="Ứng viên chưa có CV" />
-                                            )}
-                                        </div>
-                                    ),
-                                },
-                                {
-                                    key: "activity",
-                                    label: "Lịch sử hoạt động",
-                                    children: (
-                                        <div style={{ height: "100%", overflowY: "auto", paddingBottom: 12 }}>
-                                            {activity.length === 0 ? (
-                                                <EmptyState title="Chưa có hoạt động nào" description="Lịch sử thay đổi và bình luận sẽ hiển thị tại đây." />
-                                            ) : (
-                                                <Timeline
-                                                    items={activity.map((item) => ({
-                                                        dot: item.kind === "comment" ? <CommentOutlined /> : <SwapOutlined />,
-                                                        children: item.content,
-                                                    }))}
-                                                />
-                                            )}
-                                        </div>
-                                    ),
-                                },
-                            ]}
-                        />
-                    </Card>
-                </Col>
-            </Row>
+            {/* ── Ba tab nội dung ──────────────────────────── */}
+            <Card
+                style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12 }}
+                styles={{ body: { padding: "8px 28px 28px" } }}
+            >
+                <Tabs
+                    defaultActiveKey="overview"
+                    size="large"
+                    items={[
+                        { key: "overview", label: "Tổng quan", children: overviewTab },
+                        { key: "resume", label: "Hồ sơ", children: resumeTab },
+                        { key: "interview", label: "Phỏng vấn", children: interviewTab },
+                        {
+                            key: "evaluation",
+                            label: "Đánh giá",
+                            children: (
+                                <ApplicationEvaluationPanel
+                                    candidateId={application.candidateId}
+                                    applicationId={application.id}
+                                    interviews={interviews}
+                                    history={history}
+                                    currentUserId={currentUserId}
+                                    isHr={isHr}
+                                />
+                            ),
+                        },
+                        { key: "activity", label: "Hoạt động", children: activityTab },
+                    ]}
+                />
+            </Card>
 
             <InterviewQuickCreateModal
                 open={interviewModalOpen}

@@ -16,12 +16,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, String>> handleBusiness(BusinessException ex) {
-        return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        return ResponseEntity.badRequest().body(messageBody(ex, "Yêu cầu không hợp lệ"));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, String>> handleAccessDenied(AccessDeniedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(messageBody(ex, "Bạn không có quyền thực hiện thao tác này"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -30,6 +31,12 @@ public class GlobalExceptionHandler {
         ex.getBindingResult().getFieldErrors()
                 .forEach(err -> errors.put(err.getField(), err.getDefaultMessage()));
         return ResponseEntity.badRequest().body(errors);
+    }
+
+    /** Map.of() nem NPE neu value null, nen luon co thong diep du phong. */
+    private static Map<String, String> messageBody(Exception ex, String fallback) {
+        String message = ex.getMessage();
+        return Map.of("message", message != null && !message.isBlank() ? message : fallback);
     }
 
     @ExceptionHandler(Exception.class)

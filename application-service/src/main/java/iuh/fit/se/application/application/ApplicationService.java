@@ -62,17 +62,13 @@ public class ApplicationService {
         Long effectiveCandidateId = candidateId;
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
         Long scopeDepartmentId = null;
-        Long scopeAssignedRecruiterId = null;
         boolean restrictToScope = false;
         if (role == AuthorizationPolicy.Role.CANDIDATE) {
             effectiveCandidateId = resolveCandidateId(actor.userId());
         } else {
             AuthorizationPolicy.requireInternal(actor);
-            if (role == AuthorizationPolicy.Role.RECRUITER) {
-                scopeDepartmentId = actor.departmentId();
-                scopeAssignedRecruiterId = actor.userId();
-                restrictToScope = true;
-            } else if (role == AuthorizationPolicy.Role.HIRING_MANAGER) {
+            // HR (RECRUITER) xem duoc toan bo ho so ung tuyen cua cong ty, khong loc theo phong ban.
+            if (role == AuthorizationPolicy.Role.HIRING_MANAGER) {
                 scopeDepartmentId = actor.departmentId();
                 restrictToScope = true;
             }
@@ -82,7 +78,7 @@ public class ApplicationService {
                 jobPostingId, effectiveCandidateId, assignedRecruiterId, recruitmentSourceId, stageType,
                 appliedFrom != null ? appliedFrom.atStartOfDay() : null,
                 appliedTo != null ? appliedTo.atTime(LocalTime.MAX) : null,
-                scopeDepartmentId, scopeAssignedRecruiterId, restrictToScope);
+                scopeDepartmentId, null, restrictToScope);
 
         Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources());
         Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons());
@@ -607,17 +603,17 @@ public class ApplicationService {
     public Set<Long> getAccessibleCandidateIds(CurrentUser actor) {
         AuthorizationPolicy.requireInternal(actor);
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
-        if (role == AuthorizationPolicy.Role.COMPANY_ADMIN) {
+        // COMPANY_ADMIN va HR (RECRUITER) deu tiep can duoc toan bo ung vien cua cong ty.
+        if (role == AuthorizationPolicy.Role.COMPANY_ADMIN
+                || role == AuthorizationPolicy.Role.RECRUITER) {
             return applicationRepository.findByDeletedAtIsNullOrderByCreatedAtDesc().stream()
                     .map(Application::getCandidateId)
                     .collect(Collectors.toSet());
         }
 
-        Long scopeAssignedRecruiterId = role == AuthorizationPolicy.Role.RECRUITER
-                ? actor.userId() : null;
         Specification<Application> spec = ApplicationSpecifications.build(
                 null, null, null, null, null, null, null,
-                actor.departmentId(), scopeAssignedRecruiterId, true);
+                actor.departmentId(), null, true);
         return applicationRepository.findAll(spec).stream()
                 .map(Application::getCandidateId)
                 .collect(Collectors.toSet());

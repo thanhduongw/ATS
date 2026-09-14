@@ -1,0 +1,203 @@
+.evaluation-page {
+  width: 100%;
+  max-width: 1440px;
+  min-height: calc(100vh - 108px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.evaluation-form {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.evaluation-grid {
+  flex: 1;
+  width: 100%;
+  align-items: stretch;
+}
+
+.evaluation-column {
+  display: flex;
+}
+
+.evaluation-score-card {
+  width: 100%;
+  min-height: 640px;
+}
+
+.evaluation-score-card > .ant-card-body {
+  height: 100%;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+}
+
+.evaluation-criteria-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.evaluation-criterion-row {
+  flex: 1;
+  min-height: 64px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.evaluation-criterion-name {
+  width: 190px;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.evaluation-rate {
+  flex-shrink: 0;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.evaluation-criterion-comment {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.evaluation-side-column {
+  width: 100%;
+  min-height: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.evaluation-comment-card {
+  flex: 1;
+  min-height: 350px;
+}
+
+.evaluation-comment-card > .ant-card-body {
+  height: 100%;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+}
+
+.evaluation-general-comment {
+  flex: 1;
+}
+
+.evaluation-general-comment .ant-input {
+  min-height: 190px;
+  resize: vertical;
+}
+
+.evaluation-conclusion-card > .ant-card-body {
+  padding: 18px 22px;
+}
+
+.evaluation-recommendations {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.evaluation-recommendations .ant-radio-button-wrapper {
+  height: 42px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.evaluation-recommendations .ant-radio-button-wrapper::before {
+  display: none;
+}
+
+.evaluation-lock-notice {
+  flex-shrink: 0;
+}
+
+.evaluation-actions {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+@media (max-width: 1199px) {
+  .evaluation-criterion-name {
+    width: 160px;
+  }
+
+  .evaluation-criterion-row {
+    gap: 10px;
+  }
+
+  .evaluation-rate {
+    font-size: 17px;
+  }
+}
+
+@media (max-width: 991px) {
+  .evaluation-page {
+    min-height: auto;
+  }
+
+  .evaluation-score-card,
+  .evaluation-side-column {
+    min-height: auto;
+  }
+
+  .evaluation-criterion-row {
+    min-height: 66px;
+  }
+
+  .evaluation-comment-card {
+    min-height: 380px;
+  }
+}
+
+@media (max-width: 640px) {
+  .evaluation-score-card > .ant-card-body,
+  .evaluation-comment-card > .ant-card-body,
+  .evaluation-conclusion-card > .ant-card-body {
+    padding: 16px;
+  }
+
+  .evaluation-criterion-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding: 12px;
+  }
+
+  .evaluation-criterion-name {
+    width: auto;
+  }
+
+  .evaluation-rate {
+    grid-column: 1;
+  }
+
+  .evaluation-criterion-comment {
+    grid-column: 1 / -1;
+  }
+
+  .evaluation-recommendations {
+    grid-template-columns: 1fr;
+  }
+}

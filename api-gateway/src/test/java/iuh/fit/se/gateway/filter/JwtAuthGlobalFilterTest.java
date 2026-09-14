@@ -172,6 +172,103 @@ class JwtAuthGlobalFilterTest {
         assertThat(legacyTenantPath.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
+    @Test
+    void sockJsHandshakeIsPublicButStillStripsSpoofedIdentityHeaders() {
+        AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+        MockServerWebExchange handshake = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/ws/info?t=1700000000000")
+                        .header(JwtAuthGlobalFilter.USER_ID_HEADER, "999")
+                        .header(JwtAuthGlobalFilter.USER_EMAIL_HEADER, "attacker@example.com")
+                        .header(JwtAuthGlobalFilter.USER_ROLE_HEADER, "COMPANY_ADMIN")
+                        .header(JwtAuthGlobalFilter.DEPARTMENT_ID_HEADER, "999")
+                        .build());
+
+        filter.filter(handshake, exchange -> {
+            forwarded.set(exchange);
+            return Mono.empty();
+        }).block();
+
+        assertThat(forwarded.get()).isNotNull();
+        HttpHeaders headers = forwarded.get().getRequest().getHeaders();
+        assertThat(headers.containsKey(JwtAuthGlobalFilter.USER_ID_HEADER)).isFalse();
+        assertThat(headers.containsKey(JwtAuthGlobalFilter.USER_EMAIL_HEADER)).isFalse();
+        assertThat(headers.containsKey(JwtAuthGlobalFilter.USER_ROLE_HEADER)).isFalse();
+        assertThat(headers.containsKey(JwtAuthGlobalFilter.DEPARTMENT_ID_HEADER)).isFalse();
+    }
+
+    @Test
+    void sockJsHttpFallbackTransportsArePublicOnBothMethods() {
+        AtomicReference<ServerWebExchange> upgraded = new AtomicReference<>();
+        MockServerWebExchange websocketTransport =
+                exchangeFor("/ws/482/n3xzq1ab/websocket");
+        filter.filter(websocketTransport, exchange -> {
+            upgraded.set(exchange);
+            return Mono.empty();
+        }).block();
+        assertThat(upgraded.get()).isNotNull();
+
+        AtomicReference<ServerWebExchange> xhrSend = new AtomicReference<>();
+        MockServerWebExchange xhrTransport = MockServerWebExchange.from(
+                MockServerHttpRequest.post("/ws/482/n3xzq1ab/xhr_send").build());
+        filter.filter(xhrTransport, exchange -> {
+            xhrSend.set(exchange);
+            return Mono.empty();
+        }).block();
+        assertThat(xhrSend.get()).isNotNull();
+    }
+
+    @Test
+    void notificationRestApiStillRequiresJwtEvenThoughWebSocketIsPublic() {
+        MockServerWebExchange exchange = exchangeFor("/api/notification/notifications");
+
+        filter.filter(exchange, ignored -> Mono.empty()).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void googleOauth2EntrypointsArePublicAndStripSpoofedIdentityHeaders() {
+        for (String path : new String[]{
+                "/api/auth/oauth2/pre-login",
+                "/api/auth/oauth2/authorization/google",
+                "/api/auth/login/oauth2/code/google"
+        }) {
+            AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+            MockServerWebExchange exchange = MockServerWebExchange.from(
+                    MockServerHttpRequest.get(path)
+                            .header(JwtAuthGlobalFilter.USER_ID_HEADER, "999")
+                            .header(JwtAuthGlobalFilter.USER_ROLE_HEADER, "COMPANY_ADMIN")
+                            .build());
+
+            filter.filter(exchange, forwardedExchange -> {
+                forwarded.set(forwardedExchange);
+                return Mono.empty();
+            }).block();
+
+            assertThat(forwarded.get()).as("public OAuth2 path %s", path).isNotNull();
+            assertThat(forwarded.get().getRequest().getHeaders()
+                    .containsKey(JwtAuthGlobalFilter.USER_ID_HEADER)).isFalse();
+            assertThat(forwarded.get().getRequest().getHeaders()
+                    .containsKey(JwtAuthGlobalFilter.USER_ROLE_HEADER)).isFalse();
+        }
+    }
+
+    @Test
+    void onlyGetOnTheOauth2EntrypointsBypassesAuthentication() {
+        MockServerWebExchange preLoginPost = MockServerWebExchange.from(
+                MockServerHttpRequest.post("/api/auth/oauth2/pre-login").build());
+        filter.filter(preLoginPost, ignored -> Mono.empty()).block();
+        assertThat(preLoginPost.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        MockServerWebExchange legacyPreLogin = exchangeFor("/oauth2/pre-login");
+        filter.filter(legacyPreLogin, ignored -> Mono.empty()).block();
+        assertThat(legacyPreLogin.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        MockServerWebExchange otherAuthGet = exchangeFor("/api/auth/oauth2/anything-else");
+        filter.filter(otherAuthGet, ignored -> Mono.empty()).block();
+        assertThat(otherAuthGet.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
     private MockServerWebExchange exchangeFor(String path) {
         return MockServerWebExchange.from(MockServerHttpRequest.get(path).build());
     }

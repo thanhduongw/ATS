@@ -41,7 +41,6 @@ export default function AppLayout() {
         const dashboard = item("/dashboard", "Tổng quan", <DashboardOutlined />);
         const recruitment = item("/recruitment", "Tuyển dụng", <SolutionOutlined />);
         const candidates = item("/candidates", "Ứng viên", <TeamOutlined />);
-        const applications = item("/applications", "Hồ sơ ứng tuyển", <AppstoreOutlined />);
         const interviews = item("/interviews", "Phỏng vấn", <CalendarOutlined />);
         const offers = item("/offers", "Offer", <FileTextOutlined />);
         const settings = item("/settings", "Cài đặt tài khoản", <SettingOutlined />);
@@ -50,12 +49,12 @@ export default function AppLayout() {
             dashboard,
             item("/admin/users", "Quản lý người dùng", <UserAddOutlined />),
             item("/masterdata", "Danh mục và phòng ban", <DatabaseOutlined />),
-            recruitment, candidates, applications, interviews, offers,
+            recruitment, candidates, interviews, offers,
             item("/audit-logs", "Nhật ký bảo mật", <AuditOutlined />),
             settings,
         ];
-        if (user.role === "RECRUITER") return [dashboard, recruitment, candidates, applications, interviews, offers, settings];
-        if (user.role === "HIRING_MANAGER") return [dashboard, recruitment, candidates, applications, interviews, offers, settings];
+        if (user.role === "RECRUITER") return [dashboard, recruitment, candidates, interviews, offers, settings];
+        if (user.role === "HIRING_MANAGER") return [dashboard, recruitment, candidates, interviews, offers, settings];
         return [
             item("/my-profile", "Hồ sơ của tôi", <UserOutlined />),
             item("/jobs", "Việc làm", <SolutionOutlined />),
@@ -86,15 +85,23 @@ export default function AppLayout() {
         }
     };
 
-    return <Layout style={{ minHeight: "100vh" }}>
-        <Sider collapsible collapsed={collapsed} trigger={null} theme="light" width={240} collapsedWidth={64} style={{ borderRight: "1px solid #E5E7EB" }}>
+    return <Layout style={{ height: "100vh", overflow: "hidden" }}>
+        <Sider
+            collapsible
+            collapsed={collapsed}
+            trigger={null}
+            theme="light"
+            width={240}
+            collapsedWidth={64}
+            style={{ borderRight: "1px solid #E5E7EB", height: "100%", overflowY: "auto" }}
+        >
             <div className={`sidebar-logo${collapsed ? " sidebar-logo--collapsed" : ""}`}>
                 <div className="sidebar-logo-icon">A</div>
                 {!collapsed && <span className="sidebar-logo-text">ATS</span>}
             </div>
             <Menu mode="inline" selectedKeys={selectedKey ? [selectedKey] : []} items={menuItems} onClick={({ key }) => navigate(key)} style={{ borderInlineEnd: 0 }} />
         </Sider>
-        <Layout>
+        <Layout style={{ minWidth: 0, minHeight: 0, overflow: "hidden" }}>
             <Header className="app-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: GRADIENTS.header }}>
                 <Button
                     type="text"
@@ -120,7 +127,7 @@ export default function AppLayout() {
                     </Dropdown>
                 </Space>
             </Header>
-            <Content style={{ minHeight: 0, overflow: "auto", padding: 20, background: COLORS.body }}>
+            <Content style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: 20, background: COLORS.body }}>
                 <Outlet />
             </Content>
         </Layout>

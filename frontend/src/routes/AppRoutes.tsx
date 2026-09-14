@@ -24,6 +24,7 @@ import JobsPage from "../features/candidate/pages/JobsPage";
 import MyApplicationsPage from "../features/candidate/pages/MyApplicationsPage";
 import InterviewCalendar from "../features/interview/components/InterviewCalendar";
 import InterviewsPage from "../features/interview/pages/InterviewsPage";
+import EvaluationFormPage from "../features/interview/pages/EvaluationFormPage";
 import InterviewSchedulingPage from "../features/interview/pages/InterviewSchedulingPage";
 import CandidateInterviewsPage from "../features/interview/pages/CandidateInterviewsPage";
 import OffersPage from "../features/offer/pages/OffersPage";
@@ -64,6 +65,7 @@ export default function AppRoutes() {
                     <Route path="/recruitment/postings/:id" element={<PostingHubPage />} />
                     <Route path="/candidates" element={<CandidatesPage />} />
                     <Route path="/candidates/:candidateId/applications/:applicationId" element={<CandidateApplicationDetailPage />} />
+                    <Route path="/candidates/:candidateId/applications/:applicationId/evaluate" element={<EvaluationFormPage />} />
                     <Route path="/applications" element={<ApplicationsPage />} />
                     <Route path="/scheduling" element={<InterviewSchedulingPage />} />
                     <Route path="/interviews" element={<InterviewCalendar />} />

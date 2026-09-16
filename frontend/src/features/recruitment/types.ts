@@ -89,6 +89,8 @@ export interface JobRequisitionRequestChangesRequest {
 export interface JobPostingResponse {
     id: number;
     requisitionId: number;
+    /** Số lượng cần tuyển lấy từ requisition; null với dữ liệu cũ chưa có thông tin. */
+    headcount: number | null;
     title: string;
     employmentTypeId: number;
     workLocationId: number;

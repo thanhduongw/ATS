@@ -8,6 +8,7 @@ import iuh.fit.se.interview.client.dto.ApplicationSummaryResponse;
 import iuh.fit.se.interview.client.dto.CatalogItemResponse;
 import iuh.fit.se.interview.client.dto.UserSummaryResponse;
 import iuh.fit.se.interview.common.AccessGuard;
+import iuh.fit.se.interview.evaluation.dto.ApplicationEvaluationsResponse;
 import iuh.fit.se.interview.evaluation.dto.EvaluationResponse;
 import iuh.fit.se.interview.evaluation.dto.EvaluationDraftRequest;
 import iuh.fit.se.interview.evaluation.dto.EvaluationScoreRequest;
@@ -237,17 +238,54 @@ public class InterviewEvaluationService {
      */
     public List<EvaluationResponse> getByApplication(Long applicationId, CurrentUser actor) {
         AuthorizationPolicy.requireInternal(actor);
+        return maskForActor(
+                evaluationRepository.findByApplicationIdOrderByIdAsc(applicationId),
+                actor,
+                buildCriteriaNameMap());
+    }
+
+    /**
+     * Danh gia cua nhieu ho so cung luc, phuc vu bang so sanh ung vien cua mot tin tuyen dung.
+     * Quy tac che noi dung tinh rieng cho tung ho so, y het khi doc le tung ho so.
+     */
+    public List<ApplicationEvaluationsResponse> getByApplications(
+            List<Long> applicationIds, CurrentUser actor) {
+        AuthorizationPolicy.requireInternal(actor);
+        if (applicationIds == null) return List.of();
+
+        List<Long> distinctIds = applicationIds.stream()
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        if (distinctIds.isEmpty()) return List.of();
+
+        Map<Long, List<InterviewEvaluation>> byApplication = evaluationRepository
+                .findByApplicationIdInOrderByIdAsc(distinctIds).stream()
+                .collect(Collectors.groupingBy(InterviewEvaluation::getApplicationId));
+
+        // Goi masterdata mot lan cho ca lo thay vi moi ho so mot lan.
+        Map<Long, String> criteriaNameMap = buildCriteriaNameMap();
+
+        return distinctIds.stream()
+                .map(id -> new ApplicationEvaluationsResponse(
+                        id,
+                        maskForActor(byApplication.getOrDefault(id, List.of()), actor, criteriaNameMap)))
+                .toList();
+    }
+
+    /**
+     * Nguoi phong van chi doc duoc bai cua dong nghiep sau khi da nop it nhat mot bai cho chinh
+     * ho so nay; HR/Admin doc duoc moi luc. Ban nhap cua nguoi khac khong bao gio doc duoc.
+     */
+    private List<EvaluationResponse> maskForActor(
+            List<InterviewEvaluation> evaluations,
+            CurrentUser actor,
+            Map<Long, String> criteriaNameMap) {
 
         boolean isHr = AccessGuard.isHr(actor.role());
-        List<InterviewEvaluation> all = evaluationRepository.findByApplicationIdOrderByIdAsc(applicationId);
-
-        boolean selfSubmitted = all.stream().anyMatch(
+        boolean selfSubmitted = evaluations.stream().anyMatch(
                 e -> e.getInterviewerId().equals(actor.userId()) && e.getSubmittedAt() != null);
         boolean canReadOthers = isHr || selfSubmitted;
 
-        Map<Long, String> criteriaNameMap = buildCriteriaNameMap();
-
-        return all.stream()
+        return evaluations.stream()
                 .map(e -> {
                     boolean own = e.getInterviewerId().equals(actor.userId());
                     boolean contentVisible = own || (canReadOthers && e.getSubmittedAt() != null);

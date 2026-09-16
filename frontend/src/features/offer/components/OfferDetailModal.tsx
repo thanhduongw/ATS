@@ -24,7 +24,7 @@ import type { AxiosError } from "axios";
 import { submitOffer, approveOffer, deleteOffer, getOfferPdf } from "../offerApi";
 import type { ApiMessageResponse, OfferResponse } from "../types";
 import { useAppSelector } from "../../../app/hooks";
-import { HR_ROLES, DEPARTMENT_ROLES } from "../../../app/roles";
+import { HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import OfferRejectModal from "./OfferRejectModal";
 import { COLORS, RADIUS } from "../../../app/theme";
@@ -65,7 +65,6 @@ export default function OfferDetailModal({
   const userId = user?.userId != null ? Number(user.userId) : undefined;
 
   const isHr = !!role && HR_ROLES.includes(role);
-  const isDept = !!role && DEPARTMENT_ROLES.includes(role);
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -94,7 +93,7 @@ export default function OfferDetailModal({
     setLoading(true);
     try {
       await approveOffer(offer.id);
-      message.success("Đã phê duyệt Offer — ứng viên có thể Accept/Decline");
+      message.success("Đã duyệt và gửi Offer tới ứng viên");
       onChanged();
       onClose();
     } catch (err) {
@@ -200,7 +199,7 @@ export default function OfferDetailModal({
               Tải PDF
             </Button>
 
-            {(isDept || isHr) && isApprover && offer.status === "PENDING_APPROVAL" && (
+            {isHr && isApprover && offer.status === "PENDING_APPROVAL" && (
               <Button danger icon={<CloseCircleOutlined />} onClick={() => setRejectOpen(true)}>
                 Từ chối duyệt
               </Button>
@@ -212,9 +211,10 @@ export default function OfferDetailModal({
               </Button>
             )}
 
-            {(isDept || isHr) && isApprover && offer.status === "PENDING_APPROVAL" && (
+            {/* Duyet dong thoi la gui: tu APPROVED ung vien moi doc duoc offer. */}
+            {isHr && isApprover && offer.status === "PENDING_APPROVAL" && (
               <Button type="primary" icon={<CheckCircleOutlined />} loading={loading} onClick={handleApprove}>
-                Phê duyệt
+                Duyệt và gửi ứng viên
               </Button>
             )}
 
@@ -275,7 +275,7 @@ export default function OfferDetailModal({
         <SectionHeader
           icon={<UserOutlined />}
           title="Nhân sự liên quan"
-          subtitle="Người tạo và người phụ trách phê duyệt offer"
+          subtitle="Người tạo và người duyệt offer — duyệt xong offer tự gửi tới ứng viên"
         />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
           <InfoField icon={<UserOutlined />} label="Người tạo" value={offer.requesterName} />

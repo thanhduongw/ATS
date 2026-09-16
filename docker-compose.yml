@@ -246,6 +246,7 @@ services:
       SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
       SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
       SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
+      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
     depends_on:
       postgres:
         condition: service_healthy

@@ -31,6 +31,8 @@ services:
     url: ${SERVICES_CANDIDATE_SERVICE_URL:http://localhost:8084}
   application-service:
     url: ${SERVICES_APPLICATION_SERVICE_URL:http://localhost:8089}
+  recruitment-service:
+    url: ${SERVICES_RECRUITMENT_SERVICE_URL:http://localhost:8083}
 
 springdoc:
   api-docs:

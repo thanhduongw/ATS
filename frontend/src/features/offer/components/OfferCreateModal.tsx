@@ -63,20 +63,22 @@ export default function OfferCreateModal({
   useEffect(() => {
     if (!open) return;
 
+    // Nguoi duyet offer la HR hoac Company Admin. Hiring manager chi danh gia ung vien,
+    // khong tham gia buoc offer.
     Promise.all([
       getCatalogItems("/masterdata/contract-types"),
-      getUserDirectory("HIRING_MANAGER"),
+      getUserDirectory("RECRUITER"),
       getUserDirectory("COMPANY_ADMIN"),
-    ]).then(([ctRes, hmRes, adminRes]) => {
+    ]).then(([ctRes, hrRes, adminRes]) => {
       setContractTypes(ctRes.data.filter((c) => c.active !== false));
-      const combined = [...hmRes.data, ...adminRes.data];
+      const combined = [...hrRes.data, ...adminRes.data];
       setApprovers(Array.from(new Map(combined.map((u) => [u.id, u])).values()));
     });
 
-    getApplications()
-      .then((r) =>
-        setApplications(r.data.content.filter((a) => a.currentStageType === "OFFER"))
-      )
+    // Loc o server va lay du danh sach: mo tu bang so sanh thi ho so duoc chon phai co
+    // trong options, neu khong Select se hien id tho.
+    getApplications({ stageType: "OFFER", size: 1000 })
+      .then((r) => setApplications(r.data.content))
       .catch(() => setApplications([]));
 
     const salaryNum = prefillSalary ? Number(prefillSalary) : undefined;
@@ -127,7 +129,7 @@ export default function OfferCreateModal({
         <ModalTitle
           icon={<FileAddOutlined />}
           title="Tạo Offer"
-          subtitle="Thư mời nhận việc gửi cho ứng viên sau khi được duyệt"
+          subtitle="Thư mời nhận việc, tự gửi cho ứng viên ngay khi được duyệt"
         />
       }
       open={open}
@@ -143,7 +145,7 @@ export default function OfferCreateModal({
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        title="Chỉ tạo Offer khi hồ sơ đã ở giai đoạn Offer. Sau khi tạo, gửi duyệt cho Phòng ban."
+        title="Chỉ tạo Offer khi hồ sơ đã ở giai đoạn Offer. Sau khi tạo, gửi vào luồng duyệt của HR hoặc Company Admin — offer được gửi tới ứng viên ngay khi duyệt."
       />
 
       <Form layout="vertical">
@@ -282,7 +284,7 @@ export default function OfferCreateModal({
         </Form.Item>
 
         <Form.Item
-          label="Người duyệt (Phòng ban)"
+          label="Người duyệt (HR hoặc Company Admin)"
           validateStatus={errors.approverId ? "error" : ""}
           help={errors.approverId?.message}
         >

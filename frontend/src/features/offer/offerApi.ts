@@ -13,6 +13,7 @@ import type {
 
 export const getOffers = (params?: {
   applicationId?: number;
+  jobPostingId?: number;
   status?: OfferStatus;
   createdFrom?: string;
   createdTo?: string;

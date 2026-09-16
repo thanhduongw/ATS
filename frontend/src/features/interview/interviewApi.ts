@@ -8,6 +8,7 @@ import type {
   EvaluationDraftRequest,
   EvaluationSubmitRequest,
   EvaluationResponse,
+  ApplicationEvaluationsResponse,
   CandidateInterviewResponse,
 } from "./types";
 
@@ -73,6 +74,15 @@ export const submitApplicationEvaluation = (
     `/interview/applications/${applicationId}/evaluations`,
     data,
   );
+
+/**
+ * Danh gia cua nhieu ho so cung luc — bang so sanh ung vien goi mot lan thay vi goi lan luot
+ * tung ho so cua tin tuyen dung.
+ */
+export const getEvaluationsByApplications = (applicationIds: number[]) =>
+  axiosClient.get<ApplicationEvaluationsResponse[]>("/interview/evaluations", {
+    params: { applicationIds: applicationIds.join(",") },
+  });
 
 export const getEvaluations = (interviewId: number) =>
   axiosClient.get<EvaluationResponse[]>(

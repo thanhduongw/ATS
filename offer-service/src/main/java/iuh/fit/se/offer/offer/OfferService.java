@@ -4,8 +4,10 @@ import iuh.fit.se.offer.client.ApplicationServiceClient;
 import iuh.fit.se.offer.client.AuthServiceClient;
 import iuh.fit.se.offer.client.CandidateServiceClient;
 import iuh.fit.se.offer.client.MasterDataServiceClient;
+import iuh.fit.se.offer.client.RecruitmentServiceClient;
 import iuh.fit.se.offer.client.dto.ApplicationSummaryResponse;
 import iuh.fit.se.offer.client.dto.CatalogItemResponse;
+import iuh.fit.se.offer.client.dto.JobPostingSummaryResponse;
 import iuh.fit.se.offer.client.dto.UserSummaryResponse;
 import iuh.fit.se.offer.common.PageResponse;
 import iuh.fit.se.offer.event.AuditEventPublisher;
@@ -40,40 +42,47 @@ public class OfferService {
             OfferStatus.DRAFT, OfferStatus.PENDING_APPROVAL, OfferStatus.APPROVED);
     private static final Set<OfferStatus> CANDIDATE_VISIBLE_STATUSES = Set.of(
             OfferStatus.APPROVED, OfferStatus.ACCEPTED, OfferStatus.DECLINED);
+    /**
+     * Offer con chiem mot suat tuyen dung. REJECTED va DECLINED tra suat lai cho tin tuyen dung,
+     * nho vay HR offer duoc cho ung vien xep sau khi nguoi duoc chon tu choi.
+     */
+    private static final Set<OfferStatus> HEADCOUNT_CONSUMING = Set.of(
+            OfferStatus.DRAFT, OfferStatus.PENDING_APPROVAL,
+            OfferStatus.APPROVED, OfferStatus.ACCEPTED);
 
     private final OfferRepository offerRepository;
     private final ApplicationServiceClient applicationServiceClient;
     private final AuthServiceClient authServiceClient;
     private final MasterDataServiceClient masterDataServiceClient;
     private final CandidateServiceClient candidateServiceClient;
+    private final RecruitmentServiceClient recruitmentServiceClient;
     private final OfferEventPublisher offerEventPublisher;
     private final AuditEventPublisher auditEventPublisher;
     private final OfferPdfService offerPdfService;
 
     public PageResponse<OfferResponse> getAll(
-            CurrentUser actor, Long applicationId,
+            CurrentUser actor, Long applicationId, Long jobPostingId,
             OfferStatus status, LocalDate createdFrom, LocalDate createdTo,
             Integer page, Integer size) {
 
         Long candidateId = null;
         Long scopeDepartmentId = null;
-        Long scopeApproverId = null;
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
         if (role == AuthorizationPolicy.Role.CANDIDATE) {
             candidateId = resolveCandidateId(actor.userId());
         } else if (role == AuthorizationPolicy.Role.HIRING_MANAGER) {
+            // Manager khong con duyet offer, chi theo doi ket qua offer cua phong ban minh.
             scopeDepartmentId = actor.departmentId();
-            scopeApproverId = actor.userId();
         } else {
             // COMPANY_ADMIN va HR (RECRUITER) deu xem duoc toan bo offer cua cong ty.
             AuthorizationPolicy.requireHr(actor);
         }
 
         var spec = OfferSpecifications.build(
-                candidateId, null, applicationId, status,
+                candidateId, null, applicationId, jobPostingId, status,
                 createdFrom != null ? createdFrom.atStartOfDay() : null,
                 createdTo != null ? createdTo.atTime(LocalTime.MAX) : null,
-                scopeDepartmentId, null, scopeApproverId,
+                scopeDepartmentId, null, null,
                 role == AuthorizationPolicy.Role.CANDIDATE);
 
         Map<Long, String> userNameMap = role == AuthorizationPolicy.Role.CANDIDATE
@@ -113,7 +122,7 @@ public class OfferService {
         AuthorizationPolicy.requireCandidate(actor);
         long candidateId = resolveCandidateId(actor.userId());
         var spec = OfferSpecifications.build(
-                candidateId, null, null, null,
+                candidateId, null, null, null, null,
                 null, null, null, null, null, true);
         Map<Long, String> contractTypeMap = buildCatalogMap(
                 masterDataServiceClient.getContractTypes());
@@ -174,9 +183,11 @@ public class OfferService {
 
         validateContractType(req.contractTypeId());
         validateApprover(req.approverId());
+        requireHeadcountAvailable(application.jobPostingId());
 
         Offer saved = offerRepository.save(Offer.builder()
                 .applicationId(application.id())
+                .jobPostingId(application.jobPostingId())
                 .departmentId(application.departmentId())
                 .assignedRecruiterId(application.assignedRecruiterId())
                 .candidateId(application.candidateId())
@@ -365,8 +376,9 @@ public class OfferService {
         boolean sameDepartment = actor.departmentId() != null
                 && actor.departmentId().equals(offer.getDepartmentId());
         if (role == AuthorizationPolicy.Role.HIRING_MANAGER) {
-            if (!sameDepartment && !Objects.equals(offer.getApproverId(), actor.userId())) {
-                throw new AccessDeniedException("Offer thuộc phòng ban khác và bạn không phải người duyệt");
+            // Manager chi theo doi ket qua offer cua phong ban, khong con quyen duyet.
+            if (!sameDepartment) {
+                throw new AccessDeniedException("Offer thuộc phòng ban khác");
             }
             return;
         }
@@ -421,14 +433,42 @@ public class OfferService {
         if (!valid) throw new BusinessException("Loại hợp đồng không hợp lệ");
     }
 
+    /**
+     * Offer do HR chot nen nguoi duyet cung la HR hoac Company Admin. Nguoi tao duoc phep tu duyet
+     * offer cua chinh minh — day la quy tac nghiep vu da chot, khong phai thieu kiem tra.
+     */
     private void validateApprover(Long approverId) {
         List<UserSummaryResponse> eligible = Stream.concat(
-                authServiceClient.getUsers("HIRING_MANAGER").stream(),
+                authServiceClient.getUsers("RECRUITER").stream(),
                 authServiceClient.getUsers("COMPANY_ADMIN").stream()
         ).toList();
         boolean valid = eligible.stream().anyMatch(u -> u.id().equals(approverId));
         if (!valid) {
-            throw new BusinessException("Người được chọn phải là Hiring Manager hoặc Company Admin");
+            throw new BusinessException("Người duyệt phải là HR hoặc Company Admin");
+        }
+    }
+
+    /**
+     * Chan tao them offer khi tin tuyen dung da dung het so luong tuyen cua requisition.
+     * Offer tao truoc khi co cot job_posting_id mang gia tri null nen khong tinh vao han muc.
+     */
+    private void requireHeadcountAvailable(Long jobPostingId) {
+        if (jobPostingId == null) return;
+
+        JobPostingSummaryResponse posting;
+        try {
+            posting = recruitmentServiceClient.getPosting(jobPostingId);
+        } catch (Exception e) {
+            throw new BusinessException("Không đọc được số lượng tuyển của tin tuyển dụng");
+        }
+        if (posting == null || posting.headcount() == null || posting.headcount() <= 0) return;
+
+        long issued = offerRepository.countByJobPostingIdAndStatusInAndDeletedAtIsNull(
+                jobPostingId, HEADCOUNT_CONSUMING);
+        if (issued >= posting.headcount()) {
+            throw new BusinessException(
+                    "Tin tuyển dụng này đã dùng hết " + posting.headcount()
+                            + " suất tuyển. Hãy hủy một offer đang xử lý trước khi tạo offer mới.");
         }
     }
 

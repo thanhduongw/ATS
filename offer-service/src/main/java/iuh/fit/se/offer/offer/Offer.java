@@ -18,6 +18,14 @@ public class Offer {
     @Column(name = "application_id", nullable = false)
     private Long applicationId;
 
+    /**
+     * Snapshot tu application — dung de dem so offer da phat hanh cho mot tin tuyen dung.
+     * Cot nay do ddl-auto tao chu khong co migration rieng: lich su Flyway cua ats_offer dang
+     * chua V4..V7 tu mot nhanh khac, nen them file migration moi se lam validate that bai.
+     */
+    @Column(name = "job_posting_id")
+    private Long jobPostingId;
+
     @Column(name = "department_id")
     private Long departmentId;
 

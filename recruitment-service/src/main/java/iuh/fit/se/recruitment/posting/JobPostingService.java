@@ -312,7 +312,8 @@ public class JobPostingService {
             Map<Long, String> deptMap, Map<Long, String> userNameMap) {
         Long departmentId = p.getRequisition().getDepartmentId();
         return new JobPostingResponse(
-                p.getId(), p.getRequisition().getId(), p.getTitle(),
+                p.getId(), p.getRequisition().getId(),
+                p.getRequisition().getQuantity(), p.getTitle(),
                 p.getEmploymentTypeId(), p.getWorkLocationId(), p.getWorkArrangement(), p.getExperienceRequired(),
                 p.getPipelineId(),
                 p.getSalaryMin(), p.getSalaryMax(),

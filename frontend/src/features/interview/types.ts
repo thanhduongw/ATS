@@ -119,6 +119,12 @@ export interface EvaluationResponse {
   scores: EvaluationScoreResponse[];
 }
 
+/** Đánh giá của một hồ sơ trong loạt so sánh ứng viên. */
+export interface ApplicationEvaluationsResponse {
+  applicationId: number;
+  evaluations: EvaluationResponse[];
+}
+
 export interface ApiMessageResponse {
   message: string;
 }

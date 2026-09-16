@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useMemo, type Key } from "react";
 import { App, Card, Table, Button, Input, Select, Tooltip, Avatar, Modal, Form, Tag } from "antd";
 import {
-    PlusOutlined, SearchOutlined, UserOutlined, DownloadOutlined,
+    SearchOutlined, UserOutlined, DownloadOutlined,
     UserAddOutlined, FileSearchOutlined, CalendarOutlined, TrophyOutlined, MailOutlined, CloseCircleOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +13,6 @@ import { getCatalogItems, getPipelines } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import { getPostings } from "../../recruitment/recruitmentApi";
 import type { ApiMessageResponse, CandidateResponse, ApplicationResponse, CandidateWithApplications, BulkOperationResponse } from "../types";
-import CandidateFormModal from "../components/CandidateFormModal";
 import AiScoreBadge from "../../../components/AiScoreBadge";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 import { exportToExcel } from "../../../app/exportExcel";
@@ -61,7 +60,6 @@ export default function CandidatesPage() {
     const [pageSize, setPageSize] = useState(10);
     const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
 
-    const [formModalOpen, setFormModalOpen] = useState(false);
 
     const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
     const [rejectReasons, setRejectReasons] = useState<CatalogItem[]>([]);
@@ -475,11 +473,6 @@ export default function CandidatesPage() {
                         <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
                             Xuất Excel
                         </Button>
-                        {isHr && (
-                            <Button type="primary" icon={<PlusOutlined />} onClick={() => setFormModalOpen(true)}>
-                                Thêm ứng viên
-                            </Button>
-                        )}
                     </>
                 }
             >
@@ -589,9 +582,6 @@ export default function CandidatesPage() {
                     />
                 </div>
             </Card>
-
-            <CandidateFormModal open={formModalOpen} editingItem={null}
-                onClose={() => setFormModalOpen(false)} onSuccess={loadData} />
 
             <Modal
                 title={`Từ chối hàng loạt (${selectedRowKeys.length} ứng viên)`}

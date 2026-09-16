@@ -29,6 +29,7 @@ import InterviewSchedulingPage from "../features/interview/pages/InterviewSchedu
 import CandidateInterviewsPage from "../features/interview/pages/CandidateInterviewsPage";
 import OffersPage from "../features/offer/pages/OffersPage";
 import CandidateOffersPage from "../features/offer/pages/CandidateOffersPage";
+import CandidateComparisonPage from "../features/offer/pages/CandidateComparisonPage";
 import OfferCandidateViewPage from "../features/offer/pages/OfferCandidateViewPage";
 import AuditLogPage from "../features/auditlog/pages/AuditLogPage";
 import NotificationsPage from "../features/notification/pages/NotificationsPage";
@@ -71,6 +72,11 @@ export default function AppRoutes() {
                     <Route path="/interviews" element={<InterviewCalendar />} />
                     <Route path="/interviews/:interviewId/result" element={<InterviewsPage />} />
                     <Route path="/offers" element={<OffersPage />} />
+                </Route>
+
+                {/* So sanh ung vien la buoc ra quyet dinh offer — chi HR va admin dung. */}
+                <Route element={<RoleRoute allow={["COMPANY_ADMIN", "RECRUITER"]} />}>
+                    <Route path="/offers/compare" element={<CandidateComparisonPage />} />
                 </Route>
 
                 <Route element={<RoleRoute allow={["COMPANY_ADMIN"]} />}>

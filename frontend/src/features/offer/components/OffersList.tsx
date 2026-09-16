@@ -226,7 +226,7 @@ export default function OffersList() {
                 />
                 <StatTile
                     icon={<SendOutlined />}
-                    label="Đã gửi ứng viên"
+                    label="Đã duyệt và gửi"
                     value={counts.approved}
                     accent="#3B82F6"
                     active={filterStatus === "APPROVED"}
@@ -257,7 +257,7 @@ export default function OffersList() {
                     <>
                         {isDept && !isHr && (
                             <span style={{ fontSize: 12, color: COLORS.textMuted }}>
-                                Bạn chỉ duyệt Offer được gán cho mình
+                                Bạn chỉ theo dõi kết quả offer của phòng ban, không tạo và không duyệt offer
                             </span>
                         )}
                         {/* Chỉ HR được tạo Offer */}

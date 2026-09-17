@@ -17,6 +17,7 @@ frontend/dist/
 # Env
 .env
 .env.local
+ENV_SETUP_GUIDE.md
 
 # OS
 .DS_Store

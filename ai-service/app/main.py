@@ -14,6 +14,7 @@ from app.core.rabbitmq import rabbitmq_manager
 from app.api.health import router as health_router
 from app.api.extraction import router as extraction_router
 from app.api.cv_extraction import router as cv_extraction_router
+from app.api.jd_generation import router as jd_generation_router
 
 # Configure logging
 logging.basicConfig(
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix="/api/v1/ai", tags=["Health"])
     app.include_router(extraction_router, prefix="/api/v1/ai", tags=["Text Extraction"])
     app.include_router(cv_extraction_router, prefix="/api/v1/ai", tags=["CV Extraction"])
+    app.include_router(jd_generation_router, prefix="/api/v1/ai", tags=["JD Generation"])
 
     return app
 

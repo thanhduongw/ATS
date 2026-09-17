@@ -411,19 +411,26 @@ async def extract_cv_from_storage_key(storage_key: str) -> CVExtractionResponse:
 
     start = time.monotonic()
 
-    # --- Download from MinIO ---
+    # --- Download from URL or MinIO/S3 ---
     try:
-        from app.core.s3_client import get_s3_client
-        from app.core.config import get_settings
+        if storage_key.startswith("http://") or storage_key.startswith("https://"):
+            import httpx
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(storage_key)
+                resp.raise_for_status()
+                file_bytes = resp.content
+        else:
+            from app.core.s3_client import get_s3_client
+            from app.core.config import get_settings
 
-        s3 = get_s3_client()
-        settings = get_settings()
-        bucket = settings.s3_bucket
+            s3 = get_s3_client()
+            settings = get_settings()
+            bucket = settings.s3_bucket
 
-        loop = asyncio.get_event_loop()
-        file_bytes = await loop.run_in_executor(
-            None, partial(s3.download_file_bytes, bucket, storage_key)
-        )
+            loop = asyncio.get_event_loop()
+            file_bytes = await loop.run_in_executor(
+                None, partial(s3.download_file_bytes, bucket, storage_key)
+            )
     except FileNotFoundError:
         elapsed_ms = int((time.monotonic() - start) * 1000)
         return CVExtractionResponse(

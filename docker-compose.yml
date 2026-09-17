@@ -87,6 +87,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATA_REDIS_HOST: redis
       SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
+      MAIL_LOG_OTP_ON_FAILURE: "true"
       # Google SSO: doc tu shell/.env cua nguoi chay compose, KHONG commit secret.
       # De trong => auth-service tu tat oauth2Login va van boot binh thuong.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}

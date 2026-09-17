@@ -123,3 +123,68 @@ export interface CVExtractionResponse {
   error_code: string | null;
   error_message: string | null;
 }
+
+// ============================================================
+// Phase 3: JD Generation & Benchmark
+// ============================================================
+
+export type BenchmarkCategory =
+  | "TECHNICAL"
+  | "SOFT_SKILL"
+  | "EDUCATION"
+  | "EXPERIENCE"
+  | "CERTIFICATION"
+  | "LANGUAGE"
+  | "OTHER";
+
+export interface GeneratedJD {
+  overview: string;
+  responsibilities: string[];
+  requirements: string;
+  benefits: string;
+}
+
+export interface BenchmarkCriterion {
+  name: string;
+  weight: number;
+  standardRequirement: string;
+  category: BenchmarkCategory;
+  isMustHave: boolean;
+}
+
+export interface JDGenerateRequest {
+  title: string;
+  level?: string | null;
+  skills?: string[] | null;
+  experience?: string | null;
+  notes?: string | null;
+}
+
+export interface BenchmarkGenerateRequest {
+  jobDescription: string;
+}
+
+export interface JDProvenance {
+  model_used: string;
+  prompt_version: string;
+  fallback_used: boolean;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number;
+  processing_time_ms: number;
+}
+
+export interface JDGenerateResponse {
+  status: string;
+  jd: GeneratedJD | null;
+  benchmarkCriteria: BenchmarkCriterion[] | null;
+  provenance: JDProvenance;
+  errorMessage?: string | null;
+}
+
+export interface BenchmarkGenerateResponse {
+  status: string;
+  criteria: BenchmarkCriterion[] | null;
+  provenance: JDProvenance;
+  errorMessage?: string | null;
+}

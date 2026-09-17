@@ -24,6 +24,7 @@ public record JobPostingResponse(
         String requirements,
         String benefits,
         List<Long> skillIds,
+        String benchmarkCriteria,
         PostingStatus status,
         boolean pipelineLocked,
         LocalDateTime createdAt,

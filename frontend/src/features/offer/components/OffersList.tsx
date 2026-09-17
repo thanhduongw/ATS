@@ -12,14 +12,14 @@ import {
 } from "@ant-design/icons";
 import dayjs, { type Dayjs } from "dayjs";
 import type { AxiosError } from "axios";
+import { useNavigate } from "react-router-dom";
 import { getOffers } from "../offerApi";
 import type { ApiMessageResponse, OfferResponse, OfferStatus } from "../types";
-import OfferDetailModal from "./OfferDetailModal";
-import OfferCreateModal from "./OfferCreateModal";
 import { COLORS } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
 import { OFFER_STATUS, statusMeta } from "../../../app/statusLabels";
 import { useAppSelector } from "../../../app/hooks";
+import { useTrailNavigate } from "../../../app/useNavTrail";
 import { HR_ROLES, DEPARTMENT_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import { useTableScrollY } from "../../../app/useTableScrollY";
@@ -50,6 +50,8 @@ const EMPTY_FILTERS: Filters = { keyword: "", dateRange: null };
 
 export default function OffersList() {
     const { notification } = App.useApp();
+    const navigate = useNavigate();
+    const goToOffer = useTrailNavigate();
     const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
     const isHr = !!role && HR_ROLES.includes(role);
     const isDept = !!role && DEPARTMENT_ROLES.includes(role);
@@ -58,11 +60,8 @@ export default function OffersList() {
     const [totalItems, setTotalItems] = useState(0);
     // Toàn bộ offer (không phân trang) — chỉ để đếm số liệu, độc lập với bộ lọc của bảng
     const [allOffers, setAllOffers] = useState<OfferResponse[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState<string>("ALL");
-    const [selectedOffer, setSelectedOffer] = useState<OfferResponse | null>(null);
-    const [drawerOpen, setDrawerOpen] = useState(false);
-    const [createOpen, setCreateOpen] = useState(false);
 
     const [searchInput, setSearchInput] = useState("");
     const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -94,7 +93,7 @@ export default function OffersList() {
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             notification.error({
-                message: "Không tải được danh sách offer",
+                message: "Không tải được danh sách đề nghị nhận việc",
                 description: axiosErr.response?.data?.message ?? "Vui lòng thử lại",
             });
         } finally {
@@ -130,10 +129,7 @@ export default function OffersList() {
         setPage(1);
     };
 
-    const openDetail = (offer: OfferResponse) => {
-        setSelectedOffer(offer);
-        setDrawerOpen(true);
-    };
+    const openDetail = (offer: OfferResponse) => goToOffer(`/offers/${offer.id}`);
 
     const columns: ColumnsType<OfferResponse> = [
         {
@@ -142,14 +138,25 @@ export default function OffersList() {
             key: "candidateName",
             width: 180,
             ellipsis: true,
-            render: (name: string) => (
+            render: (name: string, record: OfferResponse) => (
                 <Space>
                     <Avatar size="small" style={{ background: COLORS.primary }}>
                         {getInitials(name || "?")}
                     </Avatar>
-                    {name}
+                    <div className="cell-stack">
+                        <div>{name}</div>
+                        <div className="cell-stack-sub">{record.candidateEmail ?? ""}</div>
+                    </div>
                 </Space>
             ),
+        },
+        {
+            title: "Vị trí",
+            dataIndex: "jobTitle",
+            key: "jobTitle",
+            width: 190,
+            ellipsis: true,
+            render: (v: string | null) => v || "—",
         },
         {
             title: "Mức lương",
@@ -160,6 +167,7 @@ export default function OffersList() {
         },
         {
             title: "Loại HĐ",
+            responsive: ["xl"],
             dataIndex: "contractTypeName",
             key: "contractTypeName",
             width: 120,
@@ -167,6 +175,7 @@ export default function OffersList() {
         },
         {
             title: "Ngày bắt đầu",
+            responsive: ["xl"],
             dataIndex: "startDate",
             key: "startDate",
             width: 110,
@@ -184,10 +193,19 @@ export default function OffersList() {
         },
         {
             title: "Người duyệt",
+            responsive: ["xl"],
             dataIndex: "approverName",
             key: "approverName",
             width: 130,
             ellipsis: true,
+        },
+        {
+            title: "Hạn phản hồi",
+            responsive: ["lg"],
+            dataIndex: "responseDeadline",
+            key: "responseDeadline",
+            width: 130,
+            render: (d: string | null) => (d ? dayjs(d).format("DD/MM/YYYY") : "—"),
         },
         {
             title: "Thao tác",
@@ -196,7 +214,7 @@ export default function OffersList() {
             render: (_: unknown, record: OfferResponse) => (
                 <span onClick={(e) => e.stopPropagation()}>
                     <IconAction
-                        title="Xem chi tiết offer"
+                        title="Xem chi tiết đề nghị nhận việc"
                         icon={<EyeOutlined />}
                         onClick={() => openDetail(record)}
                     />
@@ -262,8 +280,12 @@ export default function OffersList() {
                         )}
                         {/* Chỉ HR được tạo Offer */}
                         {isHr && (
-                            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-                                Tạo Offer
+                            <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                onClick={() => navigate("/offers/create")}
+                            >
+                                Tạo đề nghị
                             </Button>
                         )}
                     </>
@@ -312,33 +334,15 @@ export default function OffersList() {
                         onChange: (p, ps) => { setPage(p); setPageSize(ps); },
                     }}
                     locale={{
-                        emptyText: (
+                        emptyText: loading ? <span /> : (
                             <EmptyState
-                                title="Chưa có offer nào"
-                                description="Offer phù hợp với bộ lọc hiện tại sẽ hiển thị ở đây."
+                                title="Chưa có đề nghị nhận việc nào"
+                                description="Đề nghị nhận việc phù hợp với bộ lọc hiện tại sẽ hiển thị ở đây."
                             />
                         ),
                     }}
                 />
             </div>
-
-            <OfferDetailModal
-                open={drawerOpen}
-                offer={selectedOffer}
-                onClose={() => setDrawerOpen(false)}
-                onChanged={loadOffers}
-            />
-
-            {isHr && (
-                <OfferCreateModal
-                    open={createOpen}
-                    onClose={() => setCreateOpen(false)}
-                    onSuccess={() => {
-                        setCreateOpen(false);
-                        loadOffers();
-                    }}
-                />
-            )}
         </div>
     );
 }

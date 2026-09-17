@@ -14,7 +14,6 @@ import {
     StopOutlined,
     TeamOutlined,
 } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 import {
     getPostings, changePostingStatus, submitPostingForReview, requestPostingEdit, publishPosting,
@@ -28,6 +27,7 @@ import PostingFormModal from "./PostingFormModal";
 import PostingDetailModal from "./PostingDetailModal";
 import RequisitionDetailModal from "./RequisitionDetailModal";
 import { useAppSelector } from "../../../app/hooks";
+import { useTrailNavigate } from "../../../app/useNavTrail";
 import { HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import { POSTING_STATUS, statusMeta } from "../../../app/statusLabels";
@@ -50,7 +50,7 @@ const EMPTY_FILTERS: Filters = { keyword: "" };
 
 export default function PostingListPanel() {
     const { message } = App.useApp();
-    const navigate = useNavigate();
+    const openPosting = useTrailNavigate();
     const currentUser = useAppSelector((s) => s.auth.user);
     const role = currentUser?.role as UserRole | undefined;
     const canManagePosting = !!role && HR_ROLES.includes(role);
@@ -65,7 +65,7 @@ export default function PostingListPanel() {
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
     const [pipelineMap, setPipelineMap] = useState<Record<number, string>>({});
     const [applicationCountMap, setApplicationCountMap] = useState<Record<number, number>>({});
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
     // Maps phục vụ RequisitionDetailModal ("Xem yêu cầu đăng tin")
@@ -481,7 +481,7 @@ export default function PostingListPanel() {
                     sticky
                     scroll={{ y: scrollY }}
                     onRow={(record) => ({
-                        onClick: () => navigate(`/recruitment/postings/${record.id}`),
+                        onClick: () => openPosting(`/recruitment/postings/${record.id}`),
                         style: { cursor: "pointer" },
                     })}
                     pagination={{
@@ -492,7 +492,7 @@ export default function PostingListPanel() {
                         onChange: (p, ps) => { setPage(p); setPageSize(ps); },
                     }}
                     locale={{
-                        emptyText: (
+                        emptyText: loading ? <span /> : (
                             <EmptyState
                                 title="Chưa có tin tuyển dụng nào"
                                 description="Tạo tin đầu tiên từ một yêu cầu tuyển dụng đã được HR phê duyệt."

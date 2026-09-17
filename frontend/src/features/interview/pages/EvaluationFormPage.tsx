@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
     App, Avatar, Button, Card, Col, Form, Input, Radio, Rate, Row, Spin, Tag, Typography,
 } from "antd";
-import { ArrowLeftOutlined, CheckCircleOutlined, WarningOutlined } from "@ant-design/icons";
+import { CheckCircleOutlined, WarningOutlined } from "@ant-design/icons";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import dayjs from "dayjs";
@@ -20,6 +20,7 @@ import type { ApiMessageResponse, InterviewResponse } from "../types";
 import type { ApplicationResponse, ApplicationHistoryResponse } from "../../candidate/types";
 import type { CatalogItem } from "../../masterdata/types";
 import { COLORS, RADIUS } from "../../../app/theme";
+import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import EmptyState from "../../../components/ui/EmptyState";
 import "./EvaluationFormPage.css";
 
@@ -189,18 +190,10 @@ export default function EvaluationFormPage() {
 
     return (
         <div className="page-container animate-fade-in evaluation-page">
-            {/* Ngữ cảnh gọn trong một hàng: quay lại, ai, vị trí nào, vòng nào. */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
-                <Button
-                    type="text"
-                    size="small"
-                    icon={<ArrowLeftOutlined />}
-                    onClick={backToProfile}
-                    style={{ paddingLeft: 0, color: COLORS.textSecondary }}
-                >
-                    Quay lại
-                </Button>
+            <PageBreadcrumb crumb="Phiếu đánh giá" style={{ marginBottom: 8 }} />
 
+            {/* Ngữ cảnh gọn trong một hàng: ai, vị trí nào, vòng nào. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
                 <Avatar size={34} style={{ background: COLORS.primary, color: "#fff", fontWeight: 600, fontSize: 13, flexShrink: 0 }}>
                     {getInitials(application.candidateName)}
                 </Avatar>
@@ -318,7 +311,11 @@ export default function EvaluationFormPage() {
 
                             <Row gutter={10}>
                                 <Col span={12}>
-                                    <Form.Item label="Lương đề xuất" style={{ marginBottom: 0 }}>
+                                    <Form.Item
+                                        label="Đề xuất mức lương tham khảo"
+                                        extra="HR xem xét và phê duyệt trước khi tạo đề nghị nhận việc. Đây chưa phải mức lương chính thức."
+                                        style={{ marginBottom: 0 }}
+                                    >
                                         <Controller
                                             name="salaryProposed"
                                             control={control}

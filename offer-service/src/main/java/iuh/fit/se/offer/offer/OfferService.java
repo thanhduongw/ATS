@@ -183,7 +183,7 @@ public class OfferService {
 
         validateContractType(req.contractTypeId());
         validateApprover(req.approverId());
-        requireHeadcountAvailable(application.jobPostingId());
+        JobPostingSummaryResponse posting = requireHeadcountAvailable(application.jobPostingId());
 
         Offer saved = offerRepository.save(Offer.builder()
                 .applicationId(application.id())
@@ -192,6 +192,9 @@ public class OfferService {
                 .assignedRecruiterId(application.assignedRecruiterId())
                 .candidateId(application.candidateId())
                 .candidateNameSnapshot(application.candidateName())
+                .candidateEmailSnapshot(application.candidateEmail())
+                .candidatePhoneSnapshot(resolveCandidatePhone(application.candidateId()))
+                .jobTitleSnapshot(posting == null ? null : posting.title())
                 .salaryOffered(req.salaryOffered())
                 .contractTypeId(req.contractTypeId())
                 .startDate(req.startDate())
@@ -200,6 +203,7 @@ public class OfferService {
                 .benefits(req.benefits())
                 .allowance(req.allowance())
                 .note(req.note())
+                .candidateVisibleNote(req.candidateVisibleNote())
                 .requesterId(actor.userId())
                 .approverId(req.approverId())
                 .status(OfferStatus.DRAFT)
@@ -230,6 +234,7 @@ public class OfferService {
         offer.setBenefits(req.benefits());
         offer.setAllowance(req.allowance());
         offer.setNote(req.note());
+        offer.setCandidateVisibleNote(req.candidateVisibleNote());
         offer.setApproverId(req.approverId());
 
         offerRepository.save(offer);
@@ -246,6 +251,7 @@ public class OfferService {
             throw new BusinessException("Chỉ gửi duyệt được Offer đang ở trạng thái bản nháp");
         }
         offer.setStatus(OfferStatus.PENDING_APPROVAL);
+        offer.setSubmittedAt(LocalDateTime.now());
         offerRepository.save(offer);
         return getById(id);
     }
@@ -259,6 +265,7 @@ public class OfferService {
             throw new BusinessException("Chỉ phê duyệt được Offer đang chờ duyệt");
         }
         offer.setStatus(OfferStatus.APPROVED);
+        offer.setApprovedAt(LocalDateTime.now());
         offerRepository.save(offer);
 
         Long candidateUserId = resolveCandidateUserId(offer.getCandidateId());
@@ -452,8 +459,8 @@ public class OfferService {
      * Chan tao them offer khi tin tuyen dung da dung het so luong tuyen cua requisition.
      * Offer tao truoc khi co cot job_posting_id mang gia tri null nen khong tinh vao han muc.
      */
-    private void requireHeadcountAvailable(Long jobPostingId) {
-        if (jobPostingId == null) return;
+    private JobPostingSummaryResponse requireHeadcountAvailable(Long jobPostingId) {
+        if (jobPostingId == null) return null;
 
         JobPostingSummaryResponse posting;
         try {
@@ -461,7 +468,7 @@ public class OfferService {
         } catch (Exception e) {
             throw new BusinessException("Không đọc được số lượng tuyển của tin tuyển dụng");
         }
-        if (posting == null || posting.headcount() == null || posting.headcount() <= 0) return;
+        if (posting == null || posting.headcount() == null || posting.headcount() <= 0) return posting;
 
         long issued = offerRepository.countByJobPostingIdAndStatusInAndDeletedAtIsNull(
                 jobPostingId, HEADCOUNT_CONSUMING);
@@ -469,6 +476,16 @@ public class OfferService {
             throw new BusinessException(
                     "Tin tuyển dụng này đã dùng hết " + posting.headcount()
                             + " suất tuyển. Hãy hủy một offer đang xử lý trước khi tạo offer mới.");
+        }
+        return posting;
+    }
+
+    /** Best-effort: thieu so dien thoai khong duoc phep chan viec tao offer. */
+    private String resolveCandidatePhone(Long candidateId) {
+        try {
+            return candidateServiceClient.getCandidateSummary(candidateId).phone();
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -485,6 +502,7 @@ public class OfferService {
                 offer.getId(),
                 offer.getApplicationId(),
                 offer.getCandidateNameSnapshot(),
+                offer.getJobTitleSnapshot(),
                 offer.getSalaryOffered(),
                 offer.getContractTypeId(),
                 contractTypeMap.get(offer.getContractTypeId()),
@@ -493,7 +511,7 @@ public class OfferService {
                 offer.getResponseDeadline(),
                 offer.getBenefits(),
                 offer.getAllowance(),
-                offer.getNote(),
+                offer.getCandidateVisibleNote(),
                 offer.getStatus(),
                 offer.getDeclineReasonId() == null
                         ? null : reasonMap.get(offer.getDeclineReasonId()),
@@ -521,6 +539,9 @@ public class OfferService {
                 o.getId(),
                 o.getApplicationId(),
                 o.getCandidateNameSnapshot() != null ? o.getCandidateNameSnapshot() : "N/A",
+                o.getCandidateEmailSnapshot(),
+                o.getCandidatePhoneSnapshot(),
+                o.getJobTitleSnapshot(),
                 o.getSalaryOffered(),
                 o.getContractTypeId(),
                 contractTypeMap.getOrDefault(o.getContractTypeId(), "N/A"),
@@ -530,6 +551,7 @@ public class OfferService {
                 o.getBenefits(),
                 o.getAllowance(),
                 o.getNote(),
+                o.getCandidateVisibleNote(),
                 o.getRequesterId(),
                 userNameMap.getOrDefault(o.getRequesterId(), "N/A"),
                 o.getApproverId(),
@@ -538,7 +560,9 @@ public class OfferService {
                 o.getRejectReason(),
                 o.getDeclineReasonId() == null ? null : reasonMap.get(o.getDeclineReasonId()),
                 o.getDeclineNote(),
-                o.getCreatedAt()
+                o.getCreatedAt(),
+                o.getSubmittedAt(),
+                o.getApprovedAt()
         );
     }
 }

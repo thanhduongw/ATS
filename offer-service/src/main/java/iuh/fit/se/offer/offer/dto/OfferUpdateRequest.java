@@ -14,5 +14,6 @@ public record OfferUpdateRequest(
         String benefits,
         BigDecimal allowance,
         String note,
+        String candidateVisibleNote,
         @NotNull(message = "Vui lòng chọn người duyệt") Long approverId
 ) {}

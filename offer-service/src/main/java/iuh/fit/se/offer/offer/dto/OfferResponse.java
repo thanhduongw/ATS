@@ -10,6 +10,9 @@ public record OfferResponse(
         Long id,
         Long applicationId,
         String candidateName,
+        String candidateEmail,
+        String candidatePhone,
+        String jobTitle,
         BigDecimal salaryOffered,
         Long contractTypeId,
         String contractTypeName,
@@ -19,6 +22,7 @@ public record OfferResponse(
         String benefits,
         BigDecimal allowance,
         String note,
+        String candidateVisibleNote,
         Long requesterId,
         String requesterName,
         Long approverId,
@@ -27,5 +31,7 @@ public record OfferResponse(
         String rejectReason,
         String declineReasonName,
         String declineNote,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime submittedAt,
+        LocalDateTime approvedAt
 ) {}

@@ -131,7 +131,7 @@ export default function MyApplicationsPage() {
                                     },
                                     {
                                         color: app.currentStageType === "OFFER" || app.currentStageType === "HIRED" ? "green" : "gray",
-                                        children: "Offer & Tuyển dụng",
+                                        children: "Thư mời & Tuyển dụng",
                                     },
                                 ]}
                             />

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { App, Button, Card, Segmented, Space, Steps, Table, Tag, Spin, Empty } from "antd";
 import {
-    ArrowLeftOutlined, FileSearchOutlined, TeamOutlined, CalendarOutlined,
+    FileSearchOutlined, TeamOutlined, CalendarOutlined,
     DollarOutlined, TrophyOutlined, PlusCircleOutlined, SendOutlined, BarChartOutlined,
     EditOutlined, RocketOutlined, StopOutlined,
 } from "@ant-design/icons";
@@ -29,7 +29,8 @@ import { HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import { COLORS } from "../../../app/theme";
 import { useTableScrollY } from "../../../app/useTableScrollY";
-import { useBreadcrumbLabel } from "../../../app/useBreadcrumbLabel";
+import PageHeader from "../../../components/ui/PageHeader";
+import { useTrailNavigate } from "../../../app/useNavTrail";
 
 const RESULT_META: Record<string, { label: string; color: string }> = {
     HIRED: { label: "Đã tuyển", color: "success" },
@@ -44,7 +45,6 @@ function fmtStepTime(v: string) {
 export default function PostingHubPage() {
     const { id } = useParams();
     const jobPostingId = Number(id);
-    const navigate = useNavigate();
     const { message } = App.useApp();
     const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
     const canManage = !!role && HR_ROLES.includes(role);
@@ -53,6 +53,9 @@ export default function PostingHubPage() {
     const [stats, setStats] = useState<PostingStatsResponse | null>(null);
     const [applications, setApplications] = useState<ApplicationResponse[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Ho so mo tu day phai nho duong ve la tin tuyen dung nay, khong phai danh sach ho so.
+    const goToApplication = useTrailNavigate(posting?.title);
     const [actionLoading, setActionLoading] = useState(false);
     const [viewMode, setViewMode] = useState<"list" | "kanban" | "compare">("list");
 
@@ -105,7 +108,6 @@ export default function PostingHubPage() {
     }, [jobPostingId, message]);
 
     useEffect(() => { loadAll(); }, [loadAll]);
-    useBreadcrumbLabel(posting?.title);
 
     const openRequisitionModal = async () => {
         if (!posting) return;
@@ -229,6 +231,7 @@ export default function PostingHubPage() {
         },
         {
             title: "Trạng thái gần nhất",
+            responsive: ["xl"],
             key: "interviewStatus",
             width: 200,
             render: (_, r) => {
@@ -249,6 +252,7 @@ export default function PostingHubPage() {
         },
         {
             title: "Ngày ứng tuyển",
+            responsive: ["lg"],
             dataIndex: "appliedAt",
             key: "appliedAt",
             width: 160,
@@ -258,24 +262,25 @@ export default function PostingHubPage() {
 
     return (
         <div className="page-shell animate-fade-in">
-            <div className="page-header page-shell-fixed" style={{ marginBottom: 14 }}>
-                <Space align="center" wrap>
-                    <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/recruitment")}>Quay lại</Button>
-                    <Tag color={statusMetaValue.color}>{statusMetaValue.label}</Tag>
-                    <span className="page-header-subtitle" style={{ margin: 0 }}>
-                        {employmentTypeMap[posting.employmentTypeId] ?? "—"} · {workLocationMap[posting.workLocationId] ?? "—"}
-                    </span>
-                </Space>
-                <Space wrap>
-                    <Button icon={<FileSearchOutlined />} onClick={openRequisitionModal}>Xem yêu cầu gốc</Button>
-                    {renderActions()}
-                </Space>
-            </div>
+            <PageHeader
+                className="page-shell-fixed"
+                style={{ marginBottom: 14 }}
+                crumb={posting.title}
+                title={posting.title}
+                tags={<Tag color={statusMetaValue.color} style={{ margin: 0 }}>{statusMetaValue.label}</Tag>}
+                subtitle={`${employmentTypeMap[posting.employmentTypeId] ?? "—"} · ${workLocationMap[posting.workLocationId] ?? "—"}`}
+                actions={
+                    <>
+                        <Button icon={<FileSearchOutlined />} onClick={openRequisitionModal}>Xem yêu cầu gốc</Button>
+                        {renderActions()}
+                    </>
+                }
+            />
 
             <StatRow>
                 <StatTile icon={<TeamOutlined />} label="Tổng ứng viên" value={stats?.totalApplications ?? applications.length} accent="#3B82F6" />
                 <StatTile icon={<CalendarOutlined />} label="Đang phỏng vấn" value={stats?.interviewingCount ?? 0} accent="#F59E0B" />
-                <StatTile icon={<DollarOutlined />} label="Đã offer" value={stats?.offerCount ?? 0} accent="#8B5CF6" />
+                <StatTile icon={<DollarOutlined />} label="Đã gửi đề nghị" value={stats?.offerCount ?? 0} accent="#8B5CF6" />
                 <StatTile icon={<TrophyOutlined />} label="Đã tuyển" value={stats?.hiredCount ?? 0} accent={COLORS.success} />
             </StatRow>
 
@@ -309,7 +314,7 @@ export default function PostingHubPage() {
                         onChange={(v) => setViewMode(v as "list" | "kanban" | "compare")}
                         options={[
                             { label: "Danh sách", value: "list" },
-                            { label: "Kanban", value: "kanban" },
+                            { label: "Bảng trạng thái", value: "kanban" },
                             // So sanh la buoc ra quyet dinh offer nen chi HR va admin dung toi.
                             ...(canManage ? [{ label: "So sánh", value: "compare", icon: <BarChartOutlined /> }] : []),
                         ]}
@@ -330,12 +335,14 @@ export default function PostingHubPage() {
                             columns={columns}
                             dataSource={applications}
                             onRow={(record) => ({
-                                onClick: () => navigate(`/candidates/${record.candidateId}/applications/${record.id}`),
+                                onClick: () => goToApplication(`/candidates/${record.candidateId}/applications/${record.id}`),
                                 style: { cursor: "pointer" },
                             })}
                             pagination={{ pageSize: 10, size: "small", showTotal: (t) => `Tổng ${t} ứng viên` }}
                             locale={{
-                                emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có ứng viên nào ứng tuyển vào tin này" />,
+                                emptyText: loading
+                                    ? <span />
+                                    : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có ứng viên nào ứng tuyển vào tin này" />,
                             }}
                         />
                     </div>

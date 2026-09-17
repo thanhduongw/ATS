@@ -12,6 +12,7 @@ import { approveSalaryProposal, getSalaryProposals, submitSalaryProposal } from 
 import type { EvaluationResponse, InterviewResponse } from "../types";
 import type { SalaryProposalResponse } from "../schedulingTypes";
 import { useI18n } from "../../../i18n/useI18n";
+import PageHeader from "../../../components/ui/PageHeader";
 
 const schema = z.object({
   proposedSalary: z.number().min(0, "invalid"),
@@ -73,13 +74,19 @@ export default function InterviewsPage() {
   };
 
   return (
-    <Row gutter={16}>
+    <>
+      <PageHeader
+        crumb={interview?.candidateName}
+        title="Kết quả phỏng vấn"
+        subtitle={interview?.candidateName ? `Ứng viên ${interview.candidateName}` : undefined}
+      />
+      <Row gutter={16}>
       <Col xs={24} lg={14}>
         <Card title={t("result.evaluations")}>
           <Descriptions size="small" column={2} style={{ marginBottom: 16 }}
             items={[
-              { key: "c", label: "Candidate", children: interview?.candidateName },
-              { key: "s", label: "Status", children: <Tag>{interview?.status}</Tag> },
+              { key: "c", label: "Ứng viên", children: interview?.candidateName },
+              { key: "s", label: "Trạng thái", children: <Tag>{interview?.status}</Tag> },
             ]} />
 
           {/* [FIX 2] Thay thế <List> (đã deprecated) bằng Flex và Card */}
@@ -167,6 +174,7 @@ export default function InterviewsPage() {
           </Card>
         )}
       </Col>
-    </Row>
+      </Row>
+    </>
   );
 }

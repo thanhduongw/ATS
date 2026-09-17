@@ -26,7 +26,7 @@ public class RejectionReasonController {
     @PostMapping
     public ResponseEntity<RejectionReasonResponse> create(
             @Valid @RequestBody RejectionReasonRequest req) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.create(req));
     }
 
@@ -34,14 +34,14 @@ public class RejectionReasonController {
     public ResponseEntity<RejectionReasonResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody RejectionReasonRequest req) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.update(id, req));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(
             @PathVariable Long id) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         service.softDelete(id);
         return ResponseEntity.ok(Map.of("message", "Xóa thành công"));
     }

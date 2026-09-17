@@ -16,20 +16,21 @@ import DashboardPage from "../features/dashboard/pages/DashboardPage";
 import MasterDataPage from "../features/masterdata/pages/MasterDataPage";
 import RecruitmentPage from "../features/recruitment/pages/RecruitmentPage";
 import PostingHubPage from "../features/recruitment/pages/PostingHubPage";
-import CandidatesPage from "../features/candidate/pages/CandidatesPage";
 import CandidateApplicationDetailPage from "../features/candidate/pages/CandidateApplicationDetailPage";
 import ApplicationsPage from "../features/candidate/pages/ApplicationsPage";
 import CandidateProfilePage from "../features/candidate/pages/CandidateProfilePage";
 import JobsPage from "../features/candidate/pages/JobsPage";
 import MyApplicationsPage from "../features/candidate/pages/MyApplicationsPage";
 import InterviewCalendar from "../features/interview/components/InterviewCalendar";
+import EvaluationsPage from "../features/interview/pages/EvaluationsPage";
 import InterviewsPage from "../features/interview/pages/InterviewsPage";
 import EvaluationFormPage from "../features/interview/pages/EvaluationFormPage";
-import InterviewSchedulingPage from "../features/interview/pages/InterviewSchedulingPage";
 import CandidateInterviewsPage from "../features/interview/pages/CandidateInterviewsPage";
 import OffersPage from "../features/offer/pages/OffersPage";
 import CandidateOffersPage from "../features/offer/pages/CandidateOffersPage";
 import CandidateComparisonPage from "../features/offer/pages/CandidateComparisonPage";
+import OfferCreatePage from "../features/offer/pages/OfferCreatePage";
+import OfferDetailPage from "../features/offer/pages/OfferDetailPage";
 import OfferCandidateViewPage from "../features/offer/pages/OfferCandidateViewPage";
 import AuditLogPage from "../features/auditlog/pages/AuditLogPage";
 import NotificationsPage from "../features/notification/pages/NotificationsPage";
@@ -63,24 +64,34 @@ export default function AppRoutes() {
                 <Route element={<RoleRoute allow={[...INTERNAL_ROLES]} />}>
                     <Route path="/dashboard" element={<DashboardPage />} />
                     <Route path="/recruitment" element={<RecruitmentPage />} />
+                    <Route path="/recruitment/requisitions" element={<RecruitmentPage />} />
+                    <Route path="/recruitment/postings" element={<RecruitmentPage />} />
                     <Route path="/recruitment/postings/:id" element={<PostingHubPage />} />
-                    <Route path="/candidates" element={<CandidatesPage />} />
                     <Route path="/candidates/:candidateId/applications/:applicationId" element={<CandidateApplicationDetailPage />} />
                     <Route path="/candidates/:candidateId/applications/:applicationId/evaluate" element={<EvaluationFormPage />} />
                     <Route path="/applications" element={<ApplicationsPage />} />
-                    <Route path="/scheduling" element={<InterviewSchedulingPage />} />
                     <Route path="/interviews" element={<InterviewCalendar />} />
+                    <Route path="/evaluations" element={<EvaluationsPage />} />
                     <Route path="/interviews/:interviewId/result" element={<InterviewsPage />} />
                     <Route path="/offers" element={<OffersPage />} />
                 </Route>
 
-                {/* So sanh ung vien la buoc ra quyet dinh offer — chi HR va admin dung. */}
+                {/* Tao va so sanh la thao tac cua HR; chi tiet offer thi moi role noi bo deu xem duoc. */}
                 <Route element={<RoleRoute allow={["COMPANY_ADMIN", "RECRUITER"]} />}>
                     <Route path="/offers/compare" element={<CandidateComparisonPage />} />
+                    <Route path="/offers/create" element={<OfferCreatePage />} />
+                    <Route path="/offers/:id/edit" element={<OfferCreatePage />} />
+                </Route>
+
+                <Route element={<RoleRoute allow={[...INTERNAL_ROLES]} />}>
+                    <Route path="/offers/:id" element={<OfferDetailPage />} />
+                </Route>
+
+                <Route element={<RoleRoute allow={["COMPANY_ADMIN", "RECRUITER"]} />}>
+                    <Route path="/masterdata" element={<MasterDataPage />} />
                 </Route>
 
                 <Route element={<RoleRoute allow={["COMPANY_ADMIN"]} />}>
-                    <Route path="/masterdata" element={<MasterDataPage />} />
                     <Route path="/admin/users" element={<AuthManagementPage initialTab="users" />} />
                     <Route path="/audit-logs" element={<AuditLogPage />} />
                 </Route>

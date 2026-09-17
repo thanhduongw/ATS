@@ -23,7 +23,11 @@ export const offerCreateSchema = z.object({
     .optional()
     .nullable(),
 
+  /** Ghi chú nội bộ — ứng viên không bao giờ đọc được. */
   note: z.string().optional().nullable(),
+
+  /** Ghi chú in trên thư mời gửi ứng viên. */
+  candidateVisibleNote: z.string().optional().nullable(),
 
   approverId: z.number({
     error: "Vui lòng chọn người duyệt",

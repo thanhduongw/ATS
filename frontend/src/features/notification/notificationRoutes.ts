@@ -19,8 +19,8 @@ export function resolveNotificationPath(
     switch (type) {
         case "REQUISITION":
             return id != null
-                ? `/recruitment?tab=requisition&highlightId=${id}`
-                : "/recruitment";
+                ? `/recruitment/requisitions?highlightId=${id}`
+                : "/recruitment/requisitions";
 
         case "APPLICATION":
             if (isCandidate) {
@@ -35,8 +35,8 @@ export function resolveNotificationPath(
         case "INTERVIEW":
             if (isCandidate) {
                 return id != null
-                    ? `/scheduling?highlightId=${id}`
-                    : "/scheduling";
+                    ? `/my-interviews?highlightId=${id}`
+                    : "/my-interviews";
             }
             return id != null
                 ? `/interviews?highlightId=${id}`
@@ -62,8 +62,8 @@ export function resolveNotificationPath(
             if (t.includes("INTERVIEW")) {
                 if (isCandidate) {
                     return id != null
-                        ? `/scheduling?highlightId=${id}`
-                        : "/scheduling";
+                        ? `/my-interviews?highlightId=${id}`
+                        : "/my-interviews";
                 }
                 return id != null
                     ? `/interviews?highlightId=${id}`
@@ -73,7 +73,7 @@ export function resolveNotificationPath(
                 return isCandidate ? "/my-applications" : "/applications";
             }
             if (t.includes("REQUISITION")) {
-                return "/recruitment";
+                return "/recruitment/requisitions";
             }
             return "/notifications";
         }

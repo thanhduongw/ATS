@@ -33,6 +33,8 @@ import {
 } from "@ant-design/icons";
 import { saveAs } from "file-saver";
 import { getDashboardSummary, getDashboardReportPdf } from "../dashboardApi";
+import WorkQueueCard from "../components/WorkQueueCard";
+import DashboardScopeNote from "../components/DashboardScopeNote";
 import type { DashboardSummaryResponse } from "../types";
 import { COLORS, RADIUS } from "../../../app/theme";
 import StatTile from "../../../components/ui/StatTile";
@@ -125,7 +127,7 @@ const PIE_COLORS = [
 export default function DashboardPage() {
     const { message } = App.useApp();
     const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
     const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
     // const user = useAppSelector((s) => s.auth.user);
@@ -188,7 +190,7 @@ export default function DashboardPage() {
             { key: "postings", label: "Tin tuyển dụng", value: summary.funnel.postings },
             { key: "applications", label: "Hồ sơ ứng tuyển", value: summary.funnel.applications },
             { key: "interviews", label: "Phỏng vấn", value: summary.funnel.interviews },
-            { key: "offers", label: "Offer", value: summary.funnel.offers },
+            { key: "offers", label: "Đề nghị nhận việc", value: summary.funnel.offers },
             { key: "hired", label: "Đã tuyển", value: summary.funnel.hired },
         ]
         : [];
@@ -211,6 +213,9 @@ export default function DashboardPage() {
 
     return (
         <div className="page-container animate-fade-in">
+            <WorkQueueCard />
+            <DashboardScopeNote />
+
             {/* Filter theo thời gian + xuất báo cáo */}
             <div
                 style={{
@@ -669,7 +674,7 @@ export default function DashboardPage() {
                                     icon={<SolutionOutlined />}
                                     label="Yêu cầu tuyển dụng"
                                     color={COLORS.primary}
-                                    onClick={() => navigate("/recruitment")}
+                                    onClick={() => navigate("/recruitment/requisitions")}
                                 />
                             </Col>
                             <Col span={12}>
@@ -691,7 +696,7 @@ export default function DashboardPage() {
                             <Col span={12}>
                                 <QuickAction
                                     icon={<FileTextOutlined />}
-                                    label="Quản lý Offer"
+                                    label="Quản lý đề nghị nhận việc"
                                     color="#F59E0B"
                                     onClick={() => navigate("/offers")}
                                 />

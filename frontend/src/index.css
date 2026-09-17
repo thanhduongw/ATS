@@ -854,6 +854,22 @@ h6 {
   white-space: nowrap;
 }
 
+/* Ô trong bảng có dòng phụ: dòng phụ luôn chiếm đủ chỗ kể cả khi trống, để mọi hàng
+   trong cùng một bảng cao bằng nhau thay vì so le theo dữ liệu. */
+.cell-stack {
+  min-width: 0;
+}
+
+.cell-stack-sub {
+  font-size: 12px;
+  line-height: 18px;
+  min-height: 18px;
+  color: #9CA3AF;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Responsive ────────────────────────────────────────── */
 @media (max-width: 768px) {
   .auth-page {

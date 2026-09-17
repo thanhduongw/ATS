@@ -41,7 +41,7 @@ export default function OfferDeclineModal({ open, offerId, onClose, onSuccess }:
     if (!offerId) return;
     try {
       await declineOffer(offerId, data);
-      message.success("Đã ghi nhận Ứng viên Từ chối Offer");
+      message.success("Đã ghi nhận ứng viên từ chối");
       onSuccess();
       onClose();
     } catch (err) {
@@ -55,7 +55,7 @@ export default function OfferDeclineModal({ open, offerId, onClose, onSuccess }:
       title={
         <ModalTitle
           icon={<StopOutlined />}
-          title="Ứng viên từ chối Offer"
+          title="Ứng viên từ chối đề nghị nhận việc"
           subtitle="Ghi nhận lý do để phục vụ báo cáo tuyển dụng"
           accent={COLORS.warning}
         />

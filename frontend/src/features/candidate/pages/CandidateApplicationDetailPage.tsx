@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
     App, Card, Row, Col, Tag, Button, Space, Spin, Avatar, Timeline, Popconfirm, Tabs,
 } from "antd";
 import {
-    ArrowLeftOutlined, CalendarOutlined, DollarOutlined, CommentOutlined, SwapOutlined,
+    CalendarOutlined, DollarOutlined, CommentOutlined, SwapOutlined,
     DownloadOutlined, ExpandOutlined, RobotOutlined, CheckCircleOutlined, CloseCircleOutlined,
     FileUnknownOutlined, MailOutlined, PhoneOutlined, EnvironmentOutlined,
     VideoCameraOutlined, LinkOutlined, TeamOutlined, ClockCircleOutlined, StopOutlined,
@@ -23,12 +23,12 @@ import type {
 } from "../types";
 import RejectApplicationModal from "../components/RejectApplicationModal";
 import InterviewQuickCreateModal from "../../interview/components/InterviewQuickCreateModal";
-import OfferCreateModal from "../../offer/components/OfferCreateModal";
 import { getInterviews, cancelInterview } from "../../interview/interviewApi";
 import type { InterviewResponse } from "../../interview/types";
 import ApplicationEvaluationPanel from "../components/ApplicationEvaluationPanel";
 import { COLORS, SHADOWS } from "../../../app/theme";
-import { stageTypeTagColor, INTERVIEW_STATUS, statusMeta } from "../../../app/statusLabels";
+import { PageBreadcrumb } from "../../../components/ui/PageHeader";
+import { stageTypeTagColor, genderLabel, INTERVIEW_STATUS, statusMeta } from "../../../app/statusLabels";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
@@ -138,9 +138,31 @@ function ProcessTimeline({ stages, currentStageId, rejected, stageDates }: {
     );
 }
 
+/**
+ * Moi giai doan co mot viec dang can lam, va viec do nam o mot tab. Mo san dung tab do
+ * de HR khong phai nho "danh gia nam o tab nao".
+ */
+function relevantTabFor(stageType: string): string {
+    if (stageType.includes("INTERVIEW")) return "interview";
+    if (stageType === "OFFER" || stageType === "HIRED") return "overview";
+    if (stageType === "REJECTED") return "activity";
+    // APPLIED, CV_SCREENING, HR_SCREENING và các vòng tùy biến khác: việc đầu tiên là đọc CV.
+    return "resume";
+}
+
+const TAB_KEYS = ["overview", "resume", "interview", "evaluation", "activity"];
+
+const TAB_HINT: Record<string, string> = {
+    resume: "Cần xem CV",
+    interview: "Đang phỏng vấn",
+    overview: "Đang chờ đề nghị",
+    activity: "Đã kết thúc",
+};
+
 export default function CandidateApplicationDetailPage() {
     const { applicationId: applicationIdParam } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { message } = App.useApp();
     const role = useAppSelector((s) => s.auth.user?.role);
     const isHr = !!role && HR_ROLES.includes(role);
@@ -159,7 +181,6 @@ export default function CandidateApplicationDetailPage() {
     const [cancelingInterviewId, setCancelingInterviewId] = useState<number | null>(null);
 
     const [interviewModalOpen, setInterviewModalOpen] = useState(false);
-    const [offerModalOpen, setOfferModalOpen] = useState(false);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
 
     const applicationId = Number(applicationIdParam);
@@ -236,7 +257,8 @@ export default function CandidateApplicationDetailPage() {
         }
     };
 
-    if (loading && !application) {
+    // Con thieu bat ky manh du lieu nao ma van dang tai thi quay vong, chua ket luan gi.
+    if (loading && (!application || !candidate)) {
         return (
             <div className="page-container" style={{ display: "flex", justifyContent: "center", padding: 80 }}>
                 <Spin size="large" />
@@ -244,6 +266,7 @@ export default function CandidateApplicationDetailPage() {
         );
     }
 
+    // Tai xong that su ma van thieu thi moi la khong tim thay.
     if (!application || !candidate) {
         return (
             <div className="page-container">
@@ -254,6 +277,24 @@ export default function CandidateApplicationDetailPage() {
 
     const isRejected = application.currentStageType === "REJECTED";
     const isHired = application.currentStageType === "HIRED";
+
+    // Tab mo san theo giai doan, kem nhan nho de biet viec dang can lam nam o dau.
+    // Nhan goi y bam theo giai doan ho so; con tab mo san thi ?tab= duoc quyen thang.
+    const stageTabKey = relevantTabFor(application.currentStageType);
+    const requestedTab = searchParams.get("tab");
+    const activeTabKey = requestedTab && TAB_KEYS.includes(requestedTab)
+        ? requestedTab
+        : stageTabKey;
+    const tabLabel = (key: string, text: string) => (
+        key === stageTabKey && TAB_HINT[key] ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {text}
+                <Tag color="processing" style={{ margin: 0, fontSize: 11, lineHeight: "16px" }}>
+                    {TAB_HINT[key]}
+                </Tag>
+            </span>
+        ) : text
+    );
 
     const mainStages = stages.filter((s) => s.stageType !== "REJECTED");
     const currentStageIndex = mainStages.findIndex((s) => s.id === application.currentStageId);
@@ -327,7 +368,7 @@ export default function CandidateApplicationDetailPage() {
                         <Field label="Vị trí hiện tại" value={candidate.currentPosition} />
                     </Col>
                     <Col xs={24} md={12}>
-                        <Field label="Giới tính" value={candidate.gender} />
+                        <Field label="Giới tính" value={genderLabel(candidate.gender)} />
                         <Field label="Học vấn" value={candidate.educationLevelName} />
                     </Col>
                 </Row>
@@ -542,16 +583,8 @@ export default function CandidateApplicationDetailPage() {
 
     return (
         <div className="page-container animate-fade-in" style={{ maxWidth: 1280 }}>
-            {/* Link quay lai dat rieng mot dong, khong chiem cho trong hang dinh danh. */}
-            <Button
-                type="text"
-                size="small"
-                icon={<ArrowLeftOutlined />}
-                onClick={() => navigate(-1)}
-                style={{ paddingLeft: 0, marginBottom: 8, color: COLORS.textSecondary }}
-            >
-                Quay lại
-            </Button>
+            {/* Thẻ định danh bên dưới đã là tiêu đề trang, nên ở đây chỉ cần dải phân cấp. */}
+            <PageBreadcrumb crumb={candidate.fullName} />
 
             {/* ── Thẻ định danh ứng viên ───────────────────── */}
             <Card
@@ -620,7 +653,7 @@ export default function CandidateApplicationDetailPage() {
                                     <Button
                                         icon={<DollarOutlined />}
                                         style={{ background: "#722ED1", color: "#fff", borderColor: "#722ED1" }}
-                                        onClick={() => setOfferModalOpen(true)}
+                                        onClick={() => navigate(`/offers/create?applicationId=${application.id}`)}
                                     >
                                         Tạo đề nghị nhận việc
                                     </Button>
@@ -640,15 +673,15 @@ export default function CandidateApplicationDetailPage() {
                 styles={{ body: { padding: "8px 28px 28px" } }}
             >
                 <Tabs
-                    defaultActiveKey="overview"
+                    defaultActiveKey={activeTabKey}
                     size="large"
                     items={[
-                        { key: "overview", label: "Tổng quan", children: overviewTab },
-                        { key: "resume", label: "Hồ sơ", children: resumeTab },
-                        { key: "interview", label: "Phỏng vấn", children: interviewTab },
+                        { key: "overview", label: tabLabel("overview", "Tổng quan"), children: overviewTab },
+                        { key: "resume", label: tabLabel("resume", "Hồ sơ"), children: resumeTab },
+                        { key: "interview", label: tabLabel("interview", "Phỏng vấn"), children: interviewTab },
                         {
                             key: "evaluation",
-                            label: "Đánh giá",
+                            label: tabLabel("evaluation", "Đánh giá"),
                             children: (
                                 <ApplicationEvaluationPanel
                                     candidateId={application.candidateId}
@@ -660,7 +693,7 @@ export default function CandidateApplicationDetailPage() {
                                 />
                             ),
                         },
-                        { key: "activity", label: "Hoạt động", children: activityTab },
+                        { key: "activity", label: tabLabel("activity", "Hoạt động"), children: activityTab },
                     ]}
                 />
             </Card>
@@ -670,12 +703,6 @@ export default function CandidateApplicationDetailPage() {
                 lockedApplicationId={application.id}
                 onClose={() => setInterviewModalOpen(false)}
                 onSuccess={() => { setInterviewModalOpen(false); loadAll(); }}
-            />
-            <OfferCreateModal
-                open={offerModalOpen}
-                defaultApplicationId={application.id}
-                onClose={() => setOfferModalOpen(false)}
-                onSuccess={() => setOfferModalOpen(false)}
             />
             <RejectApplicationModal
                 open={rejectModalOpen}

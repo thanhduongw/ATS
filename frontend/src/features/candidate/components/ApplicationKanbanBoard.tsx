@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Typography, Tag, Empty, Spin, message, Tooltip } from "antd";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { CalendarOutlined, UserOutlined, InboxOutlined } from "@ant-design/icons";
@@ -10,6 +9,7 @@ import { getPipelines } from "../../masterdata/masterdataApi";
 import type { PipelineStageResponse } from "../../masterdata/types";
 import type { ApiMessageResponse, ApplicationResponse } from "../types";
 import RejectApplicationModal from "./RejectApplicationModal";
+import { useTrailNavigate } from "../../../app/useNavTrail";
 import dayjs from "dayjs";
 
 const { Text } = Typography;
@@ -42,10 +42,10 @@ function getInitials(name: string) {
 }
 
 export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
-    const navigate = useNavigate();
+    const openApplication = useTrailNavigate();
     const [stages, setStages] = useState<PipelineStageResponse[]>([]);
     const [applications, setApplications] = useState<ApplicationResponse[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [draggingOver, setDraggingOver] = useState<string | null>(null);
 
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -180,7 +180,7 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
                                                                     ...dragProvided.draggableProps.style,
                                                                 }}
                                                                 onClick={() => {
-                                                                    navigate(`/candidates/${app.candidateId}/applications/${app.id}`);
+                                                                    openApplication(`/candidates/${app.candidateId}/applications/${app.id}`);
                                                                 }}
                                                             >
                                                                 {/* Card Header: avatar + name */}

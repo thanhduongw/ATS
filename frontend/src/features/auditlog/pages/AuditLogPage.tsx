@@ -67,7 +67,7 @@ export default function AuditLogPage() {
     const navigate = useNavigate();
     const [logs, setLogs] = useState<AuditLogResponse[]>([]);
     const [users, setUsers] = useState<UserSummaryResponse[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     const [resourceType, setResourceType] = useState<string | undefined>();
     const [actorUserId, setActorUserId] = useState<number | undefined>();
@@ -125,6 +125,7 @@ export default function AuditLogPage() {
         },
         {
             title: "Người thực hiện",
+            responsive: ["lg"],
             dataIndex: "actorName",
             key: "actorName",
             width: 160,
@@ -143,6 +144,7 @@ export default function AuditLogPage() {
         },
         {
             title: "Đối tượng",
+            responsive: ["xl"],
             dataIndex: "resourceType",
             key: "resourceType",
             width: 150,
@@ -151,6 +153,7 @@ export default function AuditLogPage() {
         },
         {
             title: "ID",
+            responsive: ["xl"],
             dataIndex: "resourceId",
             key: "resourceId",
             width: 90,

@@ -33,7 +33,7 @@ public class PipelineController {
     @PostMapping
     public ResponseEntity<PipelineResponse> create(
             @Valid @RequestBody PipelineRequest req) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.create(req));
     }
 
@@ -41,14 +41,14 @@ public class PipelineController {
     public ResponseEntity<PipelineResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody PipelineRequest req) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.update(id, req));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(
             @PathVariable Long id) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         service.softDelete(id);
         return ResponseEntity.ok(Map.of("message", "Xóa quy trình thành công"));
     }

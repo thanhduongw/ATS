@@ -39,6 +39,16 @@ public class Offer {
     @Column(name = "candidate_name_snapshot")
     private String candidateNameSnapshot;
 
+    /** Snapshot lien he va vi tri de danh sach offer khong phai goi cheo service. */
+    @Column(name = "candidate_email_snapshot")
+    private String candidateEmailSnapshot;
+
+    @Column(name = "candidate_phone_snapshot")
+    private String candidatePhoneSnapshot;
+
+    @Column(name = "job_title_snapshot")
+    private String jobTitleSnapshot;
+
     @Column(name = "salary_offered", nullable = false)
     private BigDecimal salaryOffered;
 
@@ -59,8 +69,13 @@ public class Offer {
 
     private BigDecimal allowance;
 
+    /** Ghi chu noi bo: chi HR va COMPANY_ADMIN doc duoc, khong bao gio gui cho ung vien. */
     @Column(columnDefinition = "TEXT")
     private String note;
+
+    /** Ghi chu in tren thu moi nhan viec — day la phan duy nhat ung vien doc duoc. */
+    @Column(name = "candidate_visible_note", columnDefinition = "TEXT")
+    private String candidateVisibleNote;
 
     @Column(name = "requester_id", nullable = false)
     private Long requesterId;
@@ -80,6 +95,13 @@ public class Offer {
 
     @Column(name = "decline_note")
     private String declineNote;
+
+    /** Moc gui duyet va moc duyet — hien tren the "Thong tin phe duyet" cua chi tiet offer. */
+    @Column(name = "submitted_at")
+    private LocalDateTime submittedAt;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

@@ -47,12 +47,12 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
     INTERVIEW_CONFIRMED: "Xác nhận lịch PV",
     INTERVIEW_CANCELLED: "Hủy lịch PV",
     EVALUATION_SUBMITTED: "Nộp đánh giá PV",
-    OFFER_CREATED: "Tạo offer",
-    OFFER_SUBMITTED: "Gửi duyệt offer",
-    OFFER_APPROVED: "Duyệt offer",
-    OFFER_REJECTED: "Từ chối duyệt offer",
-    OFFER_ACCEPTED: "Ứng viên nhận offer",
-    OFFER_DECLINED: "Ứng viên từ chối offer",
+    OFFER_CREATED: "Tạo đề nghị nhận việc",
+    OFFER_SUBMITTED: "Gửi duyệt đề nghị",
+    OFFER_APPROVED: "Duyệt đề nghị",
+    OFFER_REJECTED: "Từ chối duyệt đề nghị",
+    OFFER_ACCEPTED: "Ứng viên nhận đề nghị",
+    OFFER_DECLINED: "Ứng viên từ chối đề nghị",
 };
 
 export const AUDIT_ACTION_COLOR: Record<string, string> = {
@@ -76,7 +76,7 @@ export const RESOURCE_TYPE_LABEL: Record<string, string> = {
     JOB_POSTING: "Tin tuyển dụng",
     APPLICATION: "Hồ sơ ứng tuyển",
     INTERVIEW: "Phỏng vấn",
-    OFFER: "Offer",
+    OFFER: "Đề nghị nhận việc",
     CANDIDATE: "Ứng viên",
     USER: "Người dùng",
 };
@@ -88,11 +88,26 @@ export const STAGE_TYPE_LABEL: Record<string, string> = {
     TECHNICAL_INTERVIEW: "Phỏng vấn kỹ thuật",
     HR_INTERVIEW: "Phỏng vấn HR",
     FINAL_INTERVIEW: "Phỏng vấn vòng cuối",
-    OFFER: "Đề nghị offer",
+    OFFER: "Đề nghị nhận việc",
     HIRED: "Đã tuyển",
     REJECTED: "Từ chối",
     CUSTOM: "Tùy chỉnh",
 };
+
+export const GENDER_LABEL: Record<string, string> = {
+    MALE: "Nam",
+    FEMALE: "Nữ",
+    OTHER: "Khác",
+};
+
+/**
+ * Giới tính lưu dưới dạng chuỗi tự do nên có thể gặp giá trị ngoài danh sách hoặc khác hoa
+ * thường; khi đó trả lại đúng giá trị gốc thay vì để trống.
+ */
+export function genderLabel(gender?: string | null): string {
+    if (!gender) return "";
+    return GENDER_LABEL[gender.trim().toUpperCase()] ?? gender;
+}
 
 export function statusMeta(
     map: Record<string, StatusMeta>,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   Calendar,
   Card,
@@ -53,6 +53,7 @@ import InterviewTimeGrid from "./InterviewTimeGrid";
 import { COLORS } from "../../../app/theme";
 import { interviewStatusMeta, INTERVIEW_STATUS_ORDER } from "../interviewStatus";
 import { useAppSelector } from "../../../app/hooks";
+import { useTrailNavigate } from "../../../app/useNavTrail";
 import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
 import StatTile from "../../../components/ui/StatTile";
@@ -66,15 +67,17 @@ type QuickFilter = "pendingConfirm" | "needEvaluation" | null;
 
 export default function InterviewCalendar() {
   const { message } = App.useApp();
-  const navigate = useNavigate();
+  const openApplication = useTrailNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
   const isHr = !!role && HR_ROLES.includes(role);
 
-  const [viewMode, setViewMode] = useState<ViewMode>("week");
+  // Mo len la danh sach: HR can thay ngay buoi nao sap toi va buoi nao can xu ly,
+  // xem theo lich la nhu cau thu hai.
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [anchorDate, setAnchorDate] = useState<Dayjs>(dayjs());
   const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   /** Buoi phong van dang mo bang tong hop danh gia (null = dong). */
   const [evaluationFor, setEvaluationFor] = useState<number | null>(null);
@@ -239,7 +242,7 @@ export default function InterviewCalendar() {
             style={{ padding: 0, height: "auto", fontWeight: 500 }}
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/candidates/${r.candidateId}/applications/${r.applicationId}`);
+              openApplication(`/candidates/${r.candidateId}/applications/${r.applicationId}`);
             }}
           >
             {name}
@@ -270,6 +273,7 @@ export default function InterviewCalendar() {
     },
     {
       title: "Hình thức / Địa điểm",
+      responsive: ["xl"],
       key: "format",
       width: 190,
       ellipsis: true,
@@ -292,6 +296,7 @@ export default function InterviewCalendar() {
     },
     {
       title: "Người phỏng vấn",
+      responsive: ["lg"],
       key: "interviewers",
       width: 220,
       ellipsis: true,
@@ -527,7 +532,7 @@ export default function InterviewCalendar() {
               })}
               pagination={{ pageSize: 20, ...listPagination("buổi phỏng vấn") }}
               locale={{
-                emptyText: (
+                emptyText: loading ? <span /> : (
                   <EmptyState
                     title="Chưa có lịch phỏng vấn nào"
                     description="Lịch phỏng vấn phù hợp với bộ lọc sẽ hiển thị ở đây."

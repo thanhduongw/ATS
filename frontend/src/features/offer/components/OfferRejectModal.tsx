@@ -34,7 +34,7 @@ export default function OfferRejectModal({ open, offerId, onClose, onSuccess }: 
     if (!offerId) return;
     try {
       await rejectOffer(offerId, data);
-      message.success("Đã từ chối phê duyệt Offer");
+      message.success("Đã từ chối phê duyệt đề nghị");
       onSuccess();
       onClose();
     } catch (err) {
@@ -48,7 +48,7 @@ export default function OfferRejectModal({ open, offerId, onClose, onSuccess }: 
       title={
         <ModalTitle
           icon={<CloseCircleOutlined />}
-          title="Từ chối phê duyệt Offer"
+          title="Từ chối phê duyệt đề nghị nhận việc"
           subtitle="Nêu rõ lý do để HR điều chỉnh và gửi duyệt lại"
           accent={COLORS.error}
         />

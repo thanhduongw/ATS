@@ -34,7 +34,7 @@ interface CatalogPanelProps {
 
 export default function CatalogPanel({ config }: CatalogPanelProps) {
     const [items, setItems] = useState<CatalogItem[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
     const [form] = Form.useForm();
@@ -174,7 +174,7 @@ export default function CatalogPanel({ config }: CatalogPanelProps) {
                 dataSource={items}
                 pagination={{ pageSize: 10, ...listPagination("mục") }}
                 locale={{
-                    emptyText: (
+                    emptyText: loading ? <span /> : (
                         <EmptyState
                             title={`Chưa có ${config.title.toLowerCase()} nào`}
                             description="Nhấn “Thêm mới” để tạo mục đầu tiên cho danh mục này."

@@ -37,12 +37,15 @@ export default function ApplicationCreateModal({
   const [candidates, setCandidates] = useState<CandidateResponse[]>([]);
   const [postings, setPostings] = useState<JobPostingResponse[]>([]);
   const [sources, setSources] = useState<CatalogItem[]>([]);
+  const [departments, setDepartments] = useState<CatalogItem[]>([]);
+  const [departmentId, setDepartmentId] = useState<number | undefined>();
   const [recruiters, setRecruiters] = useState<UserDirectoryResponse[]>([]);
 
   const {
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ApplicationCreateFormValues>({ resolver: zodResolver(applicationCreateSchema) });
 
@@ -50,14 +53,23 @@ export default function ApplicationCreateModal({
     if (!open) return;
     Promise.all([
       getCandidates(),
-      getPostings(),
+      getPostings({ size: 1000 }),
       getCatalogItems("/masterdata/recruitment-sources"),
       getUserDirectory("RECRUITER"),
-    ]).then(([candRes, postRes, srcRes, recRes]) => {
+      getCatalogItems("/masterdata/departments"),
+    ]).then(([candRes, postRes, srcRes, recRes, deptRes]) => {
       setCandidates(candRes.data.content);
-      setPostings(postRes.data.content.filter((p) => p.status === "OPEN"));
+      const openPostings = postRes.data.content.filter((p) => p.status === "OPEN");
+      setPostings(openPostings);
       setSources(srcRes.data);
       setRecruiters(recRes.data);
+      setDepartments(deptRes.data);
+      // Mo tu mot tin cu the thi phong ban suy ra duoc, khoi bat chon lai.
+      setDepartmentId(
+        presetJobPostingId
+          ? openPostings.find((p) => p.id === presetJobPostingId)?.departmentId ?? undefined
+          : undefined,
+      );
     });
     reset({
       candidateId: presetCandidateId,
@@ -118,6 +130,23 @@ export default function ApplicationCreateModal({
           />
         </Form.Item>
 
+        <Form.Item label="Phòng ban">
+          <Select
+            showSearch
+            allowClear
+            optionFilterProp="label"
+            disabled={!!presetJobPostingId}
+            value={departmentId}
+            onChange={(v) => {
+              setDepartmentId(v);
+              // Tin dang chon co the thuoc phong ban khac nen phai bo di.
+              setValue("jobPostingId", undefined as unknown as number);
+            }}
+            placeholder="Chọn phòng ban"
+            options={departments.map((d) => ({ value: d.id, label: String(d.name) }))}
+          />
+        </Form.Item>
+
         <Form.Item
           label="Tin tuyển dụng"
           validateStatus={errors.jobPostingId ? "error" : ""}
@@ -129,9 +158,14 @@ export default function ApplicationCreateModal({
             render={({ field }) => (
               <Select
                 {...field}
-                disabled={!!presetJobPostingId}
-                options={postings.map((p) => ({ value: p.id, label: p.title }))}
-                placeholder="Chỉ hiện tin đang mở"
+                showSearch
+                optionFilterProp="label"
+                disabled={!!presetJobPostingId || departmentId == null}
+                options={postings
+                  .filter((p) => p.departmentId === departmentId)
+                  .map((p) => ({ value: p.id, label: p.title }))}
+                notFoundContent="Phòng ban này chưa có tin đang mở"
+                placeholder={departmentId == null ? "Chọn phòng ban trước" : "Chỉ hiện tin đang mở"}
               />
             )}
           />

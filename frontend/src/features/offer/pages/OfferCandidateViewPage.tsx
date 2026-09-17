@@ -6,6 +6,7 @@ import {
     Row,
     Col,
     Modal,
+    Popconfirm,
     Select,
     Input,
     Result,
@@ -31,6 +32,7 @@ import {
 import type { ApiMessageResponse, CandidateOfferResponse } from "../types";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
+import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -70,7 +72,7 @@ export default function OfferCandidateViewPage() {
             const e = err as AxiosError<ApiMessageResponse>;
             if (e.response?.status === 403) setForbidden(true);
             else if (e.response?.status === 404) setNotFound(true);
-            else msg.error(e.response?.data?.message ?? "Không tải được Offer");
+            else msg.error(e.response?.data?.message ?? "Không tải được thư mời nhận việc");
         } finally {
             setLoading(false);
         }
@@ -143,7 +145,7 @@ export default function OfferCandidateViewPage() {
             <Result
                 status="403"
                 title="Không có quyền"
-                subTitle="Đây không phải Offer của bạn."
+                subTitle="Đây không phải thư mời của bạn."
             />
         );
     }
@@ -153,7 +155,7 @@ export default function OfferCandidateViewPage() {
             <Result
                 status="404"
                 title="Không tìm thấy"
-                subTitle="Offer không tồn tại hoặc đã bị xóa."
+                subTitle="Thư mời không tồn tại hoặc đã bị xóa."
             />
         );
     }
@@ -166,6 +168,7 @@ export default function OfferCandidateViewPage() {
     return (
         <div className="page-container animate-fade-in">
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
+                <PageBreadcrumb crumb={offer.jobTitle ?? "Thư mời nhận việc"} />
                 <Card
                     style={{
                         borderRadius: 16,
@@ -245,10 +248,12 @@ export default function OfferCandidateViewPage() {
                                     </Paragraph>
                                 </Col>
                             )}
-                            {offer.note && (
+                            {offer.candidateVisibleNote && (
                                 <Col span={24}>
                                     <Text type="secondary">Ghi chú</Text>
-                                    <Paragraph style={{ marginBottom: 0 }}>{offer.note}</Paragraph>
+                                    <Paragraph style={{ marginBottom: 0 }}>
+                                        {offer.candidateVisibleNote}
+                                    </Paragraph>
                                 </Col>
                             )}
                         </Row>
@@ -261,32 +266,45 @@ export default function OfferCandidateViewPage() {
                     {accepted || offer.status === "ACCEPTED" ? (
                         <Result
                             status="success"
-                            title="Bạn đã chấp nhận Offer"
+                            title="Bạn đã chấp nhận thư mời"
                             subTitle="HR sẽ liên hệ các bước tiếp theo."
                         />
                     ) : offer.status === "DECLINED" ? (
                         <Result
                             status="info"
-                            title="Bạn đã từ chối Offer"
+                            title="Bạn đã từ chối thư mời"
                             subTitle={offer.declineReasonName ?? ""}
                         />
                     ) : pending && !expired ? (
                         <Row gutter={16} justify="center">
                             <Col>
-                                <Button
-                                    type="primary"
-                                    size="large"
-                                    icon={<CheckCircleFilled />}
-                                    onClick={handleAccept}
-                                    style={{
-                                        height: 52,
-                                        paddingInline: 32,
-                                        fontWeight: 600,
-                                        fontSize: 15,
-                                    }}
+                                <Popconfirm
+                                    title="Xác nhận nhận việc"
+                                    description={
+                                        <span style={{ display: "block", maxWidth: 320 }}>
+                                            Bạn xác nhận nhận vị trí <b>{offer.jobTitle ?? "này"}</b>,
+                                            mức lương <b>{formatMoney(offer.salaryOffered)}</b>,
+                                            bắt đầu ngày <b>{dayjs(offer.startDate).format("DD/MM/YYYY")}</b>?
+                                        </span>
+                                    }
+                                    okText="Xác nhận nhận việc"
+                                    cancelText="Để tôi xem lại"
+                                    onConfirm={handleAccept}
                                 >
-                                    Chấp nhận
-                                </Button>
+                                    <Button
+                                        type="primary"
+                                        size="large"
+                                        icon={<CheckCircleFilled />}
+                                        style={{
+                                            height: 52,
+                                            paddingInline: 32,
+                                            fontWeight: 600,
+                                            fontSize: 15,
+                                        }}
+                                    >
+                                        Chấp nhận
+                                    </Button>
+                                </Popconfirm>
                             </Col>
                             <Col>
                                 <Button
@@ -306,11 +324,11 @@ export default function OfferCandidateViewPage() {
                             </Col>
                         </Row>
                     ) : pending && expired ? (
-                        <Result status="warning" title="Offer đã hết hạn phản hồi" />
+                        <Result status="warning" title="Thư mời đã hết hạn phản hồi" />
                     ) : (
                         <Result
                             status="info"
-                            title="Offer chưa sẵn sàng"
+                            title="Thư mời chưa sẵn sàng"
                             subTitle="Vui lòng đợi HR/Phòng ban hoàn tất phê duyệt."
                         />
                     )}

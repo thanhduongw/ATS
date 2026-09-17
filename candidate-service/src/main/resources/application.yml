@@ -2,6 +2,10 @@ server:
   port: 8084
 
 spring:
+  # Spring khong tu doc file .env — phai khai bao import thi bien AWS_* moi vao Environment.
+  # optional: nen thieu file cung khong lam service chet.
+  config:
+    import: optional:file:./.env[.properties]
   application:
     name: candidate-service
   datasource:
@@ -41,8 +45,8 @@ aws:
     bucket: ${AWS_S3_BUCKET:ats-bucket}
     region: ${AWS_S3_REGION:us-east-1}
     endpoint: ${AWS_S3_ENDPOINT:}
-  access-key-id: ${AWS_ACCESS_KEY_ID:minioadmin}
-  secret-access-key: ${AWS_SECRET_ACCESS_KEY:minioadmin}
+  access-key-id: ${AWS_ACCESS_KEY_ID:}
+  secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
 
 springdoc:
   api-docs:

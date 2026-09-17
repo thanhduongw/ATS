@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { App, Button, Card, Segmented, Space, Steps, Table, Tag, Spin, Empty } from "antd";
 import {
     ArrowLeftOutlined, FileSearchOutlined, TeamOutlined, CalendarOutlined,
-    DollarOutlined, TrophyOutlined, PlusCircleOutlined, SendOutlined,
+    DollarOutlined, TrophyOutlined, PlusCircleOutlined, SendOutlined, BarChartOutlined,
     EditOutlined, RocketOutlined, StopOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
@@ -20,6 +20,7 @@ import type { ApiMessageResponse, JobPostingResponse, JobRequisitionResponse, Po
 import type { ApplicationResponse } from "../../candidate/types";
 import RequisitionDetailModal from "../components/RequisitionDetailModal";
 import ApplicationKanbanBoard from "../../candidate/components/ApplicationKanbanBoard";
+import CandidateComparisonPanel from "../../offer/components/CandidateComparisonPanel";
 import StatTile from "../../../components/ui/StatTile";
 import { StatRow } from "../../../components/ui/pageKit";
 import { POSTING_STATUS, INTERVIEW_STATUS, statusMeta } from "../../../app/statusLabels";
@@ -53,7 +54,7 @@ export default function PostingHubPage() {
     const [applications, setApplications] = useState<ApplicationResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+    const [viewMode, setViewMode] = useState<"list" | "kanban" | "compare">("list");
 
     const [employmentTypeMap, setEmploymentTypeMap] = useState<Record<number, string>>({});
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
@@ -305,15 +306,21 @@ export default function PostingHubPage() {
                     </span>
                     <Segmented
                         value={viewMode}
-                        onChange={(v) => setViewMode(v as "list" | "kanban")}
+                        onChange={(v) => setViewMode(v as "list" | "kanban" | "compare")}
                         options={[
                             { label: "Danh sách", value: "list" },
                             { label: "Kanban", value: "kanban" },
+                            // So sanh la buoc ra quyet dinh offer nen chi HR va admin dung toi.
+                            ...(canManage ? [{ label: "So sánh", value: "compare", icon: <BarChartOutlined /> }] : []),
                         ]}
                     />
                 </div>
 
-                {viewMode === "list" ? (
+                {viewMode === "compare" ? (
+                    <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                        <CandidateComparisonPanel jobPostingId={jobPostingId} showHeader={false} />
+                    </div>
+                ) : viewMode === "list" ? (
                     <div ref={wrapRef} className="table-scroll-wrap">
                         <Table
                             rowKey="id"

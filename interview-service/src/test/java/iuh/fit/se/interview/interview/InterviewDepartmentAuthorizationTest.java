@@ -45,14 +45,16 @@ class InterviewDepartmentAuthorizationTest {
     }
 
     @Test
-    void recruiterCanViewOwnDepartmentOrAssignedApplication() {
+    void recruiterCanViewEveryDepartment() {
         CurrentUser actor = new CurrentUser(60L, "recruiter@example.com", "RECRUITER", 10L);
 
+        // HR phu trach tuyen dung toan cong ty: xem duoc ca phong ban minh, phong ban khac,
+        // va ca lich khong duoc gan cho minh.
         assertDoesNotThrow(
                 () -> interviewService.requireCanView(interview(10L, 90L, null), actor));
         assertDoesNotThrow(
                 () -> interviewService.requireCanView(interview(20L, 60L, null), actor));
-        assertThrows(AccessDeniedException.class,
+        assertDoesNotThrow(
                 () -> interviewService.requireCanView(interview(20L, 90L, null), actor));
     }
 

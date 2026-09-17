@@ -35,10 +35,11 @@ class AuthorizationPolicyTest {
     }
 
     @Test
-    void recruiterCanManageOwnDepartmentOrAssignedJobOnly() {
+    void recruiterCanManageEveryDepartment() {
+        // HR phu trach tuyen dung toan cong ty, khong con gioi han theo phong ban / nguoi duyet.
         assertTrue(AuthorizationPolicy.canManageJob(RECRUITER, 10L, 99L, 98L));
         assertTrue(AuthorizationPolicy.canManageJob(RECRUITER, 20L, 99L, 2L));
-        assertFalse(AuthorizationPolicy.canManageJob(RECRUITER, 20L, 99L, 98L));
+        assertTrue(AuthorizationPolicy.canManageJob(RECRUITER, 20L, 99L, 98L));
     }
 
     @Test

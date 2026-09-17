@@ -23,56 +23,67 @@ spring:
             allowedHeaders: "*"
             allowCredentials: true
 
+      # Route URI là nguồn duy nhất: mặc định localhost cho chạy ngoài Docker,
+      # docker-compose chỉ cần set SERVICES_*_URL sang DNS service-name.
+      # KHÔNG khai báo StripPrefix — downstream nhận nguyên path /api/<service>/**.
       routes:
         - id: auth-service
-          uri: http://localhost:8081
+          uri: ${SERVICES_AUTH_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/auth/**
 
         - id: masterdata-service
-          uri: http://localhost:8082
+          uri: ${SERVICES_MASTERDATA_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/masterdata/**
 
         - id: recruitment-service
-          uri: http://localhost:8083
+          uri: ${SERVICES_RECRUITMENT_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/recruitment/**
 
         - id: candidate-service
-          uri: http://localhost:8084
+          uri: ${SERVICES_CANDIDATE_SERVICE_URL:http://localhost:8084}
           predicates:
             - Path=/api/candidate/**
 
         - id: interview-service
-          uri: http://localhost:8085
+          uri: ${SERVICES_INTERVIEW_SERVICE_URL:http://localhost:8085}
           predicates:
             - Path=/api/interview/**
 
         - id: notification-service
-          uri: http://localhost:8086
+          uri: ${SERVICES_NOTIFICATION_SERVICE_URL:http://localhost:8086}
           predicates:
             - Path=/api/notification/**
 
         - id: dashboard-service
-          uri: http://localhost:8087
+          uri: ${SERVICES_DASHBOARD_SERVICE_URL:http://localhost:8087}
           predicates:
             - Path=/api/dashboard/**
 
         - id: application-service
-          uri: http://localhost:8089
+          uri: ${SERVICES_APPLICATION_SERVICE_URL:http://localhost:8089}
           predicates:
             - Path=/api/application/**
 
         - id: offer-service
-          uri: http://localhost:8090
+          uri: ${SERVICES_OFFER_SERVICE_URL:http://localhost:8090}
           predicates:
             - Path=/api/offer/**
 
         - id: ai-service
-          uri: http://localhost:8088
+          uri: ${SERVICES_AI_SERVICE_URL:http://localhost:8088}
           predicates:
             - Path=/api/v1/ai/**
+
+        # SockJS/STOMP của notification-service. Dùng lại đúng URL notification-service ở trên.
+        # Spring Cloud Gateway tự đổi scheme http -> ws khi request là WebSocket upgrade
+        # (WebsocketRoutingFilter); handshake SockJS dạng HTTP (/ws/info, xhr_*) đi cùng route này.
+        - id: notification-websocket
+          uri: ${SERVICES_NOTIFICATION_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/ws/**
 
 springdoc:
   swagger-ui:
@@ -100,4 +111,4 @@ springdoc:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:thay-bang-chuoi-bi-mat-it-nhat-256-bit-truoc-khi-deploy-thuc-te}
+    secret: ${JWT_SECRET:thay-bang-chuoi-bi-mat-it-nhat-256-bit-truoc-khi-deploy-thuc-te}

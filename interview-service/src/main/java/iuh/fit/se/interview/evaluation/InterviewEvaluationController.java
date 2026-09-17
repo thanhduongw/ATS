@@ -1,5 +1,6 @@
 package iuh.fit.se.interview.evaluation;
 
+import iuh.fit.se.interview.evaluation.dto.EvaluationDraftRequest;
 import iuh.fit.se.interview.evaluation.dto.EvaluationResponse;
 import iuh.fit.se.interview.evaluation.dto.EvaluationSubmitRequest;
 import iuh.fit.se.interview.security.AuthorizationPolicy;
@@ -30,6 +31,19 @@ public class InterviewEvaluationController {
         AuthorizationPolicy.requireInternal(actor);
         return ResponseEntity.ok(service.submit(
                 interviewId, actor, req));
+    }
+
+    /**
+     * Lưu nháp bài chấm của chính mình. Sửa được tự do cho tới khi bấm nộp;
+     * sau khi nộp thì endpoint này từ chối.
+     */
+    @PutMapping("/me")
+    public ResponseEntity<EvaluationResponse> saveDraft(
+            @PathVariable Long interviewId,
+            @Valid @RequestBody EvaluationDraftRequest req) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireInternal(actor);
+        return ResponseEntity.ok(service.saveDraft(interviewId, actor, req));
     }
 
     /**

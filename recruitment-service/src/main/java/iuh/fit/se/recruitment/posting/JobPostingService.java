@@ -53,12 +53,13 @@ public class JobPostingService {
 
         AuthorizationPolicy.requireInternal(actor);
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
-        Long scopeDepartmentId = role == AuthorizationPolicy.Role.COMPANY_ADMIN ? null : actor.departmentId();
-        Long scopeApproverId = role == AuthorizationPolicy.Role.RECRUITER ? actor.userId() : null;
+        // COMPANY_ADMIN va HR (RECRUITER) xem duoc tin tuyen dung cua moi phong ban.
+        boolean restrictToDepartment = role == AuthorizationPolicy.Role.HIRING_MANAGER;
+        Long scopeDepartmentId = restrictToDepartment ? actor.departmentId() : null;
         var spec = JobPostingSpecifications.build(
-                scopeDepartmentId, scopeApproverId,
+                scopeDepartmentId, null,
                 status, employmentTypeId, workLocationId, keyword,
-                role != AuthorizationPolicy.Role.COMPANY_ADMIN);
+                restrictToDepartment);
         Map<Long, String> deptMap = buildCatalogMap(masterDataServiceClient.getDepartments());
         Map<Long, String> userNameMap = buildUserNameMap();
 
@@ -311,7 +312,8 @@ public class JobPostingService {
             Map<Long, String> deptMap, Map<Long, String> userNameMap) {
         Long departmentId = p.getRequisition().getDepartmentId();
         return new JobPostingResponse(
-                p.getId(), p.getRequisition().getId(), p.getTitle(),
+                p.getId(), p.getRequisition().getId(),
+                p.getRequisition().getQuantity(), p.getTitle(),
                 p.getEmploymentTypeId(), p.getWorkLocationId(), p.getWorkArrangement(), p.getExperienceRequired(),
                 p.getPipelineId(),
                 p.getSalaryMin(), p.getSalaryMax(),

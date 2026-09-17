@@ -60,9 +60,9 @@ public class InterviewService {
                     .findByCandidateIdOrderByScheduledAtDesc(candidateId);
         } else if (role == AuthorizationPolicy.Role.HIRING_MANAGER) {
             interviews = interviewRepository.findForHiringManager(actor.departmentId(), actor.userId());
-        } else if (role == AuthorizationPolicy.Role.RECRUITER) {
-            interviews = interviewRepository.findForRecruiter(actor.departmentId(), actor.userId());
-        } else if (role == AuthorizationPolicy.Role.COMPANY_ADMIN) {
+        } else if (role == AuthorizationPolicy.Role.COMPANY_ADMIN
+                || role == AuthorizationPolicy.Role.RECRUITER) {
+            // HR (RECRUITER) phu trach tuyen dung toan cong ty nen xem duoc moi lich phong van.
             if (jobPostingId != null) {
                 interviews = interviewRepository.findByJobPostingIdOrderByScheduledAtDesc(jobPostingId);
             } else if (applicationId != null) {
@@ -207,6 +207,7 @@ public class InterviewService {
         req.interviewerIds().forEach(interviewerId ->
                 evaluationRepository.save(InterviewEvaluation.builder()
                         .interview(saved)
+                        .applicationId(saved.getApplicationId())
                         .interviewerId(interviewerId)
                         .build()));
 
@@ -318,6 +319,7 @@ public class InterviewService {
             req.interviewerIds().forEach(interviewerId ->
                     evaluationRepository.save(InterviewEvaluation.builder()
                             .interview(saved)
+                            .applicationId(saved.getApplicationId())
                             .interviewerId(interviewerId)
                             .build()));
 
@@ -379,15 +381,13 @@ public class InterviewService {
 
     private void assertCanView(Interview interview, CurrentUser actor) {
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
-        if (role == AuthorizationPolicy.Role.COMPANY_ADMIN) return;
-        boolean sameDepartment = actor.departmentId() != null
-                && actor.departmentId().equals(interview.getDepartmentId());
-        if (role == AuthorizationPolicy.Role.RECRUITER) {
-            if (!sameDepartment && !Objects.equals(actor.userId(), interview.getAssignedRecruiterId())) {
-                throw new AccessDeniedException("Buổi phỏng vấn thuộc phòng ban khác");
-            }
+        // COMPANY_ADMIN va HR (RECRUITER) deu phu trach toan cong ty, khong gioi han phong ban.
+        if (role == AuthorizationPolicy.Role.COMPANY_ADMIN
+                || role == AuthorizationPolicy.Role.RECRUITER) {
             return;
         }
+        boolean sameDepartment = actor.departmentId() != null
+                && actor.departmentId().equals(interview.getDepartmentId());
         if (role == AuthorizationPolicy.Role.HIRING_MANAGER) {
             boolean assigned = interview.getInterviewers().stream()
                     .anyMatch(i -> i.getInterviewerId().equals(actor.userId()));
@@ -475,6 +475,7 @@ public class InterviewService {
         return new InterviewResponse(
                 interview.getId(),
                 interview.getApplicationId(),
+                interview.getCandidateId(),
                 interview.getCandidateNameSnapshot(),
                 interview.getScheduledAt(),
                 interview.getDurationMinutes(),
@@ -484,7 +485,8 @@ public class InterviewService {
                 interview.getNote(),
                 interview.getStatus(),
                 interview.getCandidateConfirmedAt() != null,
-                interviewerSummaries
+                interviewerSummaries,
+                interview.getCreatedAt()
         );
     }
 }

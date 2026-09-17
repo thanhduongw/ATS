@@ -37,8 +37,10 @@ public class JobRequisitionService {
         AuthorizationPolicy.requireInternal(actor);
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
         Long requesterId = null;
-        Long scopeDepartmentId = role == AuthorizationPolicy.Role.COMPANY_ADMIN ? null : actor.departmentId();
-        Long scopeApproverId = role == AuthorizationPolicy.Role.RECRUITER ? actor.userId() : null;
+        // COMPANY_ADMIN va HR (RECRUITER) xem duoc yeu cau tuyen dung cua moi phong ban.
+        boolean restrictToDepartment = role == AuthorizationPolicy.Role.HIRING_MANAGER;
+        Long scopeDepartmentId = restrictToDepartment ? actor.departmentId() : null;
+        Long scopeApproverId = null;
 
         // "Chờ tôi duyệt": chỉ có ý nghĩa với HR (approver), thu hẹp thêm theo approverId
         Long approverId = Boolean.TRUE.equals(assignedToMe)
@@ -48,7 +50,7 @@ public class JobRequisitionService {
         var spec = JobRequisitionSpecifications.build(
                 requesterId, approverId, scopeDepartmentId, scopeApproverId,
                 status, departmentId, keyword,
-                role != AuthorizationPolicy.Role.COMPANY_ADMIN);
+                restrictToDepartment);
         Map<Long, String> userNameMap = buildUserNameMap();
 
         if (page == null && size == null) {

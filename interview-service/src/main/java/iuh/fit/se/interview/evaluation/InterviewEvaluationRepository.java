@@ -2,10 +2,15 @@ package iuh.fit.se.interview.evaluation;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface InterviewEvaluationRepository extends JpaRepository<InterviewEvaluation, Long> {
     List<InterviewEvaluation> findByInterviewId(Long interviewId);
     Optional<InterviewEvaluation> findByInterviewIdAndInterviewerId(Long interviewId, Long interviewerId);
+
+    List<InterviewEvaluation> findByApplicationIdOrderByIdAsc(Long applicationId);
+
+    List<InterviewEvaluation> findByApplicationIdInOrderByIdAsc(Collection<Long> applicationIds);
 }

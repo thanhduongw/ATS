@@ -40,7 +40,8 @@ public final class AuthorizationPolicy {
         return switch (roleOf(actor)) {
             case COMPANY_ADMIN -> true;
             case CANDIDATE -> false;
-            case RECRUITER -> isSameDepartment(actor, departmentId) || Objects.equals(actor.userId(), approverId);
+            // HR (RECRUITER) phu trach tuyen dung toan cong ty: khong gioi han theo phong ban.
+            case RECRUITER -> true;
             case HIRING_MANAGER -> isSameDepartment(actor, departmentId)
                     && (requesterId == null || Objects.equals(actor.userId(), requesterId));
         };
@@ -49,8 +50,8 @@ public final class AuthorizationPolicy {
         return switch (roleOf(actor)) {
             case COMPANY_ADMIN -> true;
             case CANDIDATE -> false;
-            case RECRUITER -> isSameDepartment(actor, departmentId)
-                    || Objects.equals(actor.userId(), approverId);
+            // HR (RECRUITER) phu trach tuyen dung toan cong ty: khong gioi han theo phong ban.
+            case RECRUITER -> true;
             case HIRING_MANAGER -> isSameDepartment(actor, departmentId);
         };
     }

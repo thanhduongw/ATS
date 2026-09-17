@@ -1,0 +1,38 @@
+# Build context chi can pom.xml + src (xem Dockerfile). Moi thu khac deu bi loai
+# de secret khong roi vao daemon va context khong bi phinh.
+
+# Secret — tuyet doi khong gui vao build context
+.env
+.env.*
+*.pem
+*.p12
+*.jks
+
+# Ket qua build tren host
+target/
+build/
+*.jar
+*.war
+*.class
+
+# Maven wrapper (Dockerfile dung maven image, khong dung wrapper)
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE / VCS / OS
+.idea/
+.vscode/
+*.iml
+.git
+.gitignore
+.DS_Store
+Thumbs.db
+
+# Tai lieu, log, du lieu runtime
+*.md
+*.docx
+*.log
+logs/
+uploads/
+backups/

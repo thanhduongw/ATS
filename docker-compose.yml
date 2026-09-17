@@ -87,6 +87,12 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATA_REDIS_HOST: redis
       SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
+      # Google SSO: doc tu shell/.env cua nguoi chay compose, KHONG commit secret.
+      # De trong => auth-service tu tat oauth2Login va van boot binh thuong.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:5173/api/auth/login/oauth2/code/google}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     depends_on:
       postgres:
         condition: service_healthy
@@ -136,6 +142,9 @@ services:
       context: ./candidate-service
       dockerfile: Dockerfile
     container_name: ats-candidate-service
+    # Khoa AWS doc tu ./candidate-service/.env, khong commit vao repo.
+    env_file:
+      - ./candidate-service/.env
     expose:
       - "8084"
     environment:
@@ -146,10 +155,6 @@ services:
       SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
       SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
       SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
-      AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin
-      AWS_S3_ENDPOINT: http://minio:9000
-      AWS_S3_BUCKET: ats-bucket
     depends_on:
       postgres:
         condition: service_healthy
@@ -194,6 +199,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       APP_NOTIFICATION_EMAIL_ENABLED: "true"
       SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
+      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
       SERVICES_INTERVIEW_SERVICE_URL: http://interview-service:8085
       SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
       SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
@@ -219,6 +225,7 @@ services:
       SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
       SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
       SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
+      SERVICES_INTERVIEW_SERVICE_URL: http://interview-service:8085
     depends_on:
       postgres:
         condition: service_healthy
@@ -259,7 +266,9 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
       SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
+      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
       SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
+      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
     depends_on:
       postgres:
         condition: service_healthy
@@ -309,45 +318,21 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_CLOUD_GATEWAY_ROUTES_0_ID: auth-service
-      SPRING_CLOUD_GATEWAY_ROUTES_0_URI: http://auth-service:8081
-      SPRING_CLOUD_GATEWAY_ROUTES_0_PREDICATES_0: Path=/api/auth/**
-
-      SPRING_CLOUD_GATEWAY_ROUTES_1_ID: masterdata-service
-      SPRING_CLOUD_GATEWAY_ROUTES_1_URI: http://masterdata-service:8082
-      SPRING_CLOUD_GATEWAY_ROUTES_1_PREDICATES_0: Path=/api/masterdata/**
-
-      SPRING_CLOUD_GATEWAY_ROUTES_2_ID: recruitment-service
-      SPRING_CLOUD_GATEWAY_ROUTES_2_URI: http://recruitment-service:8083
-      SPRING_CLOUD_GATEWAY_ROUTES_2_PREDICATES_0: Path=/api/recruitment/**
-
-      SPRING_CLOUD_GATEWAY_ROUTES_3_ID: candidate-service
-      SPRING_CLOUD_GATEWAY_ROUTES_3_URI: http://candidate-service:8084
-      SPRING_CLOUD_GATEWAY_ROUTES_3_PREDICATES_0: Path=/api/candidate/**
-
-      SPRING_CLOUD_GATEWAY_ROUTES_4_ID: interview-service
-      SPRING_CLOUD_GATEWAY_ROUTES_4_URI: http://interview-service:8085
-      SPRING_CLOUD_GATEWAY_ROUTES_4_PREDICATES_0: Path=/api/interview/**
-
-      SPRING_CLOUD_GATEWAY_ROUTES_5_ID: notification-service
-      SPRING_CLOUD_GATEWAY_ROUTES_5_URI: http://notification-service:8086
-      SPRING_CLOUD_GATEWAY_ROUTES_5_PREDICATES_0: Path=/api/notification/**
-
-      SPRING_CLOUD_GATEWAY_ROUTES_6_ID: dashboard-service
-      SPRING_CLOUD_GATEWAY_ROUTES_6_URI: http://dashboard-service:8087
-      SPRING_CLOUD_GATEWAY_ROUTES_6_PREDICATES_0: Path=/api/dashboard/**
-
-      SPRING_CLOUD_GATEWAY_ROUTES_7_ID: application-service
-      SPRING_CLOUD_GATEWAY_ROUTES_7_URI: http://application-service:8089
-      SPRING_CLOUD_GATEWAY_ROUTES_7_PREDICATES_0: Path=/api/application/**
-
-      SPRING_CLOUD_GATEWAY_ROUTES_8_ID: offer-service
-      SPRING_CLOUD_GATEWAY_ROUTES_8_URI: http://offer-service:8090
-      SPRING_CLOUD_GATEWAY_ROUTES_8_PREDICATES_0: Path=/api/offer/**
-
-      SPRING_CLOUD_GATEWAY_ROUTES_9_ID: ai-service
-      SPRING_CLOUD_GATEWAY_ROUTES_9_URI: http://ai-service:8088
-      SPRING_CLOUD_GATEWAY_ROUTES_9_PREDICATES_0: Path=/api/v1/ai/**
+      # Route (path + id) khai bao mot noi duy nhat trong api-gateway/application.yml.
+      # O day chi tro 10 downstream service sang DNS tren ats-network.
+      # Route /ws/** dung lai SERVICES_NOTIFICATION_SERVICE_URL,
+      # cac buoc OAuth2 (/api/auth/oauth2/**, /api/auth/login/oauth2/code/**)
+      # dung lai route /api/auth/** => SERVICES_AUTH_SERVICE_URL.
+      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
+      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
+      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
+      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
+      SERVICES_INTERVIEW_SERVICE_URL: http://interview-service:8085
+      SERVICES_NOTIFICATION_SERVICE_URL: http://notification-service:8086
+      SERVICES_DASHBOARD_SERVICE_URL: http://dashboard-service:8087
+      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
+      SERVICES_OFFER_SERVICE_URL: http://offer-service:8090
+      SERVICES_AI_SERVICE_URL: http://ai-service:8088
     depends_on:
       - auth-service
       - masterdata-service

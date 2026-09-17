@@ -15,6 +15,7 @@ public final class OfferSpecifications {
             Long candidateId,
             Long approverId,
             Long applicationId,
+            Long jobPostingId,
             OfferStatus status,
             LocalDateTime createdFrom,
             LocalDateTime createdTo,
@@ -49,6 +50,9 @@ public final class OfferSpecifications {
             }
             if (applicationId != null) {
                 predicates.add(cb.equal(root.get("applicationId"), applicationId));
+            }
+            if (jobPostingId != null) {
+                predicates.add(cb.equal(root.get("jobPostingId"), jobPostingId));
             }
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));

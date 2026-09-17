@@ -4,6 +4,7 @@ import iuh.fit.se.offer.client.ApplicationServiceClient;
 import iuh.fit.se.offer.client.AuthServiceClient;
 import iuh.fit.se.offer.client.CandidateServiceClient;
 import iuh.fit.se.offer.client.MasterDataServiceClient;
+import iuh.fit.se.offer.client.RecruitmentServiceClient;
 import iuh.fit.se.offer.event.AuditEventPublisher;
 import iuh.fit.se.offer.event.OfferEventPublisher;
 import iuh.fit.se.offer.security.CurrentUser;
@@ -27,6 +28,7 @@ class OfferDepartmentAuthorizationTest {
     @Mock private AuthServiceClient authServiceClient;
     @Mock private MasterDataServiceClient masterDataServiceClient;
     @Mock private CandidateServiceClient candidateServiceClient;
+    @Mock private RecruitmentServiceClient recruitmentServiceClient;
     @Mock private OfferEventPublisher offerEventPublisher;
     @Mock private AuditEventPublisher auditEventPublisher;
     @Mock private OfferPdfService offerPdfService;
@@ -34,7 +36,7 @@ class OfferDepartmentAuthorizationTest {
     @InjectMocks private OfferService offerService;
 
     @Test
-    void hiringManagerCannotViewOfferFromAnotherDepartmentWhenNotApprover() {
+    void hiringManagerCannotViewOfferFromAnotherDepartment() {
         Offer offer = offer(20L, 90L, 91L);
         CurrentUser actor = new CurrentUser(50L, "hm@example.com", "HIRING_MANAGER", 10L);
 
@@ -42,19 +44,28 @@ class OfferDepartmentAuthorizationTest {
     }
 
     @Test
-    void hiringManagerCanViewOwnDepartmentOrExplicitlyAssignedOffer() {
+    void hiringManagerCannotViewOfferFromAnotherDepartmentEvenWhenNamedApprover() {
+        // Manager khong con la nguoi duyet offer, nen approverId khong con mo rong pham vi xem.
+        Offer offer = offer(20L, 90L, 50L);
         CurrentUser actor = new CurrentUser(50L, "hm@example.com", "HIRING_MANAGER", 10L);
 
-        assertDoesNotThrow(() -> offerService.assertCanView(offer(10L, 90L, 91L), actor));
-        assertDoesNotThrow(() -> offerService.assertCanView(offer(20L, 90L, 50L), actor));
+        assertThrows(AccessDeniedException.class, () -> offerService.assertCanView(offer, actor));
     }
 
     @Test
-    void recruiterCanViewCrossDepartmentOfferOnlyWhenApplicationAssigned() {
+    void hiringManagerCanViewOwnDepartmentOffer() {
+        CurrentUser actor = new CurrentUser(50L, "hm@example.com", "HIRING_MANAGER", 10L);
+
+        assertDoesNotThrow(() -> offerService.assertCanView(offer(10L, 90L, 91L), actor));
+    }
+
+    @Test
+    void recruiterCanViewOfferFromEveryDepartment() {
         CurrentUser actor = new CurrentUser(60L, "recruiter@example.com", "RECRUITER", 10L);
 
-        assertThrows(AccessDeniedException.class,
-                () -> offerService.assertCanView(offer(20L, 90L, 91L), actor));
+        // HR phu trach tuyen dung toan cong ty: xem duoc offer cua phong ban khac
+        // ke ca khi offer khong duoc gan cho minh.
+        assertDoesNotThrow(() -> offerService.assertCanView(offer(20L, 90L, 91L), actor));
         assertDoesNotThrow(() -> offerService.assertCanView(offer(20L, 60L, 91L), actor));
     }
 

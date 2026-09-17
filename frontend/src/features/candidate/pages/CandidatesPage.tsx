@@ -630,7 +630,6 @@ export default function CandidatesPage() {
                     setFormModalOpen(true);
                 }}
             />
-
             <Modal
                 title={`Từ chối hàng loạt (${selectedRowKeys.length} ứng viên)`}
                 open={bulkRejectOpen}

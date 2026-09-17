@@ -12,9 +12,9 @@
 }
 
 html {
-  /* Không cho phép scroll ở cấp html — chỉ Content bên trong scroll */
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -23,8 +23,8 @@ html {
 
 body {
   margin: 0;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  overflow-x: hidden;
   font-family: 'Be Vietnam Pro', 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.6;
@@ -33,8 +33,7 @@ body {
 }
 
 #root {
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
 }
 
 /* ── Typography ────────────────────────────────────────── */

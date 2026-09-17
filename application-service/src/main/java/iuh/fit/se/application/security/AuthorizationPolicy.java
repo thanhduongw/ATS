@@ -39,8 +39,8 @@ public final class AuthorizationPolicy {
         return switch (roleOf(actor)) {
             case COMPANY_ADMIN -> true;
             case CANDIDATE -> candidateUserId != null && candidateUserId.equals(actor.userId());
-            case RECRUITER -> Objects.equals(actor.userId(), assignedRecruiterId)
-                    || (actor.departmentId() != null && actor.departmentId().equals(departmentId));
+            // HR (RECRUITER) phu trach tuyen dung toan cong ty: khong gioi han theo phong ban.
+            case RECRUITER -> true;
             case HIRING_MANAGER -> actor.departmentId() != null && actor.departmentId().equals(departmentId);
         };
     }

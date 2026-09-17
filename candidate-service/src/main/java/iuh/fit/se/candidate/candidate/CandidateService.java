@@ -93,7 +93,9 @@ public class CandidateService {
                         .toList();
 
         Specification<Candidate> spec = CandidateSpecifications.build(keyword, hasCv, matchedSkillIds, poolStatus);
-        if (AuthorizationPolicy.roleOf(actor) != AuthorizationPolicy.Role.COMPANY_ADMIN) {
+        // COMPANY_ADMIN va HR (RECRUITER) xem duoc toan bo kho ung vien, ke ca ung vien
+        // chua nop don nao (talent pool) - nen khong loc theo danh sach ung vien co the tiep can.
+        if (!seesEveryCandidate(actor)) {
             Set<Long> accessibleIds = loadAccessibleCandidateIds();
             if (accessibleIds.isEmpty()) {
                 return emptyPage(page, size);
@@ -145,10 +147,17 @@ public class CandidateService {
             return;
         }
         AuthorizationPolicy.requireInternal(actor);
-        if (role != AuthorizationPolicy.Role.COMPANY_ADMIN
+        if (!seesEveryCandidate(actor)
                 && !loadAccessibleCandidateIds().contains(candidate.getId())) {
             throw new AccessDeniedException("Candidate is outside the user's department or assignment scope");
         }
+    }
+
+    /** COMPANY_ADMIN va HR (RECRUITER) tiep can toan bo ung vien cua cong ty. */
+    private boolean seesEveryCandidate(CurrentUser actor) {
+        AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
+        return role == AuthorizationPolicy.Role.COMPANY_ADMIN
+                || role == AuthorizationPolicy.Role.RECRUITER;
     }
 
     public CandidateSummaryResponse getSummaryByUserId(Long userId) {

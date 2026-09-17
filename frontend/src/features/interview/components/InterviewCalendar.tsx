@@ -24,11 +24,11 @@ import {
   PlusOutlined,
   UserOutlined,
   ThunderboltOutlined,
-  MailOutlined,
   ClockCircleOutlined,
   FileDoneOutlined,
   VideoCameraOutlined,
   EnvironmentOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import type { Dayjs } from "dayjs";
@@ -46,6 +46,7 @@ import type {
 } from "../types";
 import type { UserDirectoryResponse, UserRole } from "../../auth/types";
 import InterviewDetailModal from "./InterviewDetailModal";
+import EvaluationSummaryModal from "./EvaluationSummaryModal";
 import InterviewQuickCreateModal from "./InterviewQuickCreateModal";
 import BulkScheduleModal from "./BulkScheduleModal";
 import InterviewTimeGrid from "./InterviewTimeGrid";
@@ -65,8 +66,8 @@ type QuickFilter = "pendingConfirm" | "needEvaluation" | null;
 
 export default function InterviewCalendar() {
   const { message } = App.useApp();
-  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
   const isHr = !!role && HR_ROLES.includes(role);
 
@@ -74,6 +75,9 @@ export default function InterviewCalendar() {
   const [anchorDate, setAnchorDate] = useState<Dayjs>(dayjs());
   const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
   const [loading, setLoading] = useState(false);
+
+  /** Buoi phong van dang mo bang tong hop danh gia (null = dong). */
+  const [evaluationFor, setEvaluationFor] = useState<number | null>(null);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState<InterviewResponse | null>(null);
@@ -209,13 +213,11 @@ export default function InterviewCalendar() {
   const createMenuItems: MenuProps["items"] = [
     { key: "single", icon: <UserOutlined />, label: "1 ứng viên — chọn giờ cụ thể" },
     { key: "bulk", icon: <ThunderboltOutlined />, label: "Nhiều ứng viên — tự chia slot" },
-    { key: "propose", icon: <MailOutlined />, label: "Gửi khung giờ — 3 bên chốt" },
   ];
 
   const onCreateMenuClick: MenuProps["onClick"] = ({ key }) => {
     if (key === "single") openQuickCreate(null);
     if (key === "bulk") setBulkOpen(true);
-    if (key === "propose") navigate("/scheduling");
   };
 
   /* ── Cột bảng cho chế độ Danh sách ────────────────────── */
@@ -226,21 +228,22 @@ export default function InterviewCalendar() {
       key: "candidateName",
       ellipsis: true,
       render: (name: string, r) => {
-        const meta = interviewStatusMeta(r.status);
+        // Mo thang ho so ung tuyen de xem chi tiet va nop danh gia.
+        // Ho so cu co the thieu candidateId — luc do giu nguyen dang chu thuong.
+        if (r.candidateId == null) {
+          return <span style={{ fontWeight: 500 }}>{name}</span>;
+        }
         return (
-          <Space size={8}>
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: meta.accent,
-                display: "inline-block",
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ fontWeight: 500 }}>{name}</span>
-          </Space>
+          <Button
+            type="link"
+            style={{ padding: 0, height: "auto", fontWeight: 500 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/candidates/${r.candidateId}/applications/${r.applicationId}`);
+            }}
+          >
+            {name}
+          </Button>
         );
       },
     },
@@ -257,6 +260,9 @@ export default function InterviewCalendar() {
           <div style={{ fontSize: 12, color: COLORS.textMuted }}>
             {dayjs(r.scheduledAt).format("dddd, DD/MM/YYYY")}
           </div>
+          <Tag color={interviewStatusMeta(r.status).tag} style={{ margin: "4px 0 0" }}>
+            {interviewStatusMeta(r.status).label}
+          </Tag>
         </div>
       ),
       sorter: (a, b) => dayjs(a.scheduledAt).valueOf() - dayjs(b.scheduledAt).valueOf(),
@@ -307,18 +313,22 @@ export default function InterviewCalendar() {
       },
     },
     {
-      title: "Trạng thái",
-      dataIndex: "status",
-      key: "status",
-      width: 165,
-      render: (status: string) => {
-        const meta = interviewStatusMeta(status);
-        return (
-          <Tag color={meta.tag} style={{ margin: 0 }}>
-            {meta.label}
-          </Tag>
-        );
-      },
+      title: "Xem đánh giá",
+      key: "viewEvaluation",
+      width: 150,
+      render: (_, r) => (
+        <Button
+          size="small"
+          icon={<EyeOutlined />}
+          disabled={r.interviewers.length === 0}
+          onClick={(e) => {
+            e.stopPropagation();
+            setEvaluationFor(r.id);
+          }}
+        >
+          Xem đánh giá
+        </Button>
+      ),
     },
   ];
 
@@ -625,6 +635,12 @@ export default function InterviewCalendar() {
           />
         </Card>
       )}
+
+      <EvaluationSummaryModal
+        open={evaluationFor != null}
+        interviewId={evaluationFor}
+        onClose={() => setEvaluationFor(null)}
+      />
 
       <InterviewDetailModal
         open={detailOpen}

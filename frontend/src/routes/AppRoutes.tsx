@@ -24,10 +24,12 @@ import JobsPage from "../features/candidate/pages/JobsPage";
 import MyApplicationsPage from "../features/candidate/pages/MyApplicationsPage";
 import InterviewCalendar from "../features/interview/components/InterviewCalendar";
 import InterviewsPage from "../features/interview/pages/InterviewsPage";
+import EvaluationFormPage from "../features/interview/pages/EvaluationFormPage";
 import InterviewSchedulingPage from "../features/interview/pages/InterviewSchedulingPage";
 import CandidateInterviewsPage from "../features/interview/pages/CandidateInterviewsPage";
 import OffersPage from "../features/offer/pages/OffersPage";
 import CandidateOffersPage from "../features/offer/pages/CandidateOffersPage";
+import CandidateComparisonPage from "../features/offer/pages/CandidateComparisonPage";
 import OfferCandidateViewPage from "../features/offer/pages/OfferCandidateViewPage";
 import AuditLogPage from "../features/auditlog/pages/AuditLogPage";
 import NotificationsPage from "../features/notification/pages/NotificationsPage";
@@ -64,11 +66,17 @@ export default function AppRoutes() {
                     <Route path="/recruitment/postings/:id" element={<PostingHubPage />} />
                     <Route path="/candidates" element={<CandidatesPage />} />
                     <Route path="/candidates/:candidateId/applications/:applicationId" element={<CandidateApplicationDetailPage />} />
+                    <Route path="/candidates/:candidateId/applications/:applicationId/evaluate" element={<EvaluationFormPage />} />
                     <Route path="/applications" element={<ApplicationsPage />} />
                     <Route path="/scheduling" element={<InterviewSchedulingPage />} />
                     <Route path="/interviews" element={<InterviewCalendar />} />
                     <Route path="/interviews/:interviewId/result" element={<InterviewsPage />} />
                     <Route path="/offers" element={<OffersPage />} />
+                </Route>
+
+                {/* So sanh ung vien la buoc ra quyet dinh offer — chi HR va admin dung. */}
+                <Route element={<RoleRoute allow={["COMPANY_ADMIN", "RECRUITER"]} />}>
+                    <Route path="/offers/compare" element={<CandidateComparisonPage />} />
                 </Route>
 
                 <Route element={<RoleRoute allow={["COMPANY_ADMIN"]} />}>

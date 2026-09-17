@@ -26,6 +26,7 @@ public class OfferController {
     @GetMapping
     public ResponseEntity<PageResponse<OfferResponse>> getAll(
             @RequestParam(required = false) Long applicationId,
+            @RequestParam(required = false) Long jobPostingId,
             @RequestParam(required = false) OfferStatus status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdTo,
@@ -34,7 +35,7 @@ public class OfferController {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireInternal(actor);
         return ResponseEntity.ok(service.getAll(
-                actor, applicationId, status, createdFrom, createdTo, page, size));
+                actor, applicationId, jobPostingId, status, createdFrom, createdTo, page, size));
     }
 
     @GetMapping("/my")
@@ -97,12 +98,15 @@ public class OfferController {
         return ResponseEntity.ok(service.submit(id, actor));
     }
 
-    /** Phòng ban (approver) duyệt */
+    /**
+     * HR hoac Company Admin duyet. Duyet cung la hanh dong gui offer: tu trang thai APPROVED
+     * ung vien moi doc duoc offer va nhan thong bao.
+     */
     @PatchMapping("/{id}/approve")
     public ResponseEntity<OfferResponse> approve(
             @PathVariable Long id) {
         CurrentUser actor = CurrentUser.required();
-        AuthorizationPolicy.requireInternal(actor);
+        AuthorizationPolicy.requireHr(actor);
         return ResponseEntity.ok(service.approve(id, actor));
     }
 
@@ -111,7 +115,7 @@ public class OfferController {
             @PathVariable Long id,
             @Valid @RequestBody OfferRejectRequest req) {
         CurrentUser actor = CurrentUser.required();
-        AuthorizationPolicy.requireInternal(actor);
+        AuthorizationPolicy.requireHr(actor);
         return ResponseEntity.ok(service.reject(id, actor, req));
     }
 

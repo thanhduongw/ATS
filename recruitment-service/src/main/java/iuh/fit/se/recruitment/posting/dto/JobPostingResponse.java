@@ -10,6 +10,8 @@ import java.util.List;
 public record JobPostingResponse(
         Long id,
         Long requisitionId,
+        /** Số lượng cần tuyển lấy từ requisition — offer-service dùng để chặn vượt hạn mức. */
+        Integer headcount,
         String title,
         Long employmentTypeId,
         Long workLocationId,

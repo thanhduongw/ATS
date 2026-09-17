@@ -5,8 +5,10 @@ import type {
   InterviewBulkScheduleRequest,
   InterviewBulkScheduleItem,
   InterviewListFilters,
+  EvaluationDraftRequest,
   EvaluationSubmitRequest,
   EvaluationResponse,
+  ApplicationEvaluationsResponse,
   CandidateInterviewResponse,
 } from "./types";
 
@@ -49,6 +51,38 @@ export const submitEvaluation = (interviewId: number, data: EvaluationSubmitRequ
     `/interview/interviews/${interviewId}/evaluations`,
     data
   );
+
+/** Luu nhap bai cham cua chinh minh; goi lai bao nhieu lan cung duoc cho toi khi nop. */
+export const saveEvaluationDraft = (interviewId: number, data: EvaluationDraftRequest) =>
+  axiosClient.put<EvaluationResponse>(
+    `/interview/interviews/${interviewId}/evaluations/me`,
+    data,
+  );
+
+/** Toan bo danh gia cua mot ho so: ca bai theo buoi phong van lan bai HR cham roi. */
+export const getApplicationEvaluations = (applicationId: number) =>
+  axiosClient.get<EvaluationResponse[]>(
+    `/interview/applications/${applicationId}/evaluations`,
+  );
+
+/** HR cham danh gia cho vong hien tai cua ho so, khong gan buoi phong van. */
+export const submitApplicationEvaluation = (
+  applicationId: number,
+  data: EvaluationSubmitRequest,
+) =>
+  axiosClient.post<EvaluationResponse>(
+    `/interview/applications/${applicationId}/evaluations`,
+    data,
+  );
+
+/**
+ * Danh gia cua nhieu ho so cung luc — bang so sanh ung vien goi mot lan thay vi goi lan luot
+ * tung ho so cua tin tuyen dung.
+ */
+export const getEvaluationsByApplications = (applicationIds: number[]) =>
+  axiosClient.get<ApplicationEvaluationsResponse[]>("/interview/evaluations", {
+    params: { applicationIds: applicationIds.join(",") },
+  });
 
 export const getEvaluations = (interviewId: number) =>
   axiosClient.get<EvaluationResponse[]>(

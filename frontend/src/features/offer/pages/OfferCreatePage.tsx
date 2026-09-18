@@ -840,8 +840,22 @@ export default function OfferCreatePage() {
                                             control={control}
                                             render={({ field }) => {
                                                 const { checked, other } = splitBenefits(field.value);
+                                                const allChecked = checked.length === STANDARD_BENEFITS.length;
                                                 return (
                                                     <>
+                                                        <Checkbox
+                                                            checked={allChecked}
+                                                            indeterminate={checked.length > 0 && !allChecked}
+                                                            onChange={(e) =>
+                                                                field.onChange(joinBenefits(
+                                                                    e.target.checked ? STANDARD_BENEFITS : [],
+                                                                    other,
+                                                                ))
+                                                            }
+                                                            style={{ marginBottom: 12, fontWeight: 500 }}
+                                                        >
+                                                            Chọn tất cả
+                                                        </Checkbox>
                                                         <Checkbox.Group
                                                             value={checked}
                                                             onChange={(v) =>
@@ -860,7 +874,7 @@ export default function OfferCreatePage() {
                                                         />
                                                         <Input.TextArea
                                                             style={{ marginTop: 12 }}
-                                                            rows={2}
+                                                            rows={8}
                                                             value={other}
                                                             onChange={(e) =>
                                                                 field.onChange(
@@ -939,7 +953,7 @@ export default function OfferCreatePage() {
                                                 <Input.TextArea
                                                     value={field.value ?? ""}
                                                     onChange={field.onChange}
-                                                    rows={3}
+                                                    rows={6}
                                                     placeholder="Đề nghị có hiệu lực sau khi hoàn tất kiểm tra thông tin và ký cam kết bảo mật…"
                                                 />
                                             )}
@@ -958,7 +972,7 @@ export default function OfferCreatePage() {
                                                 <Input.TextArea
                                                     value={field.value ?? ""}
                                                     onChange={field.onChange}
-                                                    rows={3}
+                                                    rows={6}
                                                     placeholder="Lý do chốt mức lương này, điểm cần lưu ý khi thương lượng…"
                                                 />
                                             )}

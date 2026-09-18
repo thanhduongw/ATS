@@ -199,6 +199,14 @@ public class OfferService {
                 .contractTypeId(req.contractTypeId())
                 .startDate(req.startDate())
                 .probationMonths(req.probationMonths())
+                .reportingManager(req.reportingManager())
+                .workLocationId(req.workLocationId() != null
+                        ? req.workLocationId()
+                        : (posting == null ? null : posting.workLocationId()))
+                .currency(req.currency() != null ? req.currency() : "VND")
+                .payFrequency(req.payFrequency() != null ? req.payFrequency() : "MONTHLY")
+                .performanceBonus(req.performanceBonus())
+                .annualLeaveDays(req.annualLeaveDays())
                 .responseDeadline(req.responseDeadline())
                 .benefits(req.benefits())
                 .allowance(req.allowance())
@@ -230,6 +238,12 @@ public class OfferService {
         offer.setContractTypeId(req.contractTypeId());
         offer.setStartDate(req.startDate());
         offer.setProbationMonths(req.probationMonths());
+        offer.setReportingManager(req.reportingManager());
+        offer.setWorkLocationId(req.workLocationId());
+        offer.setCurrency(req.currency() != null ? req.currency() : "VND");
+        offer.setPayFrequency(req.payFrequency() != null ? req.payFrequency() : "MONTHLY");
+        offer.setPerformanceBonus(req.performanceBonus());
+        offer.setAnnualLeaveDays(req.annualLeaveDays());
         offer.setResponseDeadline(req.responseDeadline());
         offer.setBenefits(req.benefits());
         offer.setAllowance(req.allowance());
@@ -547,6 +561,12 @@ public class OfferService {
                 contractTypeMap.getOrDefault(o.getContractTypeId(), "N/A"),
                 o.getStartDate(),
                 o.getProbationMonths(),
+                o.getReportingManager(),
+                o.getWorkLocationId(),
+                o.getCurrency(),
+                o.getPayFrequency(),
+                o.getPerformanceBonus(),
+                o.getAnnualLeaveDays(),
                 o.getResponseDeadline(),
                 o.getBenefits(),
                 o.getAllowance(),

@@ -26,6 +26,12 @@ export interface OfferResponse {
   contractTypeName: string;
   startDate: string;
   probationMonths: number;
+  reportingManager: string | null;
+  workLocationId: number | null;
+  currency: string | null;
+  payFrequency: string | null;
+  performanceBonus: string | null;
+  annualLeaveDays: number | null;
   benefits: string | null;
   allowance: number | null;
   /** Ghi chú nội bộ — chỉ HR và admin đọc được, không bao giờ gửi cho ứng viên. */
@@ -52,6 +58,12 @@ export interface OfferCreateRequest {
   contractTypeId: number;
   startDate: string;
   probationMonths: number;
+  reportingManager: string | null;
+  workLocationId: number | null;
+  currency: string | null;
+  payFrequency: string | null;
+  performanceBonus: string | null;
+  annualLeaveDays: number | null;
   benefits?: string | null;
   allowance?: number | null;
   note?: string | null;
@@ -65,6 +77,12 @@ export interface OfferUpdateRequest {
   contractTypeId: number;
   startDate: string;
   probationMonths: number;
+  reportingManager: string | null;
+  workLocationId: number | null;
+  currency: string | null;
+  payFrequency: string | null;
+  performanceBonus: string | null;
+  annualLeaveDays: number | null;
   benefits?: string | null;
   allowance?: number | null;
   note?: string | null;
@@ -97,6 +115,12 @@ export interface CandidateOfferResponse {
   contractTypeName: string;
   startDate: string;
   probationMonths: number;
+  reportingManager: string | null;
+  workLocationId: number | null;
+  currency: string | null;
+  payFrequency: string | null;
+  performanceBonus: string | null;
+  annualLeaveDays: number | null;
   responseDeadline: string | null;
   benefits: string | null;
   allowance: number | null;

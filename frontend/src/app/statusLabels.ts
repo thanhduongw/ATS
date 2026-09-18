@@ -26,13 +26,109 @@ export const OFFER_STATUS: Record<string, StatusMeta> = {
     DECLINED: { label: "Ứng viên từ chối", color: "magenta" },
 };
 
-export const INTERVIEW_STATUS: Record<string, StatusMeta> = {
-    SCHEDULED: { label: "Đã lên lịch", color: "processing" },
-    CONFIRMED: { label: "Đã xác nhận", color: "success" },
-    COMPLETED: { label: "Hoàn thành", color: "default" },
-    CANCELLED: { label: "Đã hủy", color: "error" },
-    NO_SHOW: { label: "Vắng mặt", color: "warning" },
+/**
+ * Buổi phỏng vấn — nguồn nhãn duy nhất cho toàn hệ thống.
+ *
+ * Ngoài nhãn và màu Tag, mỗi trạng thái còn mang bộ màu khối lịch (accent/bg/border)
+ * để lịch phỏng vấn và lưới giờ không phải tự khai báo lại.
+ */
+export type InterviewStatusMeta = StatusMeta & {
+    /** Màu nhấn — viền trái khối lịch, chấm trạng thái */
+    accent: string;
+    /** Nền khối lịch */
+    bg: string;
+    /** Viền khối lịch */
+    border: string;
 };
+
+/** Nhãn nội bộ (HR / phòng ban) — nói rõ đang chờ ai. */
+export const INTERVIEW_STATUS: Record<string, InterviewStatusMeta> = {
+    SCHEDULED: {
+        label: "Chờ phòng ban xác nhận", color: "warning",
+        accent: "#D97706", bg: "#FFFBEB", border: "#FDE68A",
+    },
+    HM_RESCHEDULE_PROPOSED: {
+        label: "Phòng ban đề xuất đổi giờ", color: "orange",
+        accent: "#EA580C", bg: "#FFF7ED", border: "#FED7AA",
+    },
+    HM_CONFIRMED: {
+        label: "Chờ ứng viên xác nhận", color: "processing",
+        accent: "#3B82F6", bg: "#EFF6FF", border: "#BFDBFE",
+    },
+    CANDIDATE_CONFIRMED: {
+        label: "Ứng viên đã xác nhận", color: "success",
+        accent: "#0E7A5F", bg: "#F0FDF4", border: "#A7F3D0",
+    },
+    EVALUATION_PENDING: {
+        label: "Chờ đánh giá", color: "purple",
+        accent: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE",
+    },
+    COMPLETED: {
+        label: "Hoàn thành", color: "default",
+        accent: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB",
+    },
+    NO_SHOW: {
+        label: "Vắng mặt", color: "gold",
+        accent: "#B45309", bg: "#FEF3C7", border: "#FCD34D",
+    },
+    CANCELLED: {
+        label: "Đã hủy", color: "error",
+        accent: "#DC2626", bg: "#FEF2F2", border: "#FECACA",
+    },
+};
+
+/**
+ * Nhãn rút gọn ở cổng ứng viên — cùng dữ liệu, khác cách diễn đạt.
+ *
+ * SCHEDULED và HM_RESCHEDULE_PROPOSED không có ở đây vì backend không trả về cho ứng viên;
+ * hai mục đó chỉ là lưới an toàn phòng khi API đổi. EVALUATION_PENDING hiện thành
+ * "Đã diễn ra" để không lộ chuyện nội bộ đang chờ ai chấm điểm.
+ */
+const INTERVIEW_STATUS_FOR_CANDIDATE: Record<string, string> = {
+    SCHEDULED: "Đang sắp xếp",
+    HM_RESCHEDULE_PROPOSED: "Đang sắp xếp",
+    HM_CONFIRMED: "Chờ bạn xác nhận",
+    CANDIDATE_CONFIRMED: "Đã xác nhận",
+    EVALUATION_PENDING: "Đã diễn ra",
+    COMPLETED: "Đã hoàn thành",
+    NO_SHOW: "Vắng mặt",
+    CANCELLED: "Đã hủy",
+};
+
+/** Thứ tự hiển thị trong chú giải và bộ lọc — theo đúng dòng chảy nghiệp vụ. */
+export const INTERVIEW_STATUS_ORDER = [
+    "SCHEDULED",
+    "HM_RESCHEDULE_PROPOSED",
+    "HM_CONFIRMED",
+    "CANDIDATE_CONFIRMED",
+    "EVALUATION_PENDING",
+    "COMPLETED",
+    "NO_SHOW",
+    "CANCELLED",
+] as const;
+
+const INTERVIEW_STATUS_FALLBACK: InterviewStatusMeta = {
+    label: "—", color: "default",
+    accent: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB",
+};
+
+/**
+ * Nhãn buổi phỏng vấn theo ngữ cảnh người xem.
+ *
+ * @param audience "internal" cho HR/phòng ban, "candidate" cho cổng ứng viên.
+ */
+export function interviewStatusMeta(
+    status?: string | null,
+    audience: "internal" | "candidate" = "internal",
+): InterviewStatusMeta {
+    if (!status) return INTERVIEW_STATUS_FALLBACK;
+    const meta = INTERVIEW_STATUS[status];
+    if (!meta) return { ...INTERVIEW_STATUS_FALLBACK, label: status };
+    if (audience === "candidate") {
+        return { ...meta, label: INTERVIEW_STATUS_FOR_CANDIDATE[status] ?? meta.label };
+    }
+    return meta;
+}
 
 export const AUDIT_ACTION_LABEL: Record<string, string> = {
     APPLICATION_STAGE_CHANGED: "Đổi giai đoạn hồ sơ",

@@ -24,11 +24,11 @@ import type {
 import RejectApplicationModal from "../components/RejectApplicationModal";
 import InterviewQuickCreateModal from "../../interview/components/InterviewQuickCreateModal";
 import { getInterviews, cancelInterview } from "../../interview/interviewApi";
-import type { InterviewResponse } from "../../interview/types";
+import { INTERVIEW_CANCELLABLE, type InterviewResponse } from "../../interview/types";
 import ApplicationEvaluationPanel from "../components/ApplicationEvaluationPanel";
 import { COLORS, SHADOWS } from "../../../app/theme";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
-import { stageTypeTagColor, genderLabel, INTERVIEW_STATUS, statusMeta } from "../../../app/statusLabels";
+import { stageTypeTagColor, genderLabel, interviewStatusMeta } from "../../../app/statusLabels";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
@@ -423,8 +423,8 @@ export default function CandidateApplicationDetailPage() {
             ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {interviews.map((iv) => {
-                        const meta = statusMeta(INTERVIEW_STATUS, iv.status);
-                        const cancellable = iv.status === "SCHEDULED" || iv.status === "CONFIRMED";
+                        const meta = interviewStatusMeta(iv.status);
+                        const cancellable = INTERVIEW_CANCELLABLE.has(iv.status);
                         const scheduled = new Date(iv.scheduledAt);
                         return (
                             <div key={iv.id} style={{
@@ -448,7 +448,7 @@ export default function CandidateApplicationDetailPage() {
                                         </span>
                                         {iv.format === "ONLINE" && iv.meetingLink ? (
                                             <a href={iv.meetingLink} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                <LinkOutlined /> Link họp
+                                                <LinkOutlined /> Đường dẫn họp
                                             </a>
                                         ) : iv.workLocationId ? (
                                             <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -468,7 +468,7 @@ export default function CandidateApplicationDetailPage() {
                                 {isHr && cancellable && (
                                     <Popconfirm
                                         title="Hủy lịch phỏng vấn này?"
-                                        description="Ứng viên và người phỏng vấn sẽ nhận được thông báo hủy."
+                                        description="Buổi phỏng vấn sẽ chuyển sang trạng thái Đã hủy."
                                         okText="Hủy lịch"
                                         cancelText="Đóng"
                                         okButtonProps={{ danger: true }}

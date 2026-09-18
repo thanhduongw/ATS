@@ -620,11 +620,15 @@ public class ApplicationService {
     }
 
     private void authorizeApplication(CurrentUser actor, Application application) {
-        if (AuthorizationPolicy.roleOf(actor) == AuthorizationPolicy.Role.CANDIDATE) {
+        AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
+        if (role == AuthorizationPolicy.Role.SYSTEM) {
+            return;
+        }
+        if (role == AuthorizationPolicy.Role.CANDIDATE) {
             Long ownCandidateId = resolveCandidateId(actor.userId());
             if (!ownCandidateId.equals(application.getCandidateId())) {
                 throw new org.springframework.security.access.AccessDeniedException(
-                        "Candidate cannot access another candidate's application");
+                        "Ứng viên không được truy cập hồ sơ ứng tuyển của người khác");
             }
             return;
         }

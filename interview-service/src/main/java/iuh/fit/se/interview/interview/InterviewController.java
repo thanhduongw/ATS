@@ -3,7 +3,9 @@ package iuh.fit.se.interview.interview;
 import iuh.fit.se.interview.interview.dto.InterviewBulkScheduleItem;
 import iuh.fit.se.interview.interview.dto.InterviewBulkScheduleRequest;
 import iuh.fit.se.interview.interview.dto.InterviewCreateRequest;
+import iuh.fit.se.interview.interview.dto.InterviewHmRejectRequest;
 import iuh.fit.se.interview.interview.dto.InterviewResponse;
+import iuh.fit.se.interview.interview.dto.InterviewUpdateRequest;
 import iuh.fit.se.interview.interview.dto.CandidateInterviewResponse;
 import iuh.fit.se.interview.security.AuthorizationPolicy;
 import iuh.fit.se.interview.security.CurrentUser;
@@ -79,7 +81,7 @@ public class InterviewController {
     public ResponseEntity<InterviewResponse> getById(
             @PathVariable Long id) {
         CurrentUser actor = CurrentUser.required();
-        AuthorizationPolicy.requireInternal(actor);
+        AuthorizationPolicy.requireInternalOrSystem(actor);
         return ResponseEntity.ok(service.getById(actor, id));
     }
 
@@ -92,11 +94,58 @@ public class InterviewController {
         return ResponseEntity.ok(service.create(actor, req));
     }
 
+    /** Chỉ HR — dời lịch tại chỗ (giờ, thời lượng, hình thức, địa điểm). */
+    @PutMapping("/{id}")
+    public ResponseEntity<InterviewResponse> update(
+            @PathVariable Long id,
+            @Valid @RequestBody InterviewUpdateRequest req) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireHr(actor);
+        return ResponseEntity.ok(service.update(actor, id, req));
+    }
+
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<InterviewResponse> cancel(
             @PathVariable Long id) {
         AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.cancel(id));
+    }
+
+    /** Phòng ban chốt giờ — mốc duy nhất ứng viên được thông báo. */
+    @PatchMapping("/{id}/hm-confirm")
+    public ResponseEntity<InterviewResponse> confirmByHm(
+            @PathVariable Long id) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireInternal(actor);
+        return ResponseEntity.ok(service.confirmByHm(actor, id));
+    }
+
+    /** Phòng ban từ chối giờ HR đặt; kèm giờ đề xuất thì chờ HR duyệt, không kèm thì hủy. */
+    @PatchMapping("/{id}/hm-reject")
+    public ResponseEntity<InterviewResponse> rejectByHm(
+            @PathVariable Long id,
+            @RequestBody InterviewHmRejectRequest req) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireInternal(actor);
+        return ResponseEntity.ok(service.rejectByHm(actor, id, req));
+    }
+
+    /** Chỉ HR — duyệt giờ phòng ban đề xuất. */
+    @PatchMapping("/{id}/approve-proposal")
+    public ResponseEntity<InterviewResponse> approveHmProposal(
+            @PathVariable Long id) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireHr(actor);
+        return ResponseEntity.ok(service.approveHmProposal(actor, id));
+    }
+
+    /** Ghi nhận ứng viên đã xác nhận nhưng không đến. */
+    @PatchMapping("/{id}/no-show")
+    public ResponseEntity<InterviewResponse> markNoShow(
+            @PathVariable Long id) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireInternal(actor);
+        return ResponseEntity.ok(service.markNoShow(actor, id));
     }
 
     /** Candidate xác nhận lịch */

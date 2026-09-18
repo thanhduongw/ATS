@@ -3,18 +3,24 @@ import { Tooltip } from "antd";
 import { VideoCameraOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import dayjs, { type Dayjs } from "dayjs";
 import type { InterviewResponse } from "../types";
-import { interviewStatusMeta } from "../interviewStatus";
+import { interviewStatusMeta } from "../../../app/statusLabels";
 import { COLORS } from "../../../app/theme";
 
 const HOUR_HEIGHT = 56;
 const GUTTER_WIDTH = 56;
 const VI_WEEKDAY_SHORT = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
+interface SessionDisplay {
+    size: number;
+    accent: string;
+}
+
 interface Props {
     interviews: InterviewResponse[];
     mode: "day" | "week";
     anchorDate: Dayjs;
     workLocationMap: Record<number, string>;
+    sessionDisplayById: ReadonlyMap<number, SessionDisplay>;
     onSelectInterview: (interview: InterviewResponse) => void;
     onSelectEmptySlot?: (start: Dayjs) => void;
     startHour?: number;
@@ -78,6 +84,7 @@ export default function InterviewTimeGrid({
     mode,
     anchorDate,
     workLocationMap,
+    sessionDisplayById,
     onSelectInterview,
     onSelectEmptySlot,
     startHour = 7,
@@ -155,9 +162,15 @@ export default function InterviewTimeGrid({
                 <div style={{ width: GUTTER_WIDTH, flexShrink: 0 }} />
                 {days.map((day) => {
                     const isToday = day.isSame(dayjs(), "day");
-                    const count = interviews.filter(
+                    const dayInterviews = interviews.filter(
                         (iv) => dayjs(iv.scheduledAt).format("YYYY-MM-DD") === day.format("YYYY-MM-DD"),
-                    ).length;
+                    );
+                    const count = dayInterviews.length;
+                    const sessionCount = new Set(
+                        dayInterviews.flatMap((interview) =>
+                            interview.sessionId == null ? [] : [interview.sessionId],
+                        ),
+                    ).size;
                     return (
                         <div
                             key={day.format("YYYY-MM-DD")}
@@ -198,7 +211,9 @@ export default function InterviewTimeGrid({
                                 {day.format("DD")}
                             </div>
                             <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>
-                                {count > 0 ? `${count} buổi` : "—"}
+                                {count > 0
+                                    ? `${count} buổi${sessionCount > 0 ? ` · ${sessionCount} lô` : ""}`
+                                    : "—"}
                             </div>
                         </div>
                     );
@@ -285,17 +300,20 @@ export default function InterviewTimeGrid({
                                 const widthPct = 100 / ev.cols;
                                 const compact = height < 44;
                                 const cancelled = ev.interview.status === "CANCELLED";
+                                const session = ev.interview.sessionId == null
+                                    ? undefined
+                                    : sessionDisplayById.get(ev.interview.sessionId);
                                 const locationText =
                                     ev.interview.format === "ONLINE"
-                                        ? "Online"
+                                        ? "Trực tuyến"
                                         : ev.interview.workLocationId
-                                            ? workLocationMap[ev.interview.workLocationId] ?? "Offline"
-                                            : "Offline";
+                                            ? workLocationMap[ev.interview.workLocationId] ?? "Trực tiếp"
+                                            : "Trực tiếp";
 
                                 return (
                                     <Tooltip
                                         key={ev.interview.id}
-                                        title={`${ev.start.format("HH:mm")}–${ev.end.format("HH:mm")} · ${ev.interview.candidateName} · ${meta.label}`}
+                                        title={`${ev.start.format("HH:mm")}–${ev.end.format("HH:mm")} · ${ev.interview.candidateName} · ${meta.label}${session && ev.interview.sessionId != null ? ` · Lô ${session.size} ứng viên, mã lô ${ev.interview.sessionId}` : ""}`}
                                     >
                                         <div
                                             className="itg-event"
@@ -312,6 +330,7 @@ export default function InterviewTimeGrid({
                                                 background: meta.bg,
                                                 border: `1px solid ${meta.border}`,
                                                 borderLeft: `3px solid ${meta.accent}`,
+                                                borderRight: session ? `3px solid ${session.accent}` : undefined,
                                                 borderRadius: 6,
                                                 padding: compact ? "1px 6px" : "4px 8px",
                                                 overflow: "hidden",
@@ -325,14 +344,41 @@ export default function InterviewTimeGrid({
                                                     fontWeight: 700,
                                                     color: meta.accent,
                                                     fontVariantNumeric: "tabular-nums",
-                                                    whiteSpace: "nowrap",
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: 4,
+                                                    minWidth: 0,
                                                 }}
                                             >
-                                                {ev.start.format("HH:mm")}
-                                                {!compact && ` – ${ev.end.format("HH:mm")}`}
-                                                {compact && ` ${ev.interview.candidateName}`}
+                                                <span
+                                                    style={{
+                                                        flex: 1,
+                                                        minWidth: 0,
+                                                        whiteSpace: "nowrap",
+                                                        overflow: "hidden",
+                                                        textOverflow: "ellipsis",
+                                                    }}
+                                                >
+                                                    {ev.start.format("HH:mm")}
+                                                    {!compact && ` – ${ev.end.format("HH:mm")}`}
+                                                    {compact && ` ${ev.interview.candidateName}`}
+                                                </span>
+                                                {session && (
+                                                    <span
+                                                        style={{
+                                                            flexShrink: 0,
+                                                            padding: "0 4px",
+                                                            borderRadius: 999,
+                                                            border: `1px solid ${session.accent}55`,
+                                                            background: `${session.accent}14`,
+                                                            color: session.accent,
+                                                            fontSize: 9,
+                                                            lineHeight: "14px",
+                                                        }}
+                                                    >
+                                                        Lô {session.size}
+                                                    </span>
+                                                )}
                                             </div>
 
                                             {!compact && (

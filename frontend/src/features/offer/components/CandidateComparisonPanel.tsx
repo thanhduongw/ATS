@@ -266,7 +266,7 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                 }
                 const skills = c.skillNames.length > 0
                     ? c.skillNames.slice(0, 3).join(" · ")
-                        + (c.skillNames.length > 3 ? ` +${c.skillNames.length - 3}` : "")
+                    + (c.skillNames.length > 3 ? ` +${c.skillNames.length - 3}` : "")
                     : "";
                 return (
                     <Tooltip title={c.skillNames.join(", ") || undefined}>
@@ -438,19 +438,19 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                             : `So sánh chi tiết (${selectedIds.length})`}
                     </Button>
 
-                {headcount != null && (
-                    <div style={{
-                        fontSize: 13,
-                        padding: "6px 12px",
-                        borderRadius: 8,
-                        background: headcountExhausted ? "#FEF2F2" : "#F0FDF4",
-                        border: `1px solid ${headcountExhausted ? "#FECACA" : "#BBF7D0"}`,
-                        color: COLORS.textSecondary,
-                    }}>
-                        Suất tuyển: <b>{acceptedOfferCount} / {headcount}</b> đã tuyển
-                        {" · "}Offer đang chờ: <b>{pendingOfferCount}</b>
-                    </div>
-                )}
+                    {headcount != null && (
+                        <div style={{
+                            fontSize: 13,
+                            padding: "6px 12px",
+                            borderRadius: 8,
+                            background: headcountExhausted ? "#FEF2F2" : "#F0FDF4",
+                            border: `1px solid ${headcountExhausted ? "#FECACA" : "#BBF7D0"}`,
+                            color: COLORS.textSecondary,
+                        }}>
+                            Suất tuyển: <b>{acceptedOfferCount} / {headcount}</b> đã tuyển
+                            {" · "}Offer đang chờ: <b>{pendingOfferCount}</b>
+                        </div>
+                    )}
                 </Space>
             </div>
 

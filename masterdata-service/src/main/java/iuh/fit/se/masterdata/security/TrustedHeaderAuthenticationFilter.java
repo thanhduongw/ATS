@@ -25,7 +25,7 @@ public class TrustedHeaderAuthenticationFilter extends OncePerRequestFilter {
     public static final String DEPARTMENT_ID_HEADER = "X-Department-Id";
 
     private static final Set<String> ALLOWED_ROLES = Set.of(
-            "COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER", "CANDIDATE"
+            "COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER", "CANDIDATE", "SYSTEM"
     );
 
     @Override

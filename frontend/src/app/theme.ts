@@ -147,6 +147,10 @@ export const atsTheme: ThemeConfig = {
             headerBg: "#F8FAFC",
             headerColor: COLORS.textSecondary,
             rowHoverBg: "rgba(14, 122, 95, 0.02)",
+            // Antd tự suy màu dòng đang chọn từ colorPrimary — xanh đậm nên ra tông
+            // khá gắt, chữ phụ màu xám đọc không nổi. Giữ đúng sắc xanh nhưng nhạt hẳn.
+            rowSelectedBg: "rgba(14, 122, 95, 0.06)",
+            rowSelectedHoverBg: "rgba(14, 122, 95, 0.10)",
             borderColor: COLORS.borderLight,
             headerBorderRadius: RADIUS.md,
         },

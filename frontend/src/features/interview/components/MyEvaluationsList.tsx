@@ -5,7 +5,7 @@ import type { AxiosError } from "axios";
 import { getInterviews } from "../interviewApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
-import type { ApiMessageResponse, InterviewResponse } from "../types";
+import { INTERVIEW_HELD, type ApiMessageResponse, type InterviewResponse } from "../types";
 import { useAppSelector } from "../../../app/hooks";
 import EvaluationSubmitModal from "./EvaluationSubmitModal";
 import { EVALUATION_DUE_HOURS, evaluationDueAt } from "../evaluationDeadline";
@@ -42,12 +42,12 @@ export default function MyEvaluationsList() {
   }, [loadData]);
 
   const myAssignments = interviews
-    .filter((iv) => iv.status !== "CANCELLED")
     .flatMap((iv) =>
       iv.interviewers
         .filter((i) => String(i.interviewerId) === currentUser?.userId)
         .map((i) => ({ interview: iv, submitted: i.evaluationSubmitted }))
-    );
+    )
+    .filter((assignment) => assignment.submitted || INTERVIEW_HELD.has(assignment.interview.status));
 
   const displayed = myAssignments.filter((a) => (filterMode === "pending" ? !a.submitted : a.submitted));
 
@@ -83,7 +83,7 @@ export default function MyEvaluationsList() {
                   <div style={{ fontWeight: 600 }}>{interview.candidateName}</div>
                   <div style={{ color: "rgba(0,0,0,0.45)", fontSize: 13 }}>
                     {`${dayjs(interview.scheduledAt).format("HH:mm DD/MM/YYYY")} · ${
-                      interview.format === "ONLINE" ? "Online" : "Offline"
+                      interview.format === "ONLINE" ? "Trực tuyến" : "Trực tiếp"
                     }`}
                   </div>
                   {!submitted && (() => {

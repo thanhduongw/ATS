@@ -11,7 +11,7 @@ import { getPostings } from "../../recruitment/recruitmentApi";
 import type { JobPostingResponse } from "../../recruitment/types";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
-import type { ApiMessageResponse, InterviewResponse } from "../types";
+import { INTERVIEW_HELD, type ApiMessageResponse, type InterviewResponse } from "../types";
 import MyEvaluationsList from "../components/MyEvaluationsList";
 import { evaluationDueAt } from "../evaluationDeadline";
 import { useAppSelector } from "../../../app/hooks";
@@ -96,8 +96,11 @@ function HrEvaluationTracking() {
 
     const rows = useMemo<TrackingRow[]>(() => {
         const built = interviews
-            // Buoi bi huy khong con ai phai cham.
-            .filter((iv) => iv.status !== "CANCELLED" && iv.interviewers.length > 0)
+            // Buổi đang chờ đánh giá hoặc đã hoàn tất đều cần xuất hiện trong bảng theo dõi.
+            .filter((iv) =>
+                (INTERVIEW_HELD.has(iv.status) || iv.status === "COMPLETED")
+                && iv.interviewers.length > 0,
+            )
             .map((iv) => ({
                 interview: iv,
                 application: applicationById.get(iv.applicationId) ?? null,
@@ -118,7 +121,7 @@ function HrEvaluationTracking() {
 
     const pendingCount = useMemo(
         () => interviews.filter(
-            (iv) => iv.status !== "CANCELLED"
+            (iv) => INTERVIEW_HELD.has(iv.status)
                 && iv.interviewers.length > 0
                 && iv.interviewers.some((i) => !i.evaluationSubmitted),
         ).length,

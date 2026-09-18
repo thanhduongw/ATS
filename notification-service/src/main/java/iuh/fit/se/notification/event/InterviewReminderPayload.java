@@ -1,3 +1,9 @@
 package iuh.fit.se.notification.event;
 
-public record InterviewReminderPayload(Long interviewId, Long applicationId) {}
+import java.time.LocalDateTime;
+
+public record InterviewReminderPayload(
+        Long interviewId,
+        Long applicationId,
+        LocalDateTime expectedScheduledAt
+) {}

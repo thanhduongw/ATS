@@ -55,10 +55,7 @@ public class InterviewEvaluationService {
         Interview interview = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy buổi phỏng vấn"));
         interviewService.requireCanView(interview, actor);
-
-        if (interview.getStatus() == InterviewStatus.CANCELLED) {
-            throw new BusinessException("Buổi phỏng vấn đã bị hủy");
-        }
+        requireHeldForEvaluation(interview);
 
         InterviewEvaluation evaluation = evaluationRepository
                 .findByInterviewIdAndInterviewerId(interviewId, actor.userId())
@@ -90,9 +87,7 @@ public class InterviewEvaluationService {
         // Tất cả interviewer đã nộp → COMPLETED
         List<InterviewEvaluation> allEvaluations = evaluationRepository.findByInterviewId(interviewId);
         boolean allSubmitted = allEvaluations.stream().allMatch(e -> e.getSubmittedAt() != null);
-        if (allSubmitted
-                && (interview.getStatus() == InterviewStatus.SCHEDULED
-                || interview.getStatus() == InterviewStatus.CONFIRMED)) {
+        if (allSubmitted && InterviewStatus.HELD.contains(interview.getStatus())) {
             interview.setStatus(InterviewStatus.COMPLETED);
             interviewRepository.save(interview);
         }
@@ -159,10 +154,7 @@ public class InterviewEvaluationService {
         Interview interview = interviewRepository.findById(interviewId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy buổi phỏng vấn"));
         interviewService.requireCanView(interview, actor);
-
-        if (interview.getStatus() == InterviewStatus.CANCELLED) {
-            throw new BusinessException("Buổi phỏng vấn đã bị hủy");
-        }
+        requireHeldForEvaluation(interview);
 
         InterviewEvaluation evaluation = evaluationRepository
                 .findByInterviewIdAndInterviewerId(interviewId, actor.userId())
@@ -191,6 +183,19 @@ public class InterviewEvaluationService {
 
         evaluationRepository.save(evaluation);
         return toResponse(evaluation, interview, buildCriteriaNameMap(), true, true);
+    }
+
+    /** Chỉ buổi ứng viên đã xác nhận và đang/đã diễn ra mới nhận bài đánh giá. */
+    private void requireHeldForEvaluation(Interview interview) {
+        if (interview.getStatus() == InterviewStatus.CANCELLED) {
+            throw new BusinessException("Buổi phỏng vấn đã bị hủy");
+        }
+        if (interview.getStatus() == InterviewStatus.NO_SHOW) {
+            throw new BusinessException("Ứng viên vắng mặt, không có gì để đánh giá");
+        }
+        if (!InterviewStatus.HELD.contains(interview.getStatus())) {
+            throw new BusinessException("Chỉ đánh giá được buổi phỏng vấn đã được ứng viên xác nhận");
+        }
     }
 
     /**

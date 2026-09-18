@@ -128,12 +128,12 @@ public class AuthController {
         return ResponseEntity.ok(new ApiMessageResponse("Password changed successfully"));
     }
 
-    /** Full user directory including candidate accounts, email and status: administrators only. */
+    /** Danh bạ đầy đủ gồm tài khoản ứng viên, email và trạng thái: quản trị viên hoặc tác vụ nội bộ. */
     @GetMapping("/users")
-    @PreAuthorize("hasRole('COMPANY_ADMIN')")
+    @PreAuthorize("hasAnyRole('COMPANY_ADMIN', 'SYSTEM')")
     public ResponseEntity<List<UserSummaryResponse>> getUsers(
             @RequestParam(required = false) String role) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireAdminOrSystem(CurrentUser.required());
         return ResponseEntity.ok(userService.getUsers(role));
     }
 

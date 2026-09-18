@@ -33,6 +33,8 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
             @Param("departmentId") Long departmentId,
             @Param("userId") Long userId);
 
+    List<Interview> findByStatus(InterviewStatus status);
+
     /** Lịch hiện có của các người phỏng vấn — dùng để tránh trùng lịch khi xếp lịch hàng loạt. */
     List<Interview> findByInterviewers_InterviewerIdInAndStatusIn(
             List<Long> interviewerIds, List<InterviewStatus> statuses);

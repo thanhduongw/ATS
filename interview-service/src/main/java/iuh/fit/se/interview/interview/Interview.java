@@ -60,6 +60,25 @@ public class Interview {
     @Column(name = "candidate_confirmed_at")
     private LocalDateTime candidateConfirmedAt;
 
+    /** Cột đã có sẵn trong schema — mốc HM chốt giờ, cũng là lúc ứng viên được thông báo. */
+    @Column(name = "hm_confirmed_at")
+    private LocalDateTime hmConfirmedAt;
+
+    /**
+     * Nhóm các buổi được tạo cùng một lần/cùng khung giờ để giao diện gom lại.
+     * Trạng thái vẫn độc lập từng buổi — no-show và đánh giá là theo từng ứng viên.
+     */
+    @Column(name = "session_id")
+    private Long sessionId;
+
+    /** Giờ HM đề xuất thay thế, chỉ có nghĩa khi status = HM_RESCHEDULE_PROPOSED. */
+    @Column(name = "proposed_scheduled_at")
+    private LocalDateTime proposedScheduledAt;
+
+    /** Lý do HM từ chối giờ HR đặt. */
+    @Column(name = "proposal_note", length = 500)
+    private String proposalNote;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

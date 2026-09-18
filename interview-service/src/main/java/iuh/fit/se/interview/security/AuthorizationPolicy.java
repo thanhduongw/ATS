@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.Objects;
 
 public final class AuthorizationPolicy {
-    public enum Role { COMPANY_ADMIN, RECRUITER, HIRING_MANAGER, CANDIDATE }
+    public enum Role { COMPANY_ADMIN, RECRUITER, HIRING_MANAGER, CANDIDATE, SYSTEM }
     private AuthorizationPolicy() {}
     public static Role roleOf(CurrentUser actor) {
         Objects.requireNonNull(actor, "actor");
@@ -20,6 +20,7 @@ public final class AuthorizationPolicy {
     }
     public static void requireAdmin(CurrentUser actor) { requireRole(actor, Role.COMPANY_ADMIN); }
     public static void requireInternal(CurrentUser actor) { requireAnyRole(actor, Role.COMPANY_ADMIN, Role.RECRUITER, Role.HIRING_MANAGER); }
+    public static void requireInternalOrSystem(CurrentUser actor) { requireAnyRole(actor, Role.COMPANY_ADMIN, Role.RECRUITER, Role.HIRING_MANAGER, Role.SYSTEM); }
     public static void requireHr(CurrentUser actor) { requireAnyRole(actor, Role.COMPANY_ADMIN, Role.RECRUITER); }
     public static void requireHiringManager(CurrentUser actor) { requireAnyRole(actor, Role.COMPANY_ADMIN, Role.HIRING_MANAGER); }
     public static void requireCandidate(CurrentUser actor) { requireRole(actor, Role.CANDIDATE); }

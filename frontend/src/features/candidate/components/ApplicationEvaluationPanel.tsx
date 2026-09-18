@@ -6,7 +6,12 @@ import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 
 import { getApplicationEvaluations } from "../../interview/interviewApi";
-import type { ApiMessageResponse, EvaluationResponse, InterviewResponse } from "../../interview/types";
+import {
+    INTERVIEW_HELD,
+    type ApiMessageResponse,
+    type EvaluationResponse,
+    type InterviewResponse,
+} from "../../interview/types";
 import type { ApplicationHistoryResponse } from "../types";
 import { COLORS, RADIUS } from "../../../app/theme";
 
@@ -102,7 +107,7 @@ export default function ApplicationEvaluationPanel({
      */
     const pendingOwnInterview = useMemo(
         () => interviews.find((iv) =>
-            iv.status !== "CANCELLED" &&
+            INTERVIEW_HELD.has(iv.status) &&
             iv.interviewers.some((p) => p.interviewerId === currentUserId && !p.evaluationSubmitted),
         ),
         [interviews, currentUserId],

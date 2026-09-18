@@ -2,10 +2,14 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import { BrowserRouter } from "react-router-dom";
+import dayjs from "dayjs";
+import "dayjs/locale/vi";
 import { store } from "./app/store";
 import { ThemedApp } from "./app/ThemedApp";
 import "./index.css";
 import { I18nProvider } from "./i18n/I18nProvider";
+
+dayjs.locale("vi");
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

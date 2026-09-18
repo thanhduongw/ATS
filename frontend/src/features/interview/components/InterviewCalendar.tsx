@@ -7,7 +7,7 @@ import {
   Segmented,
   Select,
   DatePicker,
-  Table,
+  Modal,
   Tag,
   Space,
   Button,
@@ -26,23 +26,25 @@ import {
   ThunderboltOutlined,
   ClockCircleOutlined,
   FileDoneOutlined,
-  VideoCameraOutlined,
-  EnvironmentOutlined,
-  EyeOutlined,
+  TeamOutlined,
+  SwapOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
-import type { ColumnsType } from "antd/es/table";
 import type { AxiosError } from "axios";
 
 import { getInterviews } from "../interviewApi";
 import { getUserDirectory } from "../../auth/authApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
-import type {
-  ApiMessageResponse,
-  InterviewResponse,
-  InterviewStatus as InterviewStatusType,
+import { getPostings } from "../../recruitment/recruitmentApi";
+import type { JobPostingResponse } from "../../recruitment/types";
+import CandidateComparisonPanel from "../../offer/components/CandidateComparisonPanel";
+import {
+  INTERVIEW_HELD,
+  type ApiMessageResponse,
+  type InterviewResponse,
+  type InterviewStatus as InterviewStatusType,
 } from "../types";
 import type { UserDirectoryResponse, UserRole } from "../../auth/types";
 import InterviewDetailModal from "./InterviewDetailModal";
@@ -50,20 +52,25 @@ import EvaluationSummaryModal from "./EvaluationSummaryModal";
 import InterviewQuickCreateModal from "./InterviewQuickCreateModal";
 import BulkScheduleModal from "./BulkScheduleModal";
 import InterviewTimeGrid from "./InterviewTimeGrid";
+import InterviewListView from "./InterviewListView";
+import { sessionAccent, sessionDescription, type SessionDisplay } from "../session";
 import { COLORS } from "../../../app/theme";
-import { interviewStatusMeta, INTERVIEW_STATUS_ORDER } from "../interviewStatus";
+import {
+  INTERVIEW_STATUS,
+  INTERVIEW_STATUS_ORDER,
+  interviewStatusMeta,
+} from "../../../app/statusLabels";
 import { useAppSelector } from "../../../app/hooks";
 import { useTrailNavigate } from "../../../app/useNavTrail";
 import { HR_ROLES } from "../../../app/roles";
-import EmptyState from "../../../components/ui/EmptyState";
 import StatTile from "../../../components/ui/StatTile";
 import { StatRow, PageToolbar, FilterBar } from "../../../components/ui/pageKit";
-import { listCardStyle, listCardBodyStyle, listPagination } from "../../../components/ui/listStyles";
+import { listCardStyle } from "../../../components/ui/listStyles";
 
 const { RangePicker } = DatePicker;
 
 type ViewMode = "day" | "week" | "month" | "list";
-type QuickFilter = "pendingConfirm" | "needEvaluation" | null;
+type QuickFilter = "pendingHm" | "pendingCandidate" | "needEvaluation" | null;
 
 export default function InterviewCalendar() {
   const { message } = App.useApp();
@@ -77,10 +84,11 @@ export default function InterviewCalendar() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [anchorDate, setAnchorDate] = useState<Dayjs>(dayjs());
   const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
+  const [sessionSource, setSessionSource] = useState<InterviewResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   /** Buoi phong van dang mo bang tong hop danh gia (null = dong). */
-  const [evaluationFor, setEvaluationFor] = useState<number | null>(null);
+  const [evaluationFor, setEvaluationFor] = useState<InterviewResponse | null>(null);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState<InterviewResponse | null>(null);
@@ -91,6 +99,11 @@ export default function InterviewCalendar() {
 
   const [interviewers, setInterviewers] = useState<UserDirectoryResponse[]>([]);
   const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
+  const [postings, setPostings] = useState<JobPostingResponse[]>([]);
+  const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
+  const [departmentFilter, setDepartmentFilter] = useState<number | undefined>(undefined);
+  const [postingFilter, setPostingFilter] = useState<number | undefined>(undefined);
+  const [compareOpen, setCompareOpen] = useState(false);
   const [interviewerId, setInterviewerId] = useState<number | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<InterviewStatusType | undefined>(undefined);
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
@@ -101,7 +114,7 @@ export default function InterviewCalendar() {
   const loadInterviews = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getInterviews(
+      const filteredRequest = getInterviews(
         applicationIdParam ? Number(applicationIdParam) : undefined,
         {
           interviewerId,
@@ -110,7 +123,15 @@ export default function InterviewCalendar() {
           toDate: dateRange?.[1] ? dateRange[1].endOf("day").format("YYYY-MM-DDTHH:mm:ss") : undefined,
         },
       );
+      const hasServerFilter = !!applicationIdParam
+        || interviewerId != null
+        || statusFilter != null
+        || dateRange?.[0] != null
+        || dateRange?.[1] != null;
+      const allRequest = hasServerFilter ? getInterviews() : filteredRequest;
+      const [res, allRes] = await Promise.all([filteredRequest, allRequest]);
       setInterviews(res.data);
+      setSessionSource(allRes.data);
     } catch (err) {
       const axiosErr = err as AxiosError<ApiMessageResponse>;
       message.error(axiosErr.response?.data?.message ?? "Không tải được lịch phỏng vấn");
@@ -128,6 +149,12 @@ export default function InterviewCalendar() {
     getCatalogItems("/masterdata/work-locations").then((r) =>
       setWorkLocationMap(Object.fromEntries(r.data.map((w) => [w.id, String(w.name)]))),
     );
+    // Danh sách tin tuyển dụng và phòng ban vừa dựng bộ lọc, vừa dùng để ghép tên
+    // hiển thị dưới tên ứng viên — nên API buổi phỏng vấn chỉ cần trả về id.
+    getCatalogItems("/masterdata/departments").then((r) =>
+      setDepartments(r.data.map((d) => ({ id: d.id, name: String(d.name) }))),
+    );
+    getPostings({ size: 100 }).then((r) => setPostings(r.data.content));
   }, [isHr]);
 
   // Tự mở đúng buổi phỏng vấn khi đến từ thông báo (?highlightId=) hoặc từ 1 hồ sơ cụ thể (?applicationId=)
@@ -152,6 +179,33 @@ export default function InterviewCalendar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interviews]);
 
+  const postingMap = useMemo(
+    () => Object.fromEntries(postings.map((p) => [p.id, p.title])) as Record<number, string>,
+    [postings],
+  );
+  const departmentMap = useMemo(
+    () => Object.fromEntries(departments.map((d) => [d.id, d.name])) as Record<number, string>,
+    [departments],
+  );
+
+  /** Chọn phòng ban thì danh sách tin thu hẹp theo phòng ban đó, giống màn xếp lịch hàng loạt. */
+  const postingOptions = useMemo(
+    () => (departmentFilter == null
+      ? postings
+      : postings.filter((p) => p.departmentId === departmentFilter)),
+    [postings, departmentFilter],
+  );
+
+  /** Đổi phòng ban mà tin đang chọn không còn thuộc phòng ban mới thì bỏ chọn tin. */
+  const onDepartmentFilterChange = (value?: number) => {
+    setDepartmentFilter(value);
+    if (postingFilter == null) return;
+    const current = postings.find((p) => p.id === postingFilter);
+    if (!current || (value != null && current.departmentId !== value)) {
+      setPostingFilter(undefined);
+    }
+  };
+
   /* ── Thống kê ─────────────────────────────────────────── */
   const stats = useMemo(() => {
     const now = dayjs();
@@ -159,33 +213,59 @@ export default function InterviewCalendar() {
     return {
       today: active.filter((i) => dayjs(i.scheduledAt).isSame(now, "day")).length,
       week: active.filter((i) => dayjs(i.scheduledAt).isSame(now, "week")).length,
-      pendingConfirm: interviews.filter(
-        (i) => i.status === "SCHEDULED" && !i.candidateConfirmed,
-      ).length,
-      needEvaluation: active.filter(
+      pendingHm: interviews.filter((i) => i.status === "SCHEDULED").length,
+      pendingCandidate: interviews.filter((i) => i.status === "HM_CONFIRMED").length,
+      needEvaluation: interviews.filter(
         (i) =>
-          dayjs(i.scheduledAt).isBefore(now) &&
+          INTERVIEW_HELD.has(i.status) &&
+          dayjs(i.scheduledAt).add(i.durationMinutes ?? 60, "minute").isBefore(now) &&
           i.interviewers.some((p) => !p.evaluationSubmitted),
       ).length,
     };
   }, [interviews]);
 
-  /* ── Áp lọc nhanh từ thẻ số liệu ──────────────────────── */
+  /* ── Áp lọc nhanh từ thẻ số liệu + lọc phòng ban / tin tuyển dụng ─────── */
   const visibleInterviews = useMemo(() => {
-    if (quickFilter === "pendingConfirm") {
-      return interviews.filter((i) => i.status === "SCHEDULED" && !i.candidateConfirmed);
+    // Hai bộ lọc này lọc ở phía giao diện: API buổi phỏng vấn chưa nhận tham số
+    // phòng ban, mà lọc một nửa ở máy chủ một nửa ở đây thì khó lần khi sai số.
+    let rows = interviews;
+    if (departmentFilter != null) {
+      rows = rows.filter((i) => i.departmentId === departmentFilter);
+    }
+    if (postingFilter != null) {
+      rows = rows.filter((i) => i.jobPostingId === postingFilter);
+    }
+
+    if (quickFilter === "pendingHm") {
+      return rows.filter((i) => i.status === "SCHEDULED");
+    }
+    if (quickFilter === "pendingCandidate") {
+      return rows.filter((i) => i.status === "HM_CONFIRMED");
     }
     if (quickFilter === "needEvaluation") {
       const now = dayjs();
-      return interviews.filter(
+      return rows.filter(
         (i) =>
-          i.status !== "CANCELLED" &&
-          dayjs(i.scheduledAt).isBefore(now) &&
+          INTERVIEW_HELD.has(i.status) &&
+          dayjs(i.scheduledAt).add(i.durationMinutes ?? 60, "minute").isBefore(now) &&
           i.interviewers.some((p) => !p.evaluationSubmitted),
       );
     }
-    return interviews;
-  }, [interviews, quickFilter]);
+    return rows;
+  }, [interviews, quickFilter, departmentFilter, postingFilter]);
+
+  const sessionDisplayById = useMemo(() => {
+    const sizes = new Map<number, number>();
+    sessionSource.forEach((interview) => {
+      if (interview.sessionId == null) return;
+      sizes.set(interview.sessionId, (sizes.get(interview.sessionId) ?? 0) + 1);
+    });
+    const displays = new Map<number, SessionDisplay>();
+    sizes.forEach((size, sessionId) => {
+      displays.set(sessionId, { size, accent: sessionAccent(sessionId) });
+    });
+    return displays;
+  }, [sessionSource]);
 
   const openDetail = (iv: InterviewResponse) => {
     setSelected(iv);
@@ -215,127 +295,13 @@ export default function InterviewCalendar() {
 
   const createMenuItems: MenuProps["items"] = [
     { key: "single", icon: <UserOutlined />, label: "1 ứng viên — chọn giờ cụ thể" },
-    { key: "bulk", icon: <ThunderboltOutlined />, label: "Nhiều ứng viên — tự chia slot" },
+    { key: "bulk", icon: <ThunderboltOutlined />, label: "Nhiều ứng viên — tự chia khung giờ" },
   ];
 
   const onCreateMenuClick: MenuProps["onClick"] = ({ key }) => {
     if (key === "single") openQuickCreate(null);
     if (key === "bulk") setBulkOpen(true);
   };
-
-  /* ── Cột bảng cho chế độ Danh sách ────────────────────── */
-  const columns: ColumnsType<InterviewResponse> = [
-    {
-      title: "Ứng viên",
-      dataIndex: "candidateName",
-      key: "candidateName",
-      ellipsis: true,
-      render: (name: string, r) => {
-        // Mo thang ho so ung tuyen de xem chi tiet va nop danh gia.
-        // Ho so cu co the thieu candidateId — luc do giu nguyen dang chu thuong.
-        if (r.candidateId == null) {
-          return <span style={{ fontWeight: 500 }}>{name}</span>;
-        }
-        return (
-          <Button
-            type="link"
-            style={{ padding: 0, height: "auto", fontWeight: 500 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              openApplication(`/candidates/${r.candidateId}/applications/${r.applicationId}`);
-            }}
-          >
-            {name}
-          </Button>
-        );
-      },
-    },
-    {
-      title: "Thời gian",
-      key: "scheduledAt",
-      width: 170,
-      render: (_, r) => (
-        <div style={{ lineHeight: 1.4 }}>
-          <div style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-            {dayjs(r.scheduledAt).format("HH:mm")} –{" "}
-            {dayjs(r.scheduledAt).add(r.durationMinutes ?? 60, "minute").format("HH:mm")}
-          </div>
-          <div style={{ fontSize: 12, color: COLORS.textMuted }}>
-            {dayjs(r.scheduledAt).format("dddd, DD/MM/YYYY")}
-          </div>
-          <Tag color={interviewStatusMeta(r.status).tag} style={{ margin: "4px 0 0" }}>
-            {interviewStatusMeta(r.status).label}
-          </Tag>
-        </div>
-      ),
-      sorter: (a, b) => dayjs(a.scheduledAt).valueOf() - dayjs(b.scheduledAt).valueOf(),
-      defaultSortOrder: "ascend",
-    },
-    {
-      title: "Hình thức / Địa điểm",
-      responsive: ["xl"],
-      key: "format",
-      width: 190,
-      ellipsis: true,
-      render: (_, r) => (
-        <Space size={6}>
-          {r.format === "ONLINE" ? (
-            <VideoCameraOutlined style={{ color: COLORS.textMuted }} />
-          ) : (
-            <EnvironmentOutlined style={{ color: COLORS.textMuted }} />
-          )}
-          <span style={{ fontSize: 13 }}>
-            {r.format === "ONLINE"
-              ? "Online"
-              : r.workLocationId
-                ? workLocationMap[r.workLocationId] ?? "Offline"
-                : "Offline"}
-          </span>
-        </Space>
-      ),
-    },
-    {
-      title: "Người phỏng vấn",
-      responsive: ["lg"],
-      key: "interviewers",
-      width: 220,
-      ellipsis: true,
-      render: (_, r) => r.interviewers.map((i) => i.fullName).join(", ") || "—",
-    },
-    {
-      title: "Đánh giá",
-      key: "evaluation",
-      width: 120,
-      render: (_, r) => {
-        const done = r.interviewers.filter((i) => i.evaluationSubmitted).length;
-        const total = r.interviewers.length;
-        if (total === 0) return <span style={{ color: COLORS.textMuted }}>—</span>;
-        return (
-          <Tag color={done === total ? "success" : "default"} style={{ margin: 0 }}>
-            {done}/{total}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: "Xem đánh giá",
-      key: "viewEvaluation",
-      width: 150,
-      render: (_, r) => (
-        <Button
-          size="small"
-          icon={<EyeOutlined />}
-          disabled={r.interviewers.length === 0}
-          onClick={(e) => {
-            e.stopPropagation();
-            setEvaluationFor(r.id);
-          }}
-        >
-          Xem đánh giá
-        </Button>
-      ),
-    },
-  ];
 
   return (
     <div className="page-shell animate-fade-in">
@@ -364,13 +330,25 @@ export default function InterviewCalendar() {
           }}
         />
         <StatTile
-          icon={<ClockCircleOutlined />}
-          label="Chờ ứng viên xác nhận"
-          value={stats.pendingConfirm}
-          accent="#F59E0B"
-          active={quickFilter === "pendingConfirm"}
+          icon={<TeamOutlined />}
+          label={INTERVIEW_STATUS.SCHEDULED.label}
+          value={stats.pendingHm}
+          accent={INTERVIEW_STATUS.SCHEDULED.accent}
+          active={quickFilter === "pendingHm"}
           onClick={() => {
-            const next = quickFilter === "pendingConfirm" ? null : "pendingConfirm";
+            const next = quickFilter === "pendingHm" ? null : "pendingHm";
+            setQuickFilter(next);
+            if (next) setViewMode("list");
+          }}
+        />
+        <StatTile
+          icon={<ClockCircleOutlined />}
+          label={INTERVIEW_STATUS.HM_CONFIRMED.label}
+          value={stats.pendingCandidate}
+          accent={INTERVIEW_STATUS.HM_CONFIRMED.accent}
+          active={quickFilter === "pendingCandidate"}
+          onClick={() => {
+            const next = quickFilter === "pendingCandidate" ? null : "pendingCandidate";
             setQuickFilter(next);
             if (next) setViewMode("list");
           }}
@@ -428,7 +406,11 @@ export default function InterviewCalendar() {
               color="processing"
               style={{ margin: 0 }}
             >
-              {quickFilter === "pendingConfirm" ? "Chờ ứng viên xác nhận" : "Chưa có đánh giá"}
+              {quickFilter === "pendingHm"
+                ? INTERVIEW_STATUS.SCHEDULED.label
+                : quickFilter === "pendingCandidate"
+                  ? INTERVIEW_STATUS.HM_CONFIRMED.label
+                  : "Chưa có đánh giá"}
             </Tag>
           )}
             </Space>
@@ -459,7 +441,7 @@ export default function InterviewCalendar() {
 
       {/* ── Bộ lọc + chú thích màu ──────────────────── */}
       <FilterBar
-        extra={INTERVIEW_STATUS_ORDER.map((s) => {
+        extra={viewMode === "list" ? undefined : INTERVIEW_STATUS_ORDER.map((s) => {
           const meta = interviewStatusMeta(s);
           return (
             <span
@@ -481,6 +463,26 @@ export default function InterviewCalendar() {
           );
         })}
       >
+          <Select
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder="Phòng ban"
+            style={{ width: 180 }}
+            value={departmentFilter}
+            onChange={onDepartmentFilterChange}
+            options={departments.map((d) => ({ value: d.id, label: d.name }))}
+          />
+          <Select
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder="Tin tuyển dụng"
+            style={{ width: 240 }}
+            value={postingFilter}
+            onChange={setPostingFilter}
+            options={postingOptions.map((p) => ({ value: p.id, label: p.title }))}
+          />
           {isHr && (
             <Select
               allowClear
@@ -510,38 +512,33 @@ export default function InterviewCalendar() {
             format="DD/MM/YYYY"
             placeholder={["Từ ngày", "Đến ngày"]}
           />
+          {/* So sánh gắn với một tin tuyển dụng, nên phải chọn tin thì nút mới bật.
+              Không xét số dòng đang hiển thị: bảng so sánh lấy toàn bộ hồ sơ của tin đó,
+              không giới hạn theo khoảng ngày đang lọc. */}
+          <Tooltip title={postingFilter == null ? "Chọn một tin tuyển dụng để so sánh" : undefined}>
+            <Button
+              icon={<SwapOutlined />}
+              disabled={postingFilter == null}
+              onClick={() => setCompareOpen(true)}
+            >
+              So sánh ứng viên
+            </Button>
+          </Tooltip>
       </FilterBar>
 
       {/* ── Nội dung ────────────────────────────────── */}
       {viewMode === "list" ? (
-        <Card
-          className="table-card-fill"
-          style={listCardStyle}
-          styles={{ body: listCardBodyStyle }}
-        >
-          <div className="table-scroll-wrap" style={{ flex: 1, minHeight: 0 }}>
-            <Table
-              rowKey="id"
-              size="small"
-              loading={loading}
-              columns={columns}
-              dataSource={visibleInterviews}
-              onRow={(record) => ({
-                onClick: () => openDetail(record),
-                style: { cursor: "pointer" },
-              })}
-              pagination={{ pageSize: 20, ...listPagination("buổi phỏng vấn") }}
-              locale={{
-                emptyText: loading ? <span /> : (
-                  <EmptyState
-                    title="Chưa có lịch phỏng vấn nào"
-                    description="Lịch phỏng vấn phù hợp với bộ lọc sẽ hiển thị ở đây."
-                  />
-                ),
-              }}
-            />
-          </div>
-        </Card>
+        <InterviewListView
+          interviews={visibleInterviews}
+          loading={loading}
+          workLocationMap={workLocationMap}
+          postingMap={postingMap}
+          departmentMap={departmentMap}
+          sessionDisplayById={sessionDisplayById}
+          onSelect={openDetail}
+          onOpenEvaluation={setEvaluationFor}
+          onOpenApplication={openApplication}
+        />
       ) : viewMode === "month" ? (
         <Card
           className="table-card-fill"
@@ -573,6 +570,9 @@ export default function InterviewCalendar() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                   {shown.map((iv) => {
                     const meta = interviewStatusMeta(iv.status);
+                    const session = iv.sessionId == null
+                      ? undefined
+                      : sessionDisplayById.get(iv.sessionId);
                     return (
                       <div
                         key={iv.id}
@@ -588,6 +588,7 @@ export default function InterviewCalendar() {
                           borderRadius: 5,
                           background: meta.bg,
                           borderLeft: `3px solid ${meta.accent}`,
+                          borderRight: session ? `3px solid ${session.accent}` : undefined,
                           fontSize: 11,
                           lineHeight: 1.5,
                           overflow: "hidden",
@@ -602,6 +603,8 @@ export default function InterviewCalendar() {
                         </strong>
                         <span
                           style={{
+                            flex: 1,
+                            minWidth: 0,
                             color: COLORS.textPrimary,
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -609,6 +612,24 @@ export default function InterviewCalendar() {
                         >
                           {iv.candidateName}
                         </span>
+                        {iv.sessionId != null && session && (
+                          <Tooltip title={sessionDescription(iv.sessionId, session.size)}>
+                            <span
+                              style={{
+                                flexShrink: 0,
+                                padding: "0 4px",
+                                borderRadius: 999,
+                                border: `1px solid ${session.accent}55`,
+                                background: `${session.accent}14`,
+                                color: session.accent,
+                                fontSize: 9,
+                                fontWeight: 700,
+                              }}
+                            >
+                              Lô {session.size}
+                            </span>
+                          </Tooltip>
+                        )}
                       </div>
                     );
                   })}
@@ -635,15 +656,37 @@ export default function InterviewCalendar() {
             mode={viewMode}
             anchorDate={anchorDate}
             workLocationMap={workLocationMap}
+            sessionDisplayById={sessionDisplayById}
             onSelectInterview={openDetail}
             onSelectEmptySlot={isHr ? openQuickCreate : undefined}
           />
         </Card>
       )}
 
+      {/* Mở ngay tại trang thay vì điều hướng đi: đóng lại là còn nguyên bộ lọc,
+          khoảng ngày và chế độ xem đang dở. */}
+      <Modal
+        title={
+          postingFilter == null
+            ? "So sánh ứng viên"
+            : `So sánh ứng viên · ${postingMap[postingFilter] ?? ""}`
+        }
+        open={compareOpen}
+        onCancel={() => setCompareOpen(false)}
+        footer={null}
+        width="min(2200px, 98vw)"
+        style={{ top: 16 }}
+        styles={{ body: { maxHeight: "86vh", overflowY: "auto", paddingLeft: 12, paddingRight: 12 } }}
+        destroyOnHidden
+      >
+        {postingFilter != null && (
+          <CandidateComparisonPanel jobPostingId={postingFilter} showHeader={false} />
+        )}
+      </Modal>
+
       <EvaluationSummaryModal
         open={evaluationFor != null}
-        interviewId={evaluationFor}
+        interview={evaluationFor}
         onClose={() => setEvaluationFor(null)}
       />
 

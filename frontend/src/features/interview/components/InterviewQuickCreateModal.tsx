@@ -203,7 +203,7 @@ export default function InterviewQuickCreateModal({
         <Modal
             open={open}
             onCancel={onClose}
-            width={620}
+            width={760}
             destroyOnHidden
             title={
                 <div style={{ display: "flex", alignItems: "center", gap: 10, paddingRight: 8 }}>
@@ -379,16 +379,16 @@ export default function InterviewQuickCreateModal({
                     <Form.Item label="Hình thức">
                         <Radio.Group value={format} onChange={(e) => setFormat(e.target.value)}>
                             <Radio.Button value="OFFLINE">
-                                <EnvironmentOutlined style={{ marginRight: 6 }} />Offline
+                                <EnvironmentOutlined style={{ marginRight: 6 }} />Trực tiếp
                             </Radio.Button>
                             <Radio.Button value="ONLINE">
-                                <VideoCameraOutlined style={{ marginRight: 6 }} />Online
+                                <VideoCameraOutlined style={{ marginRight: 6 }} />Trực tuyến
                             </Radio.Button>
                         </Radio.Group>
                     </Form.Item>
 
                     {format === "ONLINE" ? (
-                        <Form.Item label="Link họp" required>
+                        <Form.Item label="Đường dẫn họp" required>
                             <Input
                                 prefix={<VideoCameraOutlined style={{ color: "#9CA3AF" }} />}
                                 placeholder="https://meet.google.com/..."

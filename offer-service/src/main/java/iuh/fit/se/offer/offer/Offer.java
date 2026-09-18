@@ -61,6 +61,29 @@ public class Offer {
     @Column(name = "probation_months")
     private Integer probationMonths;
 
+    /** Người quản lý trực tiếp của vị trí — in trên thư mời. */
+    @Column(name = "reporting_manager")
+    private String reportingManager;
+
+    /** Địa điểm làm việc chốt trong đề nghị; mặc định lấy theo tin tuyển dụng. */
+    @Column(name = "work_location_id")
+    private Long workLocationId;
+
+    /** VND hoặc USD. */
+    @Column(name = "currency", length = 8)
+    private String currency;
+
+    /** MONTHLY hoặc YEARLY — mức lương ở trên tính theo chu kỳ nào. */
+    @Column(name = "pay_frequency", length = 16)
+    private String payFrequency;
+
+    /** Thưởng hiệu suất, để dạng chữ vì thực tế hay thỏa thuận theo phần trăm. */
+    @Column(name = "performance_bonus")
+    private String performanceBonus;
+
+    @Column(name = "annual_leave_days")
+    private Integer annualLeaveDays;
+
     @Column(name = "response_deadline")
     private LocalDateTime responseDeadline;
 

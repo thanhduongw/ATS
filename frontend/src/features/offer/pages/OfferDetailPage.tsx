@@ -21,10 +21,15 @@ import type { UserRole } from "../../auth/types";
 import { COLORS, RADIUS } from "../../../app/theme";
 import PageHeader from "../../../components/ui/PageHeader";
 import { formatMoney } from "../../../app/money";
+import { getCatalogItems } from "../../masterdata/masterdataApi";
+import type { CatalogItem } from "../../masterdata/types";
 import { OFFER_STATUS, statusMeta } from "../../../app/statusLabels";
 
 const initialsOf = (name: string) =>
     (name || "?").trim().split(/\s+/).slice(-2).map((w) => w[0] ?? "").join("").toUpperCase();
+
+/** Mức lương ở trên tính theo chu kỳ nào — in ngay cạnh con số cho khỏi hiểu nhầm. */
+const PAY_FREQUENCY_SUFFIX: Record<string, string> = { MONTHLY: "/tháng", YEARLY: "/năm" };
 
 const fmtDate = (v?: string | null) => (v ? dayjs(v).format("DD/MM/YYYY") : "—");
 const fmtDateTime = (v?: string | null) => (v ? dayjs(v).format("HH:mm DD/MM/YYYY") : "—");
@@ -45,12 +50,20 @@ export default function OfferDetailPage() {
     const [loading, setLoading] = useState(true);
     const [acting, setActing] = useState(false);
     const [rejectOpen, setRejectOpen] = useState(false);
+    /** Chỉ dùng để đổi mã địa điểm thành tên; hỏng danh mục thì hiện dấu gạch. */
+    const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
 
     const load = useCallback(async () => {
         setLoading(true);
         try {
             const res = await getOfferById(offerId);
             setOffer(res.data);
+            try {
+                const locRes = await getCatalogItems("/masterdata/work-locations");
+                setWorkLocations(locRes.data);
+            } catch {
+                setWorkLocations([]);
+            }
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             message.error(axiosErr.response?.data?.message ?? "Không tải được đề nghị nhận việc");
@@ -253,13 +266,32 @@ export default function OfferDetailPage() {
                                 label="Mức lương"
                                 value={<span style={{ color: COLORS.primary, fontWeight: 600, fontSize: 16 }}>
                                     {formatMoney(offer.salaryOffered)}
+                                    <span style={{ fontSize: 13, fontWeight: 400, color: COLORS.textSecondary }}>
+                                        {" "}{offer.currency ?? "VND"}
+                                        {PAY_FREQUENCY_SUFFIX[offer.payFrequency ?? "MONTHLY"] ?? ""}
+                                    </span>
                                 </span>}
                             />
-                            <Field label="Phụ cấp" value={offer.allowance != null ? formatMoney(offer.allowance) : "—"} />
+                            <Field
+                                label="Phụ cấp hằng tháng"
+                                value={offer.allowance != null ? formatMoney(offer.allowance) : "—"}
+                            />
                             <Field label="Loại hợp đồng" value={offer.contractTypeName ?? "—"} />
                             <Field label="Thử việc" value={`${offer.probationMonths ?? 0} tháng`} />
                             <Field label="Ngày bắt đầu" value={fmtDate(offer.startDate)} />
                             <Field label="Hạn phản hồi" value={fmtDateTime(offer.responseDeadline)} />
+                            <Field label="Người quản lý trực tiếp" value={offer.reportingManager || "—"} />
+                            <Field
+                                label="Địa điểm làm việc"
+                                value={
+                                    workLocations.find((w) => w.id === offer.workLocationId)?.name ?? "—"
+                                }
+                            />
+                            <Field label="Thưởng hiệu suất" value={offer.performanceBonus || "—"} />
+                            <Field
+                                label="Số ngày phép năm"
+                                value={offer.annualLeaveDays != null ? `${offer.annualLeaveDays} ngày` : "—"}
+                            />
                         </FieldGrid>
 
                         {offer.benefits && <NoteBlock label="Phúc lợi" value={offer.benefits} />}

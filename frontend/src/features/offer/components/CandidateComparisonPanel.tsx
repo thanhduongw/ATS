@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    App, Alert, Button, Modal, Space, Table, Tag, Tooltip, Spin, Progress,
+    App, Alert, Button, Modal, Space, Table, Tag, Tooltip, Spin,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import {
@@ -23,6 +23,7 @@ import { COLORS } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
 import { OFFER_STATUS, statusMeta } from "../../../app/statusLabels";
 import EmptyState from "../../../components/ui/EmptyState";
+import { useTableScrollY } from "../../../app/useTableScrollY";
 
 const RECOMMENDATION_LABEL: Record<RecommendationType, string> = {
     STRONG_YES: "Rất khuyến nghị nhận",
@@ -47,6 +48,19 @@ const RECOMMENDATION_WEIGHT: Record<RecommendationType, number> = {
     YES: 3,
     NO: 2,
     STRONG_NO: 1,
+};
+
+/**
+ * Bảng so sánh thường có nhiều ứng viên; để khung tự co theo nội dung thì phải cuộn cả
+ * trang (hoặc cả modal) mới xem hết. Cố định chiều cao gần bằng màn hình rồi cho riêng
+ * phần thân bảng cuộn — tiêu đề cột và thanh công cụ luôn nằm trong tầm mắt.
+ */
+const CONTAINER: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    height: "calc(100vh - 210px)",
+    minHeight: 360,
 };
 
 /** Quá 4 cột thì mỗi cột hẹp tới mức không đọc được nhận xét nữa. */
@@ -97,6 +111,7 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
     const [stages, setStages] = useState<PipelineStageResponse[]>([]);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [detailOpen, setDetailOpen] = useState(false);
+    const { wrapRef, scrollY } = useTableScrollY([loading, rows.length]);
 
 
     const load = useCallback(async () => {
@@ -238,52 +253,14 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
         {
             title: "Ứng viên",
             key: "candidate",
-            width: 200,
+            width: 280,
             ellipsis: true,
             render: (_, row) => (
                 <div className="cell-stack">
                     <div style={{ fontWeight: 600 }}>{row.application.candidateName}</div>
-                    <div className="cell-stack-sub">
-                        {row.application.recruitmentSourceName || "—"} · {row.daysInPipeline} ngày trong pipeline
-                    </div>
+                    <div className="cell-stack-sub">{positionLine(row.application)}</div>
                 </div>
             ),
-        },
-        {
-            title: "Hồ sơ",
-            responsive: ["xl"],
-            key: "profile",
-            width: 220,
-            render: (_, row) => {
-                const c = row.candidate;
-                if (!c) {
-                    return (
-                        <div className="cell-stack">
-                            <div style={{ fontSize: 13, color: COLORS.textMuted }}>—</div>
-                            <div className="cell-stack-sub" />
-                        </div>
-                    );
-                }
-                const skills = c.skillNames.length > 0
-                    ? c.skillNames.slice(0, 3).join(" · ")
-                    + (c.skillNames.length > 3 ? ` +${c.skillNames.length - 3}` : "")
-                    : "";
-                return (
-                    <Tooltip title={c.skillNames.join(", ") || undefined}>
-                        <div className="cell-stack">
-                            <div style={{ fontSize: 13 }}>{c.currentPosition || "Chưa ghi vị trí"}</div>
-                            <div className="cell-stack-sub">{skills}</div>
-                        </div>
-                    </Tooltip>
-                );
-            },
-        },
-        {
-            title: "Vòng hiện tại",
-            responsive: ["lg"],
-            key: "stage",
-            width: 150,
-            render: (_, row) => <Tag>{row.application.currentStageName}</Tag>,
         },
         {
             title: "Đề xuất của người phỏng vấn",
@@ -308,27 +285,6 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
             },
         },
         {
-            title: (
-                <Tooltip title="Trung bình đề xuất, quy đổi: Rất khuyến nghị 4 · Khuyến nghị 3 · Không khuyến nghị 2 · Kiên quyết không 1">
-                    <span>Điểm đề xuất</span>
-                </Tooltip>
-            ),
-            key: "recommendationScore",
-            width: 130,
-            sorter: (a, b) => (a.recommendationScore ?? -1) - (b.recommendationScore ?? -1),
-            render: (_, row) =>
-                row.recommendationScore == null ? (
-                    <span style={{ color: COLORS.textMuted }}>—</span>
-                ) : (
-                    <Progress
-                        percent={(row.recommendationScore / 4) * 100}
-                        size="small"
-                        format={() => row.recommendationScore!.toFixed(2)}
-                        strokeColor={row.recommendationScore >= 3 ? COLORS.success : "#F59E0B"}
-                    />
-                ),
-        },
-        {
             title: "Điểm TB tiêu chí",
             responsive: ["lg"],
             key: "averageCriteriaScore",
@@ -349,16 +305,6 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                 row.salaryProposed == null
                     ? <span style={{ color: COLORS.textMuted }}>Chưa đề xuất</span>
                     : formatMoney(row.salaryProposed),
-        },
-        {
-            title: "Đề nghị",
-            key: "offer",
-            width: 150,
-            render: (_, row) => {
-                if (!row.offer) return <span style={{ color: COLORS.textMuted }}>Chưa có</span>;
-                const meta = statusMeta(OFFER_STATUS, row.offer.status);
-                return <Tag color={meta.color} style={{ margin: 0 }}>{meta.label}</Tag>;
-            },
         },
         {
             title: "Thao tác",
@@ -408,14 +354,14 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
 
     if (loading) {
         return (
-            <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
+            <div style={{ ...CONTAINER, alignItems: "center", justifyContent: "center" }}>
                 <Spin />
             </div>
         );
     }
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }}>
+        <div style={CONTAINER}>
             <div style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 gap: 12, flexWrap: "wrap", marginBottom: 12,
@@ -479,34 +425,36 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                 />
             </Modal>
 
-            <Table
-                rowKey={(row) => row.application.id}
-                size="small"
-                columns={columns}
-                dataSource={rows}
-                scroll={{ x: "max-content" }}
-                pagination={false}
-                rowSelection={{
-                    selectedRowKeys: selectedIds,
-                    onChange: (keys) => setSelectedIds(keys as number[]),
-                    getCheckboxProps: (row) => ({
-                        disabled: selectedIds.length >= MAX_COMPARE
-                            && !selectedIds.includes(row.application.id),
-                    }),
-                }}
-                expandable={{
-                    expandedRowRender: (row) => <EvaluationDetail row={row} />,
-                    rowExpandable: (row) => row.evaluations.length > 0,
-                }}
-                locale={{
-                    emptyText: loading ? <span /> : (
-                        <EmptyState
-                            title="Chưa có ứng viên nào để so sánh"
-                            description="Bảng chỉ hiện ứng viên chưa kết thúc quy trình và đã có ít nhất một đánh giá phỏng vấn được nộp."
-                        />
-                    ),
-                }}
-            />
+            <div ref={wrapRef} className="table-scroll-wrap">
+                <Table
+                    rowKey={(row) => row.application.id}
+                    size="small"
+                    columns={columns}
+                    dataSource={rows}
+                    scroll={{ x: "max-content", y: scrollY }}
+                    pagination={false}
+                    rowSelection={{
+                        selectedRowKeys: selectedIds,
+                        onChange: (keys) => setSelectedIds(keys as number[]),
+                        getCheckboxProps: (row) => ({
+                            disabled: selectedIds.length >= MAX_COMPARE
+                                && !selectedIds.includes(row.application.id),
+                        }),
+                    }}
+                    expandable={{
+                        expandedRowRender: (row) => <EvaluationDetail row={row} />,
+                        rowExpandable: (row) => row.evaluations.length > 0,
+                    }}
+                    locale={{
+                        emptyText: loading ? <span /> : (
+                            <EmptyState
+                                title="Chưa có ứng viên nào để so sánh"
+                                description="Bảng chỉ hiện ứng viên chưa kết thúc quy trình và đã có ít nhất một đánh giá phỏng vấn được nộp."
+                            />
+                        ),
+                    }}
+                />
+            </div>
         </div>
     );
 }
@@ -805,6 +753,12 @@ function EvaluationDetail({ row }: { row: ComparisonRow }) {
             ))}
         </Space>
     );
+}
+
+/** Dòng phụ dưới tên ứng viên: vị trí đang ứng tuyển và phòng ban của vị trí đó. */
+function positionLine(application: ApplicationResponse) {
+    const position = application.jobTitle || application.jobPostingTitle || "—";
+    return application.departmentName ? `${position} · ${application.departmentName}` : position;
 }
 
 function hasSubmitted(evaluations: EvaluationResponse[]) {

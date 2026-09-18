@@ -1,21 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { App, Button, Card, Empty, Space, Spin, Tag, Typography } from "antd";
 import { CalendarOutlined, CheckOutlined, LinkOutlined, TeamOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
+import { interviewStatusMeta } from "../../../app/statusLabels";
 import { confirmInterview, getMyInterviews } from "../interviewApi";
-import type { ApiMessageResponse, CandidateInterviewResponse, InterviewStatus } from "../types";
+import type { ApiMessageResponse, CandidateInterviewResponse } from "../types";
 
 const { Text, Title } = Typography;
 
-const STATUS_LABEL: Record<InterviewStatus, string> = {
-    SCHEDULED: "Chờ xác nhận",
-    CONFIRMED: "Đã xác nhận",
-    COMPLETED: "Đã hoàn thành",
-    CANCELLED: "Đã hủy",
-};
-
 export default function CandidateInterviewsPage() {
     const { message } = App.useApp();
+    const [searchParams] = useSearchParams();
     const [items, setItems] = useState<CandidateInterviewResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [confirmingId, setConfirmingId] = useState<number>();
@@ -32,6 +28,19 @@ export default function CandidateInterviewsPage() {
     }, [message]);
 
     useEffect(() => { load(); }, [load]);
+
+    const highlightedIdValue = Number(searchParams.get("highlightId"));
+    const highlightedId = Number.isFinite(highlightedIdValue) && highlightedIdValue > 0
+        ? highlightedIdValue
+        : null;
+
+    useEffect(() => {
+        if (loading || highlightedId == null) return;
+        document.getElementById(`interview-${highlightedId}`)?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+        });
+    }, [highlightedId, loading]);
 
     const handleConfirm = async (id: number) => {
         setConfirmingId(id);
@@ -53,29 +62,41 @@ export default function CandidateInterviewsPage() {
             <Empty description="Bạn chưa có lịch phỏng vấn" />
         ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {items.map((item) => (
-                <Card key={item.id} style={{ width: "100%", borderRadius: 8 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-                        <Space orientation="vertical" size={8}>
-                            <Title level={4} style={{ margin: 0 }}>Hồ sơ #{item.applicationId}</Title>
-                            <Text><CalendarOutlined /> {new Date(item.scheduledAt).toLocaleString("vi-VN")} ({item.durationMinutes} phút)</Text>
-                            <Text><TeamOutlined /> {item.interviewerNames.join(", ") || "Chưa công bố"}</Text>
-                            <Space wrap>
-                                <Tag>{item.format === "ONLINE" ? "Trực tuyến" : "Tại văn phòng"}</Tag>
-                                <Tag color={item.status === "CANCELLED" ? "red" : item.candidateConfirmed ? "green" : "gold"}>{STATUS_LABEL[item.status]}</Tag>
-                            </Space>
-                            {item.meetingLink && item.candidateConfirmed && (
-                                <Button type="link" icon={<LinkOutlined />} href={item.meetingLink} target="_blank" style={{ padding: 0 }}>Mở phòng họp</Button>
-                            )}
-                        </Space>
-                        {item.status === "SCHEDULED" && !item.candidateConfirmed && (
-                            <Button type="primary" icon={<CheckOutlined />} loading={confirmingId === item.id} onClick={() => handleConfirm(item.id)}>
-                                Xác nhận tham gia
-                            </Button>
-                        )}
-                    </div>
-                </Card>
-                ))}
+                {items.map((item) => {
+                    const status = interviewStatusMeta(item.status, "candidate");
+                    return (
+                        <Card
+                            id={`interview-${item.id}`}
+                            key={item.id}
+                            style={{
+                                width: "100%",
+                                borderRadius: 8,
+                                borderColor: item.id === highlightedId ? "#1677FF" : undefined,
+                                boxShadow: item.id === highlightedId ? "0 0 0 2px rgba(22, 119, 255, 0.16)" : undefined,
+                            }}
+                        >
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                                <Space orientation="vertical" size={8}>
+                                    <Title level={4} style={{ margin: 0 }}>Hồ sơ #{item.applicationId}</Title>
+                                    <Text><CalendarOutlined /> {new Date(item.scheduledAt).toLocaleString("vi-VN")} ({item.durationMinutes} phút)</Text>
+                                    <Text><TeamOutlined /> {item.interviewerNames.join(", ") || "Chưa công bố"}</Text>
+                                    <Space wrap>
+                                        <Tag>{item.format === "ONLINE" ? "Trực tuyến" : "Tại văn phòng"}</Tag>
+                                        <Tag color={status.color}>{status.label}</Tag>
+                                    </Space>
+                                    {item.meetingLink && item.status === "CANDIDATE_CONFIRMED" && (
+                                        <Button type="link" icon={<LinkOutlined />} href={item.meetingLink} target="_blank" style={{ padding: 0 }}>Mở phòng họp</Button>
+                                    )}
+                                </Space>
+                                {item.status === "HM_CONFIRMED" && (
+                                    <Button type="primary" icon={<CheckOutlined />} loading={confirmingId === item.id} onClick={() => handleConfirm(item.id)}>
+                                        Xác nhận tham gia
+                                    </Button>
+                                )}
+                            </div>
+                        </Card>
+                    );
+                })}
             </div>
         )}
     </div>;

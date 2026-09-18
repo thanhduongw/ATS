@@ -39,6 +39,16 @@ public class Offer {
     @Column(name = "candidate_name_snapshot")
     private String candidateNameSnapshot;
 
+    /** Snapshot lien he va vi tri de danh sach offer khong phai goi cheo service. */
+    @Column(name = "candidate_email_snapshot")
+    private String candidateEmailSnapshot;
+
+    @Column(name = "candidate_phone_snapshot")
+    private String candidatePhoneSnapshot;
+
+    @Column(name = "job_title_snapshot")
+    private String jobTitleSnapshot;
+
     @Column(name = "salary_offered", nullable = false)
     private BigDecimal salaryOffered;
 
@@ -51,6 +61,29 @@ public class Offer {
     @Column(name = "probation_months")
     private Integer probationMonths;
 
+    /** Người quản lý trực tiếp của vị trí — in trên thư mời. */
+    @Column(name = "reporting_manager")
+    private String reportingManager;
+
+    /** Địa điểm làm việc chốt trong đề nghị; mặc định lấy theo tin tuyển dụng. */
+    @Column(name = "work_location_id")
+    private Long workLocationId;
+
+    /** VND hoặc USD. */
+    @Column(name = "currency", length = 8)
+    private String currency;
+
+    /** MONTHLY hoặc YEARLY — mức lương ở trên tính theo chu kỳ nào. */
+    @Column(name = "pay_frequency", length = 16)
+    private String payFrequency;
+
+    /** Thưởng hiệu suất, để dạng chữ vì thực tế hay thỏa thuận theo phần trăm. */
+    @Column(name = "performance_bonus")
+    private String performanceBonus;
+
+    @Column(name = "annual_leave_days")
+    private Integer annualLeaveDays;
+
     @Column(name = "response_deadline")
     private LocalDateTime responseDeadline;
 
@@ -59,8 +92,13 @@ public class Offer {
 
     private BigDecimal allowance;
 
+    /** Ghi chu noi bo: chi HR va COMPANY_ADMIN doc duoc, khong bao gio gui cho ung vien. */
     @Column(columnDefinition = "TEXT")
     private String note;
+
+    /** Ghi chu in tren thu moi nhan viec — day la phan duy nhat ung vien doc duoc. */
+    @Column(name = "candidate_visible_note", columnDefinition = "TEXT")
+    private String candidateVisibleNote;
 
     @Column(name = "requester_id", nullable = false)
     private Long requesterId;
@@ -80,6 +118,13 @@ public class Offer {
 
     @Column(name = "decline_note")
     private String declineNote;
+
+    /** Moc gui duyet va moc duyet — hien tren the "Thong tin phe duyet" cua chi tiet offer. */
+    @Column(name = "submitted_at")
+    private LocalDateTime submittedAt;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

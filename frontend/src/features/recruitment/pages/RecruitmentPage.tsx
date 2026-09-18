@@ -1,37 +1,21 @@
-import { Card, Tabs } from "antd";
-import { SolutionOutlined, FileSearchOutlined } from "@ant-design/icons";
+import { Card } from "antd";
+import { useLocation } from "react-router-dom";
 import RequisitionListPanel from "../components/RequisitionListPanel";
 import PostingListPanel from "../components/PostingListPanel";
 import { listCardStyle, listCardBodyStyle } from "../../../components/ui/listStyles";
 
+/**
+ * Yeu cau va tin tuyen dung da tach thanh hai muc con tren navbar, nen trang nay khong
+ * lap lai mot hang tab nua — navbar la cho duy nhat noi nguoi dung dang o dau.
+ */
 export default function RecruitmentPage() {
+    const location = useLocation();
+    const showPostings = location.pathname.startsWith("/recruitment/postings");
+
     return (
         <div className="page-shell animate-fade-in">
             <Card style={listCardStyle} className="table-card-fill" styles={{ body: listCardBodyStyle }}>
-                <Tabs
-                    size="large"
-                    className="tabs-fill"
-                    items={[
-                        {
-                            key: "requisitions",
-                            label: (
-                                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                    <SolutionOutlined />Yêu cầu tuyển dụng
-                                </span>
-                            ),
-                            children: <RequisitionListPanel />,
-                        },
-                        {
-                            key: "postings",
-                            label: (
-                                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                    <FileSearchOutlined />Tin tuyển dụng
-                                </span>
-                            ),
-                            children: <PostingListPanel />,
-                        },
-                    ]}
-                />
+                {showPostings ? <PostingListPanel /> : <RequisitionListPanel />}
             </Card>
         </div>
     );

@@ -175,7 +175,7 @@ export default function AuthManagementPage({ initialTab = "profile" }: Props) {
         </Card> },
         { key: "users", label: <span><TeamOutlined /> Người dùng</span>, children: <Card loading={loading}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}><Title level={4} style={{ margin: 0 }}>Tài khoản nội bộ và candidate</Title><Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>Tạo tài khoản nội bộ</Button></div>
-            <Table rowKey="id" columns={columns} dataSource={users} pagination={{ pageSize: 10 }} scroll={{ x: 800 }} />
+            <Table rowKey="id" columns={columns} dataSource={users} pagination={{ pageSize: 10 }} scroll={{ x: "max-content" }} />
         </Card> },
     );
 

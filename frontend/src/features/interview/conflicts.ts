@@ -1,6 +1,6 @@
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
-import type { InterviewResponse } from "./types";
+import { INTERVIEW_BLOCKING, type InterviewResponse } from "./types";
 
 export interface InterviewConflict {
     interviewId: number;
@@ -9,9 +9,6 @@ export interface InterviewConflict {
     start: Dayjs;
     end: Dayjs;
 }
-
-/** Chỉ lịch còn hiệu lực mới tính là bận. */
-const BLOCKING_STATUSES = new Set(["SCHEDULED", "CONFIRMED"]);
 
 /**
  * Tìm các buổi phỏng vấn đã có của những người phỏng vấn được chọn bị chồng giờ
@@ -30,7 +27,7 @@ export function findInterviewerConflicts(
     const wanted = new Set(interviewerIds);
 
     return interviews
-        .filter((iv) => iv.id !== excludeInterviewId && BLOCKING_STATUSES.has(iv.status))
+        .filter((iv) => iv.id !== excludeInterviewId && INTERVIEW_BLOCKING.has(iv.status))
         .map((iv) => {
             const ivStart = dayjs(iv.scheduledAt);
             const ivEnd = ivStart.add(iv.durationMinutes ?? 60, "minute");

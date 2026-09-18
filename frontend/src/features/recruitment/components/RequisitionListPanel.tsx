@@ -55,7 +55,7 @@ export default function RequisitionListPanel() {
     const [employmentTypeMap, setEmploymentTypeMap] = useState<Record<number, string>>({});
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
     const [departments, setDepartments] = useState<CatalogItem[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     const [searchInput, setSearchInput] = useState("");
     const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -160,17 +160,17 @@ export default function RequisitionListPanel() {
             title: "Phòng ban",
             dataIndex: "departmentId",
             key: "departmentId",
-            width: 160,
+            width: 200,
             render: (id: number) => departmentMap[id] ?? "—",
         },
         {
             title: "Chức vụ",
             dataIndex: "jobTitleId",
             key: "jobTitleId",
-            width: 160,
+            width: 200,
             render: (id: number) => jobTitleMap[id] ?? "—",
         },
-        { title: "SL", dataIndex: "quantity", key: "quantity", width: 45 },
+        { title: "Số lượng", dataIndex: "quantity", key: "quantity", width: 100 },
         { title: "Người duyệt", dataIndex: "approverName", key: "approverName", width: 140, ellipsis: true },
         {
             title: "Trạng thái",
@@ -194,7 +194,7 @@ export default function RequisitionListPanel() {
                 />
                 <StatTile
                     icon={<ClockCircleOutlined />}
-                    label="Chờ HR duyệt"
+                    label="Chờ duyệt"
                     value={stats.pending}
                     accent="#F59E0B"
                     active={filters.status === "PENDING_APPROVAL"}
@@ -219,10 +219,10 @@ export default function RequisitionListPanel() {
             </StatRow>
 
             <FilterBar extra={canCreateRequisition && (
-                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                        Tạo yêu cầu tuyển dụng
-                    </Button>
-                )}>
+                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                    Tạo yêu cầu tuyển dụng
+                </Button>
+            )}>
                 <Input
                     prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
                     placeholder="Tìm theo tiêu đề..."
@@ -270,7 +270,7 @@ export default function RequisitionListPanel() {
                         onChange: (p, ps) => { setPage(p); setPageSize(ps); },
                     }}
                     locale={{
-                        emptyText: (
+                        emptyText: loading ? <span /> : (
                             <EmptyState
                                 title="Chưa có yêu cầu tuyển dụng nào"
                                 description="Tạo yêu cầu đầu tiên để gửi HR duyệt và mở tin tuyển dụng."

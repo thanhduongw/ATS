@@ -265,7 +265,8 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
             }
             open={open}
             onCancel={handleClose}
-            width={760}
+            width={920}
+            style={{ top: 20 }}
             destroyOnHidden
             footer={
                 results ? (
@@ -463,13 +464,13 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                         <Form.Item label="Hình thức phỏng vấn">
                             <Radio.Group value={format} onChange={(e) => setFormat(e.target.value)}>
-                                <Radio.Button value="ONLINE"><VideoCameraOutlined style={{ marginRight: 6 }} />Online</Radio.Button>
-                                <Radio.Button value="OFFLINE"><EnvironmentOutlined style={{ marginRight: 6 }} />Offline</Radio.Button>
+                                <Radio.Button value="ONLINE"><VideoCameraOutlined style={{ marginRight: 6 }} />Trực tuyến</Radio.Button>
+                                <Radio.Button value="OFFLINE"><EnvironmentOutlined style={{ marginRight: 6 }} />Trực tiếp</Radio.Button>
                             </Radio.Group>
                         </Form.Item>
 
                         {format === "ONLINE" ? (
-                            <Form.Item label="Link họp trực tuyến" required>
+                            <Form.Item label="Đường dẫn họp trực tuyến" required>
                                 <Input
                                     prefix={<VideoCameraOutlined style={{ color: "#9CA3AF" }} />}
                                     placeholder="https://meet.google.com/..."

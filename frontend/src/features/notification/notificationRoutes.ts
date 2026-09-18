@@ -19,8 +19,8 @@ export function resolveNotificationPath(
     switch (type) {
         case "REQUISITION":
             return id != null
-                ? `/recruitment?tab=requisition&highlightId=${id}`
-                : "/recruitment";
+                ? `/recruitment/requisitions?highlightId=${id}`
+                : "/recruitment/requisitions";
 
         case "APPLICATION":
             if (isCandidate) {
@@ -35,8 +35,8 @@ export function resolveNotificationPath(
         case "INTERVIEW":
             if (isCandidate) {
                 return id != null
-                    ? `/scheduling?highlightId=${id}`
-                    : "/scheduling";
+                    ? `/my-interviews?highlightId=${id}`
+                    : "/my-interviews";
             }
             return id != null
                 ? `/interviews?highlightId=${id}`
@@ -62,8 +62,8 @@ export function resolveNotificationPath(
             if (t.includes("INTERVIEW")) {
                 if (isCandidate) {
                     return id != null
-                        ? `/scheduling?highlightId=${id}`
-                        : "/scheduling";
+                        ? `/my-interviews?highlightId=${id}`
+                        : "/my-interviews";
                 }
                 return id != null
                     ? `/interviews?highlightId=${id}`
@@ -73,7 +73,7 @@ export function resolveNotificationPath(
                 return isCandidate ? "/my-applications" : "/applications";
             }
             if (t.includes("REQUISITION")) {
-                return "/recruitment";
+                return "/recruitment/requisitions";
             }
             return "/notifications";
         }
@@ -86,6 +86,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<string, string> = {
     APPLICATION_STAGE_CHANGED: "Cập nhật hồ sơ",
     APPLICATION_REJECTED: "Kết quả hồ sơ",
     INTERVIEW_SCHEDULED: "Lịch phỏng vấn",
+    INTERVIEW_HM_CONFIRMED: "Lịch phỏng vấn đã được chốt",
     INTERVIEW_CONFIRMED: "Xác nhận PV",
     INTERVIEW_REMINDER: "Nhắc phỏng vấn",
     EVALUATION_INCOMPLETE_REMINDER: "Chưa đánh giá",

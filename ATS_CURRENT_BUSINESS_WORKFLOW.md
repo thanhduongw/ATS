@@ -192,7 +192,6 @@ Khi reject:
 | Màn hình | Route | Mục đích |
 | --- | --- | --- |
 | Applications | `/applications` | Theo dõi application theo stage, lọc và thao tác pipeline. |
-| Candidates | `/candidates` | Danh sách hồ sơ ứng viên và các application liên quan. |
 | Chi tiết application | `/candidates/:candidateId/applications/:applicationId` | CV, timeline, ghi chú, pipeline, interview, evaluation và offer. |
 | Form evaluation | `/candidates/:candidateId/applications/:applicationId/evaluate` | Người phỏng vấn nhập đánh giá. |
 
@@ -246,7 +245,7 @@ PENDING → APPROVED / REJECTED
 - so sánh các ứng viên cùng vị trí với nhau;
 - chốt mức lương đưa vào offer, tham chiếu Salary Proposal đã được duyệt.
 
-Màn hình: `/scheduling`, `/interviews`, `/interviews/:interviewId/result` và form evaluation trong chi tiết application.
+Màn hình: `/interviews` (lịch phỏng vấn), `/evaluations` (hàng đợi đánh giá — người phỏng vấn thấy bài mình còn nợ, HR thấy buổi nào còn thiếu và thiếu của ai), `/interviews/:interviewId/result` và form evaluation trong chi tiết application.
 
 ## 9. Offer
 
@@ -327,13 +326,16 @@ DRAFT → PENDING_APPROVAL → APPROVED
 - Offer chỉ hiển thị với candidate từ trạng thái `APPROVED` trở đi. Duyệt offer đồng thời là hành động gửi offer
   tới candidate: `OfferApprovedEvent` bắn notification cho candidate ngay khi duyệt, không có bước gửi thủ công riêng.
 - Không tạo được offer mới khi posting đã dùng hết số lượng tuyển của requisition.
+- Offer có hai trường ghi chú tách biệt: **ghi chú nội bộ** chỉ `RECRUITER` và `COMPANY_ADMIN` đọc được
+  (ẩn với `HIRING_MANAGER`, không bao giờ gửi cho candidate), và **ghi chú hiển thị cho ứng viên** là phần
+  duy nhất xuất hiện trên thư mời nhận việc.
 - Candidate không thể phản hồi sau `responseDeadline`.
 - Hệ thống có thể tạo PDF offer.
 
 `HIRING_MANAGER` vẫn mở được `/offers` nhưng chỉ thấy offer thuộc phòng ban mình, ở chế độ theo dõi kết quả:
 không có nút tạo, duyệt hay từ chối.
 
-Màn hình: `/offers`, `/offers/compare`, `/my-offers`, `/my-offers/:id`.
+Màn hình: `/offers` (danh sách theo dõi), `/offers/create` và `/offers/:id/edit` (soạn offer), `/offers/:id` (chi tiết, duyệt/từ chối), `/offers/compare` (so sánh ứng viên), `/my-offers`, `/my-offers/:id` (phía candidate).
 
 ## 10. Đóng vòng đời application
 
@@ -400,9 +402,8 @@ tiêu chí, recommendation, mức lương đề xuất và thời gian trong pip
 | --- | --- | --- |
 | Requisition | Xem, duyệt, từ chối, yêu cầu chỉnh sửa requisition thuộc phạm vi được phép. | `/recruitment` |
 | Posting | Tạo posting từ requisition đã duyệt; chỉnh sửa, gửi duyệt, publish, pause, close posting. | `/recruitment`, `/recruitment/postings/:id` |
-| Candidate | Xem candidate, hồ sơ/CV, Talent Pool và application liên quan. Không tạo hồ sơ ứng viên — hồ sơ chỉ sinh ra khi ứng viên tự đăng ký. Giao diện đã ẩn chức năng tạo; endpoint `POST /api/candidate/candidates` chưa khóa ở backend. | `/candidates` |
 | Application | Tạo hộ application, gán recruiter phụ trách, điều chuyển stage, ghi note/comment, reject application. | `/applications`, chi tiết application |
-| Interview | Đề xuất slot, lên lịch trực tiếp, hủy/điều phối lịch và theo dõi kết quả. | `/scheduling`, `/interviews` |
+| Interview | Lên lịch trực tiếp cho một hoặc nhiều ứng viên, hủy/điều phối lịch và theo dõi kết quả. | `/interviews` |
 | Chọn ứng viên | So sánh các ứng viên của cùng posting theo evaluation của hiring manager, recommendation và mức lương đề xuất; chốt ứng viên được offer và đưa hồ sơ tới vòng `OFFER`. | `/offers/compare`, tab “So sánh” trong posting hub |
 | Offer | Tạo offer cho ứng viên được chọn, sửa offer ở DRAFT, gửi vào luồng duyệt, duyệt/từ chối offer khi là approver (offer được gửi tới ứng viên ngay khi duyệt) và theo dõi phản hồi. | `/offers` |
 | Theo dõi | Xem dashboard và notification. | `/dashboard`, `/notifications` |
@@ -414,7 +415,7 @@ tiêu chí, recommendation, mức lương đề xuất và thời gian trong pip
 | Nhóm chức năng | Chức năng cụ thể | Màn hình |
 | --- | --- | --- |
 | Requisition | Tạo, sửa, submit requisition của phòng ban; xử lý requisition bị yêu cầu chỉnh sửa. | `/recruitment` |
-| Theo dõi tuyển dụng | Xem requisition, posting và application thuộc phạm vi phòng ban/quyền được giao. | `/recruitment`, `/applications`, `/candidates` |
+| Theo dõi tuyển dụng | Xem requisition, posting và application thuộc phạm vi phòng ban/quyền được giao. | `/recruitment`, `/applications` |
 | Interview | Tham gia các interview được phân công; xem lịch, xác nhận theo flow và nộp evaluation. | `/interviews`, trang evaluation |
 | Đánh giá | Chấm tiêu chí, nhập nhận xét và recommendation; có thể đề xuất lương sau interview. Đây là căn cứ để HR so sánh và chọn ứng viên được offer. | Chi tiết application, form evaluation |
 | Offer | Không tạo, không duyệt và không gửi offer. Chỉ xem kết quả offer của ứng viên thuộc phạm vi phòng ban để theo dõi. | `/offers` |
@@ -585,7 +586,6 @@ Chức năng đủ dùng và phù hợp, nhưng nên ưu tiên phân tách **Adm
 
 #### Điểm chưa tối ưu
 
-- Sidebar recruiter chỉ hiển thị `Tổng quan`, `Tuyển dụng`, `Ứng viên`, `Phỏng vấn`, `Offer`. Trong khi `/applications` và `/scheduling` là hai màn hình trọng yếu nhưng không có mục menu riêng. Người dùng khó khám phá hoặc quay lại đúng nơi làm việc.
 - Tên menu `Ứng viên` dễ hướng recruiter về hồ sơ candidate, còn trọng tâm vận hành thật sự là **đơn ứng tuyển/Application**. Cần hiển thị rõ “Hồ sơ ứng tuyển” hoặc đặt Applications thành mục cấp một.
 - Luồng từ application sang hành động kế tiếp chưa được diễn đạt bằng một hàng đợi công việc: “CV mới cần xem”, “cần xếp lịch”, “đang chờ evaluation”, “offer chờ duyệt”. Recruiter có dữ liệu nhưng phải tự lọc/ghi nhớ để biết việc ưu tiên.
 - Bulk actions hiệu quả nhưng có rủi ro khi reject hoặc chuyển stage hàng loạt. Cần modal xác nhận hiển thị số hồ sơ, stage đích, lý do và danh sách lỗi trước/sau thao tác.
@@ -596,10 +596,9 @@ Chức năng đủ dùng và phù hợp, nhưng nên ưu tiên phân tách **Adm
 
 RECRUITER là role có nền tảng tốt nhất, nhưng nên ưu tiên:
 
-1. Thêm menu **Hồ sơ ứng tuyển** trỏ tới `/applications` và **Lên lịch phỏng vấn** trỏ tới `/scheduling`.
-2. Tạo trang/khối “Việc cần xử lý hôm nay” theo queue công việc.
-3. Trên chi tiết application, hiển thị một CTA duy nhất theo stage: xem CV, lên lịch, chờ đánh giá, tạo offer hoặc đã kết thúc.
-4. Bổ sung màn hình **So sánh ứng viên** theo posting, đặt ngay trong posting hub và chi tiết application, với CTA chọn ứng viên để tạo offer.
+1. Tạo trang/khối “Việc cần xử lý hôm nay” theo queue công việc.
+2. Trên chi tiết application, hiển thị một CTA duy nhất theo stage: xem CV, lên lịch, chờ đánh giá, tạo offer hoặc đã kết thúc.
+3. Bổ sung màn hình **So sánh ứng viên** theo posting, đặt ngay trong posting hub và chi tiết application, với CTA chọn ứng viên để tạo offer.
 
 ### 16.4 Đánh giá HIRING_MANAGER
 
@@ -659,7 +658,7 @@ Luồng candidate có cấu trúc tốt nhất về mặt điều hướng. Ưu 
 
 | Hạng mục | Đánh giá | Cải thiện đề xuất |
 | --- | --- | --- |
-| Sidebar | Dễ nhìn, phân quyền menu cơ bản tốt. | Đưa `/applications` và `/scheduling` vào navigation; tách menu HIRING_MANAGER khỏi RECRUITER. |
+| Sidebar | Dễ nhìn, phân quyền menu cơ bản tốt. | Đã đưa `/applications` vào navigation và tách menu HIRING_MANAGER khỏi RECRUITER. |
 | Dashboard | Có số liệu, biểu đồ và quick actions. | Cá nhân hóa KPI, hàng đợi công việc và quick action theo role. |
 | Notification | Đã có chuông và trang notification. | Thêm phân loại “cần hành động”, deep-link nhất quán, trạng thái đã xử lý. |
 | Trang chi tiết application | Là trung tâm nghiệp vụ, tập hợp nhiều dữ liệu. | Làm nổi bật action tiếp theo và chặn/giải thích các action không hợp lệ theo stage. |

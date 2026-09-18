@@ -10,7 +10,7 @@ export const REQUISITION_STATUS_COLOR: Record<RequisitionStatus, string> = {
 
 export const REQUISITION_STATUS_LABEL: Record<RequisitionStatus, string> = {
     DRAFT: "Bản nháp",
-    PENDING_APPROVAL: "Chờ HR duyệt",
+    PENDING_APPROVAL: "Chờ duyệt",
     APPROVED: "Đã duyệt",
     REJECTED: "Từ chối",
     CHANGES_REQUESTED: "Cần chỉnh sửa",

@@ -104,7 +104,9 @@ export default function EvaluationSubmitModal({
       confirmLoading={isSubmitting}
       okText="Nộp đánh giá"
       cancelText="Hủy"
-      width={720}
+      width={900}
+      style={{ top: 20 }}
+      styles={{ body: { maxHeight: "80vh", overflowY: "auto" } }}
       destroyOnHidden
     >
       <Form layout="vertical" style={{ marginTop: 8 }}>

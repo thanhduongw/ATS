@@ -18,14 +18,26 @@ export interface OfferResponse {
   id: number;
   applicationId: number;
   candidateName: string;
+  candidateEmail: string | null;
+  candidatePhone: string | null;
+  jobTitle: string | null;
   salaryOffered: number;
   contractTypeId: number;
   contractTypeName: string;
   startDate: string;
   probationMonths: number;
+  reportingManager: string | null;
+  workLocationId: number | null;
+  currency: string | null;
+  payFrequency: string | null;
+  performanceBonus: string | null;
+  annualLeaveDays: number | null;
   benefits: string | null;
   allowance: number | null;
+  /** Ghi chú nội bộ — chỉ HR và admin đọc được, không bao giờ gửi cho ứng viên. */
   note: string | null;
+  /** Ghi chú in trên thư mời — phần duy nhất ứng viên đọc được. */
+  candidateVisibleNote: string | null;
   requesterId: number;
   requesterName: string;
   approverId: number;
@@ -35,6 +47,8 @@ export interface OfferResponse {
   declineReasonName: string | null;
   declineNote: string | null;
   createdAt: string;
+  submittedAt: string | null;
+  approvedAt: string | null;
   responseDeadline: string | null;
 }
 
@@ -44,9 +58,16 @@ export interface OfferCreateRequest {
   contractTypeId: number;
   startDate: string;
   probationMonths: number;
+  reportingManager: string | null;
+  workLocationId: number | null;
+  currency: string | null;
+  payFrequency: string | null;
+  performanceBonus: string | null;
+  annualLeaveDays: number | null;
   benefits?: string | null;
   allowance?: number | null;
   note?: string | null;
+  candidateVisibleNote?: string | null;
   approverId: number;
   responseDeadline?: string | null;
 }
@@ -56,9 +77,16 @@ export interface OfferUpdateRequest {
   contractTypeId: number;
   startDate: string;
   probationMonths: number;
+  reportingManager: string | null;
+  workLocationId: number | null;
+  currency: string | null;
+  payFrequency: string | null;
+  performanceBonus: string | null;
+  annualLeaveDays: number | null;
   benefits?: string | null;
   allowance?: number | null;
   note?: string | null;
+  candidateVisibleNote?: string | null;
   approverId: number;
   responseDeadline?: string | null;
 }
@@ -80,15 +108,24 @@ export interface CandidateOfferResponse {
   id: number;
   applicationId: number;
   candidateName: string;
+  /** Tên vị trí — ứng viên cần thấy việc mình ứng tuyển, không phải mã hồ sơ. */
+  jobTitle: string | null;
   salaryOffered: number;
   contractTypeId: number;
   contractTypeName: string;
   startDate: string;
   probationMonths: number;
+  reportingManager: string | null;
+  workLocationId: number | null;
+  currency: string | null;
+  payFrequency: string | null;
+  performanceBonus: string | null;
+  annualLeaveDays: number | null;
   responseDeadline: string | null;
   benefits: string | null;
   allowance: number | null;
-  note: string | null;
+  /** Ghi chú nội bộ không bao giờ xuất hiện ở đây. */
+  candidateVisibleNote: string | null;
   status: OfferStatus;
   declineReasonName: string | null;
   declineNote: string | null;

@@ -12,6 +12,13 @@ public record InterviewResponse(
         /** Can cho giao dien dieu huong sang trang ho so ung tuyen cua ung vien. */
         Long candidateId,
         String candidateName,
+        /**
+         * Tin tuyển dụng và phòng ban của hồ sơ. Chỉ trả về id — giao diện tự ghép tên từ
+         * danh sách tin và danh sách phòng ban mà nó vốn đã nạp để dựng bộ lọc, nên không
+         * cần lưu snapshot tên lẫn gọi chéo sang service khác lúc đọc.
+         */
+        Long jobPostingId,
+        Long departmentId,
         LocalDateTime scheduledAt,
         Integer durationMinutes,
         InterviewFormat format,
@@ -20,6 +27,12 @@ public record InterviewResponse(
         String note,
         InterviewStatus status,
         boolean candidateConfirmed,
+        boolean hmConfirmed,
+        /** Nhóm các buổi tạo cùng một lần; null nếu tạo lẻ. Trạng thái vẫn độc lập từng buổi. */
+        Long sessionId,
+        /** Giờ HM đề xuất thay thế — chỉ có giá trị khi status = HM_RESCHEDULE_PROPOSED. */
+        LocalDateTime proposedScheduledAt,
+        String proposalNote,
         List<InterviewerSummary> interviewers,
         /**
          * Moc tao buoi phong van. Giao dien dung no doi chieu voi lich su chuyen vong cua

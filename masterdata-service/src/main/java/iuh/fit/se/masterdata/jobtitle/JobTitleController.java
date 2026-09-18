@@ -34,14 +34,14 @@ public class JobTitleController {
     public ResponseEntity<JobTitleResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody JobTitleRequest req) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.update(id, req));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(
             @PathVariable Long id) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         service.softDelete(id);
         return ResponseEntity.ok(Map.of("message", "Xóa thành công"));
     }

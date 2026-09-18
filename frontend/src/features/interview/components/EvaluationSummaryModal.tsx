@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Modal,
+  Button,
+  Tooltip,
   Collapse,
   Tag,
   Descriptions,
@@ -12,9 +15,16 @@ import {
   Space,
   Divider,
 } from "antd";
+import { ArrowLeftOutlined, FileAddOutlined, SwapOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getEvaluations } from "../interviewApi";
-import type { ApiMessageResponse, EvaluationResponse, RecommendationType } from "../types";
+import type {
+  ApiMessageResponse,
+  EvaluationResponse,
+  InterviewResponse,
+  RecommendationType,
+} from "../types";
+import CandidateComparisonPanel from "../../offer/components/CandidateComparisonPanel";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
@@ -24,7 +34,8 @@ const { Text, Paragraph } = Typography;
 
 interface Props {
   open: boolean;
-  interviewId: number | null;
+  /** Cần cả hồ sơ và tin tuyển dụng của buổi này để tạo offer và so sánh. */
+  interview: InterviewResponse | null;
   onClose: () => void;
 }
 
@@ -47,9 +58,17 @@ function formatSalary(value: number | null | undefined): string {
   return `${Number(value).toLocaleString("vi-VN")} VND`;
 }
 
-export default function EvaluationSummaryModal({ open, interviewId, onClose }: Props) {
+export default function EvaluationSummaryModal({ open, interview, onClose }: Props) {
+  const navigate = useNavigate();
   const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
   const isHr = !!role && HR_ROLES.includes(role);
+  const interviewId = interview?.id ?? null;
+
+  /**
+   * Hai chế độ trong cùng một modal thay vì mở modal lồng modal — xem đánh giá xong
+   * so sánh ngay, rồi quay lại, mà màn hình không bị chồng nhiều lớp.
+   */
+  const [view, setView] = useState<"summary" | "compare">("summary");
 
   const [evaluations, setEvaluations] = useState<EvaluationResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -79,16 +98,65 @@ export default function EvaluationSummaryModal({ open, interviewId, onClose }: P
   const submitted = evaluations.filter((e) => e.submittedAt != null);
   const pending = evaluations.filter((e) => e.submittedAt == null);
 
+  /** Lần mở sau phải bắt đầu lại từ bảng tổng hợp, không giữ chế độ so sánh cũ. */
+  const handleClose = () => {
+    setView("summary");
+    onClose();
+  };
+
+  const comparing = view === "compare";
+  const canCompare = interview?.jobPostingId != null;
+
+  const footer = comparing ? (
+    <Button icon={<ArrowLeftOutlined />} onClick={() => setView("summary")}>
+      Quay lại tổng hợp đánh giá
+    </Button>
+  ) : isHr ? (
+    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+      <Tooltip title={canCompare ? undefined : "Buổi phỏng vấn này chưa gắn với tin tuyển dụng nào"}>
+        <Button icon={<SwapOutlined />} disabled={!canCompare} onClick={() => setView("compare")}>
+          So sánh ứng viên khác
+        </Button>
+      </Tooltip>
+      <Button
+        type="primary"
+        icon={<FileAddOutlined />}
+        onClick={() => {
+          if (!interview) return;
+          handleClose();
+          navigate(`/offers/create?applicationId=${interview.applicationId}`);
+        }}
+      >
+        Tạo offer
+      </Button>
+    </div>
+  ) : null;
+
   return (
     <Modal
-      title="Tổng hợp đánh giá phỏng vấn"
+      title={comparing ? "So sánh ứng viên" : "Tổng hợp đánh giá phỏng vấn"}
       open={open}
-      onCancel={onClose}
-      footer={null}
-      width={680}
+      onCancel={handleClose}
+      footer={footer}
+      // Bảng so sánh xếp tối đa 4 ứng viên cạnh nhau nên cần rộng hơn hẳn.
+      // min() kẹp trực tiếp trong CSS; maxWidth qua prop style không ăn ở antd v6.
+      width={comparing ? "min(2200px, 98vw)" : 960}
+      // Dâng modal lên gần đỉnh để lấy thêm chiều cao, và cho phần thân tự cuộn
+      // thay vì đẩy cả trang — như vậy chân modal luôn nằm trong tầm mắt.
+      style={{ top: 16 }}
+      styles={{
+        body: {
+          maxHeight: comparing ? "86vh" : "80vh",
+          overflowY: "auto",
+          // Bớt lề hai bên khi so sánh để bảng 8 cột có thêm chỗ nằm ngang.
+          ...(comparing ? { paddingLeft: 12, paddingRight: 12 } : {}),
+        },
+      }}
       destroyOnHidden
     >
-      {loading ? (
+      {comparing && interview?.jobPostingId != null ? (
+        <CandidateComparisonPanel jobPostingId={interview.jobPostingId} showHeader={false} />
+      ) : loading ? (
         <div style={{ textAlign: "center", padding: 40 }}>
           <Spin tip="Đang tải đánh giá..." />
         </div>
@@ -123,7 +191,7 @@ export default function EvaluationSummaryModal({ open, interviewId, onClose }: P
                 key: String(e.interviewerId),
                 label: (
                   <Space wrap>
-                    <Text strong>{e.interviewerName || `Interviewer #${e.interviewerId}`}</Text>
+                    <Text strong>{e.interviewerName || `Người phỏng vấn #${e.interviewerId}`}</Text>
                     {!hasSubmitted ? (
                       <Tag color="default">Chưa nộp</Tag>
                     ) : locked ? (
@@ -143,8 +211,9 @@ export default function EvaluationSummaryModal({ open, interviewId, onClose }: P
                 ) : hasSubmitted ? (
                   <div>
                     {/* Điểm theo tiêu chí */}
+                    {/* Hai cột trên màn rộng: tám tiêu chí còn bốn hàng thay vì tám. */}
                     <Descriptions
-                      column={1}
+                      column={{ xs: 1, sm: 1, md: 2 }}
                       size="small"
                       bordered
                       title="Điểm theo tiêu chí"

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Avatar, Button, Dropdown, Layout, Menu, Space, Typography } from "antd";
 import {
-    AppstoreOutlined, AuditOutlined, CalendarOutlined, DashboardOutlined,
-    DatabaseOutlined, FileTextOutlined, LogoutOutlined, MenuFoldOutlined,
+    AppstoreOutlined, AuditOutlined, BellOutlined, CalendarOutlined, DashboardOutlined,
+    DatabaseOutlined, FileSearchOutlined, FileTextOutlined, LogoutOutlined, MenuFoldOutlined,
     MenuUnfoldOutlined, SettingOutlined, SolutionOutlined, TeamOutlined,
-    TrophyOutlined, UserAddOutlined, UserOutlined,
+    UserAddOutlined, UserOutlined,
 } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { MenuProps } from "antd";
@@ -14,12 +14,33 @@ import { getMyProfile, logoutRequest } from "../features/auth/authApi";
 import NotificationBell from "../features/notification/components/NotificationBell";
 import { ROLE_LABELS } from "../app/roles";
 import { COLORS, GRADIENTS } from "../app/theme";
+import { useActiveModuleKey } from "../app/useNavTrail";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 type MenuItem = Required<MenuProps>["items"][number];
 
 const item = (key: string, label: string, icon: React.ReactNode): MenuItem => ({ key, label, icon });
+
+/** Muc cha co muc con — dung cho nhung doi tuong co tu hai man hinh tro len. */
+const group = (key: string, label: string, icon: React.ReactNode, children: MenuItem[]): MenuItem =>
+    ({ key, label, icon, children });
+
+/** Tieu de nhom, khong bam duoc — chi de tach hai che do lam viec cua admin. */
+const section = (key: string, label: string, children: MenuItem[]): MenuItem =>
+    ({ key, label, type: "group", children });
+
+/** Gom moi key ke ca muc con, de biet muc nao dang duoc chon. */
+function collectKeys(items: MenuItem[]): string[] {
+    const keys: string[] = [];
+    items.forEach((entry) => {
+        if (!entry || !("key" in entry) || entry.key == null) return;
+        const node = entry as { key: React.Key; children?: MenuItem[]; type?: string };
+        if (node.type !== "group") keys.push(String(node.key));
+        if (node.children) keys.push(...collectKeys(node.children));
+    });
+    return keys;
+}
 
 export default function AppLayout() {
     const navigate = useNavigate();
@@ -39,38 +60,99 @@ export default function AppLayout() {
     const menuItems = useMemo<MenuItem[]>(() => {
         if (!user) return [];
         const dashboard = item("/dashboard", "Tổng quan", <DashboardOutlined />);
-        const recruitment = item("/recruitment", "Tuyển dụng", <SolutionOutlined />);
-        const candidates = item("/candidates", "Ứng viên", <TeamOutlined />);
-        const interviews = item("/interviews", "Phỏng vấn", <CalendarOutlined />);
-        const offers = item("/offers", "Offer", <FileTextOutlined />);
-        const compare = item("/offers/compare", "So sánh ứng viên", <TrophyOutlined />);
+        const masterdata = item("/masterdata", "Danh mục", <DatabaseOutlined />);
+        const applications = item("/applications", "Hồ sơ ứng viên", <TeamOutlined />);
+        const interviews = item("/interviews", "Lịch phỏng vấn", <CalendarOutlined />);
+        const notifications = item("/notifications", "Thông báo", <BellOutlined />);
         const settings = item("/settings", "Cài đặt tài khoản", <SettingOutlined />);
+
+        const recruitmentGroup = group("grp-recruitment", "Tuyển dụng", <SolutionOutlined />, [
+            item("/recruitment/requisitions", "Yêu cầu tuyển dụng", <SolutionOutlined />),
+            item("/recruitment/postings", "Tin tuyển dụng", <FileSearchOutlined />),
+        ]);
+
+        const offers = item("/offers", "Đề nghị nhận việc", <FileTextOutlined />);
 
         if (user.role === "COMPANY_ADMIN") return [
             dashboard,
-            item("/admin/users", "Quản lý người dùng", <UserAddOutlined />),
-            item("/masterdata", "Danh mục và phòng ban", <DatabaseOutlined />),
-            recruitment, candidates, interviews, compare, offers,
-            item("/audit-logs", "Nhật ký bảo mật", <AuditOutlined />),
+            section("ops", "Vận hành tuyển dụng", [
+                recruitmentGroup, applications, interviews, offers,
+            ]),
+            section("admin", "Quản trị hệ thống", [
+                item("/admin/users", "Người dùng", <UserAddOutlined />),
+                masterdata,
+                item("/audit-logs", "Nhật ký hệ thống", <AuditOutlined />),
+            ]),
+            notifications,
             settings,
         ];
-        if (user.role === "RECRUITER") return [dashboard, recruitment, candidates, interviews, compare, offers, settings];
-        if (user.role === "HIRING_MANAGER") return [dashboard, recruitment, candidates, interviews, offers, settings];
+
+        if (user.role === "RECRUITER") return [
+            dashboard, masterdata, recruitmentGroup, applications, interviews,
+            offers, notifications, settings,
+        ];
+
+        // Manager chi tao yeu cau, phong van va theo doi ket qua — khong tham gia buoc offer.
+        if (user.role === "HIRING_MANAGER") return [
+            dashboard,
+            recruitmentGroup,
+            item("/applications", "Ứng viên phòng ban", <TeamOutlined />),
+            interviews,
+            item("/offers", "Kết quả tuyển dụng", <FileTextOutlined />),
+            notifications,
+            settings,
+        ];
+
         return [
             item("/my-profile", "Hồ sơ của tôi", <UserOutlined />),
             item("/jobs", "Việc làm", <SolutionOutlined />),
-            item("/my-applications", "Đơn của tôi", <AppstoreOutlined />),
+            item("/my-applications", "Đơn ứng tuyển của tôi", <AppstoreOutlined />),
             item("/my-interviews", "Lịch phỏng vấn", <CalendarOutlined />),
-            item("/my-offers", "Offer của tôi", <FileTextOutlined />),
+            item("/my-offers", "Thư mời nhận việc", <FileTextOutlined />),
+            notifications,
             settings,
         ];
     }, [user]);
 
-    const selectedKey = menuItems
-        .map((entry) => entry && "key" in entry ? String(entry.key) : "")
-        .filter(Boolean)
-        .sort((a, b) => b.length - a.length)
-        .find((key) => location.pathname === key || location.pathname.startsWith(`${key}/`));
+    /**
+     * Module dang lam viec do cay route quyet dinh, khong doan theo tien to URL nua.
+     * Nho vay /candidates/:id/applications/:id van sang muc "Ho so ung vien",
+     * va man hinh mo tu noi khac thi sang dung muc cua noi da di ra.
+     */
+    const moduleKey = useActiveModuleKey();
+    const allKeys = useMemo(() => collectKeys(menuItems), [menuItems]);
+    const selectedKey = moduleKey && allKeys.includes(moduleKey) ? moduleKey : undefined;
+    // Nhom chua muc dang chon luon duoc mo; nguoi dung van mo them nhom khac duoc.
+    const activeGroupKeys = useMemo(
+        () => menuItems
+            .flatMap((entry) => {
+                const node = entry as { key?: React.Key; children?: MenuItem[]; type?: string } | null;
+                if (!node) return [];
+                return node.type === "group" ? (node.children ?? []) : [entry];
+            })
+            .filter((entry): entry is MenuItem => !!entry)
+            .filter((entry) => {
+                const node = entry as { key?: React.Key; children?: MenuItem[] };
+                return !!node.children?.length
+                    && collectKeys(node.children).some((k) => selectedKey === k);
+            })
+            .map((entry) => String((entry as { key: React.Key }).key)),
+        [menuItems, selectedKey],
+    );
+    /**
+     * Ghi kem duong dan luc nguoi dung tu mo nhom. Sang trang khac thi ban ghi nay het
+     * hieu luc, nen cac nhom tu thu lai va chi con nhom chua muc dang xem la mo.
+     */
+    const [manualOpen, setManualOpen] = useState<{ path: string; keys: string[] } | null>(null);
+    const openKeys = manualOpen?.path === location.pathname
+        ? manualOpen.keys
+        : activeGroupKeys;
+
+    // Mot luc chi mo mot nhom: mo nhom moi thi nhom cu dong lai.
+    const handleOpenChange = (keys: string[]) => {
+        const justOpened = keys.find((key) => !openKeys.includes(key));
+        setManualOpen({ path: location.pathname, keys: justOpened ? [justOpened] : [] });
+    };
 
     const initials = (user?.fullName || user?.email || "U")
         .split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
@@ -100,7 +182,15 @@ export default function AppLayout() {
                 <div className="sidebar-logo-icon">A</div>
                 {!collapsed && <span className="sidebar-logo-text">ATS</span>}
             </div>
-            <Menu mode="inline" selectedKeys={selectedKey ? [selectedKey] : []} items={menuItems} onClick={({ key }) => navigate(key)} style={{ borderInlineEnd: 0 }} />
+            <Menu
+                mode="inline"
+                selectedKeys={selectedKey ? [selectedKey] : []}
+                openKeys={openKeys}
+                onOpenChange={(keys) => handleOpenChange(keys as string[])}
+                items={menuItems}
+                onClick={({ key }) => navigate(key)}
+                style={{ borderInlineEnd: 0 }}
+            />
         </Sider>
         <Layout style={{ minWidth: 0, minHeight: 0, overflow: "hidden" }}>
             <Header className="app-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: GRADIENTS.header }}>

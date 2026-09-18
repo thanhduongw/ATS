@@ -1,4 +1,4 @@
-export { default as PageHeader } from "./PageHeader";
+export { default as PageHeader, PageBreadcrumb } from "./PageHeader";
 export { default as StatCard } from "./StatCard";
 export { default as StatTile } from "./StatTile";
 export { default as StatusTag } from "./StatusTag";

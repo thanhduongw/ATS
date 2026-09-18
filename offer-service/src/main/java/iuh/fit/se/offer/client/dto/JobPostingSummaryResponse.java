@@ -11,5 +11,7 @@ public record JobPostingSummaryResponse(
         Long id,
         Long requisitionId,
         String title,
-        Integer headcount
+        Integer headcount,
+        /** Dùng làm địa điểm làm việc mặc định cho đề nghị nếu HR không chọn lại. */
+        Long workLocationId
 ) {}

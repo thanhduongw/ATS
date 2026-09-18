@@ -28,7 +28,7 @@ public class InterviewCriteriaController {
     @PostMapping
     public ResponseEntity<InterviewCriteriaResponse> create(
             @Valid @RequestBody InterviewCriteriaRequest req) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.create(req));
     }
 
@@ -36,14 +36,14 @@ public class InterviewCriteriaController {
     public ResponseEntity<InterviewCriteriaResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody InterviewCriteriaRequest req) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.update(id, req));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(
             @PathVariable Long id) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         service.softDelete(id);
         return ResponseEntity.ok(Map.of("message", "Xóa tiêu chí đánh giá thành công"));
     }

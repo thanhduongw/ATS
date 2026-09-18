@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -181,21 +182,36 @@ public class BusinessEventListener {
                 notificationService.createAndPush(
                         interviewer.interviewerId(),
                         NotificationType.INTERVIEW_SCHEDULED,
-                        "Lịch phỏng vấn mới",
+                        "Lịch phỏng vấn chờ bạn xác nhận",
                         "Bạn được phân công phỏng vấn " + nullSafe(interview.candidateName())
-                                + " lúc " + formatVi(event.scheduledAt()) + ".",
+                                + " lúc " + formatVi(event.scheduledAt())
+                                + ". Vui lòng xác nhận hoặc đề xuất giờ khác.",
                         "INTERVIEW",
                         event.interviewId());
             }
         }
 
+    }
+
+    /**
+     * Phòng ban chốt giờ. Đây là mốc duy nhất ứng viên được biết buổi phỏng vấn tồn tại —
+     * trước đó giờ giấc còn đang thương lượng nội bộ.
+     *
+     * <p>Lịch nhắc và lịch kiểm tra đánh giá cũng đặt ở đây chứ không đặt lúc tạo, vì trước
+     * khi chốt thì giờ còn thay đổi được, hẹn theo giờ tạm là hẹn sai.
+     */
+    @RabbitListener(queues = BusinessEventConfig.INTERVIEW_HM_CONFIRMED_QUEUE)
+    public void onInterviewHmConfirmed(InterviewHmConfirmedEvent event) {
+        log.info("Nhận event interview.hm-confirmed, interviewId={}", event.interviewId());
+
         Long candidateUserId = resolveCandidateUserIdFromApplication(event.applicationId());
         if (candidateUserId != null) {
             notificationService.createAndPush(
                     candidateUserId,
-                    NotificationType.INTERVIEW_SCHEDULED,
+                    NotificationType.INTERVIEW_HM_CONFIRMED,
                     "Lịch phỏng vấn",
-                    "Bạn có lịch phỏng vấn lúc " + formatVi(event.scheduledAt()) + ". Vui lòng xác nhận trên hệ thống.",
+                    "Bạn có lịch phỏng vấn lúc " + formatVi(event.scheduledAt())
+                            + ". Vui lòng xác nhận trên hệ thống.",
                     "INTERVIEW",
                     event.interviewId());
         }
@@ -205,7 +221,8 @@ public class BusinessEventListener {
                 event.scheduledAt().minusHours(reminderHoursBefore)).toMillis();
         if (reminderDelay > 0) {
             delayedMessagePublisher.scheduleInterviewReminder(
-                    new InterviewReminderPayload(event.interviewId(), event.applicationId()),
+                    new InterviewReminderPayload(
+                            event.interviewId(), event.applicationId(), event.scheduledAt()),
                     reminderDelay);
         }
 
@@ -214,7 +231,7 @@ public class BusinessEventListener {
                 event.scheduledAt().plusHours(evaluationCheckHoursAfter)).toMillis();
         if (evalCheckDelay > 0) {
             delayedMessagePublisher.scheduleEvaluationCheck(
-                    new EvaluationCheckPayload(event.interviewId()),
+                    new EvaluationCheckPayload(event.interviewId(), event.scheduledAt()),
                     evalCheckDelay);
         }
     }
@@ -252,7 +269,9 @@ public class BusinessEventListener {
             return;
         }
         String status = interview.status();
-        if (status == null || (!"SCHEDULED".equals(status) && !"CONFIRMED".equals(status))) {
+        if (status == null
+                || (!"HM_CONFIRMED".equals(status) && !"CANDIDATE_CONFIRMED".equals(status))
+                || !isCurrentSchedule(interview, payload.expectedScheduledAt())) {
             return;
         }
 
@@ -282,13 +301,16 @@ public class BusinessEventListener {
         }
     }
 
-    // ===== 6b. Kiểm tra evaluation thiếu =====
+    // ===== 6b. Kiểm tra đánh giá còn thiếu =====
     @RabbitListener(queues = DelayQueueConfig.EVALUATION_CHECK_PROCESS_QUEUE)
     public void onEvaluationCheckDue(EvaluationCheckPayload payload) {
-        log.info("Đến giờ kiểm tra evaluation, interviewId={}", payload.interviewId());
+        log.info("Đến giờ kiểm tra đánh giá, interviewId={}", payload.interviewId());
 
         InterviewResponse interview = safeGetInterview(payload.interviewId());
-        if (interview == null || interview.interviewers() == null) {
+        if (interview == null || interview.interviewers() == null
+                || !("CANDIDATE_CONFIRMED".equals(interview.status())
+                        || "EVALUATION_PENDING".equals(interview.status()))
+                || !isCurrentSchedule(interview, payload.expectedScheduledAt())) {
             return;
         }
 
@@ -321,11 +343,11 @@ public class BusinessEventListener {
                     payload.interviewId());
 
             if (application != null && application.assignedRecruiterId() != null) {
-                String name = interviewer.fullName() != null ? interviewer.fullName() : "Interviewer";
+                String name = interviewer.fullName() != null ? interviewer.fullName() : "Người phỏng vấn";
                 notificationService.createAndPush(
                         application.assignedRecruiterId(),
                         NotificationType.EVALUATION_INCOMPLETE_REMINDER,
-                        "Interviewer chưa nộp đánh giá",
+                        "Người phỏng vấn chưa nộp đánh giá",
                         name + " chưa nộp đánh giá cho " + nullSafe(interview.candidateName()) + ".",
                         "INTERVIEW",
                         payload.interviewId());
@@ -404,11 +426,19 @@ public class BusinessEventListener {
 
     private InterviewResponse safeGetInterview(Long interviewId) {
         try {
-            return interviewServiceClient.getInterviewById(interviewId, 0L, "SYSTEM");
+            return interviewServiceClient.getInterviewById(interviewId);
         } catch (Exception e) {
             log.warn("Không lấy được interview {}: {}", interviewId, e.getMessage());
             return null;
         }
+    }
+
+    /** Bỏ qua lịch hẹn cũ còn nằm trong hàng đợi sau khi HR dời buổi phỏng vấn. */
+    private boolean isCurrentSchedule(InterviewResponse interview, LocalDateTime expectedScheduledAt) {
+        return interview.scheduledAt() != null
+                && expectedScheduledAt != null
+                && interview.scheduledAt().truncatedTo(ChronoUnit.SECONDS)
+                        .equals(expectedScheduledAt.truncatedTo(ChronoUnit.SECONDS));
     }
 
     private Long resolveCandidateUserId(Long candidateId) {

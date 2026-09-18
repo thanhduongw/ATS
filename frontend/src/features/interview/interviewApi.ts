@@ -2,6 +2,8 @@ import axiosClient from "../../services/axiosClient";
 import type {
   InterviewResponse,
   InterviewCreateRequest,
+  InterviewHmRejectRequest,
+  InterviewUpdateRequest,
   InterviewBulkScheduleRequest,
   InterviewBulkScheduleItem,
   InterviewListFilters,
@@ -32,6 +34,9 @@ export const getMyInterviewById = (id: number) =>
 export const createInterview = (data: InterviewCreateRequest) =>
   axiosClient.post<InterviewResponse>("/interview/interviews", data);
 
+export const updateInterview = (id: number, data: InterviewUpdateRequest) =>
+  axiosClient.put<InterviewResponse>(`/interview/interviews/${id}`, data);
+
 /** Xếp lịch hàng loạt cho nhiều hồ sơ — tự động chia khung giờ nối tiếp, tránh trùng lịch. */
 export const bulkScheduleInterviews = (data: InterviewBulkScheduleRequest) =>
   axiosClient.post<InterviewBulkScheduleItem[]>("/interview/interviews/batch", data);
@@ -39,7 +44,23 @@ export const bulkScheduleInterviews = (data: InterviewBulkScheduleRequest) =>
 export const cancelInterview = (id: number) =>
   axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/cancel`);
 
-/** Candidate xác nhận lịch phỏng vấn */
+/** Phòng ban xác nhận thời gian do HR sắp xếp. */
+export const confirmInterviewByHm = (id: number) =>
+  axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/hm-confirm`);
+
+/** Phòng ban từ chối thời gian hiện tại, có thể kèm thời gian đề xuất. */
+export const rejectInterviewByHm = (id: number, data: InterviewHmRejectRequest) =>
+  axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/hm-reject`, data);
+
+/** HR duyệt thời gian do phòng ban đề xuất. */
+export const approveHmProposal = (id: number) =>
+  axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/approve-proposal`);
+
+/** Ghi nhận ứng viên vắng mặt tại buổi phỏng vấn. */
+export const markInterviewNoShow = (id: number) =>
+  axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/no-show`);
+
+/** Ứng viên xác nhận lịch phỏng vấn. */
 export const confirmInterview = (id: number) =>
   axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/confirm`);
 

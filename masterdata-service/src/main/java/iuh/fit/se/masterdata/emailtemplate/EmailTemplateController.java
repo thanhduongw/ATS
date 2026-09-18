@@ -40,7 +40,7 @@ public class EmailTemplateController {
     @PostMapping
     public ResponseEntity<EmailTemplateResponse> create(
             @Valid @RequestBody EmailTemplateRequest req) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.create(req));
     }
 
@@ -48,14 +48,14 @@ public class EmailTemplateController {
     public ResponseEntity<EmailTemplateResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody EmailTemplateRequest req) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.update(id, req));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(
             @PathVariable Long id) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         service.softDelete(id);
         return ResponseEntity.ok(Map.of("message", "Xóa thành công"));
     }

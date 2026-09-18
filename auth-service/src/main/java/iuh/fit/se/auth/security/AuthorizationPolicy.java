@@ -11,7 +11,8 @@ public final class AuthorizationPolicy {
         COMPANY_ADMIN,
         RECRUITER,
         HIRING_MANAGER,
-        CANDIDATE
+        CANDIDATE,
+        SYSTEM
     }
 
     private AuthorizationPolicy() {
@@ -39,6 +40,11 @@ public final class AuthorizationPolicy {
 
     public static void requireAdmin(CurrentUser actor) {
         requireRole(actor, Role.COMPANY_ADMIN);
+    }
+
+    /** Chỉ dùng cho endpoint đọc dữ liệu phục vụ tác vụ nội bộ bất đồng bộ. */
+    public static void requireAdminOrSystem(CurrentUser actor) {
+        requireAnyRole(actor, Role.COMPANY_ADMIN, Role.SYSTEM);
     }
 
     public static void requireInternal(CurrentUser actor) {
@@ -88,6 +94,7 @@ public final class AuthorizationPolicy {
             CurrentUser actor, Long candidateUserId, Long resourceDepartmentId, Long assignedRecruiterId) {
         return switch (roleOf(actor)) {
             case COMPANY_ADMIN -> true;
+            case SYSTEM -> false;
             case CANDIDATE -> candidateUserId != null && candidateUserId.equals(actor.userId());
             case RECRUITER -> isSameDepartment(actor, resourceDepartmentId)
                     || Objects.equals(actor.userId(), assignedRecruiterId);
@@ -104,6 +111,7 @@ public final class AuthorizationPolicy {
             CurrentUser actor, Long resourceDepartmentId, Long requesterId, Long approverId) {
         return switch (roleOf(actor)) {
             case COMPANY_ADMIN -> true;
+            case SYSTEM -> false;
             case CANDIDATE -> false;
             case RECRUITER -> isSameDepartment(actor, resourceDepartmentId)
                     || Objects.equals(actor.userId(), approverId);

@@ -38,6 +38,7 @@ const NOTIFICATION_TYPE_CODES = [
     "APPLICATION_STAGE_CHANGED",
     "APPLICATION_REJECTED",
     "INTERVIEW_SCHEDULED",
+    "INTERVIEW_HM_CONFIRMED",
     "INTERVIEW_CONFIRMED",
     "INTERVIEW_REMINDER",
     "EVALUATION_INCOMPLETE_REMINDER",
@@ -55,7 +56,7 @@ interface Props {
 
 export default function EmailTemplatePanel({ config }: Props) {
     const [items, setItems] = useState<CatalogItem[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
     const [form] = Form.useForm();
@@ -230,7 +231,7 @@ export default function EmailTemplatePanel({ config }: Props) {
                 dataSource={items}
                 pagination={{ pageSize: 10, ...listPagination("mẫu email") }}
                 locale={{
-                    emptyText: (
+                    emptyText: loading ? <span /> : (
                         <EmptyState
                             title="Chưa có mẫu email nào"
                             description="Thêm mẫu để hệ thống gửi email tự động cho ứng viên."

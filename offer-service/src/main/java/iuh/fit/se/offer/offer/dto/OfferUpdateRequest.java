@@ -10,9 +10,16 @@ public record OfferUpdateRequest(
         @NotNull(message = "Vui lòng chọn loại hợp đồng") Long contractTypeId,
         @NotNull(message = "Vui lòng chọn ngày bắt đầu") LocalDate startDate,
         Integer probationMonths,
+        String reportingManager,
+        Long workLocationId,
+        String currency,
+        String payFrequency,
+        String performanceBonus,
+        Integer annualLeaveDays,
         LocalDateTime responseDeadline,
         String benefits,
         BigDecimal allowance,
         String note,
+        String candidateVisibleNote,
         @NotNull(message = "Vui lòng chọn người duyệt") Long approverId
 ) {}

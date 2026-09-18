@@ -10,6 +10,8 @@ public record CandidateOfferResponse(
         Long id,
         Long applicationId,
         String candidateName,
+        /** Ten vi tri — ung vien can thay viec minh ung tuyen, khong phai ma ho so. */
+        String jobTitle,
         BigDecimal salaryOffered,
         Long contractTypeId,
         String contractTypeName,
@@ -18,7 +20,8 @@ public record CandidateOfferResponse(
         LocalDateTime responseDeadline,
         String benefits,
         BigDecimal allowance,
-        String note,
+        /** Ghi chu noi bo khong bao gio xuat hien o day; chi ghi chu danh cho ung vien. */
+        String candidateVisibleNote,
         OfferStatus status,
         String declineReasonName,
         String declineNote,

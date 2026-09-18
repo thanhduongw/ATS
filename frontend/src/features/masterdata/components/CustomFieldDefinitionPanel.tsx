@@ -26,7 +26,7 @@ const TYPE_LABEL: Record<CustomFieldType, string> = {
 
 export default function CustomFieldDefinitionPanel() {
     const [items, setItems] = useState<CustomFieldDefinition[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<CustomFieldDefinition | null>(null);
     const [form] = Form.useForm();
@@ -161,7 +161,7 @@ export default function CustomFieldDefinitionPanel() {
                 dataSource={items}
                 pagination={{ pageSize: 10, ...listPagination("trường") }}
                 locale={{
-                    emptyText: (
+                    emptyText: loading ? <span /> : (
                         <EmptyState
                             title="Chưa có trường tùy chỉnh nào"
                             description="Thêm trường để thu thập thông tin riêng của công ty trên hồ sơ ứng viên."

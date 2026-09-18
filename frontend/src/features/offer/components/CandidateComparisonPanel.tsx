@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    App, Alert, Button, Space, Table, Tag, Tooltip, Spin, Progress,
+    App, Alert, Button, Modal, Space, Table, Tag, Tooltip, Spin,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import {
-    TrophyOutlined, FileAddOutlined, EyeOutlined, ArrowRightOutlined,
+    TrophyOutlined, FileAddOutlined, EyeOutlined, ArrowRightOutlined, ColumnWidthOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { getOffers } from "../offerApi";
-import OfferCreateModal from "./OfferCreateModal";
 import type { ApiMessageResponse, OfferResponse } from "../types";
 import { getApplications, advanceApplicationStage } from "../../candidate/applicationApi";
-import type { ApplicationResponse } from "../../candidate/types";
+import { getCandidates } from "../../candidate/candidateApi";
+import type { ApplicationResponse, CandidateResponse } from "../../candidate/types";
 import { getEvaluationsByApplications } from "../../interview/interviewApi";
 import type { EvaluationResponse, RecommendationType } from "../../interview/types";
 import { getPostingById } from "../../recruitment/recruitmentApi";
@@ -23,6 +23,7 @@ import { COLORS } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
 import { OFFER_STATUS, statusMeta } from "../../../app/statusLabels";
 import EmptyState from "../../../components/ui/EmptyState";
+import { useTableScrollY } from "../../../app/useTableScrollY";
 
 const RECOMMENDATION_LABEL: Record<RecommendationType, string> = {
     STRONG_YES: "Rất khuyến nghị nhận",
@@ -49,14 +50,38 @@ const RECOMMENDATION_WEIGHT: Record<RecommendationType, number> = {
     STRONG_NO: 1,
 };
 
+/**
+ * Bảng so sánh thường có nhiều ứng viên; để khung tự co theo nội dung thì phải cuộn cả
+ * trang (hoặc cả modal) mới xem hết. Cố định chiều cao gần bằng màn hình rồi cho riêng
+ * phần thân bảng cuộn — tiêu đề cột và thanh công cụ luôn nằm trong tầm mắt.
+ */
+const CONTAINER: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    height: "calc(100vh - 210px)",
+    minHeight: 360,
+};
+
+/** Quá 4 cột thì mỗi cột hẹp tới mức không đọc được nhận xét nữa. */
+const MAX_COMPARE = 4;
+
 /** Hồ sơ đã kết thúc thì không còn nằm trong diện cân nhắc offer. */
 const TERMINAL_STAGE_TYPES = ["REJECTED", "HIRED"];
 
+/** Offer đã chốt: ứng viên nhận việc, suất tuyển coi như đã dùng hẳn. */
+const SETTLED_OFFER_STATUSES = ["ACCEPTED"];
+
+/** Offer đang giữ chỗ nhưng chưa có kết quả — vẫn chiếm suất cho tới khi bị từ chối. */
+const PENDING_OFFER_STATUSES = ["DRAFT", "PENDING_APPROVAL", "APPROVED"];
+
 /** Offer còn chiếm suất tuyển — khớp với quy tắc chặn headcount ở offer-service. */
-const ACTIVE_OFFER_STATUSES = ["DRAFT", "PENDING_APPROVAL", "APPROVED", "ACCEPTED"];
+const ACTIVE_OFFER_STATUSES = [...PENDING_OFFER_STATUSES, ...SETTLED_OFFER_STATUSES];
 
 interface ComparisonRow {
     application: ApplicationResponse;
+    /** Hồ sơ cá nhân: vị trí đang làm, học vấn, kỹ năng — bổ sung cho dữ liệu đánh giá. */
+    candidate: CandidateResponse | null;
     evaluations: EvaluationResponse[];
     /** Bài chấm đã nộp và người xem được phép đọc nội dung. */
     readable: EvaluationResponse[];
@@ -81,9 +106,13 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
     const [advancing, setAdvancing] = useState(false);
     const [rows, setRows] = useState<ComparisonRow[]>([]);
     const [headcount, setHeadcount] = useState<number | null>(null);
-    const [activeOfferCount, setActiveOfferCount] = useState(0);
+    const [acceptedOfferCount, setAcceptedOfferCount] = useState(0);
+    const [pendingOfferCount, setPendingOfferCount] = useState(0);
     const [stages, setStages] = useState<PipelineStageResponse[]>([]);
-    const [createForApplicationId, setCreateForApplicationId] = useState<number | null>(null);
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [detailOpen, setDetailOpen] = useState(false);
+    const { wrapRef, scrollY } = useTableScrollY([loading, rows.length]);
+
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -101,7 +130,8 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
             ]);
 
             const offers = offersRes.data.content;
-            setActiveOfferCount(offers.filter((o) => ACTIVE_OFFER_STATUSES.includes(o.status)).length);
+            setAcceptedOfferCount(offers.filter((o) => SETTLED_OFFER_STATUSES.includes(o.status)).length);
+            setPendingOfferCount(offers.filter((o) => PENDING_OFFER_STATUSES.includes(o.status)).length);
 
             // Chỉ so sánh hồ sơ chưa kết thúc của chính tin tuyển dụng này.
             const candidates = appsRes.data.content.filter(
@@ -110,6 +140,15 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
             if (candidates.length === 0) {
                 setRows([]);
                 return;
+            }
+
+            // Ho so ca nhan cua ung vien: doc mot lan roi tra cuu theo candidateId.
+            let profileById = new Map<number, CandidateResponse>();
+            try {
+                const profileRes = await getCandidates({ size: 1000 });
+                profileById = new Map(profileRes.data.content.map((c) => [c.id, c]));
+            } catch {
+                // Thieu ho so ca nhan chi lam mat hai cot, khong duoc chan bang so sanh.
             }
 
             const evalRes = await getEvaluationsByApplications(candidates.map((a) => a.id));
@@ -127,6 +166,7 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                     application,
                     evalByApplication.get(application.id) ?? [],
                     offerByApplication.get(application.id) ?? null,
+                    profileById.get(application.candidateId) ?? null,
                 ))
                 // Quy tắc so sánh: phải có tối thiểu một đánh giá đã nộp.
                 .filter((row) => row.readable.length > 0 || hasSubmitted(row.evaluations));
@@ -145,7 +185,13 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
         load();
     }, [load]);
 
+    const selectedRows = useMemo(
+        () => rows.filter((r) => selectedIds.includes(r.application.id)),
+        [rows, selectedIds],
+    );
+
     const offerStage = useMemo(() => stages.find((s) => s.stageType === "OFFER"), [stages]);
+    const activeOfferCount = acceptedOfferCount + pendingOfferCount;
     const remaining = headcount != null ? headcount - activeOfferCount : null;
     const headcountExhausted = remaining != null && remaining <= 0;
 
@@ -159,7 +205,7 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
         const steps = offerStage.stageOrder - current;
 
         if (steps <= 0) {
-            setCreateForApplicationId(row.application.id);
+            navigate(`/offers/create?applicationId=${row.application.id}`);
             return;
         }
 
@@ -180,19 +226,18 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                     </div>
                 </div>
             ),
-            okText: "Chuyển tới vòng Offer",
+            okText: "Chuyển tới vòng Đề nghị",
             cancelText: "Hủy",
             onOk: async () => {
                 setAdvancing(true);
                 try {
                     for (let i = 0; i < steps; i += 1) {
                         await advanceApplicationStage(row.application.id, {
-                            note: "Được chọn để offer sau khi so sánh ứng viên",
+                            note: "Được chọn gửi đề nghị sau khi so sánh ứng viên",
                         });
                     }
-                    message.success("Hồ sơ đã ở vòng Offer");
-                    await load();
-                    setCreateForApplicationId(row.application.id);
+                    message.success("Hồ sơ đã ở vòng Đề nghị nhận việc");
+                    navigate(`/offers/create?applicationId=${row.application.id}`);
                 } catch (err) {
                     const axiosErr = err as AxiosError<ApiMessageResponse>;
                     message.error(axiosErr.response?.data?.message ?? "Không chuyển được vòng");
@@ -208,22 +253,14 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
         {
             title: "Ứng viên",
             key: "candidate",
-            width: 200,
+            width: 280,
             ellipsis: true,
             render: (_, row) => (
-                <div>
+                <div className="cell-stack">
                     <div style={{ fontWeight: 600 }}>{row.application.candidateName}</div>
-                    <div style={{ fontSize: 11, color: COLORS.textMuted }}>
-                        {row.application.recruitmentSourceName || "—"} · {row.daysInPipeline} ngày trong pipeline
-                    </div>
+                    <div className="cell-stack-sub">{positionLine(row.application)}</div>
                 </div>
             ),
-        },
-        {
-            title: "Vòng hiện tại",
-            key: "stage",
-            width: 150,
-            render: (_, row) => <Tag>{row.application.currentStageName}</Tag>,
         },
         {
             title: "Đề xuất của người phỏng vấn",
@@ -248,28 +285,8 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
             },
         },
         {
-            title: (
-                <Tooltip title="Trung bình đề xuất, quy đổi: Rất khuyến nghị 4 · Khuyến nghị 3 · Không khuyến nghị 2 · Kiên quyết không 1">
-                    <span>Điểm đề xuất</span>
-                </Tooltip>
-            ),
-            key: "recommendationScore",
-            width: 130,
-            sorter: (a, b) => (a.recommendationScore ?? -1) - (b.recommendationScore ?? -1),
-            render: (_, row) =>
-                row.recommendationScore == null ? (
-                    <span style={{ color: COLORS.textMuted }}>—</span>
-                ) : (
-                    <Progress
-                        percent={(row.recommendationScore / 4) * 100}
-                        size="small"
-                        format={() => row.recommendationScore!.toFixed(2)}
-                        strokeColor={row.recommendationScore >= 3 ? COLORS.success : "#F59E0B"}
-                    />
-                ),
-        },
-        {
             title: "Điểm TB tiêu chí",
+            responsive: ["lg"],
             key: "averageCriteriaScore",
             width: 130,
             sorter: (a, b) => (a.averageCriteriaScore ?? -1) - (b.averageCriteriaScore ?? -1),
@@ -280,6 +297,7 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
         },
         {
             title: "Lương đề xuất",
+            responsive: ["lg"],
             key: "salaryProposed",
             width: 140,
             sorter: (a, b) => (a.salaryProposed ?? -1) - (b.salaryProposed ?? -1),
@@ -287,16 +305,6 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                 row.salaryProposed == null
                     ? <span style={{ color: COLORS.textMuted }}>Chưa đề xuất</span>
                     : formatMoney(row.salaryProposed),
-        },
-        {
-            title: "Offer",
-            key: "offer",
-            width: 150,
-            render: (_, row) => {
-                if (!row.offer) return <span style={{ color: COLORS.textMuted }}>Chưa có</span>;
-                const meta = statusMeta(OFFER_STATUS, row.offer.status);
-                return <Tag color={meta.color} style={{ margin: 0 }}>{meta.label}</Tag>;
-            },
         },
         {
             title: "Thao tác",
@@ -312,21 +320,21 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
         if (hasActiveOffer) {
             return (
                 <Button size="small" icon={<EyeOutlined />} onClick={() => navigate("/offers")}>
-                    Xem offer
+                    Xem đề nghị
                 </Button>
             );
         }
         if (!offerStage) {
             return (
-                <Tooltip title="Quy trình tuyển dụng của tin này không có vòng Offer">
-                    <Button size="small" disabled>Chọn để offer</Button>
+                <Tooltip title="Quy trình tuyển dụng của tin này không có vòng Đề nghị nhận việc">
+                    <Button size="small" disabled>Chọn gửi đề nghị</Button>
                 </Tooltip>
             );
         }
         if (headcountExhausted) {
             return (
                 <Tooltip title="Tin tuyển dụng đã dùng hết số lượng tuyển">
-                    <Button size="small" disabled>Chọn để offer</Button>
+                    <Button size="small" disabled>Chọn gửi đề nghị</Button>
                 </Tooltip>
             );
         }
@@ -339,76 +347,347 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                 icon={atOfferStage ? <FileAddOutlined /> : <ArrowRightOutlined />}
                 onClick={() => selectForOffer(row)}
             >
-                {atOfferStage ? "Tạo offer" : "Chọn để offer"}
+                {atOfferStage ? "Tạo đề nghị" : "Chọn gửi đề nghị"}
             </Button>
         );
     }
 
     if (loading) {
         return (
-            <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
+            <div style={{ ...CONTAINER, alignItems: "center", justifyContent: "center" }}>
                 <Spin />
             </div>
         );
     }
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }}>
-            {showHeader && (
-                <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 12 }}>
-                    <TrophyOutlined style={{ marginRight: 8, color: COLORS.textMuted }} />
-                    So sánh ứng viên ({rows.length})
-                </div>
-            )}
+        <div style={CONTAINER}>
+            <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                gap: 12, flexWrap: "wrap", marginBottom: 12,
+            }}>
+                {showHeader ? (
+                    <div style={{ fontWeight: 600, fontSize: 15 }}>
+                        <TrophyOutlined style={{ marginRight: 8, color: COLORS.textMuted }} />
+                        So sánh ứng viên ({rows.length})
+                    </div>
+                ) : <span />}
 
-            {headcount != null && (
+                <Space wrap>
+                    <Button
+                        icon={<ColumnWidthOutlined />}
+                        disabled={selectedIds.length < 2}
+                        onClick={() => setDetailOpen(true)}
+                    >
+                        {selectedIds.length < 2
+                            ? "Chọn 2 ứng viên để so sánh chi tiết"
+                            : `So sánh chi tiết (${selectedIds.length})`}
+                    </Button>
+
+                    {headcount != null && (
+                        <div style={{
+                            fontSize: 13,
+                            padding: "6px 12px",
+                            borderRadius: 8,
+                            background: headcountExhausted ? "#FEF2F2" : "#F0FDF4",
+                            border: `1px solid ${headcountExhausted ? "#FECACA" : "#BBF7D0"}`,
+                            color: COLORS.textSecondary,
+                        }}>
+                            Suất tuyển: <b>{acceptedOfferCount} / {headcount}</b> đã tuyển
+                            {" · "}Offer đang chờ: <b>{pendingOfferCount}</b>
+                        </div>
+                    )}
+                </Space>
+            </div>
+
+            {headcountExhausted && (
                 <Alert
-                    type={headcountExhausted ? "warning" : "info"}
+                    type="warning"
                     showIcon
                     style={{ marginBottom: 12 }}
-                    message={
-                        headcountExhausted
-                            ? `Đã dùng hết ${headcount} suất tuyển của tin này`
-                            : `Đã dùng ${activeOfferCount}/${headcount} suất tuyển · còn ${remaining} suất`
-                    }
-                    description={
-                        headcountExhausted
-                            ? "Muốn offer thêm ứng viên, hãy hủy một offer đang xử lý hoặc tăng số lượng tuyển trong yêu cầu tuyển dụng."
-                            : "Offer bị ứng viên từ chối sẽ trả lại suất tuyển, khi đó bạn quay lại bảng này chọn ứng viên xếp sau."
-                    }
+                    message={`Tin này đã dùng hết ${headcount} suất tuyển`}
+                    description="Muốn gửi đề nghị cho ứng viên khác, hãy hủy một đề nghị đang xử lý hoặc tăng số lượng tuyển trong yêu cầu tuyển dụng. Đề nghị bị ứng viên từ chối sẽ tự trả lại suất."
                 />
             )}
 
-            <Table
-                rowKey={(row) => row.application.id}
-                size="small"
-                columns={columns}
-                dataSource={rows}
-                scroll={{ x: 1300 }}
-                pagination={false}
-                expandable={{
-                    expandedRowRender: (row) => <EvaluationDetail row={row} />,
-                    rowExpandable: (row) => row.evaluations.length > 0,
-                }}
-                locale={{
-                    emptyText: (
-                        <EmptyState
-                            title="Chưa có ứng viên nào để so sánh"
-                            description="Bảng chỉ hiện ứng viên chưa kết thúc quy trình và đã có ít nhất một đánh giá phỏng vấn được nộp."
-                        />
-                    ),
-                }}
-            />
+            <Modal
+                open={detailOpen}
+                onCancel={() => setDetailOpen(false)}
+                footer={null}
+                width={Math.min(360 + selectedRows.length * 260, 1200)}
+                title={`So sánh chi tiết ${selectedRows.length} ứng viên`}
+                destroyOnHidden
+            >
+                <ComparisonColumns
+                    rows={selectedRows}
+                    onPick={(row) => { setDetailOpen(false); selectForOffer(row); }}
+                    canPick={!headcountExhausted && !!offerStage}
+                />
+            </Modal>
 
-            <OfferCreateModal
-                open={createForApplicationId != null}
-                defaultApplicationId={createForApplicationId}
-                onClose={() => setCreateForApplicationId(null)}
-                onSuccess={() => {
-                    setCreateForApplicationId(null);
-                    load();
-                }}
-            />
+            <div ref={wrapRef} className="table-scroll-wrap">
+                <Table
+                    rowKey={(row) => row.application.id}
+                    size="small"
+                    columns={columns}
+                    dataSource={rows}
+                    scroll={{ x: "max-content", y: scrollY }}
+                    pagination={false}
+                    rowSelection={{
+                        selectedRowKeys: selectedIds,
+                        onChange: (keys) => setSelectedIds(keys as number[]),
+                        getCheckboxProps: (row) => ({
+                            disabled: selectedIds.length >= MAX_COMPARE
+                                && !selectedIds.includes(row.application.id),
+                        }),
+                    }}
+                    expandable={{
+                        expandedRowRender: (row) => <EvaluationDetail row={row} />,
+                        rowExpandable: (row) => row.evaluations.length > 0,
+                    }}
+                    locale={{
+                        emptyText: loading ? <span /> : (
+                            <EmptyState
+                                title="Chưa có ứng viên nào để so sánh"
+                                description="Bảng chỉ hiện ứng viên chưa kết thúc quy trình và đã có ít nhất một đánh giá phỏng vấn được nộp."
+                            />
+                        ),
+                    }}
+                />
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Mỗi ứng viên một cột, tiêu chí xếp thành hàng ngang — đọc ngang một hàng là so được
+ * cùng một tiêu chí giữa những người đang cân nhắc, thay vì quét chéo như bảng theo dòng.
+ */
+function ComparisonColumns({
+    rows, onPick, canPick,
+}: {
+    rows: ComparisonRow[];
+    onPick: (row: ComparisonRow) => void;
+    canPick: boolean;
+}) {
+    // Gộp tiêu chí của mọi người được chọn; ai không có tiêu chí nào thì ô đó để trống.
+    const criteriaNames = Array.from(new Set(
+        rows.flatMap((r) => r.readable.flatMap((e) => e.scores.map((s) => s.criteriaName))),
+    ));
+
+    const criteriaAverage = (row: ComparisonRow, name: string) => {
+        const scores = row.readable
+            .flatMap((e) => e.scores)
+            .filter((s) => s.criteriaName === name)
+            .map((s) => s.score);
+        return scores.length === 0 ? null : average(scores);
+    };
+
+    const cellStyle: React.CSSProperties = {
+        padding: "8px 10px",
+        borderBottom: `1px solid ${COLORS.borderLight}`,
+        verticalAlign: "top",
+        fontSize: 13,
+    };
+    const labelStyle: React.CSSProperties = {
+        ...cellStyle,
+        color: COLORS.textSecondary,
+        fontWeight: 500,
+        whiteSpace: "nowrap",
+    };
+
+    return (
+        <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                    <tr>
+                        <th style={{ ...labelStyle, width: 180, textAlign: "left" }} />
+                        {rows.map((r) => (
+                            <th key={r.application.id} style={{ ...cellStyle, minWidth: 220, textAlign: "left" }}>
+                                <div style={{ fontWeight: 700, fontSize: 14 }}>{r.application.candidateName}</div>
+                                <div style={{ fontSize: 12, color: COLORS.textMuted }}>
+                                    {r.application.currentStageName}
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style={labelStyle}>Vị trí hiện tại</td>
+                        {rows.map((r) => (
+                            <td key={r.application.id} style={cellStyle}>
+                                {r.candidate?.currentPosition || "—"}
+                            </td>
+                        ))}
+                    </tr>
+
+                    <tr>
+                        <td style={labelStyle}>Học vấn</td>
+                        {rows.map((r) => (
+                            <td key={r.application.id} style={cellStyle}>
+                                {r.candidate?.educationLevelName || "—"}
+                            </td>
+                        ))}
+                    </tr>
+
+                    <tr>
+                        <td style={labelStyle}>Kỹ năng</td>
+                        {rows.map((r) => (
+                            <td key={r.application.id} style={cellStyle}>
+                                {r.candidate && r.candidate.skillNames.length > 0 ? (
+                                    <Space size={4} wrap>
+                                        {r.candidate.skillNames.map((skill) => (
+                                            <Tag key={skill} style={{ margin: 0 }}>{skill}</Tag>
+                                        ))}
+                                    </Space>
+                                ) : "—"}
+                            </td>
+                        ))}
+                    </tr>
+
+                    <tr>
+                        <td style={labelStyle}>Nguồn tuyển</td>
+                        {rows.map((r) => (
+                            <td key={r.application.id} style={cellStyle}>
+                                {r.application.recruitmentSourceName || "—"}
+                            </td>
+                        ))}
+                    </tr>
+
+                    <tr>
+                        <td style={labelStyle}>Đề xuất của hội đồng</td>
+                        {rows.map((r) => (
+                            <td key={r.application.id} style={cellStyle}>
+                                <Space size={4} wrap>
+                                    {r.readable.filter((e) => e.overallRecommendation).map((e) => (
+                                        <Tooltip key={e.id} title={e.interviewerName}>
+                                            <Tag
+                                                color={RECOMMENDATION_COLOR[e.overallRecommendation!]}
+                                                style={{ margin: 0 }}
+                                            >
+                                                {RECOMMENDATION_LABEL[e.overallRecommendation!]}
+                                            </Tag>
+                                        </Tooltip>
+                                    ))}
+                                    {r.readable.length === 0 && <span style={{ color: COLORS.textMuted }}>—</span>}
+                                </Space>
+                            </td>
+                        ))}
+                    </tr>
+
+                    <tr>
+                        <td style={labelStyle}>Điểm đề xuất</td>
+                        {rows.map((r) => (
+                            <td key={r.application.id} style={{ ...cellStyle, fontWeight: 600 }}>
+                                {r.recommendationScore == null ? "—" : `${r.recommendationScore.toFixed(2)} / 4`}
+                            </td>
+                        ))}
+                    </tr>
+
+                    <tr>
+                        <td style={labelStyle}>Điểm TB tiêu chí</td>
+                        {rows.map((r) => (
+                            <td key={r.application.id} style={{ ...cellStyle, fontWeight: 600 }}>
+                                {r.averageCriteriaScore == null ? "—" : `${r.averageCriteriaScore.toFixed(2)} / 5`}
+                            </td>
+                        ))}
+                    </tr>
+
+                    {criteriaNames.map((name) => {
+                        const values = rows.map((r) => criteriaAverage(r, name));
+                        const best = Math.max(...values.map((v) => v ?? -1));
+                        return (
+                            <tr key={name}>
+                                <td style={labelStyle}>{name}</td>
+                                {rows.map((r, i) => {
+                                    const v = values[i];
+                                    // Tô đậm người cao điểm nhất của tiêu chí, chỉ khi có chênh lệch thật.
+                                    const isBest = v != null && v === best && values.some((x) => (x ?? -1) < best);
+                                    return (
+                                        <td
+                                            key={r.application.id}
+                                            style={{
+                                                ...cellStyle,
+                                                fontWeight: isBest ? 700 : 400,
+                                                color: isBest ? COLORS.success : undefined,
+                                            }}
+                                        >
+                                            {v == null ? "—" : v.toFixed(1)}
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        );
+                    })}
+
+                    <tr>
+                        <td style={labelStyle}>Lương đề xuất</td>
+                        {rows.map((r) => (
+                            <td key={r.application.id} style={cellStyle}>
+                                {r.salaryProposed == null ? "Chưa đề xuất" : formatMoney(r.salaryProposed)}
+                            </td>
+                        ))}
+                    </tr>
+
+                    <tr>
+                        <td style={labelStyle}>Thời gian trong pipeline</td>
+                        {rows.map((r) => (
+                            <td key={r.application.id} style={cellStyle}>{r.daysInPipeline} ngày</td>
+                        ))}
+                    </tr>
+
+                    <tr>
+                        <td style={labelStyle}>Trạng thái đề nghị</td>
+                        {rows.map((r) => (
+                            <td key={r.application.id} style={cellStyle}>
+                                {r.offer
+                                    ? <Tag color={statusMeta(OFFER_STATUS, r.offer.status).color} style={{ margin: 0 }}>
+                                        {statusMeta(OFFER_STATUS, r.offer.status).label}
+                                    </Tag>
+                                    : <span style={{ color: COLORS.textMuted }}>Chưa có</span>}
+                            </td>
+                        ))}
+                    </tr>
+
+                    <tr>
+                        <td style={labelStyle}>Nhận xét</td>
+                        {rows.map((r) => (
+                            <td key={r.application.id} style={{ ...cellStyle, whiteSpace: "pre-wrap" }}>
+                                {r.readable.filter((e) => e.generalComment).map((e) => (
+                                    <div key={e.id} style={{ marginBottom: 6 }}>
+                                        <div style={{ fontSize: 11, color: COLORS.textMuted }}>{e.interviewerName}</div>
+                                        {e.generalComment}
+                                    </div>
+                                ))}
+                                {r.readable.every((e) => !e.generalComment) && (
+                                    <span style={{ color: COLORS.textMuted }}>—</span>
+                                )}
+                            </td>
+                        ))}
+                    </tr>
+
+                    <tr>
+                        <td style={labelStyle} />
+                        {rows.map((r) => {
+                            const hasActiveOffer = r.offer != null && ACTIVE_OFFER_STATUSES.includes(r.offer.status);
+                            return (
+                                <td key={r.application.id} style={{ ...cellStyle, borderBottom: "none" }}>
+                                    <Button
+                                        type="primary"
+                                        size="small"
+                                        block
+                                        disabled={!canPick || hasActiveOffer}
+                                        onClick={() => onPick(r)}
+                                    >
+                                        {hasActiveOffer ? "Đã có đề nghị" : "Chọn người này"}
+                                    </Button>
+                                </td>
+                            );
+                        })}
+                    </tr>
+                </tbody>
+            </table>
         </div>
     );
 }
@@ -476,6 +755,12 @@ function EvaluationDetail({ row }: { row: ComparisonRow }) {
     );
 }
 
+/** Dòng phụ dưới tên ứng viên: vị trí đang ứng tuyển và phòng ban của vị trí đó. */
+function positionLine(application: ApplicationResponse) {
+    const position = application.jobTitle || application.jobPostingTitle || "—";
+    return application.departmentName ? `${position} · ${application.departmentName}` : position;
+}
+
 function hasSubmitted(evaluations: EvaluationResponse[]) {
     return evaluations.some((e) => e.submittedAt != null);
 }
@@ -489,6 +774,7 @@ function buildRow(
     application: ApplicationResponse,
     evaluations: EvaluationResponse[],
     offer: OfferResponse | null,
+    candidate: CandidateResponse | null,
 ): ComparisonRow {
     const readable = evaluations.filter((e) => e.contentVisible && e.submittedAt != null);
 
@@ -504,6 +790,7 @@ function buildRow(
 
     return {
         application,
+        candidate,
         evaluations,
         readable,
         recommendationScore,

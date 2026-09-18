@@ -13,6 +13,8 @@ import iuh.fit.se.interview.exception.BusinessException;
 import iuh.fit.se.interview.interview.dto.InterviewBulkScheduleItem;
 import iuh.fit.se.interview.interview.dto.InterviewBulkScheduleRequest;
 import iuh.fit.se.interview.interview.dto.InterviewCreateRequest;
+import iuh.fit.se.interview.interview.dto.InterviewHmRejectRequest;
+import iuh.fit.se.interview.interview.dto.InterviewUpdateRequest;
 import iuh.fit.se.interview.interview.dto.CandidateInterviewResponse;
 import iuh.fit.se.interview.interview.dto.InterviewResponse;
 import iuh.fit.se.interview.interview.dto.InterviewerSummary;
@@ -111,6 +113,7 @@ public class InterviewService {
         AuthorizationPolicy.requireCandidate(actor);
         long candidateId = resolveCandidateId(actor.userId());
         return interviewRepository.findByCandidateIdOrderByScheduledAtDesc(candidateId).stream()
+                .filter(i -> i.getStatus().visibleToCandidate())
                 .map(this::toCandidateResponse)
                 .toList();
     }
@@ -122,6 +125,9 @@ public class InterviewService {
         long candidateId = resolveCandidateId(actor.userId());
         if (!Objects.equals(interview.getCandidateId(), candidateId)) {
             throw new AccessDeniedException("Day khong phai lich phong van cua ban");
+        }
+        if (!interview.getStatus().visibleToCandidate()) {
+            throw new AccessDeniedException("Lịch phỏng vấn này chưa được công bố");
         }
         return toCandidateResponse(interview);
     }
@@ -158,10 +164,10 @@ public class InterviewService {
 
         if (req.format() == InterviewFormat.ONLINE
                 && (req.meetingLink() == null || req.meetingLink().isBlank())) {
-            throw new BusinessException("Phỏng vấn Online cần nhập link họp");
+            throw new BusinessException("Phỏng vấn trực tuyến cần nhập đường dẫn họp");
         }
         if (req.format() == InterviewFormat.OFFLINE && req.workLocationId() == null) {
-            throw new BusinessException("Phỏng vấn Offline cần chọn địa điểm");
+            throw new BusinessException("Phỏng vấn trực tiếp cần chọn địa điểm");
         }
         if (req.workLocationId() != null) {
             validateWorkLocation(req.workLocationId());
@@ -232,10 +238,10 @@ public class InterviewService {
 
         if (req.format() == InterviewFormat.ONLINE
                 && (req.meetingLink() == null || req.meetingLink().isBlank())) {
-            throw new BusinessException("Phỏng vấn Online cần nhập link họp");
+            throw new BusinessException("Phỏng vấn trực tuyến cần nhập đường dẫn họp");
         }
         if (req.format() == InterviewFormat.OFFLINE && req.workLocationId() == null) {
-            throw new BusinessException("Phỏng vấn Offline cần chọn địa điểm");
+            throw new BusinessException("Phỏng vấn trực tiếp cần chọn địa điểm");
         }
         if (req.workLocationId() != null) {
             validateWorkLocation(req.workLocationId());
@@ -253,13 +259,14 @@ public class InterviewService {
         }
 
         List<Interview> existing = interviewRepository.findByInterviewers_InterviewerIdInAndStatusIn(
-                req.interviewerIds(), List.of(InterviewStatus.SCHEDULED, InterviewStatus.CONFIRMED));
+                req.interviewerIds(), List.copyOf(InterviewStatus.BLOCKING));
 
         List<BusyRange> busyRanges = new ArrayList<>(existing.stream()
                 .map(i -> new BusyRange(i.getScheduledAt(), i.getScheduledAt().plusMinutes(i.getDurationMinutes())))
                 .toList());
 
         List<InterviewBulkScheduleItem> results = new ArrayList<>();
+        List<PendingBatchItem> batch = new ArrayList<>();
         LocalDateTime cursor = req.startTime();
         int durationMinutes = req.durationMinutesPerPerson();
 
@@ -327,10 +334,24 @@ public class InterviewService {
                     saved.getId(), saved.getApplicationId(), saved.getScheduledAt());
 
             busyRanges.add(new BusyRange(slotStart, slotEnd));
-            results.add(new InterviewBulkScheduleItem(
-                    applicationId, application.candidateName(), slotStart, durationMinutes, shifted, toResponse(saved)));
+            batch.add(new PendingBatchItem(saved, shifted));
 
             cursor = slotEnd;
+        }
+
+        // Cả lô mang chung session_id (lấy id buổi đầu tiên) để giao diện gom nhóm được.
+        // Trạng thái vẫn độc lập từng buổi — no-show và đánh giá là theo từng ứng viên.
+        if (batch.size() > 1) {
+            Long sessionId = batch.get(0).interview().getId();
+            batch.forEach(p -> p.interview().setSessionId(sessionId));
+            interviewRepository.saveAll(batch.stream().map(PendingBatchItem::interview).toList());
+        }
+
+        for (PendingBatchItem p : batch) {
+            Interview saved = p.interview();
+            results.add(new InterviewBulkScheduleItem(
+                    saved.getApplicationId(), saved.getCandidateNameSnapshot(),
+                    saved.getScheduledAt(), saved.getDurationMinutes(), p.shifted(), toResponse(saved)));
         }
 
         return results;
@@ -342,13 +363,165 @@ public class InterviewService {
 
     private record BusyRange(LocalDateTime start, LocalDateTime end) {}
 
+    private record PendingBatchItem(Interview interview, boolean shifted) {}
+
+    /** HM được phân công (hoặc HR thay mặt) chốt giờ — ứng viên được thông báo từ đây. */
+    @Transactional
+    public InterviewResponse confirmByHm(CurrentUser actor, Long id) {
+        Interview interview = findById(id);
+        assertAssignedHmOrHr(interview, actor);
+        if (interview.getStatus() != InterviewStatus.SCHEDULED) {
+            throw new BusinessException("Chỉ xác nhận được lịch đang chờ phòng ban xác nhận");
+        }
+        markHmConfirmed(interview);
+        return saveAndNotifyCandidate(interview);
+    }
+
+    /**
+     * HM từ chối giờ HR đặt. Kèm giờ đề xuất → chờ HR duyệt; không kèm → hủy luôn.
+     */
+    @Transactional
+    public InterviewResponse rejectByHm(CurrentUser actor, Long id, InterviewHmRejectRequest req) {
+        Interview interview = findById(id);
+        assertAssignedHmOrHr(interview, actor);
+        if (interview.getStatus() != InterviewStatus.SCHEDULED) {
+            throw new BusinessException("Chỉ từ chối được lịch đang chờ phòng ban xác nhận");
+        }
+        if (req.proposedScheduledAt() != null) {
+            if (!req.proposedScheduledAt().isAfter(LocalDateTime.now())) {
+                throw new BusinessException("Giờ đề xuất phải nằm trong tương lai");
+            }
+            if (req.proposedScheduledAt().equals(interview.getScheduledAt())) {
+                throw new BusinessException("Giờ đề xuất phải khác giờ hiện tại");
+            }
+        }
+        interview.setProposalNote(req.note());
+        if (req.proposedScheduledAt() == null) {
+            interview.setStatus(InterviewStatus.CANCELLED);
+        } else {
+            interview.setProposedScheduledAt(req.proposedScheduledAt());
+            interview.setStatus(InterviewStatus.HM_RESCHEDULE_PROPOSED);
+        }
+        return toResponse(interviewRepository.save(interview));
+    }
+
+    /** HR duyệt giờ HM đề xuất — chốt luôn, không gửi lại cho HM xác nhận lần nữa. */
+    @Transactional
+    public InterviewResponse approveHmProposal(CurrentUser actor, Long id) {
+        AuthorizationPolicy.requireHr(actor);
+        Interview interview = findById(id);
+        if (interview.getStatus() != InterviewStatus.HM_RESCHEDULE_PROPOSED) {
+            throw new BusinessException("Buổi phỏng vấn này không có đề xuất đổi lịch đang chờ");
+        }
+        if (interview.getProposedScheduledAt() == null
+                || !interview.getProposedScheduledAt().isAfter(LocalDateTime.now())) {
+            throw new BusinessException("Giờ đề xuất đã qua, vui lòng yêu cầu phòng ban đề xuất lại");
+        }
+        interview.setScheduledAt(interview.getProposedScheduledAt());
+        interview.setProposedScheduledAt(null);
+        interview.setProposalNote(null);
+        markHmConfirmed(interview);
+        return saveAndNotifyCandidate(interview);
+    }
+
+    /** HM ghi nhận ứng viên đã xác nhận nhưng không đến. */
+    @Transactional
+    public InterviewResponse markNoShow(CurrentUser actor, Long id) {
+        Interview interview = findById(id);
+        assertAssignedHmOrHr(interview, actor);
+        if (!InterviewStatus.HELD.contains(interview.getStatus())) {
+            throw new BusinessException("Chỉ ghi nhận vắng mặt cho buổi ứng viên đã xác nhận");
+        }
+        interview.setStatus(InterviewStatus.NO_SHOW);
+        return toResponse(interviewRepository.save(interview));
+    }
+
+    /**
+     * HR dời lịch tại chỗ — không lưu lịch sử các lần dời. Nếu ứng viên đã xác nhận thì
+     * giờ cũ hết giá trị: trạng thái lùi về HM_CONFIRMED và ứng viên phải xác nhận lại.
+     * Trùng lịch chỉ cảnh báo ở giao diện, không chặn ở đây.
+     */
+    @Transactional
+    public InterviewResponse update(CurrentUser actor, Long id, InterviewUpdateRequest req) {
+        AuthorizationPolicy.requireHr(actor);
+        Interview interview = findById(id);
+        if (!InterviewStatus.RESCHEDULABLE.contains(interview.getStatus())) {
+            throw new BusinessException("Không dời được lịch ở trạng thái hiện tại");
+        }
+        if (!req.scheduledAt().isAfter(LocalDateTime.now())) {
+            throw new BusinessException("Thời gian mới phải nằm trong tương lai");
+        }
+        if (req.scheduledAt().withSecond(0).withNano(0)
+                .equals(interview.getScheduledAt().withSecond(0).withNano(0))) {
+            throw new BusinessException("Thời gian mới phải khác thời gian hiện tại");
+        }
+        if (req.format() == InterviewFormat.ONLINE
+                && (req.meetingLink() == null || req.meetingLink().isBlank())) {
+            throw new BusinessException("Phỏng vấn trực tuyến cần nhập đường dẫn họp");
+        }
+        if (req.format() == InterviewFormat.OFFLINE && req.workLocationId() == null) {
+            throw new BusinessException("Phỏng vấn trực tiếp cần chọn địa điểm");
+        }
+        if (req.workLocationId() != null) {
+            validateWorkLocation(req.workLocationId());
+        }
+
+        boolean needsReconfirm = interview.getStatus() == InterviewStatus.CANDIDATE_CONFIRMED;
+        boolean candidateAlreadyNotified = interview.getStatus() == InterviewStatus.HM_CONFIRMED;
+
+        interview.setScheduledAt(req.scheduledAt());
+        interview.setDurationMinutes(req.durationMinutes());
+        interview.setFormat(req.format());
+        interview.setWorkLocationId(req.workLocationId());
+        interview.setMeetingLink(req.meetingLink());
+        interview.setNote(req.note());
+
+        if (needsReconfirm) {
+            interview.setCandidateConfirmedAt(null);
+            markHmConfirmed(interview);
+            return saveAndNotifyCandidate(interview);
+        }
+        if (candidateAlreadyNotified) {
+            return saveAndNotifyCandidate(interview);
+        }
+        return toResponse(interviewRepository.save(interview));
+    }
+
+    private void markHmConfirmed(Interview interview) {
+        interview.setStatus(InterviewStatus.HM_CONFIRMED);
+        interview.setHmConfirmedAt(LocalDateTime.now());
+    }
+
+    /** Lưu rồi mới bắn sự kiện, tránh báo cho ứng viên một thay đổi chưa kịp ghi. */
+    private InterviewResponse saveAndNotifyCandidate(Interview interview) {
+        Interview saved = interviewRepository.save(interview);
+        eventPublisher.publishInterviewHmConfirmed(
+                saved.getId(), saved.getApplicationId(),
+                saved.getScheduledAt(), saved.getCandidateNameSnapshot());
+        return toResponse(saved);
+    }
+
+    /** HM phải được phân công đúng buổi này; HR và Admin thì toàn quyền. */
+    private void assertAssignedHmOrHr(Interview interview, CurrentUser actor) {
+        AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
+        if (role == AuthorizationPolicy.Role.RECRUITER
+                || role == AuthorizationPolicy.Role.COMPANY_ADMIN) {
+            return;
+        }
+        boolean assigned = role == AuthorizationPolicy.Role.HIRING_MANAGER
+                && interview.getInterviewers().stream()
+                        .anyMatch(i -> i.getInterviewerId().equals(actor.userId()));
+        if (!assigned) {
+            throw new AccessDeniedException("Bạn không được phân công buổi phỏng vấn này");
+        }
+    }
+
     @Transactional
     public InterviewResponse cancel(Long id) {
         Interview interview = findById(id);
         fetchApplication(interview.getApplicationId());
-        if (interview.getStatus() != InterviewStatus.SCHEDULED
-                && interview.getStatus() != InterviewStatus.CONFIRMED) {
-            throw new BusinessException("Chỉ hủy được lịch đang chờ hoặc đã xác nhận");
+        if (!InterviewStatus.CANCELLABLE.contains(interview.getStatus())) {
+            throw new BusinessException("Không hủy được buổi phỏng vấn đã kết thúc");
         }
         interview.setStatus(InterviewStatus.CANCELLED);
         return toResponse(interviewRepository.save(interview));
@@ -361,10 +534,10 @@ public class InterviewService {
         if (!Objects.equals(interview.getCandidateId(), candidateId)) {
             throw new AccessDeniedException("Đây không phải lịch phỏng vấn của bạn");
         }
-        if (interview.getStatus() != InterviewStatus.SCHEDULED) {
-            throw new BusinessException("Chỉ xác nhận được lịch ở trạng thái Đã lên lịch");
+        if (interview.getStatus() != InterviewStatus.HM_CONFIRMED) {
+            throw new BusinessException("Chỉ xác nhận được lịch đã được phòng ban chốt giờ");
         }
-        interview.setStatus(InterviewStatus.CONFIRMED);
+        interview.setStatus(InterviewStatus.CANDIDATE_CONFIRMED);
         interview.setCandidateConfirmedAt(LocalDateTime.now());
         Interview saved = interviewRepository.save(interview);
 
@@ -381,6 +554,9 @@ public class InterviewService {
 
     private void assertCanView(Interview interview, CurrentUser actor) {
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
+        if (role == AuthorizationPolicy.Role.SYSTEM) {
+            return;
+        }
         // COMPANY_ADMIN va HR (RECRUITER) deu phu trach toan cong ty, khong gioi han phong ban.
         if (role == AuthorizationPolicy.Role.COMPANY_ADMIN
                 || role == AuthorizationPolicy.Role.RECRUITER) {
@@ -400,6 +576,9 @@ public class InterviewService {
             long candidateId = resolveCandidateId(actor.userId());
             if (!Objects.equals(interview.getCandidateId(), candidateId)) {
                 throw new AccessDeniedException("Đây không phải lịch phỏng vấn của bạn");
+            }
+            if (!interview.getStatus().visibleToCandidate()) {
+                throw new AccessDeniedException("Lịch phỏng vấn này chưa được công bố");
             }
             return;
         }
@@ -477,6 +656,8 @@ public class InterviewService {
                 interview.getApplicationId(),
                 interview.getCandidateId(),
                 interview.getCandidateNameSnapshot(),
+                interview.getJobPostingId(),
+                interview.getDepartmentId(),
                 interview.getScheduledAt(),
                 interview.getDurationMinutes(),
                 interview.getFormat(),
@@ -485,6 +666,10 @@ public class InterviewService {
                 interview.getNote(),
                 interview.getStatus(),
                 interview.getCandidateConfirmedAt() != null,
+                interview.getHmConfirmedAt() != null,
+                interview.getSessionId(),
+                interview.getProposedScheduledAt(),
+                interview.getProposalNote(),
                 interviewerSummaries,
                 interview.getCreatedAt()
         );

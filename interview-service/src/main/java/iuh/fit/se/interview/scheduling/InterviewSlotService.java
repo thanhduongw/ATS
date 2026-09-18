@@ -275,6 +275,8 @@ public class InterviewSlotService {
                 interview.getApplicationId(),
                 interview.getCandidateId(),
                 interview.getCandidateNameSnapshot(),
+                interview.getJobPostingId(),
+                interview.getDepartmentId(),
                 interview.getScheduledAt(),
                 interview.getDurationMinutes(),
                 interview.getFormat(),
@@ -283,6 +285,10 @@ public class InterviewSlotService {
                 interview.getNote(),
                 interview.getStatus(),
                 interview.getCandidateConfirmedAt() != null,
+                interview.getHmConfirmedAt() != null,
+                interview.getSessionId(),
+                interview.getProposedScheduledAt(),
+                interview.getProposalNote(),
                 interviewerSummaries,
                 interview.getCreatedAt()
         );

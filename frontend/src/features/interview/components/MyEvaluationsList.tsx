@@ -5,16 +5,17 @@ import type { AxiosError } from "axios";
 import { getInterviews } from "../interviewApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
-import type { ApiMessageResponse, InterviewResponse } from "../types";
+import { INTERVIEW_HELD, type ApiMessageResponse, type InterviewResponse } from "../types";
 import { useAppSelector } from "../../../app/hooks";
 import EvaluationSubmitModal from "./EvaluationSubmitModal";
+import { EVALUATION_DUE_HOURS, evaluationDueAt } from "../evaluationDeadline";
 
 export default function MyEvaluationsList() {
   const currentUser = useAppSelector((state) => state.auth.user);
   const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
   const [criteria, setCriteria] = useState<CatalogItem[]>([]);
   const [filterMode, setFilterMode] = useState<"pending" | "submitted">("pending");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
   const [targetInterviewId, setTargetInterviewId] = useState<number | null>(null);
@@ -41,17 +42,22 @@ export default function MyEvaluationsList() {
   }, [loadData]);
 
   const myAssignments = interviews
-    .filter((iv) => iv.status !== "CANCELLED")
     .flatMap((iv) =>
       iv.interviewers
         .filter((i) => String(i.interviewerId) === currentUser?.userId)
         .map((i) => ({ interview: iv, submitted: i.evaluationSubmitted }))
-    );
+    )
+    .filter((assignment) => assignment.submitted || INTERVIEW_HELD.has(assignment.interview.status));
 
   const displayed = myAssignments.filter((a) => (filterMode === "pending" ? !a.submitted : a.submitted));
 
   return (
     <div>
+      <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)", marginBottom: 10 }}>
+        Hạn nộp đánh giá là {EVALUATION_DUE_HOURS} giờ sau buổi phỏng vấn. Quá hạn mà chưa nộp,
+        hệ thống sẽ gửi thông báo nhắc.
+      </div>
+
       <Segmented
         value={filterMode}
         onChange={(v) => setFilterMode(v as "pending" | "submitted")}
@@ -77,9 +83,20 @@ export default function MyEvaluationsList() {
                   <div style={{ fontWeight: 600 }}>{interview.candidateName}</div>
                   <div style={{ color: "rgba(0,0,0,0.45)", fontSize: 13 }}>
                     {`${dayjs(interview.scheduledAt).format("HH:mm DD/MM/YYYY")} · ${
-                      interview.format === "ONLINE" ? "Online" : "Offline"
+                      interview.format === "ONLINE" ? "Trực tuyến" : "Trực tiếp"
                     }`}
                   </div>
+                  {!submitted && (() => {
+                    const due = evaluationDueAt(interview.scheduledAt);
+                    const overdue = due.isBefore(dayjs());
+                    return (
+                      <div style={{ fontSize: 12, color: overdue ? "#B91C1C" : "#B45309", marginTop: 2 }}>
+                        {overdue
+                          ? `Quá hạn nộp ${due.fromNow(true)}`
+                          : `Hạn nộp ${due.format("HH:mm DD/MM")}`}
+                      </div>
+                    );
+                  })()}
                 </div>
                 {submitted ? (
                   <Tag color="green" style={{ margin: 0 }}>Đã nộp</Tag>

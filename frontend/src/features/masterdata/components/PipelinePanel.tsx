@@ -68,7 +68,7 @@ export default function PipelinePanel() {
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [pipelineName, setPipelineName] = useState("");
     const [stages, setStages] = useState<EditableStage[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
     const [createModalOpen, setCreateModalOpen] = useState(false);

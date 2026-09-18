@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.Objects;
 
 public final class AuthorizationPolicy {
-    public enum Role { COMPANY_ADMIN, RECRUITER, HIRING_MANAGER, CANDIDATE }
+    public enum Role { COMPANY_ADMIN, RECRUITER, HIRING_MANAGER, CANDIDATE, SYSTEM }
     private AuthorizationPolicy() {}
     public static Role roleOf(CurrentUser actor) {
         Objects.requireNonNull(actor, "actor");
@@ -38,6 +38,7 @@ public final class AuthorizationPolicy {
     public static boolean canAccessCandidate(CurrentUser actor, Long candidateUserId, Long departmentId, Long assignedRecruiterId) {
         return switch (roleOf(actor)) {
             case COMPANY_ADMIN -> true;
+            case SYSTEM -> false;
             case CANDIDATE -> candidateUserId != null && candidateUserId.equals(actor.userId());
             // HR (RECRUITER) phu trach tuyen dung toan cong ty: khong gioi han theo phong ban.
             case RECRUITER -> true;

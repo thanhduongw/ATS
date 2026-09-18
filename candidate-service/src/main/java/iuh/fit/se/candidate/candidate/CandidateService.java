@@ -142,6 +142,9 @@ public class CandidateService {
 
     private void authorizeCandidateRecord(CurrentUser actor, Candidate candidate) {
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
+        if (role == AuthorizationPolicy.Role.SYSTEM) {
+            return;
+        }
         if (role == AuthorizationPolicy.Role.CANDIDATE) {
             AuthorizationPolicy.requireSelf(actor, candidate.getUserId());
             return;
@@ -149,7 +152,7 @@ public class CandidateService {
         AuthorizationPolicy.requireInternal(actor);
         if (!seesEveryCandidate(actor)
                 && !loadAccessibleCandidateIds().contains(candidate.getId())) {
-            throw new AccessDeniedException("Candidate is outside the user's department or assignment scope");
+            throw new AccessDeniedException("Ứng viên nằm ngoài phòng ban hoặc phạm vi được phân công");
         }
     }
 

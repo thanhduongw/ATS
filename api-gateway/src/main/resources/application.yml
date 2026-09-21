@@ -72,6 +72,11 @@ spring:
           predicates:
             - Path=/api/offer/**
 
+        - id: ai-service
+          uri: ${SERVICES_AI_SERVICE_URL:http://localhost:8088}
+          predicates:
+            - Path=/api/v1/ai/**
+
         # SockJS/STOMP của notification-service. Dùng lại đúng URL notification-service ở trên.
         # Spring Cloud Gateway tự đổi scheme http -> ws khi request là WebSocket upgrade
         # (WebsocketRoutingFilter); handshake SockJS dạng HTTP (/ws/info, xhr_*) đi cùng route này.
@@ -101,6 +106,8 @@ springdoc:
         url: /api/application/v3/api-docs
       - name: offer-service
         url: /api/offer/v3/api-docs
+      - name: ai-service
+        url: /api/v1/ai/openapi.json
 
 app:
   jwt:

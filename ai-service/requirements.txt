@@ -1,0 +1,46 @@
+# ============================================================
+# AI Service — Dependencies
+# ============================================================
+
+# --- Web Framework ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# --- Database ---
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+alembic==1.14.1
+pgvector==0.3.6
+
+# --- RabbitMQ ---
+aio-pika==9.5.4
+
+# --- HTTP Client (gọi Java services) ---
+httpx==0.28.1
+
+# --- LLM Clients ---
+openai==1.82.0
+google-genai>=1.0.0
+
+# --- Data Validation ---
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# --- S3 / MinIO ---
+boto3==1.35.93
+
+# --- PDF / Document Parsing (Phase 1) ---
+PyMuPDF==1.25.5
+python-docx==1.1.2
+
+# --- OCR: PaddleOCR PP-OCRv4 (Phase 1) ---
+paddlepaddle>=2.6.0
+paddleocr>=2.8.0
+
+# --- Image Processing (Phase 1) ---
+Pillow>=11.0.0
+opencv-python-headless>=4.10.0
+
+# --- Utilities ---
+python-dotenv==1.0.1
+python-multipart==0.0.20

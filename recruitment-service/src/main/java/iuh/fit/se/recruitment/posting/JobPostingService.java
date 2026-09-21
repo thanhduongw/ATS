@@ -126,6 +126,9 @@ public class JobPostingService {
         List<Long> skillIds = (req.skillIds() != null && !req.skillIds().isEmpty())
                 ? new java.util.ArrayList<>(req.skillIds())
                 : new java.util.ArrayList<>(requisition.getSkillIds());
+        String benchmarkCriteria = (req.benchmarkCriteria() != null && !req.benchmarkCriteria().isBlank())
+                ? req.benchmarkCriteria()
+                : null;
 
         JobPosting saved = repository.save(JobPosting.builder()
                 .requisition(requisition)
@@ -141,6 +144,7 @@ public class JobPostingService {
                 .requirements(req.requirements())
                 .benefits(req.benefits())
                 .skillIds(skillIds)
+                .benchmarkCriteria(benchmarkCriteria)
                 .status(PostingStatus.DRAFT)
                 .pipelineLocked(false)
                 .build());
@@ -174,6 +178,10 @@ public class JobPostingService {
         posting.setRequirements(req.requirements());
         posting.setBenefits(req.benefits());
         posting.setSkillIds(req.skillIds() != null ? new java.util.ArrayList<>(req.skillIds()) : new java.util.ArrayList<>());
+        String benchmarkCriteria = (req.benchmarkCriteria() != null && !req.benchmarkCriteria().isBlank())
+                ? req.benchmarkCriteria()
+                : null;
+        posting.setBenchmarkCriteria(benchmarkCriteria);
 
         return toResponse(repository.save(posting));
     }
@@ -318,6 +326,7 @@ public class JobPostingService {
                 p.getPipelineId(),
                 p.getSalaryMin(), p.getSalaryMax(),
                 p.getDescription(), p.getRequirements(), p.getBenefits(), p.getSkillIds(),
+                p.getBenchmarkCriteria(),
                 p.getStatus(), p.isPipelineLocked(), p.getCreatedAt(),
                 p.getSubmittedAt(), p.getApprovedAt(), p.getApprovedBy(),
                 p.getApprovedBy() != null ? userNameMap.get(p.getApprovedBy()) : null,

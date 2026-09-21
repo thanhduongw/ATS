@@ -26,13 +26,16 @@ import { STAGE_TYPE_LABEL, stageTypeTagColor } from "../../../app/statusLabels";
 import { exportToExcel } from "../../../app/exportExcel";
 import {
     DownloadOutlined, FolderOpenOutlined, UserAddOutlined, CalendarOutlined,
-    TrophyOutlined, FileTextOutlined, CloseOutlined,
+    TrophyOutlined, FileTextOutlined, CloseOutlined, PlusOutlined, RobotOutlined,
 } from "@ant-design/icons";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 import EmptyState from "../../../components/ui/EmptyState";
 import StatTile from "../../../components/ui/StatTile";
 import { StatRow, FilterBar, ModalTitle } from "../../../components/ui/pageKit";
 import { listCardStyle, listCardBodyStyle, listPagination } from "../../../components/ui/listStyles";
+import CandidateFormModal from "../components/CandidateFormModal";
+import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
+import type { CandidateFormValues } from "../schemas/candidateSchema";
 
 const { RangePicker } = DatePicker;
 
@@ -91,7 +94,9 @@ export default function ApplicationsPage() {
     /** candidateId -> email/phone, vì ApplicationResponse không mang sẵn thông tin liên hệ. */
     const [contactById, setContactById] = useState<Map<number, { email: string; phone: string }>>(new Map());
     const [recruiters, setRecruiters] = useState<UserDirectoryResponse[]>([]);
-
+    // AI doc CV tra ve ten ky nang/hoc van dang chuoi; can danh muc de anh xa sang id.
+    const [skills, setSkills] = useState<CatalogItem[]>([]);
+    const [educationLevels, setEducationLevels] = useState<CatalogItem[]>([]);
     const [reasons, setReasons] = useState<CatalogItem[]>([]);
 
     // Bulk actions
@@ -101,6 +106,12 @@ export default function ApplicationsPage() {
     const [bulkForm] = Form.useForm();
     const [bulkAssignForm] = Form.useForm();
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
+    // Them ung vien thu cong, hoac de AI doc CV roi dien san vao chinh form do.
+    const [candidateFormOpen, setCandidateFormOpen] = useState(false);
+    const [aiUploadOpen, setAiUploadOpen] = useState(false);
+    const [aiPrefill, setAiPrefill] = useState<Partial<CandidateFormValues> | null>(null);
+    const [aiPrefillFile, setAiPrefillFile] = useState<File | null>(null);
 
     const { wrapRef, scrollY } = useTableScrollY([loading, rows.length]);
 
@@ -130,6 +141,8 @@ export default function ApplicationsPage() {
     useEffect(() => {
         getCatalogItems("/masterdata/rejection-reasons").then((r) => setReasons(r.data));
         getCatalogItems("/masterdata/departments").then((r) => setDepartments(r.data));
+        getCatalogItems("/masterdata/skills").then((r) => setSkills(r.data));
+        getCatalogItems("/masterdata/education-levels").then((r) => setEducationLevels(r.data));
         getPostings({ size: 1000 }).then((r) => setPostings(r.data.content));
         getUserDirectory("RECRUITER").then((r) => setRecruiters(r.data));
         getApplications().then((r) => setAllApplications(r.data.content));
@@ -357,9 +370,21 @@ export default function ApplicationsPage() {
             {/* ── Bộ lọc ─────────────────────────────────── */}
             <FilterBar
                 extra={
-                    <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
-                        Xuất Excel
-                    </Button>
+                    <>
+                        <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
+                            Xuất Excel
+                        </Button>
+                        {isHr && (
+                            <Button icon={<RobotOutlined />} onClick={() => setAiUploadOpen(true)}>
+                                AI đọc CV
+                            </Button>
+                        )}
+                        {isHr && (
+                            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCandidateFormOpen(true)}>
+                                Thêm ứng viên
+                            </Button>
+                        )}
+                    </>
                 }
             >
                 <Select
@@ -537,6 +562,32 @@ export default function ApplicationsPage() {
                     </Form.Item>
                 </Form>
             </Modal>
+
+            <CandidateFormModal
+                open={candidateFormOpen}
+                editingItem={null}
+                initialValues={aiPrefill}
+                initialFile={aiPrefillFile}
+                onClose={() => {
+                    setCandidateFormOpen(false);
+                    setAiPrefill(null);
+                    setAiPrefillFile(null);
+                }}
+                onSuccess={load}
+            />
+
+            <AiCvUploadModal
+                open={aiUploadOpen}
+                availableSkills={skills}
+                availableEducationLevels={educationLevels}
+                onClose={() => setAiUploadOpen(false)}
+                onFillCandidate={(data, file) => {
+                    setAiPrefill(data);
+                    setAiPrefillFile(file ?? null);
+                    setAiUploadOpen(false);
+                    setCandidateFormOpen(true);
+                }}
+            />
         </div>
     );
 }

@@ -103,6 +103,7 @@ export interface JobPostingResponse {
     requirements: string | null;
     benefits: string | null;
     skillIds: number[];
+    benchmarkCriteria: string | null;
     status: PostingStatus;
     pipelineLocked: boolean;
     createdAt: string | null;
@@ -143,6 +144,7 @@ export interface JobPostingCreateRequest {
     requirements?: string | null;
     benefits?: string | null;
     skillIds?: number[];
+    benchmarkCriteria?: string | null;
 }
 
 export type JobPostingUpdateRequest = Omit<JobPostingCreateRequest, "requisitionId">;

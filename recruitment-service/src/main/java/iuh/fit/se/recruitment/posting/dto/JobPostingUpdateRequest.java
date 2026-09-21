@@ -17,5 +17,6 @@ public record JobPostingUpdateRequest(
         String description,
         String requirements,
         String benefits,
-        List<Long> skillIds
+        List<Long> skillIds,
+        String benchmarkCriteria
 ) {}

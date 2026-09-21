@@ -3,7 +3,7 @@ services:
   # 1. MIDDLEWARE & DATABASES
   # ==========================================
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     container_name: ats-postgres
     restart: unless-stopped
     environment:
@@ -50,6 +50,28 @@ services:
     networks:
       - ats-network
 
+  minio:
+    image: minio/minio:latest
+    container_name: ats-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - miniodata:/data
+    networks:
+      - ats-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   # ==========================================
   # 2. JAVA BACKEND MICROSERVICES
   # ==========================================
@@ -65,6 +87,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATA_REDIS_HOST: redis
       SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
+      MAIL_LOG_OTP_ON_FAILURE: "true"
       # Google SSO: doc tu shell/.env cua nguoi chay compose, KHONG commit secret.
       # De trong => auth-service tu tat oauth2Login va van boot binh thuong.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -254,6 +277,38 @@ services:
       - ats-network
 
   # ==========================================
+  # 2b. AI SERVICE (Python FastAPI)
+  # ==========================================
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: ats-ai-service
+    ports:
+      - "8088:8088"
+    env_file:
+      - ./ai-service/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ats_user:ats_password@postgres:5432/ats_ai
+      RABBITMQ_URL: amqp://ats_user:ats_password@rabbitmq:5672/
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
+      APPLICATION_SERVICE_URL: http://application-service:8089
+      CANDIDATE_SERVICE_URL: http://candidate-service:8084
+      MASTERDATA_SERVICE_URL: http://masterdata-service:8082
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - ats-network
+
+  # ==========================================
   # 3. API GATEWAY
   # ==========================================
   api-gateway:
@@ -265,7 +320,7 @@ services:
       - "8080:8080"
     environment:
       # Route (path + id) khai bao mot noi duy nhat trong api-gateway/application.yml.
-      # O day chi tro 9 downstream service sang DNS tren ats-network.
+      # O day chi tro 10 downstream service sang DNS tren ats-network.
       # Route /ws/** dung lai SERVICES_NOTIFICATION_SERVICE_URL,
       # cac buoc OAuth2 (/api/auth/oauth2/**, /api/auth/login/oauth2/code/**)
       # dung lai route /api/auth/** => SERVICES_AUTH_SERVICE_URL.
@@ -278,6 +333,7 @@ services:
       SERVICES_DASHBOARD_SERVICE_URL: http://dashboard-service:8087
       SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
       SERVICES_OFFER_SERVICE_URL: http://offer-service:8090
+      SERVICES_AI_SERVICE_URL: http://ai-service:8088
     depends_on:
       - auth-service
       - masterdata-service
@@ -288,6 +344,7 @@ services:
       - dashboard-service
       - application-service
       - offer-service
+      - ai-service
     networks:
       - ats-network
 
@@ -308,6 +365,7 @@ services:
 
 volumes:
   pgdata:
+  miniodata:
 
 networks:
   ats-network:

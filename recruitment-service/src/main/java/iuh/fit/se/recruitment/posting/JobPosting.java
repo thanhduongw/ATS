@@ -4,6 +4,8 @@ import iuh.fit.se.recruitment.requisition.JobRequisition;
 import iuh.fit.se.recruitment.requisition.WorkArrangement;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -48,6 +50,10 @@ public class JobPosting {
 
     @Column(columnDefinition = "TEXT")
     private String benefits;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "benchmark_criteria", columnDefinition = "JSONB")
+    private String benchmarkCriteria;
 
     @ElementCollection
     @CollectionTable(name = "job_posting_skill", joinColumns = @JoinColumn(name = "posting_id"))

@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-    App, Card, Row, Col, Tag, Button, Space, Spin, Avatar, Timeline, Popconfirm, Tabs,
+    App, Card, Row, Col, Tag, Button, Space, Spin, Avatar, Timeline, Popconfirm, Tabs, Skeleton, Alert,
 } from "antd";
 import {
     CalendarOutlined, DollarOutlined, CommentOutlined, SwapOutlined,
     DownloadOutlined, ExpandOutlined, RobotOutlined, CheckCircleOutlined, CloseCircleOutlined,
     FileUnknownOutlined, MailOutlined, PhoneOutlined, EnvironmentOutlined,
     VideoCameraOutlined, LinkOutlined, TeamOutlined, ClockCircleOutlined, StopOutlined,
+    ReloadOutlined,
 } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import {
@@ -32,6 +33,10 @@ import { stageTypeTagColor, genderLabel, interviewStatusMeta } from "../../../ap
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
+import CvParseResultPanel from "../../ai/components/CvParseResultPanel";
+import type { CVExtractionResult, ExtractionProvenance, CVExtractionResponse } from "../../ai/types";
+import { extractCvFromUrl } from "../../ai/aiApi";
+import { getCachedExtraction, setCachedExtraction, clearCachedExtraction } from "../../ai/cvCacheService";
 
 interface ActivityItem {
     kind: "history" | "comment";
@@ -182,8 +187,14 @@ export default function CandidateApplicationDetailPage() {
 
     const [interviewModalOpen, setInterviewModalOpen] = useState(false);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
+    const [aiResult, setAiResult] = useState<CVExtractionResult | null>(null);
+    const [aiProvenance, setAiProvenance] = useState<ExtractionProvenance | null>(null);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
 
     const applicationId = Number(applicationIdParam);
+    /** Guard to prevent duplicate auto-extraction calls */
+    const aiExtractTriggered = useRef(false);
 
     const loadAll = useCallback(async () => {
         if (!applicationId) return;
@@ -216,6 +227,90 @@ export default function CandidateApplicationDetailPage() {
     }, [applicationId, message]);
 
     useEffect(() => { loadAll(); }, [loadAll]);
+
+    /**
+     * Auto-extract CV when application is loaded and has a resumeUrl.
+     * Checks cache first — only calls AI API if cache miss.
+     */
+    useEffect(() => {
+        if (!application?.resumeUrl || aiExtractTriggered.current) return;
+        aiExtractTriggered.current = true;
+
+        const resumeUrl = application.resumeUrl;
+
+        // 1. Check cache
+        const cached = getCachedExtraction(applicationId, resumeUrl);
+        if (cached) {
+            setAiResult(cached.result);
+            setAiProvenance(cached.provenance);
+            return;
+        }
+
+        // 2. Cache miss → call AI API in background
+        setAiLoading(true);
+        setAiError(null);
+        extractCvFromUrl(resumeUrl)
+            .then((res) => {
+                const data: CVExtractionResponse = res.data;
+                if (data.status === "error" || !data.result) {
+                    setAiError(data.error_message ?? "Không thể phân tích CV. Vui lòng thử lại.");
+                    return;
+                }
+                setAiResult(data.result);
+                setAiProvenance(data.provenance);
+                // Save to cache
+                setCachedExtraction(applicationId, {
+                    resumeUrl,
+                    result: data.result,
+                    provenance: data.provenance,
+                    cachedAt: Date.now(),
+                });
+            })
+            .catch((err) => {
+                const axiosErr = err as AxiosError<{ message?: string; error_message?: string; detail?: string }>;
+                if (axiosErr.code === "ECONNABORTED" || axiosErr.message?.includes("timeout")) {
+                    setAiError("Quá thời gian xử lý (>2 phút). AI-service có thể đang quá tải.");
+                } else if (axiosErr.response) {
+                    const data = axiosErr.response.data;
+                    setAiError(data?.error_message ?? data?.message ?? data?.detail ?? `Lỗi server (HTTP ${axiosErr.response.status}).`);
+                } else {
+                    setAiError("Không thể kết nối đến server AI.");
+                }
+            })
+            .finally(() => setAiLoading(false));
+    }, [application, applicationId]);
+
+    /** Re-extract: clear cache and call AI again */
+    const handleReExtract = useCallback(async () => {
+        if (!application?.resumeUrl) return;
+        clearCachedExtraction(applicationId);
+        setAiResult(null);
+        setAiProvenance(null);
+        setAiLoading(true);
+        setAiError(null);
+        try {
+            const res = await extractCvFromUrl(application.resumeUrl);
+            const data: CVExtractionResponse = res.data;
+            if (data.status === "error" || !data.result) {
+                setAiError(data.error_message ?? "Không thể phân tích CV.");
+                return;
+            }
+            setAiResult(data.result);
+            setAiProvenance(data.provenance);
+            setCachedExtraction(applicationId, {
+                resumeUrl: application.resumeUrl,
+                result: data.result,
+                provenance: data.provenance,
+                cachedAt: Date.now(),
+            });
+            message.success("Đã phân tích lại CV thành công");
+        } catch (err) {
+            const axiosErr = err as AxiosError<{ message?: string; error_message?: string; detail?: string }>;
+            setAiError(axiosErr.response?.data?.error_message ?? "Phân tích lại thất bại.");
+        } finally {
+            setAiLoading(false);
+        }
+    }, [application, applicationId, message]);
 
     /** Ngày hồ sơ bước vào từng vòng — lấy lần chuyển vào vòng đó sớm nhất. */
     const stageDates = useMemo(() => {
@@ -552,31 +647,110 @@ export default function CandidateApplicationDetailPage() {
             </Col>
 
             <Col xs={24} lg={9}>
-                <div style={{
-                    background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 12, padding: "18px 20px",
-                }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                        <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI</Tag>
-                        <span style={{ fontSize: 14.5, fontWeight: 600 }}>Nhận xét tự động</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                        <div style={{
-                            width: 52, height: 52, borderRadius: "50%", background: "#EDE9FE", flexShrink: 0,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                        }}>
-                            <RobotOutlined style={{ fontSize: 22, color: "#8B5CF6" }} />
+                {/* ── AI Loading state ── */}
+                {aiLoading && (
+                    <div style={{
+                        background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 12, padding: "24px 20px",
+                    }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                            <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI</Tag>
+                            <span style={{ fontSize: 14.5, fontWeight: 600 }}>Đang trích xuất thông tin CV...</span>
                         </div>
-                        <div style={{ fontSize: 13.5, color: COLORS.textSecondary, lineHeight: 1.55 }}>
-                            <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: 2 }}>
-                                Tính năng đang được phát triển
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "20px 0" }}>
+                            <div style={{
+                                width: 64, height: 64, borderRadius: "50%",
+                                background: "linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                animation: "pulse 1.5s ease-in-out infinite",
+                            }}>
+                                <RobotOutlined style={{ fontSize: 28, color: "#fff" }} />
                             </div>
-                            Chấm điểm và phân tích CV tự động sẽ ra mắt ở giai đoạn tiếp theo.
+                            <div style={{ textAlign: "center" }}>
+                                <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.textPrimary }}>
+                                    AI đang phân tích nội dung CV...
+                                </div>
+                                <div style={{ fontSize: 12.5, color: COLORS.textMuted, marginTop: 4 }}>
+                                    Quá trình này có thể mất 10–60 giây
+                                </div>
+                            </div>
+                        </div>
+                        <Skeleton active paragraph={{ rows: 4 }} />
+                        <style>{`
+                            @keyframes pulse {
+                                0%, 100% { transform: scale(1); opacity: 1; }
+                                50% { transform: scale(1.08); opacity: 0.85; }
+                            }
+                        `}</style>
+                    </div>
+                )}
+
+                {/* ── AI Error state ── */}
+                {!aiLoading && aiError && (
+                    <div style={{
+                        background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 12, padding: "18px 20px",
+                    }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                            <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI</Tag>
+                            <span style={{ fontSize: 14.5, fontWeight: 600 }}>Trích xuất thông tin CV</span>
+                        </div>
+                        <Alert
+                            type="error"
+                            showIcon
+                            message="Không thể phân tích CV"
+                            description={aiError}
+                            style={{ borderRadius: 10, marginBottom: 12 }}
+                        />
+                        <Button icon={<ReloadOutlined />} onClick={handleReExtract} block>
+                            Thử lại
+                        </Button>
+                    </div>
+                )}
+
+                {/* ── AI Result with scrollbar ── */}
+                {!aiLoading && !aiError && aiResult && aiProvenance && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI Trích Xuất CV</Tag>
+                            <Button size="small" icon={<RobotOutlined />} onClick={handleReExtract} loading={aiLoading}>Phân tích lại</Button>
+                        </div>
+                        <div
+                            className="ai-result-scroll"
+                            style={{
+                                maxHeight: "calc(100vh - 280px)",
+                                overflowY: "auto",
+                                paddingRight: 4,
+                            }}
+                        >
+                            <CvParseResultPanel result={aiResult} provenance={aiProvenance} />
                         </div>
                     </div>
-                    <Button disabled block icon={<RobotOutlined />} style={{ marginTop: 16 }}>
-                        Chạy phân tích AI
-                    </Button>
-                </div>
+                )}
+
+                {/* ── No CV uploaded & no extraction in progress ── */}
+                {!aiLoading && !aiError && !aiResult && !application.resumeUrl && (
+                    <div style={{
+                        background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 12, padding: "18px 20px",
+                    }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                            <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI</Tag>
+                            <span style={{ fontSize: 14.5, fontWeight: 600 }}>Trích xuất thông tin CV</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                            <div style={{
+                                width: 52, height: 52, borderRadius: "50%", background: "#EDE9FE", flexShrink: 0,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>
+                                <FileUnknownOutlined style={{ fontSize: 22, color: "#8B5CF6" }} />
+                            </div>
+                            <div style={{ fontSize: 13.5, color: COLORS.textSecondary, lineHeight: 1.55 }}>
+                                <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: 2 }}>
+                                    Chưa có CV để phân tích
+                                </div>
+                                Ứng viên cần tải CV lên trước khi AI có thể trích xuất thông tin.
+                            </div>
+                        </div>
+                    </div>
+                )}
             </Col>
         </Row>
     );
@@ -710,6 +884,7 @@ export default function CandidateApplicationDetailPage() {
                 onClose={() => setRejectModalOpen(false)}
                 onSuccess={() => { setRejectModalOpen(false); loadAll(); }}
             />
+
         </div>
     );
 }

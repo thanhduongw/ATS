@@ -45,7 +45,7 @@ phân định này là một kết quả thiết kế, không phải một sự 
 
 ## 2. Phạm vi v1 — 20 màn hình
 
-### Nhóm A — Hạ tầng & dùng chung (4 màn)
+### Nhóm A — Hạ tầng & dùng chung (6 màn)
 
 | Mã | Màn hình | Vì sao hợp mobile |
 |---|---|---|
@@ -53,6 +53,8 @@ phân định này là một kết quả thiết kế, không phải một sự 
 | A2 | Đăng ký (ứng viên) | Ứng viên tìm việc trên điện thoại là hành vi phổ biến nhất |
 | A3 | Xác minh email (OTP) | OTP ở app mail ngay trên máy — trên mobile còn tiện hơn web |
 | A4 | Thông báo (cả 3 role) | Trái tim của app. Mọi deep link từ push đổ về đây |
+| A5 | Quên mật khẩu | Bổ sung sau khi kiểm chứng backend: luồng chỉ cần OTP 6 số, KHÔNG có link email nên không cần deep link |
+| A6 | Đặt lại mật khẩu (OTP + mật khẩu mới) | Đi liền với A5. Cùng khuôn với A3 nên gần như không tốn thêm thời gian |
 
 ### Nhóm B — Candidate (8 màn)
 
@@ -95,7 +97,6 @@ Mobile chỉ giữ phần HR bị kẹt: những chữ ký đang chặn người
 
 | Chức năng | Lý do loại | Thuộc về |
 |---|---|---|
-| Quên / đặt lại mật khẩu | Luồng đi từ link email → cần deep link + xử lý OTP qua mail, tốn thời gian không tương xứng | Web (app hiển thị link "Đặt lại mật khẩu trên web") |
 | Đăng nhập Google (OAuth2) | Cần `expo-auth-session` + redirect URI + cấu hình backend | v2 |
 | **Tạo requisition mới** | Form dài nhất hệ thống: vị trí, số lượng, kỹ năng, lý do, ưu tiên, lương. Nhập trên điện thoại là cực hình | Web |
 | Danh sách ứng viên của HR + đổi stage | Danh sách dài, nhiều bộ lọc, thao tác hàng loạt | Web |
@@ -105,6 +106,12 @@ Mobile chỉ giữ phần HR bị kẹt: những chữ ký đang chặn người
 | Masterdata, audit log, quản lý người dùng | Không bao giờ nên lên mobile | Web |
 | Realtime WebSocket (STOMP/SockJS) | `sockjs-client` chạy kém trên RN. Thay bằng push + refetch khi app vào foreground | Thay thế bằng push |
 | Chế độ offline | Không nằm trong yêu cầu. Bản nháp đánh giá đã được lưu trên server sẵn | Không làm |
+
+> **Đã đưa TRỞ LẠI phạm vi:** *Quên / đặt lại mật khẩu* từng bị loại ở bảng trên với lý do
+> "luồng đi từ link email → cần deep link". Lý do đó **sai**: đối chiếu
+> `auth-service/.../dto/request/ResetPasswordRequest.java` thì backend chỉ nhận
+> `{ email, otpCode (đúng 6 chữ số), newPassword }` — không hề có link, không cần deep link.
+> Làm trọn trong app, dùng lại đúng khuôn của A3. Đã làm thành A5 + A6.
 
 **Để dành cho v2 nếu còn thời gian:** thêm lịch phỏng vấn vào lịch điện thoại
 (`expo-calendar`) — backend đã có `GET /interviews/{id}/ics` nên việc này rẻ bất ngờ.
@@ -125,6 +132,8 @@ Mobile chỉ giữ phần HR bị kẹt: những chữ ký đang chặn người
 | Client state | **Zustand** | Chỉ giữ auth state. Nhẹ hơn Redux nhiều |
 | HTTP | **axios** | Port thẳng interceptor refresh token từ `frontend/src/services/axiosClient.ts` |
 | Form | **react-hook-form + zod** | Giống hệt web — tư duy chuyển sang không mất thời gian học lại |
+| Icon | **@expo/vector-icons** | Bổ sung ngày 2. SDK 57 không còn kèm gói này, mà React Native Paper cần nó cho `TextInput.Icon` và icon tab — thiếu thì icon không hiện. Thuần JS, không có native code nên **không phải build lại dev build** |
+| Font | **@expo-google-fonts/be-vietnam-pro** + **expo-font** | Bổ sung khi đồng bộ giao diện với web. Web nạp Be Vietnam Pro từ Google Fonts; mobile phải dùng đúng bộ chữ đó nếu không nhìn ra hai sản phẩm khác nhau. Nạp lúc chạy, thuần asset → **không phải build lại dev build** |
 
 ### Native module — cài một lượt ở ngày 1
 
@@ -168,7 +177,9 @@ mobile/
 │   ├── (auth)/
 │   │   ├── login.tsx             # A1
 │   │   ├── register.tsx          # A2
-│   │   └── verify-email.tsx      # A3
+│   │   ├── verify-email.tsx      # A3
+│   │   ├── forgot-password.tsx   # A5
+│   │   └── reset-password.tsx    # A6
 │   ├── (candidate)/
 │   │   ├── _layout.tsx           # Tabs: Việc làm · Đơn · Lịch PV · Hồ sơ
 │   │   ├── jobs/index.tsx              # B1
@@ -247,6 +258,8 @@ Ký hiệu: ✅ = đã đối chiếu trong source · ⚠️ = cần xác minh �
 | A1 | `POST /api/auth/logout` ✅ | Gọi kèm xóa device token |
 | A2 | `POST /api/auth/register` ✅ | `{ fullName, email, password, confirmPassword, phone? }` |
 | A3 | `POST /api/auth/verify-email` ✅ | `{ email, otpCode }` · `POST /api/auth/resend-otp` |
+| A5 | `POST /api/auth/forgot-password` ✅ | `{ email }`. CỐ Ý trả cùng một câu dù email có tồn tại hay không — giao diện không được khẳng định "đã gửi tới email của bạn" |
+| A6 | `POST /api/auth/reset-password` ✅ | `{ email, otpCode, newPassword }`. `otpCode` phải khớp `\d{6}`; OTP lưu dạng băm bcrypt nên không tra được từ DB |
 | — | `GET /api/auth/me` ✅ | Lấy `fullName`, `status`, `emailVerified` sau login |
 | A4 | `GET /api/notification/notifications` ✅ | + `/unread-count`, `PATCH /{id}/read`, `PATCH /read-all` |
 | A4 | Trường deep link trong notification ⚠️ | Web đã có deep link — cần xác minh tên trường để định tuyến |

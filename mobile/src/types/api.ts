@@ -40,6 +40,12 @@ export type ApplicationCreateRequest = ApplicationC["schemas"]["ApplicationCreat
 export type LoginRequest         = AuthC["schemas"]["LoginRequest"];
 export type CandidateRegistrationRequest = AuthC["schemas"]["CandidateRegistrationRequest"];
 export type VerifyEmailRequest   = AuthC["schemas"]["VerifyEmailRequest"];
+export type ResendOtpRequest     = AuthC["schemas"]["ResendOtpRequest"];
+export type RefreshTokenRequest  = AuthC["schemas"]["RefreshTokenRequest"];
+export type ForgotPasswordRequest = AuthC["schemas"]["ForgotPasswordRequest"];
+export type ResetPasswordRequest = AuthC["schemas"]["ResetPasswordRequest"];
+/** Mọi endpoint auth dạng "làm xong rồi" đều trả `{ message }`. */
+export type ApiMessage           = AuthC["schemas"]["ApiMessageResponse"];
 
 // --- PageResponse: springdoc sinh ra một type riêng cho MỖI kiểu phần tử ---
 export type PageJobPosting       = RecruitmentC["schemas"]["PageResponseJobPostingResponse"];

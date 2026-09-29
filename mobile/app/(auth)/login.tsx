@@ -1,38 +1,39 @@
 import { useState } from "react";
-import { StyleSheet } from "react-native";
-import { Button, Snackbar, Text } from "react-native-paper";
+import { StyleSheet, View } from "react-native";
+import { Snackbar } from "react-native-paper";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { authApi } from "@/api/auth";
 import { apiErrorMessage } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
-import { AuthScaffold } from "@/components/auth-scaffold";
+import { AuthScaffold, PromptLink } from "@/components/auth-scaffold";
 import { FormTextField } from "@/components/form-text-field";
-import { COLORS, FONT, FONT_SIZE, SPACING } from "@/theme";
+import { PillButton } from "@/components/ui/buttons";
+import { STRINGS } from "@/lib/strings";
+import { SPACING } from "@/theme";
+
+const S = STRINGS.auth.login;
+const V = STRINGS.auth.validation;
 
 const schema = z.object({
-  email: z.string().min(1, "Vui lòng nhập email").email("Email không hợp lệ"),
-  password: z.string().min(1, "Vui lòng nhập mật khẩu"),
+  email: z.string().min(1, V.emailRequired).email(V.emailInvalid),
+  password: z.string().min(1, V.passwordRequired),
 });
 type FormValues = z.infer<typeof schema>;
 
+/** M01 — Đăng nhập (chung cho mọi role). */
 export default function LoginScreen() {
   const setCredentials = useAuthStore((s) => s.setCredentials);
-  // A3 trả về verified=1 sau khi xác minh OTP; màn đặt lại mật khẩu trả về reset=1
-  // kèm email để điền sẵn, giống bản web.
+  // Màn xác minh trả về verified=1; màn đặt lại mật khẩu trả về reset=1 kèm email để điền sẵn.
   const { verified, reset, email: emailParam } = useLocalSearchParams<{
     verified?: string;
     reset?: string;
     email?: string;
   }>();
   const [notice, setNotice] = useState(
-    verified === "1"
-      ? "Xác minh thành công, mời đăng nhập."
-      : reset === "1"
-        ? "Mật khẩu đã được cập nhật, mời đăng nhập."
-        : ""
+    verified === "1" ? S.verifiedNotice : reset === "1" ? S.resetNotice : ""
   );
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -53,67 +54,65 @@ export default function LoginScreen() {
       await setCredentials(tokens.accessToken, tokens.refreshToken);
       // AuthGate ở root layout tự đẩy sang khu vực đúng role.
     } catch (e) {
-      setError(apiErrorMessage(e, "Đăng nhập thất bại"));
+      setError(apiErrorMessage(e, S.failed));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <AuthScaffold
-      title="Đăng nhập"
-      subtitle="Sử dụng email và mật khẩu của bạn."
-      footer={
-        <>
-          <Text style={styles.footerText}>Bạn là ứng viên?</Text>
-          <Link href="/(auth)/register" asChild>
-            <Button mode="text" compact>
-              Tạo tài khoản
-            </Button>
-          </Link>
-
-        </>
-      }
-    >
-      <FormTextField
-        control={control}
-        name="email"
-        label="Email"
-        message={errors.email?.message}
-        autoCapitalize="none"
-        autoComplete="email"
-        keyboardType="email-address"
-        placeholder="email@example.com"
-        icon="mail"
-      />
-
-      <FormTextField
-        control={control}
-        name="password"
-        label="Mật khẩu"
-        message={errors.password?.message}
-        autoCapitalize="none"
-        password
-        maxLength={72}
-        icon="lock"
-      />
-
-      <Link href="/(auth)/forgot-password" asChild>
-        <Button mode="text" compact style={styles.forgot}>
-          Quên mật khẩu?
-        </Button>
-      </Link>
-
-      <Button
-        mode="contained"
-        onPress={handleSubmit(onSubmit)}
-        loading={submitting}
-        disabled={submitting}
-        style={styles.submit}
-        contentStyle={styles.submitContent}
+    <>
+      <AuthScaffold
+        leading="brand"
+        title={S.title}
+        subtitle={S.subtitle}
+        footer={
+          <PromptLink
+            stacked
+            prompt={S.candidatePrompt}
+            label={S.createAccount}
+            onPress={() => router.push("/(auth)/register")}
+          />
+        }
       >
-        Đăng nhập
-      </Button>
+        <FormTextField
+          control={control}
+          name="email"
+          label={S.email}
+          message={errors.email?.message}
+          icon="mail"
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          placeholder="email@example.com"
+          returnKeyType="next"
+        />
+
+        <View>
+          <FormTextField
+            control={control}
+            name="password"
+            label={S.password}
+            message={errors.password?.message}
+            icon="lock"
+            password
+            autoCapitalize="none"
+            autoComplete="current-password"
+            maxLength={72}
+            returnKeyType="go"
+            onSubmitEditing={handleSubmit(onSubmit)}
+          />
+          <PillButton
+            variant="text"
+            size="sm"
+            label={S.forgot}
+            onPress={() => router.push("/(auth)/forgot-password")}
+            style={styles.forgot}
+          />
+        </View>
+
+        <PillButton label={S.submit} fullWidth loading={submitting} onPress={handleSubmit(onSubmit)} />
+      </AuthScaffold>
 
       <Snackbar visible={!!error} onDismiss={() => setError("")} duration={4000}>
         {error}
@@ -121,19 +120,11 @@ export default function LoginScreen() {
       <Snackbar visible={!!notice} onDismiss={() => setNotice("")} duration={4000}>
         {notice}
       </Snackbar>
-    </AuthScaffold>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  submit: { marginTop: SPACING.sm },
-  // Web dùng size="large" cho nút chính → controlHeightLG = 44.
-  submitContent: { height: 44 },
-  footerText: {
-    fontFamily: FONT.regular,
-    fontSize: FONT_SIZE.base,
-    color: COLORS.textSecondary,
-  },
-  // Web đặt "Quên mật khẩu?" căn phải ngay trên nút đăng nhập.
-  forgot: { alignSelf: "flex-end", marginBottom: SPACING.xs },
+  // Canvas đặt "Quên mật khẩu?" căn phải, ngay dưới ô mật khẩu.
+  forgot: { alignSelf: "flex-end", marginTop: SPACING.xs },
 });

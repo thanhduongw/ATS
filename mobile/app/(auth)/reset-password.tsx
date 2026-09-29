@@ -1,43 +1,48 @@
-import { useEffect, useState } from "react";
-import { StyleSheet } from "react-native";
-import { Button, Snackbar, Text } from "react-native-paper";
+import { useState } from "react";
+import { Snackbar } from "react-native-paper";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { authApi } from "@/api/auth";
 import { apiErrorMessage } from "@/api/client";
-import { AuthScaffold } from "@/components/auth-scaffold";
+import { AuthScaffold, ResendRow } from "@/components/auth-scaffold";
+import { FormOtpField } from "@/components/form-otp-field";
 import { FormTextField } from "@/components/form-text-field";
-import { COLORS, FONT, FONT_SIZE, SPACING } from "@/theme";
+import { PillButton } from "@/components/ui/buttons";
+import { STRINGS } from "@/lib/strings";
+import { useCountdown } from "@/lib/use-countdown";
 
+const S = STRINGS.auth.reset;
+const V = STRINGS.auth.validation;
 const RESEND_SECONDS = 60;
 
 const schema = z
   .object({
-    email: z.string().min(1, "Vui lòng nhập email").email("Email không hợp lệ"),
+    email: z.string().min(1, V.emailRequired).email(V.emailInvalid),
     // Backend: @Pattern("\d{6}") — đúng 6 chữ số, không hơn không kém.
-    otpCode: z.string().trim().regex(/^\d{6}$/, "Mã OTP gồm đúng 6 chữ số"),
-    newPassword: z
-      .string()
-      .min(8, "Mật khẩu tối thiểu 8 ký tự")
-      .max(72, "Mật khẩu tối đa 72 ký tự"),
-    confirmPassword: z.string().min(1, "Vui lòng nhập lại mật khẩu"),
+    otpCode: z.string().regex(/^\d{6}$/, V.otpFormat),
+    newPassword: z.string().min(8, V.passwordMin).max(72, V.passwordMax),
+    confirmPassword: z.string().min(1, V.confirmRequired),
   })
   .refine((v) => v.newPassword === v.confirmPassword, {
-    message: "Mật khẩu nhập lại không khớp",
+    message: V.confirmMismatch,
     path: ["confirmPassword"],
   });
 
 type FormValues = z.infer<typeof schema>;
 
+/**
+ * M05 — Đặt lại mật khẩu bằng OTP.
+ * Đi từ màn quên mật khẩu thì email có sẵn trong tham số → ẩn ô email như canvas. Mở thẳng
+ * màn này (không có tham số) thì hiện ô email để người dùng tự nhập.
+ */
 export default function ResetPasswordScreen() {
-  const router = useRouter();
   const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [seconds, setSeconds] = useState(RESEND_SECONDS);
+  const { seconds, restart } = useCountdown(RESEND_SECONDS);
 
   const {
     control,
@@ -46,34 +51,18 @@ export default function ResetPasswordScreen() {
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      email: emailParam ?? "",
-      otpCode: "",
-      newPassword: "",
-      confirmPassword: "",
-    },
+    defaultValues: { email: emailParam ?? "", otpCode: "", newPassword: "", confirmPassword: "" },
   });
-
-  // Chặn bấm gửi lại liên tục làm backend gửi hàng loạt email — giống màn xác minh email.
-  useEffect(() => {
-    if (seconds <= 0) return;
-    const t = setTimeout(() => setSeconds((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [seconds]);
 
   const onSubmit = async (values: FormValues) => {
     setSubmitting(true);
     try {
       const email = values.email.trim();
-      await authApi.resetPassword({
-        email,
-        otpCode: values.otpCode.trim(),
-        newPassword: values.newPassword,
-      });
-      // Về đăng nhập kèm email để điền sẵn, giống bản web.
+      await authApi.resetPassword({ email, otpCode: values.otpCode, newPassword: values.newPassword });
+      // Về đăng nhập kèm email để điền sẵn.
       router.replace({ pathname: "/(auth)/login", params: { email, reset: "1" } });
     } catch (e) {
-      setError(apiErrorMessage(e, "Đặt lại mật khẩu thất bại"));
+      setError(apiErrorMessage(e, S.failed));
     } finally {
       setSubmitting(false);
     }
@@ -82,90 +71,70 @@ export default function ResetPasswordScreen() {
   const onResend = async () => {
     const email = getValues("email").trim();
     if (!email) {
-      setError("Vui lòng nhập email trước khi gửi lại mã.");
+      setError(S.needEmail);
       return;
     }
     try {
       await authApi.forgotPassword(email);
-      setSeconds(RESEND_SECONDS);
-      setInfo("Nếu email tồn tại, mã OTP mới đã được gửi đi.");
+      restart();
+      setInfo(S.resent);
     } catch (e) {
-      setError(apiErrorMessage(e, "Không gửi lại được mã"));
+      setError(apiErrorMessage(e, S.resendFailed));
     }
   };
 
   return (
-    <AuthScaffold
-      title="Đặt lại mật khẩu"
-      subtitle="Nhập mã OTP vừa nhận và mật khẩu mới."
-      footer={
-        <Button mode="text" compact onPress={() => router.replace("/(auth)/login")}>
-          Quay lại đăng nhập
-        </Button>
-      }
-    >
-      {/* Backend trả cùng một câu dù email có tồn tại hay không, nên không khẳng định
-          "đã gửi tới email của bạn" — nói đúng những gì hệ thống bảo đảm. */}
-      <Text style={styles.hint}>
-        Nếu email tồn tại trong hệ thống, mã OTP gồm 6 chữ số đã được gửi tới hộp thư.
-      </Text>
+    <>
+      <AuthScaffold leading="back" title={S.title} subtitle={S.subtitle(emailParam)}>
+        {!emailParam ? (
+          <FormTextField
+            control={control}
+            name="email"
+            label={S.email}
+            message={errors.email?.message}
+            icon="mail"
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+          />
+        ) : null}
 
-      <FormTextField
-        control={control}
-        name="email"
-        label="Email"
-        message={errors.email?.message}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        icon="mail"
-      />
+        <FormOtpField
+          control={control}
+          name="otpCode"
+          label={STRINGS.auth.otpLabel}
+          message={errors.otpCode?.message}
+          autoFocus={!!emailParam}
+        />
 
-      <FormTextField
-        control={control}
-        name="otpCode"
-        label="Mã OTP"
-        message={errors.otpCode?.message}
-        keyboardType="number-pad"
-        autoCapitalize="none"
-        maxLength={6}
-      />
+        <FormTextField
+          control={control}
+          name="newPassword"
+          label={S.newPassword}
+          message={errors.newPassword?.message}
+          icon="lock"
+          password
+          autoCapitalize="none"
+          autoComplete="new-password"
+          maxLength={72}
+        />
+        <FormTextField
+          control={control}
+          name="confirmPassword"
+          label={S.confirm}
+          message={errors.confirmPassword?.message}
+          icon="lock"
+          password
+          autoCapitalize="none"
+          autoComplete="new-password"
+          maxLength={72}
+          returnKeyType="go"
+          onSubmitEditing={handleSubmit(onSubmit)}
+        />
 
-      <FormTextField
-        control={control}
-        name="newPassword"
-        label="Mật khẩu mới"
-        message={errors.newPassword?.message}
-        autoCapitalize="none"
-        password
-        maxLength={72}
-        icon="lock"
-      />
-
-      <FormTextField
-        control={control}
-        name="confirmPassword"
-        label="Nhập lại mật khẩu mới"
-        message={errors.confirmPassword?.message}
-        autoCapitalize="none"
-        password
-        maxLength={72}
-        icon="lock"
-      />
-
-      <Button
-        mode="contained"
-        onPress={handleSubmit(onSubmit)}
-        loading={submitting}
-        disabled={submitting}
-        style={styles.submit}
-        contentStyle={styles.submitContent}
-      >
-        Cập nhật mật khẩu
-      </Button>
-
-      <Button mode="text" disabled={seconds > 0} onPress={onResend} style={styles.resend}>
-        {seconds > 0 ? `Gửi lại mã sau ${seconds}s` : "Gửi lại mã"}
-      </Button>
+        <PillButton label={S.submit} fullWidth loading={submitting} onPress={handleSubmit(onSubmit)} />
+        <ResendRow prompt={S.notReceived} secondsLeft={seconds} onResend={onResend} />
+      </AuthScaffold>
 
       <Snackbar visible={!!error} onDismiss={() => setError("")} duration={4000}>
         {error}
@@ -173,18 +142,6 @@ export default function ResetPasswordScreen() {
       <Snackbar visible={!!info} onDismiss={() => setInfo("")} duration={3000}>
         {info}
       </Snackbar>
-    </AuthScaffold>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  hint: {
-    fontFamily: FONT.regular,
-    fontSize: FONT_SIZE.base,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
-  },
-  submit: { marginTop: SPACING.sm },
-  submitContent: { height: 44 },
-  resend: { marginTop: SPACING.xs },
-});

@@ -1,111 +1,84 @@
-import { useEffect, useState } from "react";
-import { StyleSheet } from "react-native";
-import { Button, Snackbar } from "react-native-paper";
+import { useState } from "react";
+import { Snackbar } from "react-native-paper";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { authApi } from "@/api/auth";
 import { apiErrorMessage } from "@/api/client";
-import { AuthScaffold } from "@/components/auth-scaffold";
-import { FormTextField } from "@/components/form-text-field";
-import { SPACING } from "@/theme";
+import { AuthScaffold, PromptLink, ResendRow } from "@/components/auth-scaffold";
+import { FormOtpField } from "@/components/form-otp-field";
+import { PillButton } from "@/components/ui/buttons";
+import { STRINGS } from "@/lib/strings";
+import { useCountdown } from "@/lib/use-countdown";
 
+const S = STRINGS.auth.verify;
 const RESEND_SECONDS = 60;
 
+// Backend: @Pattern("\d{6}") — đúng 6 chữ số.
 const schema = z.object({
-  otpCode: z
-    .string()
-    .trim()
-    .min(4, "Vui lòng nhập mã xác minh")
-    .max(10, "Mã xác minh không hợp lệ"),
+  otpCode: z.string().regex(/^\d{6}$/, STRINGS.auth.validation.otpFormat),
 });
 type FormValues = z.infer<typeof schema>;
 
+/** M03 — Xác minh email bằng OTP sau khi đăng ký. */
 export default function VerifyEmailScreen() {
-  const router = useRouter();
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const { email } = useLocalSearchParams<{ email?: string }>();
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [seconds, setSeconds] = useState(RESEND_SECONDS);
+  const { seconds, restart } = useCountdown(RESEND_SECONDS);
 
   const {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { otpCode: "" },
-  });
-
-  // Đếm ngược chặn người dùng bấm gửi lại liên tục làm backend gửi hàng loạt email.
-  useEffect(() => {
-    if (seconds <= 0) return;
-    const t = setTimeout(() => setSeconds((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [seconds]);
+  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { otpCode: "" } });
 
   const onSubmit = async (values: FormValues) => {
     if (!email) {
-      setError("Thiếu email cần xác minh, vui lòng đăng ký lại.");
+      setError(S.missingEmail);
       return;
     }
     setSubmitting(true);
     try {
-      await authApi.verifyEmail(email, values.otpCode.trim());
-      router.replace({ pathname: "/(auth)/login", params: { verified: "1" } });
+      await authApi.verifyEmail(email, values.otpCode);
+      router.replace({ pathname: "/(auth)/login", params: { verified: "1", email } });
     } catch (e) {
-      setError(apiErrorMessage(e, "Xác minh thất bại"));
+      setError(apiErrorMessage(e, S.failed));
     } finally {
       setSubmitting(false);
     }
   };
 
   const onResend = async () => {
-    if (!email) return;
+    if (!email) {
+      setError(S.missingEmail);
+      return;
+    }
     try {
       await authApi.resendOtp(email);
-      setSeconds(RESEND_SECONDS);
-      setInfo("Đã gửi lại mã xác minh, vui lòng kiểm tra hộp thư.");
+      restart();
+      setInfo(S.resent);
     } catch (e) {
-      setError(apiErrorMessage(e, "Không gửi lại được mã"));
+      setError(apiErrorMessage(e, S.resendFailed));
     }
   };
 
   return (
-    <AuthScaffold
-      title="Xác minh email"
-      subtitle={`Mã xác minh đã được gửi tới ${email ?? "email của bạn"}.`}
-      footer={
-        <Button mode="text" compact onPress={() => router.replace("/(auth)/login")}>
-          Quay lại đăng nhập
-        </Button>
-      }
-    >
-      <FormTextField
-        control={control}
-        name="otpCode"
-        label="Mã xác minh (OTP)"
-        message={errors.otpCode?.message}
-        keyboardType="number-pad"
-        autoCapitalize="none"
-      />
-
-      <Button
-        mode="contained"
-        onPress={handleSubmit(onSubmit)}
-        loading={submitting}
-        disabled={submitting}
-        style={styles.submit}
-        contentStyle={styles.submitContent}
+    <>
+      <AuthScaffold
+        leading={{ icon: "mail" }}
+        title={S.title}
+        subtitle={S.subtitle(email)}
+        footer={
+          <PromptLink label={STRINGS.auth.backToLogin} onPress={() => router.replace("/(auth)/login")} />
+        }
       >
-        Xác minh
-      </Button>
-
-      <Button mode="text" disabled={seconds > 0} onPress={onResend} style={styles.resend}>
-        {seconds > 0 ? `Gửi lại mã sau ${seconds}s` : "Gửi lại mã"}
-      </Button>
+        <FormOtpField control={control} name="otpCode" message={errors.otpCode?.message} autoFocus />
+        <PillButton label={S.submit} fullWidth loading={submitting} onPress={handleSubmit(onSubmit)} />
+        <ResendRow prompt={S.notReceived} secondsLeft={seconds} onResend={onResend} />
+      </AuthScaffold>
 
       <Snackbar visible={!!error} onDismiss={() => setError("")} duration={4000}>
         {error}
@@ -113,12 +86,6 @@ export default function VerifyEmailScreen() {
       <Snackbar visible={!!info} onDismiss={() => setInfo("")} duration={3000}>
         {info}
       </Snackbar>
-    </AuthScaffold>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  submit: { marginTop: SPACING.sm },
-  submitContent: { height: 44 },
-  resend: { marginTop: SPACING.xs },
-});

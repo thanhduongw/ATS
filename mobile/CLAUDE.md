@@ -186,6 +186,8 @@ Component dùng chung (`src/components/ui/`):
 | `StatusChip`, `Tag` | trạng thái (qua `src/lib/status.ts`), nhãn trung tính | Main, M06–M12 |
 | `ScreenHeader`, `BottomActionBar` | đầu màn, thanh nút dính đáy | M06–M14 |
 | `BottomSheet` | form trượt lên (nộp đơn, chấm đánh giá) | M20 |
+| `AuthScaffold` (`leading`: `brand`/`back`/`{icon}`), `ResendRow`, `PromptLink` (ở `src/components/`) | 5 màn auth | M01–M05 |
+| `FormOtpField` (ở `src/components/`) | ô OTP 6 số (một TextInput ẩn phủ 6 ô — dán/tự điền mã chạy sẵn) | M03, M05 |
 | `QueryList` | **mọi màn danh sách** — gói sẵn 4 trạng thái + kéo để làm mới | — |
 | `SkeletonList`, `EmptyState`, `ErrorState` | trạng thái (đã nằm trong `QueryList`) | — |
 

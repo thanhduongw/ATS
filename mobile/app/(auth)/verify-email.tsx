@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { StyleSheet } from "react-native";
-import { Button, Snackbar, TextInput } from "react-native-paper";
+import { Button, Snackbar } from "react-native-paper";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -90,7 +90,6 @@ export default function VerifyEmailScreen() {
         message={errors.otpCode?.message}
         keyboardType="number-pad"
         autoCapitalize="none"
-        left={<TextInput.Icon icon="shield-check-outline" />}
       />
 
       <Button

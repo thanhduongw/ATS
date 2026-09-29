@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StyleSheet } from "react-native";
-import { Button, Snackbar, TextInput } from "react-native-paper";
+import { Button, Snackbar } from "react-native-paper";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -63,7 +63,7 @@ export default function ForgotPasswordScreen() {
         autoComplete="email"
         keyboardType="email-address"
         placeholder="email@example.com"
-        left={<TextInput.Icon icon="email-outline" />}
+        icon="mail"
       />
 
       <Button

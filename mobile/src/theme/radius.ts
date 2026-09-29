@@ -1,8 +1,17 @@
-/** Port từ `frontend/src/app/theme.ts` (RADIUS). */
+/**
+ * Bo góc theo canvas — điều khiển dạng "viên nhộng": nút, ô nhập, chip đều bo bằng nửa
+ * chiều cao, nên dùng `full` thay vì tự tính.
+ */
 export const RADIUS = {
-  sm: 6,
-  md: 8,
-  lg: 12,
-  xl: 16,
+  /** Chip nhỏ cao 24. */
+  sm: 12,
+  /** Ô icon 44, hộp thông tin lồng trong thẻ. */
+  md: 14,
+  /** Ô icon 48, ô OTP, ô ngày trong lịch. */
+  lg: 16,
+  /** Thẻ (`section`) và ô nhập nhiều dòng. */
+  xl: 20,
+  /** Mép trên của bottom sheet. */
+  sheet: 32,
   full: 9999,
 } as const;

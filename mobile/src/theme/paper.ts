@@ -1,7 +1,6 @@
 import { MD3LightTheme, configureFonts, type MD3Theme } from "react-native-paper";
-import { COLORS } from "./colors";
+import { COLORS, STATUS_TONES } from "./colors";
 import { FONT } from "./typography";
-import { RADIUS } from "./radius";
 
 /**
  * Ánh xạ độ đậm của MD3 sang đúng file font Be Vietnam Pro.
@@ -31,49 +30,54 @@ const fonts = configureFonts({
 });
 
 /**
- * Theme Paper dựng từ token của web (`frontend/src/app/theme.ts`).
- * Đây là nơi DUY NHẤT nối token vào Paper — màn hình không tự đặt màu.
+ * Theme Paper dựng từ token của canvas. Đây là nơi DUY NHẤT nối token vào Paper — màn hình
+ * không tự đặt màu.
  *
- * Paper tính bo góc bằng `roundness`: Card dùng `roundness * 3`. Web để Card ở
- * RADIUS.lg = 12, nên roundness = 4 cho ra đúng 12.
+ * Nút, ô nhập, chip của app đã có component riêng trong `src/components/ui/` (dạng viên
+ * nhộng theo canvas). Paper chỉ còn lo Snackbar, Modal/Portal, ActivityIndicator, Switch…
+ * nên chỉ cần màu đúng. `roundness = 4` → nút Paper (nếu còn sót) bo 20, gần viên nhộng.
  */
 export const paperTheme: MD3Theme = {
   ...MD3LightTheme,
-  roundness: RADIUS.lg / 3,
+  roundness: 4,
   fonts,
   colors: {
     ...MD3LightTheme.colors,
 
     primary: COLORS.primary,
-    onPrimary: "#FFFFFF",
-    primaryContainer: "rgba(14, 122, 95, 0.08)",
+    onPrimary: COLORS.textOnPrimary,
+    primaryContainer: COLORS.primarySoft,
     onPrimaryContainer: COLORS.primaryDark,
 
-    secondary: COLORS.primaryLight,
-    onSecondary: "#FFFFFF",
-    secondaryContainer: "rgba(16, 185, 129, 0.12)",
+    secondary: COLORS.primaryDark,
+    onSecondary: COLORS.textOnPrimary,
+    secondaryContainer: COLORS.fillStrong,
     onSecondaryContainer: COLORS.primaryDark,
 
-    tertiary: COLORS.info,
+    tertiary: COLORS.interview,
 
     error: COLORS.error,
-    onError: "#FFFFFF",
-    errorContainer: "rgba(220, 38, 38, 0.10)",
+    onError: COLORS.textOnPrimary,
+    errorContainer: STATUS_TONES.danger.bg,
+    onErrorContainer: COLORS.errorText,
 
     background: COLORS.body,
     onBackground: COLORS.textPrimary,
 
     surface: COLORS.cardBg,
     onSurface: COLORS.textPrimary,
-    surfaceVariant: COLORS.borderLight,
+    surfaceVariant: COLORS.fill,
     onSurfaceVariant: COLORS.textSecondary,
-    surfaceDisabled: "rgba(17, 24, 39, 0.08)",
+    surfaceDisabled: COLORS.fill,
     onSurfaceDisabled: COLORS.textMuted,
 
-    outline: COLORS.border,
-    outlineVariant: COLORS.borderLight,
+    outline: COLORS.divider,
+    outlineVariant: COLORS.divider,
 
-    inverseSurface: COLORS.header,
-    backdrop: "rgba(17, 24, 39, 0.4)",
+    // Snackbar dùng inverseSurface làm nền: chữ tối của canvas làm nền, chữ trắng ở trên.
+    inverseSurface: COLORS.textPrimary,
+    inverseOnSurface: COLORS.textOnPrimary,
+    inversePrimary: COLORS.success,
+    backdrop: COLORS.backdrop,
   },
 };

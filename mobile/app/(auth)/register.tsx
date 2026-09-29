@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StyleSheet } from "react-native";
-import { Button, Snackbar, Text, TextInput } from "react-native-paper";
+import { Button, Snackbar, Text } from "react-native-paper";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -35,7 +35,6 @@ export default function RegisterScreen() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const {
     control,
@@ -90,7 +89,7 @@ export default function RegisterScreen() {
         name="fullName"
         label="Họ và tên"
         message={errors.fullName?.message}
-        left={<TextInput.Icon icon="account-outline" />}
+        icon="person"
       />
 
       <FormTextField
@@ -101,7 +100,7 @@ export default function RegisterScreen() {
         autoCapitalize="none"
         keyboardType="email-address"
         placeholder="email@example.com"
-        left={<TextInput.Icon icon="email-outline" />}
+        icon="mail"
       />
 
       <FormTextField
@@ -110,7 +109,6 @@ export default function RegisterScreen() {
         label="Số điện thoại (không bắt buộc)"
         message={errors.phone?.message}
         keyboardType="phone-pad"
-        left={<TextInput.Icon icon="phone-outline" />}
       />
 
       <FormTextField
@@ -119,15 +117,9 @@ export default function RegisterScreen() {
         label="Mật khẩu"
         message={errors.password?.message}
         autoCapitalize="none"
-        secureTextEntry={!showPassword}
+        password
         maxLength={72}
-        left={<TextInput.Icon icon="lock-outline" />}
-        right={
-          <TextInput.Icon
-            icon={showPassword ? "eye-off" : "eye"}
-            onPress={() => setShowPassword((v) => !v)}
-          />
-        }
+        icon="lock"
       />
 
       <FormTextField
@@ -136,9 +128,9 @@ export default function RegisterScreen() {
         label="Nhập lại mật khẩu"
         message={errors.confirmPassword?.message}
         autoCapitalize="none"
-        secureTextEntry={!showPassword}
+        password
         maxLength={72}
-        left={<TextInput.Icon icon="lock-check-outline" />}
+        icon="lock"
       />
 
       <Button

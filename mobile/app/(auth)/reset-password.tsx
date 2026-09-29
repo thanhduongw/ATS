@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { StyleSheet } from "react-native";
-import { Button, Snackbar, Text, TextInput } from "react-native-paper";
+import { Button, Snackbar, Text } from "react-native-paper";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -37,7 +37,6 @@ export default function ResetPasswordScreen() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [seconds, setSeconds] = useState(RESEND_SECONDS);
 
   const {
@@ -118,7 +117,7 @@ export default function ResetPasswordScreen() {
         message={errors.email?.message}
         autoCapitalize="none"
         keyboardType="email-address"
-        left={<TextInput.Icon icon="email-outline" />}
+        icon="mail"
       />
 
       <FormTextField
@@ -129,7 +128,6 @@ export default function ResetPasswordScreen() {
         keyboardType="number-pad"
         autoCapitalize="none"
         maxLength={6}
-        left={<TextInput.Icon icon="shield-key-outline" />}
       />
 
       <FormTextField
@@ -138,15 +136,9 @@ export default function ResetPasswordScreen() {
         label="Mật khẩu mới"
         message={errors.newPassword?.message}
         autoCapitalize="none"
-        secureTextEntry={!showPassword}
+        password
         maxLength={72}
-        left={<TextInput.Icon icon="lock-outline" />}
-        right={
-          <TextInput.Icon
-            icon={showPassword ? "eye-off" : "eye"}
-            onPress={() => setShowPassword((v) => !v)}
-          />
-        }
+        icon="lock"
       />
 
       <FormTextField
@@ -155,9 +147,9 @@ export default function ResetPasswordScreen() {
         label="Nhập lại mật khẩu mới"
         message={errors.confirmPassword?.message}
         autoCapitalize="none"
-        secureTextEntry={!showPassword}
+        password
         maxLength={72}
-        left={<TextInput.Icon icon="lock-check-outline" />}
+        icon="lock"
       />
 
       <Button

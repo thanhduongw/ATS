@@ -38,7 +38,7 @@ export function AuthScaffold({
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+        keyboardDismissMode="none"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
@@ -60,11 +60,13 @@ export function AuthScaffold({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.cardBg },
+  // Căn TỪ TRÊN XUỐNG như canvas M01–M05, không căn giữa: căn giữa thì lúc bàn phím mở,
+  // vùng nhìn thấy thấp lại, cả khối bị căn lại vào giữa khoảng hẹp hơn → trông như bị dồn.
   scroll: {
     flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: SPACING.page,
-    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.pageAuth,
+    paddingTop: SPACING.xxl,
+    paddingBottom: SPACING.xl,
   },
   container: { width: "100%", maxWidth: 420, alignSelf: "center" },
   brand: {

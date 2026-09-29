@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StyleSheet } from "react-native";
-import { Button, Snackbar, Text, TextInput } from "react-native-paper";
+import { Button, Snackbar, Text } from "react-native-paper";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -36,7 +36,6 @@ export default function LoginScreen() {
   );
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const {
     control,
@@ -85,7 +84,7 @@ export default function LoginScreen() {
         autoComplete="email"
         keyboardType="email-address"
         placeholder="email@example.com"
-        left={<TextInput.Icon icon="email-outline" />}
+        icon="mail"
       />
 
       <FormTextField
@@ -94,15 +93,9 @@ export default function LoginScreen() {
         label="Mật khẩu"
         message={errors.password?.message}
         autoCapitalize="none"
-        secureTextEntry={!showPassword}
+        password
         maxLength={72}
-        left={<TextInput.Icon icon="lock-outline" />}
-        right={
-          <TextInput.Icon
-            icon={showPassword ? "eye-off" : "eye"}
-            onPress={() => setShowPassword((v) => !v)}
-          />
-        }
+        icon="lock"
       />
 
       <Link href="/(auth)/forgot-password" asChild>

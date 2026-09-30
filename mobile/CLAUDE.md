@@ -188,8 +188,12 @@ Component dùng chung (`src/components/ui/`):
 | `BottomSheet` | form trượt lên (nộp đơn, chấm đánh giá) | M20 |
 | `AuthScaffold` (`leading`: `brand`/`back`/`{icon}`), `ResendRow`, `PromptLink` (ở `src/components/`) | 5 màn auth | M01–M05 |
 | `FormOtpField` (ở `src/components/`) | ô OTP 6 số (một TextInput ẩn phủ 6 ô — dán/tự điền mã chạy sẵn) | M03, M05 |
+| `SnackbarProvider` / `useSnackbar()` | báo lỗi API, báo thành công (`notify(text, { label, onPress }?)`), sống qua chuyển màn | — |
 | `QueryList` | **mọi màn danh sách** — gói sẵn 4 trạng thái + kéo để làm mới | — |
 | `SkeletonList`, `EmptyState`, `ErrorState` | trạng thái (đã nằm trong `QueryList`) | — |
+
+Màn chi tiết của một tab (`jobs/[id]`, `applications/[id]`…) khai báo `href: null` và ẩn thanh
+tab (`tabBarStyle: { display: "none" }`) — canvas dùng thanh hành động dưới đáy thay cho tab.
 
 Trạng thái enum → gọi hàm trong `src/lib/status.ts` (`stageStatus`, `interviewStatus`,
 `offerStatus`, `requisitionStatus`, `postingStatus`) rồi trải vào `<StatusChip {...} />`.

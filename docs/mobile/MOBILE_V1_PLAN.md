@@ -134,6 +134,7 @@ Mobile chỉ giữ phần HR bị kẹt: những chữ ký đang chặn người
 | Form | **react-hook-form + zod** | Giống hệt web — tư duy chuyển sang không mất thời gian học lại |
 | Icon | **@expo/vector-icons** | Bổ sung ngày 2. SDK 57 không còn kèm gói này, mà React Native Paper cần nó cho `TextInput.Icon` và icon tab — thiếu thì icon không hiện. Thuần JS, không có native code nên **không phải build lại dev build** |
 | Font | **@expo-google-fonts/be-vietnam-pro** + **expo-font** | Bổ sung khi đồng bộ giao diện với web. Web nạp Be Vietnam Pro từ Google Fonts; mobile phải dùng đúng bộ chữ đó nếu không nhìn ra hai sản phẩm khác nhau. Nạp lúc chạy, thuần asset → **không phải build lại dev build** |
+| Icon SVG | **react-native-svg** | Bổ sung khi chuyển giao diện sang canvas thiết kế (HarmonyOS redesign). Để vẽ đúng bộ icon nét 1.5 của canvas. **Là native module → phải build lại dev build** một lần. `@expo/vector-icons` vẫn giữ cho icon trong Paper |
 
 ### Native module — cài một lượt ở ngày 1
 
@@ -494,6 +495,11 @@ Ghi lại để trả lời vấn đáp — câu "tại sao" được hỏi nhi�
 | TanStack Query thay Redux Toolkit | Web dùng RTK, nhưng mobile cần cache + retry + refetch — Query làm sẵn |
 | Không làm endpoint tổng hợp "my tasks" | Đã kiểm tra: 3 query có sẵn là đủ, tiết kiệm được một thay đổi backend |
 | Không có màn "đề xuất lương" riêng | `salaryProposed` đã nằm trong chính `EvaluationSubmitRequest` |
+| Giao diện mobile theo canvas thiết kế, không theo web nữa | Chốt 29/09/2026: bố cục và kiểu thành phần theo canvas "ATS TechCorp — HarmonyOS redesign" (trang Mobile, M01–M20). Web giữ nguyên, không đồng bộ ngược |
+| Giữ phạm vi 20 màn của kế hoạch này, chỉ lấy giao diện từ canvas | Canvas vẽ HR dashboard/pipeline (M15, M17) — mục 3 đã loại vì cần màn rộng. Màn canvas không vẽ (C3, C5, D2, D3) dựng bằng component chung |
+| Font Be Vietnam Pro, không dùng HarmonyOS Sans của canvas | Chắc chắn đủ dấu tiếng Việt, đã nạp sẵn |
+| Nút cao 44, canvas vẽ 40 | Vùng chạm tối thiểu 44 |
+| Không gradient cho nút AI | `expo-linear-gradient` là native module; màu đặc là đủ |
 
 ---
 

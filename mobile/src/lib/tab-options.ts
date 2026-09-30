@@ -1,26 +1,41 @@
 import type { BottomTabNavigationOptions } from "expo-router/build/layouts/Tabs";
-import { COLORS, FONT, FONT_SIZE } from "@/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { COLORS, FONT, FONT_SIZE, SIZES, SPACING } from "@/theme";
 
 /**
- * Cấu hình dùng chung cho cả 3 khu vực role, để tab bar và thanh tiêu đề của
- * CANDIDATE / HM / HR giống hệt nhau và giống bảng màu của web.
+ * Cấu hình dùng chung cho cả 3 khu vực role, theo thanh tab của canvas: nền trang gần như
+ * đục, kẻ mảnh phía trên, icon nét 24 và nhãn 10. Mục đang chọn đổi màu chính.
  *
- * Web dùng `Layout.headerBg = #0B3B36` cho thanh trên và `Menu.itemSelectedColor = primary`
- * cho mục đang chọn — ở đây ánh xạ đúng như vậy.
+ * Là HOOK vì phải cộng phần đáy an toàn (thanh điều hướng/vạch vuốt của hệ thống). Để
+ * chiều cao cố định thì trên máy có thanh 3 nút, tab bị dính sát mép dưới.
+ *
+ * KHÔNG có thanh tiêu đề của navigator: mỗi màn tự vẽ `<ScreenHeader>`.
  */
-export const sharedTabScreenOptions: BottomTabNavigationOptions = {
-  headerShown: true,
-  headerStyle: { backgroundColor: COLORS.header },
-  headerTintColor: COLORS.textOnDark,
-  headerTitleStyle: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.h4 },
+export function useTabScreenOptions(): BottomTabNavigationOptions {
+  const insets = useSafeAreaInsets();
+  // Canvas chừa 24 dưới thanh tab; máy có sẵn phần đáy an toàn thì cộng thêm một chút cho thoáng.
+  const bottom = Math.max(insets.bottom + SPACING.sm, SPACING.lg);
 
-  tabBarActiveTintColor: COLORS.primary,
-  tabBarInactiveTintColor: COLORS.textMuted,
-  tabBarStyle: {
-    backgroundColor: COLORS.cardBg,
-    borderTopColor: COLORS.border,
-  },
-  tabBarLabelStyle: { fontFamily: FONT.medium, fontSize: 12 },
+  return {
+    headerShown: false,
 
-  sceneStyle: { backgroundColor: COLORS.body },
-};
+    // Bàn phím mở thì ẩn thanh tab: không thì Android đẩy thanh tab lên nằm trên bàn phím,
+    // chiếm chỗ và làm nội dung bị dồn.
+    tabBarHideOnKeyboard: true,
+
+    tabBarActiveTintColor: COLORS.primary,
+    tabBarInactiveTintColor: COLORS.textSecondary,
+    tabBarStyle: {
+      height: SIZES.tabBar + bottom,
+      paddingTop: SPACING.xs + SPACING.xxs,
+      paddingBottom: bottom,
+      backgroundColor: COLORS.barBg,
+      borderTopColor: COLORS.divider,
+      borderTopWidth: SIZES.hairline,
+      elevation: 0,
+    },
+    tabBarLabelStyle: { fontFamily: FONT.medium, fontSize: FONT_SIZE.micro },
+
+    sceneStyle: { backgroundColor: COLORS.body },
+  };
+}

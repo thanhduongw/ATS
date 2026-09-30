@@ -1,55 +1,72 @@
 import type { ReactNode } from "react";
-import { KeyboardAvoidingView, ScrollView, StyleSheet, View } from "react-native";
-import { Text } from "react-native-paper";
-import { COLORS, FONT, FONT_SIZE, SPACING } from "@/theme";
+import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { COLORS, FONT, FONT_SIZE, LINE_HEIGHT, RADIUS, SIZES, SPACING } from "@/theme";
+import { STRINGS } from "@/lib/strings";
+import { IconButton, PillButton } from "./ui/buttons";
+import { IconTile } from "./ui/surfaces";
+import type { IconName } from "./ui/icon";
+
+type Leading = "brand" | "back" | { icon: IconName };
 
 /**
- * Khung chung của 3 màn đăng nhập / đăng ký / xác minh.
+ * Khung chung của 5 màn auth, theo canvas M01–M05: nền xám trang, căn từ trên xuống,
+ * lề 24. Trên cùng là một trong ba thứ (`leading`):
+ *   - "brand": logo + tên app (màn đăng nhập, M01)
+ *   - "back": nút quay lại tròn (M02, M04, M05)
+ *   - { icon }: ô icon tròn lớn (xác minh email, M03)
+ * rồi tới tiêu đề 30 + câu dẫn 16, rồi form.
  *
- * Bám theo `.auth-form-side` + `.auth-form-container` của web: nền TRẮNG (khác nền
- * #F0F2F5 của phần còn lại), nội dung căn giữa, bề ngang tối đa 420, tiêu đề 24 đậm và
- * câu dẫn 14 màu xám.
- *
- * Web ẩn hẳn khối hero ở màn hẹp (`@media max-width: 768px`), nên ở đây chỉ giữ lại chữ
- * "ATS" cho app có nhận diện, không dựng hero — vừa đúng tinh thần bản web trên điện
- * thoại, vừa không cần gradient (xem ghi chú trong `theme/colors.ts`).
- *
- * BÀN PHÍM: `behavior="padding"` đặt cho CẢ HAI nền tảng, không để `undefined` trên Android.
- * Để `undefined` thì KeyboardAvoidingView không làm gì cả và bàn phím che mất ô đang nhập.
- * Không sợ đệm thừa: RN tính `frame.y + frame.height - keyboardY`, tức phần CHỒNG LẤN thật
- * giữa đáy khung và đỉnh bàn phím — Android đang để `adjustResize` nên cửa sổ tự co, phần
- * chồng lấn ra 0 và không đệm thêm; còn ở chế độ edge-to-edge (cửa sổ không co) thì mới đệm
- * đúng bằng chiều cao bàn phím. Xem
- * `react-native/Libraries/Components/Keyboard/KeyboardAvoidingView.js` (_relativeKeyboardHeight).
+ * BÀN PHÍM: `behavior="padding"` cho CẢ HAI nền tảng — xem "Bàn phím che ô nhập" trong
+ * CLAUDE.md. KHÔNG căn giữa theo chiều dọc (giao diện sẽ bị dồn khi bàn phím mở), và cuộn
+ * không đóng bàn phím (`keyboardDismissMode="none"`).
  */
 export function AuthScaffold({
+  leading,
   title,
   subtitle,
   children,
   footer,
 }: {
+  leading: Leading;
   title: string;
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const insets = useSafeAreaInsets();
+
   return (
     <KeyboardAvoidingView style={styles.root} behavior="padding">
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + SPACING.xl, paddingBottom: insets.bottom + SPACING.lg },
+        ]}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+        keyboardDismissMode="none"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
-          <Text style={styles.brand}>ATS</Text>
+          <View style={styles.head}>
+            {leading === "brand" ? (
+              <Brand />
+            ) : leading === "back" ? (
+              <IconButton icon="back" label={STRINGS.common.back} onPress={goBack} />
+            ) : (
+              <IconTile icon={leading.icon} shape="circle" size={SIZES.otpHeight + SPACING.sm} />
+            )}
 
-          <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
-            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+            <View style={styles.titleBlock}>
+              <Text style={styles.title} accessibilityRole="header">
+                {title}
+              </Text>
+              {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+            </View>
           </View>
 
-          {children}
+          <View style={styles.form}>{children}</View>
 
           {footer ? <View style={styles.footer}>{footer}</View> : null}
         </View>
@@ -58,37 +75,123 @@ export function AuthScaffold({
   );
 }
 
+/** Mở thẳng một màn auth (không có lịch sử) thì "quay lại" về màn đăng nhập. */
+function goBack() {
+  if (router.canGoBack()) router.back();
+  else router.replace("/(auth)/login");
+}
+
+/** Logo chữ + tên app (canvas M01). */
+function Brand() {
+  return (
+    <View style={styles.brand} accessibilityRole="header" accessibilityLabel={STRINGS.brand.name}>
+      <View style={styles.brandMark}>
+        <Text style={styles.brandMarkText}>{STRINGS.brand.mark}</Text>
+      </View>
+      <View>
+        <Text style={styles.brandName}>{STRINGS.brand.name}</Text>
+        <Text style={styles.brandTagline}>{STRINGS.brand.tagline}</Text>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Hàng "Chưa nhận được mã? Gửi lại mã" (M03, M05). Đang đếm ngược thì nút mờ và hiện số giây,
+ * để người dùng không bấm liên tục làm backend gửi hàng loạt email.
+ */
+export function ResendRow({
+  prompt,
+  secondsLeft,
+  onResend,
+}: {
+  prompt: string;
+  secondsLeft: number;
+  onResend: () => void;
+}) {
+  return (
+    <View style={styles.inlineRow}>
+      <Text style={styles.muted}>{prompt}</Text>
+      <PillButton
+        variant="text"
+        size="sm"
+        label={secondsLeft > 0 ? STRINGS.auth.resendIn(secondsLeft) : STRINGS.auth.resend}
+        disabled={secondsLeft > 0}
+        onPress={onResend}
+      />
+    </View>
+  );
+}
+
+/** Câu dẫn xám + liên kết cùng hàng ("Đã có tài khoản? Đăng nhập"), căn giữa. */
+export function PromptLink({
+  prompt,
+  label,
+  onPress,
+  stacked,
+}: {
+  prompt?: string;
+  label: string;
+  onPress: () => void;
+  /** Xếp dọc: câu dẫn ở trên, liên kết ở dưới (M01). */
+  stacked?: boolean;
+}) {
+  return (
+    <View style={stacked ? styles.stackedRow : styles.inlineRow}>
+      {prompt ? <Text style={styles.muted}>{prompt}</Text> : null}
+      <PillButton variant="text" size="sm" label={label} onPress={onPress} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.cardBg },
-  scroll: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: SPACING.page,
-    paddingVertical: SPACING.xl,
-  },
+  root: { flex: 1, backgroundColor: COLORS.body },
+  scroll: { flexGrow: 1, paddingHorizontal: SPACING.pageAuth },
+  // Một-lần: trên máy tính bảng không để form kéo dài hết bề ngang.
   container: { width: "100%", maxWidth: 420, alignSelf: "center" },
-  brand: {
-    fontFamily: FONT.bold,
-    // Một-lần, cố ý để ngoài thang cỡ chữ: web để logo 48px trong khối hero rộng,
-    // trên điện thoại 48 quá to nên hạ còn 40. Chỉ dùng đúng ở đây.
-    fontSize: 40,
-    letterSpacing: 3,
-    textAlign: "center",
-    color: COLORS.primary,
-    marginBottom: SPACING.lg,
-  },
-  header: { alignItems: "center", marginBottom: SPACING.xl },
+  head: { gap: SPACING.md2, marginBottom: SPACING.lg },
+  titleBlock: { gap: SPACING.sm },
   title: {
     fontFamily: FONT.bold,
-    fontSize: FONT_SIZE.h2,
+    fontSize: FONT_SIZE.h1,
+    lineHeight: FONT_SIZE.h1 * LINE_HEIGHT.title,
     color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
   },
   subtitle: {
     fontFamily: FONT.regular,
-    fontSize: FONT_SIZE.base,
+    fontSize: FONT_SIZE.lg,
+    lineHeight: FONT_SIZE.lg * LINE_HEIGHT.body,
     color: COLORS.textSecondary,
-    textAlign: "center",
   },
-  footer: { alignItems: "center", marginTop: SPACING.lg },
+  form: { gap: SPACING.md },
+  footer: { marginTop: SPACING.lg, alignItems: "center" },
+
+  brand: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2 },
+  brandMark: {
+    width: SIZES.otpWidth,
+    height: SIZES.otpWidth,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brandMarkText: { fontFamily: FONT.bold, fontSize: FONT_SIZE.h2, color: COLORS.textOnPrimary },
+  brandName: { fontFamily: FONT.bold, fontSize: FONT_SIZE.section, color: COLORS.textPrimary },
+  brandTagline: {
+    fontFamily: FONT.medium,
+    fontSize: FONT_SIZE.xs,
+    // Một-lần: giãn chữ cho dòng chữ in hoa dưới logo, như canvas (0.04em).
+    letterSpacing: 0.5,
+    color: COLORS.textSecondary,
+  },
+
+  inlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    gap: SPACING.xxs,
+  },
+  stackedRow: { alignItems: "center", gap: SPACING.xxs },
+  muted: { fontFamily: FONT.regular, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },
 });

@@ -8,6 +8,7 @@ import { useFonts } from "expo-font";
 import { useAuthStore } from "@/store/authStore";
 import { homeForRole } from "@/lib/routes";
 import { COLORS, FONT_ASSETS, paperTheme } from "@/theme";
+import { SnackbarProvider } from "@/components/ui/snackbar";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,8 +74,10 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <PaperProvider theme={paperTheme}>
-        <StatusBar style="dark" />
-        {fontsLoaded ? <AuthGate /> : <FullScreenLoader />}
+        <SnackbarProvider>
+          <StatusBar style="dark" />
+          {fontsLoaded ? <AuthGate /> : <FullScreenLoader />}
+        </SnackbarProvider>
       </PaperProvider>
     </QueryClientProvider>
   );

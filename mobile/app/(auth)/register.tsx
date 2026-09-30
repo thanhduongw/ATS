@@ -1,41 +1,40 @@
 import { useState } from "react";
-import { StyleSheet } from "react-native";
-import { Button, Snackbar, Text, TextInput } from "react-native-paper";
+import { Snackbar } from "react-native-paper";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
 import { authApi } from "@/api/auth";
 import { apiErrorMessage } from "@/api/client";
-import { AuthScaffold } from "@/components/auth-scaffold";
+import { AuthScaffold, PromptLink } from "@/components/auth-scaffold";
 import { FormTextField } from "@/components/form-text-field";
-import { COLORS, FONT, FONT_SIZE, SPACING } from "@/theme";
+import { PillButton } from "@/components/ui/buttons";
+import { STRINGS } from "@/lib/strings";
+
+const S = STRINGS.auth.register;
+const V = STRINGS.auth.validation;
 
 // Backend: @Size(min = 8, max = 72) cho password — giữ đúng luật để lỗi hiện tại chỗ nhập,
 // không phải đợi server trả về.
 const schema = z
   .object({
-    fullName: z.string().trim().min(2, "Vui lòng nhập họ tên"),
-    email: z.string().min(1, "Vui lòng nhập email").email("Email không hợp lệ"),
+    fullName: z.string().trim().min(2, V.fullNameRequired),
+    email: z.string().min(1, V.emailRequired).email(V.emailInvalid),
     phone: z.string().trim().optional(),
-    password: z
-      .string()
-      .min(8, "Mật khẩu tối thiểu 8 ký tự")
-      .max(72, "Mật khẩu tối đa 72 ký tự"),
-    confirmPassword: z.string().min(1, "Vui lòng nhập lại mật khẩu"),
+    password: z.string().min(8, V.passwordMin).max(72, V.passwordMax),
+    confirmPassword: z.string().min(1, V.confirmRequired),
   })
   .refine((v) => v.password === v.confirmPassword, {
-    message: "Mật khẩu nhập lại không khớp",
+    message: V.confirmMismatch,
     path: ["confirmPassword"],
   });
 
 type FormValues = z.infer<typeof schema>;
 
+/** M02 — Đăng ký ứng viên. */
 export default function RegisterScreen() {
-  const router = useRouter();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const {
     control,
@@ -43,13 +42,7 @@ export default function RegisterScreen() {
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      fullName: "",
-      email: "",
-      phone: "",
-      password: "",
-      confirmPassword: "",
-    },
+    defaultValues: { fullName: "", email: "", phone: "", password: "", confirmPassword: "" },
   });
 
   const onSubmit = async (values: FormValues) => {
@@ -66,105 +59,80 @@ export default function RegisterScreen() {
       });
       router.push({ pathname: "/(auth)/verify-email", params: { email } });
     } catch (e) {
-      setError(apiErrorMessage(e, "Đăng ký thất bại"));
+      setError(apiErrorMessage(e, S.failed));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <AuthScaffold
-      title="Đăng ký ứng viên"
-      subtitle="Tạo tài khoản để nộp hồ sơ và theo dõi tiến độ tuyển dụng."
-      footer={
-        <>
-          <Text style={styles.footerText}>Đã có tài khoản?</Text>
-          <Button mode="text" compact onPress={() => router.back()}>
-            Đăng nhập
-          </Button>
-        </>
-      }
-    >
-      <FormTextField
-        control={control}
-        name="fullName"
-        label="Họ và tên"
-        message={errors.fullName?.message}
-        left={<TextInput.Icon icon="account-outline" />}
-      />
-
-      <FormTextField
-        control={control}
-        name="email"
-        label="Email"
-        message={errors.email?.message}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        placeholder="email@example.com"
-        left={<TextInput.Icon icon="email-outline" />}
-      />
-
-      <FormTextField
-        control={control}
-        name="phone"
-        label="Số điện thoại (không bắt buộc)"
-        message={errors.phone?.message}
-        keyboardType="phone-pad"
-        left={<TextInput.Icon icon="phone-outline" />}
-      />
-
-      <FormTextField
-        control={control}
-        name="password"
-        label="Mật khẩu"
-        message={errors.password?.message}
-        autoCapitalize="none"
-        secureTextEntry={!showPassword}
-        maxLength={72}
-        left={<TextInput.Icon icon="lock-outline" />}
-        right={
-          <TextInput.Icon
-            icon={showPassword ? "eye-off" : "eye"}
-            onPress={() => setShowPassword((v) => !v)}
-          />
-        }
-      />
-
-      <FormTextField
-        control={control}
-        name="confirmPassword"
-        label="Nhập lại mật khẩu"
-        message={errors.confirmPassword?.message}
-        autoCapitalize="none"
-        secureTextEntry={!showPassword}
-        maxLength={72}
-        left={<TextInput.Icon icon="lock-check-outline" />}
-      />
-
-      <Button
-        mode="contained"
-        onPress={handleSubmit(onSubmit)}
-        loading={submitting}
-        disabled={submitting}
-        style={styles.submit}
-        contentStyle={styles.submitContent}
+    <>
+      <AuthScaffold
+        leading="back"
+        title={S.title}
+        subtitle={S.subtitle}
+        footer={<PromptLink prompt={S.haveAccount} label={S.login} onPress={() => router.back()} />}
       >
-        Đăng ký
-      </Button>
+        <FormTextField
+          control={control}
+          name="fullName"
+          label={S.fullName}
+          required
+          message={errors.fullName?.message}
+          autoComplete="name"
+          autoCapitalize="words"
+        />
+        <FormTextField
+          control={control}
+          name="email"
+          label={S.email}
+          required
+          message={errors.email?.message}
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          placeholder="email@example.com"
+        />
+        <FormTextField
+          control={control}
+          name="phone"
+          label={S.phone}
+          message={errors.phone?.message}
+          autoComplete="tel"
+          keyboardType="phone-pad"
+        />
+        <FormTextField
+          control={control}
+          name="password"
+          label={S.password}
+          required
+          hint={S.passwordHint}
+          message={errors.password?.message}
+          password
+          autoCapitalize="none"
+          autoComplete="new-password"
+          maxLength={72}
+        />
+        <FormTextField
+          control={control}
+          name="confirmPassword"
+          label={S.confirm}
+          required
+          message={errors.confirmPassword?.message}
+          password
+          autoCapitalize="none"
+          autoComplete="new-password"
+          maxLength={72}
+          returnKeyType="go"
+          onSubmitEditing={handleSubmit(onSubmit)}
+        />
+
+        <PillButton label={S.submit} fullWidth loading={submitting} onPress={handleSubmit(onSubmit)} />
+      </AuthScaffold>
 
       <Snackbar visible={!!error} onDismiss={() => setError("")} duration={4000}>
         {error}
       </Snackbar>
-    </AuthScaffold>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  submit: { marginTop: SPACING.sm },
-  submitContent: { height: 44 },
-  footerText: {
-    fontFamily: FONT.regular,
-    fontSize: FONT_SIZE.base,
-    color: COLORS.textSecondary,
-  },
-});

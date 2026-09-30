@@ -13,6 +13,10 @@ spring:
             allowedOrigins:
               - "http://localhost:3000"
               - "http://localhost:5173"
+            # Expo web (mobile xem thử trên trình duyệt). Cổng không cố định: 8081 đã bị
+            # auth-service chiếm nên Expo tự nhảy sang cổng khác (8088…).
+            allowedOriginPatterns:
+              - "http://localhost:[*]"
             allowedMethods:
               - GET
               - POST

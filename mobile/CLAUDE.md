@@ -58,6 +58,13 @@ App Expo (React Native) cho hệ thống ATS. Backend là 9 Spring Boot service 
 - `POST /auth/forgot-password` CỐ Ý trả cùng một câu dù email có tồn tại hay không, để không
   lộ email nào đã đăng ký. Giao diện **không được** khẳng định "đã gửi tới email của bạn" —
   phải nói "nếu email tồn tại…".
+- `PATCH /candidate/me` tuy là PATCH nhưng **GHI ĐÈ TOÀN BỘ** hồ sơ, kể cả `skillIds` (xóa hết rồi
+  gắn lại). Luôn gửi đủ mọi trường đang có — gửi thiếu `skillIds` là mất hết kỹ năng.
+- Khung giờ PV: ứng viên chỉ gọi `POST /interview/slots/{id}/confirm {available}` để báo rảnh.
+  `/slots/{id}/select` (chốt giờ) CHỈ HR gọi được.
+- `CandidateInterviewResponse` KHÔNG có tên vị trí → ghép từ `GET /application/applications/my`
+  theo `applicationId`. Đơn cũng không có lịch sử từng vòng, chỉ có vòng hiện tại.
+- Từ chối offer bắt buộc `declineReasonId`, lấy từ `GET /masterdata/rejection-reasons` (giống web).
 - `POST /auth/reset-password` nhận `{ email, otpCode, newPassword }`, `otpCode` phải khớp
   `\d{6}` (đúng 6 chữ số). Không có link email nên **không cần deep link**. OTP lưu trong
   `password_reset_tokens` dạng **băm bcrypt** — không tra được mã thật từ DB, muốn test đầy
@@ -124,8 +131,18 @@ vào chỗ trống — `keyboardShouldPersistTaps="handled"` đã lo việc đó
 Chốt ngày 29/09/2026: giao diện mobile lấy từ canvas **"ATS TechCorp — HarmonyOS redesign"**
 (https://claude.ai/artifact/VRL7ymmJTpk91Huko9VXk1), trang **Mobile, artboard M01–M20**.
 Artboard `Main` là bảng màu + mẫu chip/nút/ô nhập. **Web giữ nguyên Ant Design, không đồng
-bộ ngược** — mobile và web cố ý trông khác nhau. Trang "Mobile v2" (N01–N36) chỉ để tham
-khảo: nhiều tính năng ở đó backend chưa có.
+bộ ngược** — mobile và web cố ý trông khác nhau.
+
+**Khu ỨNG VIÊN theo trang "Mobile v2" (N26–N36)** — chốt 02/10/2026. Màn auth, HR, HM vẫn theo
+trang "Mobile" (M01–M05, M15–M20). Quy tắc khi làm theo v2:
+- Tính năng v2 có mà backend KHÔNG có thì **bỏ hẳn, không vẽ nút chết**: đăng nhập bằng link
+  email (N02), tin nhắn (N33), lưu tin ⭐, AI tự điền + các ô họ tên/lương mong muốn (N28),
+  chữ ký điện tử (N34), "bước tiếp theo" sau khi nhận việc (N36), gợi ý việc qua email (N35).
+- Tab "Tin nhắn" thay bằng tab **Thông báo** → 5 tab: Việc làm · Hồ sơ · Lịch · Thông báo · Tôi.
+- Màn đăng nhập GIỮ như M01 (không có tab Nhân viên/Ứng viên của N01).
+- "Chọn giờ" (N31) chỉ là **báo rảnh**; nút ghi "Báo rảnh…", không ghi "Xác nhận…".
+- "Dữ liệu & quyền riêng tư" (N35) = `POST /candidate/me/request-deletion` — backend xóa mềm
+  NGAY, nên phải tích ô xác nhận và đăng xuất sau khi xóa.
 
 **Phạm vi màn vẫn theo `docs/mobile/MOBILE_V1_PLAN.md`**, canvas chỉ quyết định giao diện.
 Canvas có M15 (dashboard HR) và M17 (pipeline) — kế hoạch đã loại, đừng làm. Màn canvas
@@ -188,9 +205,18 @@ Component dùng chung (`src/components/ui/`):
 | `BottomSheet` | form trượt lên (nộp đơn, chấm đánh giá) | M20 |
 | `AuthScaffold` (`leading`: `brand`/`back`/`{icon}`), `ResendRow`, `PromptLink` (ở `src/components/`) | 5 màn auth | M01–M05 |
 | `FormOtpField` (ở `src/components/`) | ô OTP 6 số (một TextInput ẩn phủ 6 ô — dán/tự điền mã chạy sẵn) | M03, M05 |
+| `RadioList` | chọn một trong sheet (nguồn tuyển dụng, lý do từ chối, học vấn), có sẵn loading/lỗi | M07, M12, M13 |
+| `BrandMark` (`size`) | logo chữ "A" trên nền màu chính | M01, N26, N34 |
+| `Checkbox` | ô "Tôi đồng ý…" trước hành động không hoàn tác | N34, N35 |
+| `IconButton` `badge` | số chưa đọc trên nút chuông | M06 |
 | `SnackbarProvider` / `useSnackbar()` | báo lỗi API, báo thành công (`notify(text, { label, onPress }?)`), sống qua chuyển màn | — |
 | `QueryList` | **mọi màn danh sách** — gói sẵn 4 trạng thái + kéo để làm mới | — |
 | `SkeletonList`, `EmptyState`, `ErrorState` | trạng thái (đã nằm trong `QueryList`) | — |
+
+Hook dùng chung: `useNow()` (giờ hiện tại trong render — **đừng gọi `Date.now()` lúc render**, lint
+`react-hooks/purity` chặn), `useSignOut()` (gọi logout + xóa cache query), `useCountdown()`.
+Thông báo: định tuyến theo role ở `src/lib/notification-routes.ts` (mới có nhánh CANDIDATE); màn
+dùng chung `NotificationsScreen` trong `src/features/notifications/`.
 
 Màn chi tiết của một tab (`jobs/[id]`, `applications/[id]`…) khai báo `href: null` và ẩn thanh
 tab (`tabBarStyle: { display: "none" }`) — canvas dùng thanh hành động dưới đáy thay cho tab.

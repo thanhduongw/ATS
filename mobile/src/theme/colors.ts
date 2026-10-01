@@ -57,6 +57,8 @@ export const COLORS = {
   success: "#00CB87",
   /** Xanh lá đậm hơn cho icon trên nền nhạt (canvas M14). */
   successDeep: "#00A06B",
+  /** Xanh dương của các gợi ý "thông minh" (icon lấp lánh ở dòng khớp kỹ năng, canvas N26). Chỉ dùng cho icon. */
+  ai: "#2A7DFF",
   /** Tím của vòng phỏng vấn (canvas `Main` → "Phỏng vấn"). */
   interview: "#8A2BE2",
 } as const;

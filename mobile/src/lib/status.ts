@@ -122,3 +122,36 @@ export function postingStatus(status: PostingStatus | undefined): StatusView {
   if (!status) return UNKNOWN;
   return { label: STRINGS.status.posting[status], tone: POSTING_TONE[status] };
 }
+
+/**
+ * Bốn chặng ứng viên nhìn thấy (canvas M08/M09): Đã nộp → Sơ tuyển → Phỏng vấn → Thư mời.
+ * Backend chỉ trả vòng HIỆN TẠI (không có lịch sử từng vòng), nên tiến trình suy từ loại
+ * vòng: mọi chặng đứng trước chặng hiện tại coi như đã qua.
+ */
+export type ApplicationPhase = {
+  /** 0..3 — chặng đang ở. */
+  step: number;
+  rejected: boolean;
+  hired: boolean;
+  ended: boolean;
+};
+
+export function applicationPhase(stageType?: string): ApplicationPhase {
+  switch (stageType) {
+    case "APPLIED":
+      return { step: 0, rejected: false, hired: false, ended: false };
+    case "TECHNICAL_INTERVIEW":
+    case "HR_INTERVIEW":
+    case "FINAL_INTERVIEW":
+      return { step: 2, rejected: false, hired: false, ended: false };
+    case "OFFER":
+      return { step: 3, rejected: false, hired: false, ended: false };
+    case "HIRED":
+      return { step: 3, rejected: false, hired: true, ended: true };
+    case "REJECTED":
+      return { step: 0, rejected: true, hired: false, ended: true };
+    // CV_SCREENING, HR_SCREENING và vòng CUSTOM của công ty → coi là đang sơ tuyển.
+    default:
+      return { step: 1, rejected: false, hired: false, ended: false };
+  }
+}

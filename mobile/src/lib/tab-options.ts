@@ -35,6 +35,13 @@ export function useTabScreenOptions(): BottomTabNavigationOptions {
       elevation: 0,
     },
     tabBarLabelStyle: { fontFamily: FONT.medium, fontSize: FONT_SIZE.micro },
+    // Số đỏ trên tab (canvas N26). errorText thay cho error: chữ trắng 11px trên #FA2A2D chỉ 3.9:1.
+    tabBarBadgeStyle: {
+      backgroundColor: COLORS.errorText,
+      color: COLORS.textOnPrimary,
+      fontFamily: FONT.bold,
+      fontSize: FONT_SIZE.micro,
+    },
 
     sceneStyle: { backgroundColor: COLORS.body },
   };

@@ -32,6 +32,7 @@ export function QueryList<T>({
   empty,
   header,
   bottomInset = 0,
+  hideEmpty = false,
 }: {
   query: ListQuery;
   data: readonly T[] | undefined;
@@ -42,6 +43,8 @@ export function QueryList<T>({
   header?: ReactElement;
   /** Chừa chỗ cho thanh hành động dưới đáy nếu có. */
   bottomInset?: number;
+  /** Không vẽ EmptyState dù danh sách rỗng — khi phần `header` đã tự dẫn việc. */
+  hideEmpty?: boolean;
 }) {
   const refreshControl = (
     <RefreshControl
@@ -71,7 +74,7 @@ export function QueryList<T>({
           </View>
         ) : null
       }
-      ListEmptyComponent={body ? null : <EmptyState {...empty} />}
+      ListEmptyComponent={body || hideEmpty ? null : <EmptyState {...empty} />}
       ItemSeparatorComponent={Separator}
       contentContainerStyle={[styles.content, { paddingBottom: SPACING.lg + bottomInset }]}
       keyboardShouldPersistTaps="handled"

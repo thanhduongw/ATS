@@ -1,6 +1,6 @@
 import { ScrollView, StyleSheet, Text } from "react-native";
 import { useAuthStore } from "@/store/authStore";
-import { authApi } from "@/api/auth";
+import { useSignOut } from "@/lib/use-sign-out";
 import { COLORS, FONT, FONT_SIZE, SPACING } from "@/theme";
 import { STRINGS } from "@/lib/strings";
 import type { Role } from "@/types/api";
@@ -14,19 +14,8 @@ import { PillButton } from "./ui/buttons";
  */
 export function PlaceholderScreen({ title, note, back }: { title: string; note?: string; back?: boolean }) {
   const user = useAuthStore((s) => s.user);
-  const refreshToken = useAuthStore((s) => s.refreshToken);
-  const signOut = useAuthStore((s) => s.signOut);
+  const onSignOut = useSignOut();
   const P = STRINGS.placeholder;
-
-  const onSignOut = async () => {
-    // Báo backend thu hồi refresh token; hỏng cũng vẫn đăng xuất phía máy.
-    try {
-      if (refreshToken) await authApi.logout(refreshToken);
-    } catch {
-      // bỏ qua có chủ đích
-    }
-    await signOut();
-  };
 
   return (
     <>

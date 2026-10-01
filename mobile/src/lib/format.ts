@@ -57,3 +57,89 @@ export function normalizeForSearch(s: string): string {
     .toLowerCase()
     .trim();
 }
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+const valid = (iso?: string | null): Date | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+/** "28.000.000 đ" — số tiền đầy đủ cho thư mời (khác `formatSalary` rút gọn theo triệu). */
+export function formatMoney(n?: number | null): string {
+  if (n == null) return "—";
+  const s = Math.round(n)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${s} ${STRINGS.format.currency}`;
+}
+
+/** "10:00" */
+export function formatTime(iso?: string | null): string {
+  const d = valid(iso);
+  return d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : "—";
+}
+
+/** "10:00 – 11:00" từ giờ bắt đầu + số phút. */
+export function formatTimeRange(iso?: string | null, minutes?: number | null): string {
+  const d = valid(iso);
+  if (!d) return "—";
+  if (!minutes) return formatTime(iso);
+  const end = new Date(d.getTime() + minutes * 60_000);
+  return `${formatTime(iso)} – ${pad(end.getHours())}:${pad(end.getMinutes())}`;
+}
+
+/** "Thứ Bảy, 26/09/2026" */
+export function formatLongDate(iso?: string | null): string {
+  const d = valid(iso);
+  return d ? `${STRINGS.format.weekdays[d.getDay()]}, ${formatDate(iso)}` : "—";
+}
+
+/** Ô ngày của lịch phỏng vấn: { month: "TH 9", day: "26" }. */
+export function dateTile(iso?: string | null): { month: string; day: string } {
+  const d = valid(iso);
+  return d ? { month: STRINGS.format.monthShort(d.getMonth() + 1), day: pad(d.getDate()) } : { month: "—", day: "—" };
+}
+
+/** Thời gian còn lại tới hạn: "5 ngày 04 giờ", "3 giờ"; đã quá hạn → null. */
+export function formatCountdown(iso?: string | null, now: Date = new Date()): string | null {
+  const d = valid(iso);
+  if (!d) return null;
+  const ms = d.getTime() - now.getTime();
+  if (ms <= 0) return null;
+  const hours = Math.floor(ms / 3_600_000);
+  const days = Math.floor(hours / 24);
+  return days > 0 ? STRINGS.format.daysHours(days, pad(hours % 24)) : STRINGS.format.hoursLeft(Math.max(hours, 1));
+}
+
+/** Hai chữ cái cho ảnh đại diện, lấy tên đệm cuối + tên như canvas M13: "Nguyễn Hoàng Nam" → "HN". */
+export function initials(fullName?: string | null): string {
+  const parts = (fullName ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  const first = (w?: string) => (w ?? "").charAt(0);
+  if (parts.length === 1) return first(parts[0]).toUpperCase();
+  return (first(parts[parts.length - 2]) + first(parts[parts.length - 1])).toUpperCase();
+}
+
+/** "Còn 5 ngày" (làm tròn lên) khi hạn còn ở tương lai; đã quá hạn → null. */
+export function formatDaysLeft(iso?: string | null, now: Date = new Date()): string | null {
+  const d = valid(iso);
+  if (!d) return null;
+  const ms = d.getTime() - now.getTime();
+  return ms > 0 ? STRINGS.format.daysLeft(Math.ceil(ms / 86_400_000)) : null;
+}
+
+/**
+ * Tên file CV lấy từ đuôi URL lưu trên S3 (backend không trả tên gốc riêng). Backend đặt tên
+ * dạng `<uuid>-<tên gốc>` (vd. `1da15389-…-1858-CV_Nguyen_Van_An.pdf`) → bỏ phần uuid đầu.
+ */
+export function cvFileName(url?: string | null): string {
+  let last = (url ?? "").split("?")[0]?.split("/").pop() ?? "";
+  try {
+    last = decodeURIComponent(last);
+  } catch {
+    // giữ nguyên nếu URL mã hóa hỏng
+  }
+  return last.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_]?/i, "") || last;
+}

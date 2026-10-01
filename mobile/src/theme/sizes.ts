@@ -18,6 +18,8 @@ export const SIZES = {
   /** Ô OTP. */
   otpWidth: 48,
   otpHeight: 56,
+  /** Icon nhỏ trong chấm tiến trình. */
+  iconXs: 14,
   /** Icon trong ô nhập, trong nút. */
   iconSm: 20,
   /** Icon thanh tab. */
@@ -28,4 +30,8 @@ export const SIZES = {
   sheetHandleWidth: 40,
   sheetHandleHeight: 4,
   hairline: 0.5,
+  /** Thanh tiến độ hoàn thiện hồ sơ (M13). */
+  progress: 6,
+  /** Đường nối giữa các chặng tiến trình (ngang M08, dọc M09). */
+  track: 2,
 } as const;

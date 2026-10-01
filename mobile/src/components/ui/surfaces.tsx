@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { COLORS, FONT, FONT_SIZE, LINE_HEIGHT, RADIUS, SIZES, SPACING, STATUS_TONES, type StatusTone } from "@/theme";
+import { STRINGS } from "@/lib/strings";
 import { Icon, type IconName } from "./icon";
 
 /**
@@ -76,6 +77,15 @@ export function IconTile({
   );
 }
 
+/** Logo chữ của app trên nền màu chính (canvas M01 đăng nhập, M12 thư mời). */
+export function BrandMark({ size = SIZES.otpWidth }: { size?: number }) {
+  return (
+    <View style={[styles.mark, { width: size, height: size }]} accessible={false}>
+      <Text style={[styles.markText, { fontSize: Math.round(size / 2) }]}>{STRINGS.brand.mark}</Text>
+    </View>
+  );
+}
+
 /** Dòng nhãn — giá trị, kẻ mảnh bên dưới (canvas M12 "Chi tiết đề nghị"). */
 export function KeyValueRow({ label, value, last }: { label: string; value: ReactNode; last?: boolean }) {
   return (
@@ -135,6 +145,15 @@ const styles = StyleSheet.create({
   cardTitle: { fontFamily: FONT.bold, fontSize: FONT_SIZE.section, color: COLORS.textPrimary },
 
   tile: { alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  mark: {
+    width: SIZES.otpWidth,
+    height: SIZES.otpWidth,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  markText: { fontFamily: FONT.bold, fontSize: FONT_SIZE.h2, color: COLORS.textOnPrimary },
 
   kv: {
     flexDirection: "row",
@@ -144,7 +163,8 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm2,
   },
   divider: { borderBottomWidth: SIZES.hairline, borderBottomColor: COLORS.divider },
-  kvLabel: { fontFamily: FONT.regular, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },
+  // Nhãn không co lại: giá trị dài (địa chỉ, kỹ năng) xuống dòng ở cột phải, nhãn giữ một dòng.
+  kvLabel: { flexShrink: 0, fontFamily: FONT.regular, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },
   kvValue: {
     flexShrink: 1,
     textAlign: "right",

@@ -3,6 +3,8 @@
  * chiều cao, nên dùng `full` thay vì tự tính.
  */
 export const RADIUS = {
+  /** Ô tích (checkbox). */
+  xs: 4,
   /** Chip nhỏ cao 24. */
   sm: 12,
   /** Ô icon 44, hộp thông tin lồng trong thẻ. */

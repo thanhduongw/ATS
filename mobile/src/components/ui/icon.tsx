@@ -1,5 +1,5 @@
 import Svg, { Circle, Path, Rect } from "react-native-svg";
-import type { ColorValue } from "react-native";
+import { Platform, type ColorValue } from "react-native";
 import { COLORS, SIZES } from "@/theme";
 
 type Shape =
@@ -120,7 +120,7 @@ export function Icon({
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
-      accessible={false}
+      {...(Platform.OS === "web" ? { "aria-hidden": true } : { accessible: false })}
     >
       {ICONS[name].map((s, i) =>
         s.t === "path" ? (

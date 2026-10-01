@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { COLORS, FONT, FONT_SIZE, RADIUS, SIZES, SPACING } from "@/theme";
 import { Icon, type IconName } from "./icon";
 
@@ -84,17 +84,20 @@ export function IconButton({
   label,
   onPress,
   variant = "fill",
+  badge,
 }: {
   icon: IconName;
   label: string;
   onPress: () => void;
   /** `fill` trên nền trang; `surface` là nền trắng (nút thông báo ở header, canvas M06). */
   variant?: "fill" | "surface";
+  /** Chấm đỏ kèm số ở góc (số thông báo chưa đọc). 0/undefined → không hiện. */
+  badge?: number;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={badge ? `${label} (${badge})` : label}
       onPress={onPress}
       hitSlop={(SIZES.control - SIZES.iconButton) / 2}
       style={({ pressed }) => [
@@ -104,6 +107,11 @@ export function IconButton({
       ]}
     >
       <Icon name={icon} size={SIZES.iconSm} color={COLORS.textPrimary} />
+      {badge ? (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{badge > 9 ? "9+" : badge}</Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -129,4 +137,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  badge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    minWidth: SIZES.dot * 3,
+    height: SIZES.dot * 3,
+    paddingHorizontal: SPACING.xs,
+    borderRadius: RADIUS.full,
+    // errorText chứ không phải error: chữ trắng 10px trên #FA2A2D chỉ đạt 3.9:1.
+    backgroundColor: COLORS.errorText,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: { fontFamily: FONT.bold, fontSize: FONT_SIZE.micro, color: COLORS.textOnPrimary },
 });

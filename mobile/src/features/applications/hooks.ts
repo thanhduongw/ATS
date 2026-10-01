@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { CandidateApplication } from "@/types/api";
 import { applicationsApi, type ApplyRequest } from "./api";
 
 export const applicationKeys = {
@@ -32,5 +33,13 @@ export function useAppliedJobs() {
   for (const a of q.data ?? []) {
     if (a.jobPostingId != null && a.id != null) map.set(a.jobPostingId, a.id);
   }
+  return map;
+}
+
+/** applicationId → đơn. Buổi PV và thư mời chỉ trả `applicationId`, tên vị trí lấy ở đây. */
+export function useApplicationsById() {
+  const q = useMyApplications();
+  const map = new Map<number, CandidateApplication>();
+  for (const a of q.data ?? []) if (a.id != null) map.set(a.id, a);
   return map;
 }

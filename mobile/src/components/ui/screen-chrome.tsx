@@ -9,8 +9,9 @@ import { IconButton } from "./buttons";
 /**
  * Tiêu đề đầu màn theo canvas — thay cho thanh tiêu đề tối cũ.
  *
- * - `large` (màn tab, danh sách): hàng nút cao 44 ở trên, bên dưới là tiêu đề 30 đậm và
- *   câu dẫn tùy chọn. Canvas M06, M08, M10, M14.
+ * - `large` (màn tab, danh sách): tiêu đề 30 đậm và các nút (chuông, quay lại) nằm CÙNG MỘT
+ *   HÀNG — nút quay lại bên trái, tiêu đề, nút hành động bên phải; câu dẫn tùy chọn ở dưới.
+ *   (Canvas để hàng nút riêng phía trên tiêu đề; đã đổi theo yêu cầu cho gọn đầu màn.)
  * - `compact` (màn chi tiết): nút quay lại + tiêu đề 20 trên cùng một hàng. Canvas M09, M12.
  *
  * Tự cộng khoảng tai thỏ/thanh trạng thái, nên màn hình KHÔNG bọc thêm SafeAreaView ở trên.
@@ -49,12 +50,11 @@ export function ScreenHeader({
     <View style={[styles.large, { paddingTop: insets.top + SPACING.sm2 }]}>
       <View style={styles.topRow}>
         {backButton}
-        <View style={styles.spacer} />
+        <Text style={styles.largeTitle} numberOfLines={1} accessibilityRole="header">
+          {title}
+        </Text>
         {actions ? <View style={styles.actions}>{actions}</View> : null}
       </View>
-      <Text style={styles.largeTitle} accessibilityRole="header">
-        {title}
-      </Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
   );
@@ -83,10 +83,10 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.sm2,
     backgroundColor: COLORS.body,
   },
-  topRow: { flexDirection: "row", alignItems: "center", minHeight: SIZES.control },
-  spacer: { flex: 1 },
+  topRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2, minHeight: SIZES.control },
   actions: { flexDirection: "row", gap: SPACING.sm },
   largeTitle: {
+    flex: 1,
     fontFamily: FONT.bold,
     fontSize: FONT_SIZE.h1,
     lineHeight: FONT_SIZE.h1 * LINE_HEIGHT.title,

@@ -33,6 +33,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
+    // Nhãn dài không được tràn khỏi thẻ: co lại và cắt "…" (Text đã numberOfLines={1}).
+    maxWidth: "100%",
+    flexShrink: 1,
     gap: SPACING.xs + SPACING.xxs,
     height: SIZES.tag,
     paddingHorizontal: SPACING.sm + SPACING.xxs,

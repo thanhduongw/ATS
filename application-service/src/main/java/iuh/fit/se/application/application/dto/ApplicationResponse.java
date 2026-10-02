@@ -23,5 +23,9 @@ public record ApplicationResponse(
         String rejectionReasonName,
         String note,
         LocalDateTime appliedAt,
-        LocalDateTime hiredAt
+        LocalDateTime hiredAt,
+        // AI Scoring (Phase 6)
+        java.math.BigDecimal aiMatchScore,
+        String aiClassification,
+        String aiScorecard
 ) {}

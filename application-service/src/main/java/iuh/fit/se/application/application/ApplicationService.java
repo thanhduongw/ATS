@@ -197,7 +197,10 @@ public class ApplicationService {
                 a.getRejectionReasonId() == null ? null : reasonMap.get(a.getRejectionReasonId()),
                 a.getNote(),
                 a.getAppliedAt(),
-                a.getHiredAt()
+                a.getHiredAt(),
+                a.getAiMatchScore(),
+                a.getAiClassification(),
+                a.getAiScorecard()
         );
     }
 

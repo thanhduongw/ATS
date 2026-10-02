@@ -290,10 +290,12 @@ async def _process_cv_event(message_body: dict) -> None:
             try:
                 event_payload = {
                     "applicationId": application_id,
+                    "aiJobId": ai_job.id,
                     "jobPostingId": job_posting_id,
                     "totalScore": total_score,
                     "classification": classification.value,
                     "summary": summary,
+                    "scorecard": scorecard_json,
                 }
                 await rabbitmq_manager.publish(
                     routing_key=AI_SCORING_COMPLETED_ROUTING_KEY,

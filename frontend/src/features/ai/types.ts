@@ -188,3 +188,69 @@ export interface BenchmarkGenerateResponse {
   provenance: JDProvenance;
   errorMessage?: string | null;
 }
+
+// ============================================================
+// Phase 5 & 6: AI Scoring types
+// ============================================================
+
+export type AiClassification = "MATCH" | "REVIEW" | "NOT_MATCH";
+export type AiScoringStatus =
+  | "completed"
+  | "processing"
+  | "failed"
+  | "not_found"
+  | "pending_benchmark";
+
+export interface CriterionScore {
+  name: string;
+  weight: number;
+  category: string;
+  isMustHave: boolean;
+  standardRequirement: string;
+  rawScore: number;
+  weightedScore: number;
+  status: "PASS" | "PARTIAL" | "FAIL";
+  evidence: string;
+  gapAnalysis: string;
+  reasoning?: string;
+}
+
+export interface HardFilterFlag {
+  criterionName: string;
+  passed: boolean;
+  reason: string;
+}
+
+export interface Scorecard {
+  applicationId: number;
+  jobPostingId: number;
+  totalScore: number;
+  classification: AiClassification;
+  summary: string;
+  hardFilterFlags: HardFilterFlag[];
+  criteriaScores: CriterionScore[];
+  scoredAt: string;
+  scoringModel: string;
+  promptVersion: string;
+  guardrailWarnings: string[];
+}
+
+export interface ScorecardResponse {
+  status: AiScoringStatus;
+  scorecard?: Scorecard | null;
+  currentStage?: string | null;
+  errorMessage?: string | null;
+}
+
+export interface RescoreResponse {
+  message: string;
+  newJobId: number;
+}
+
+export interface FeedbackRequest {
+  applicationId: number;
+  action: "ACCEPT" | "OVERRIDE_SCORE" | "REPORT_ISSUE";
+  originalScore: number;
+  correctedScore?: number | null;
+  comment?: string | null;
+}

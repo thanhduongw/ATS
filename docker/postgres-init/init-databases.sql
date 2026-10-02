@@ -163,3 +163,19 @@ CREATE TABLE IF NOT EXISTS ai_feedback (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ai_feedback_application ON ai_feedback (application_id);
+
+-- ============================================================
+-- Application Service Database (ats_application) — AI scoring columns
+-- Phase 6: application-service stores AI results pushed via RabbitMQ
+-- ============================================================
+\c ats_application;
+
+ALTER TABLE application
+    ADD COLUMN IF NOT EXISTS ai_match_score    NUMERIC(5,2),
+    ADD COLUMN IF NOT EXISTS ai_classification VARCHAR(20),
+    ADD COLUMN IF NOT EXISTS ai_scorecard      JSONB,
+    ADD COLUMN IF NOT EXISTS ai_job_id         BIGINT;
+
+CREATE INDEX IF NOT EXISTS idx_application_ai_classification
+    ON application (ai_classification)
+    WHERE ai_classification IS NOT NULL;

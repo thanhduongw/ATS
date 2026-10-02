@@ -34,6 +34,8 @@ import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
 import CvParseResultPanel from "../../ai/components/CvParseResultPanel";
+import ScorecardPanel from "../../ai/components/ScorecardPanel";
+import AIClassificationBadge from "../../ai/components/AIClassificationBadge";
 import type { CVExtractionResult, ExtractionProvenance, CVExtractionResponse } from "../../ai/types";
 import { extractCvFromUrl } from "../../ai/aiApi";
 import { getCachedExtraction, setCachedExtraction, clearCachedExtraction } from "../../ai/cvCacheService";
@@ -155,7 +157,7 @@ function relevantTabFor(stageType: string): string {
     return "resume";
 }
 
-const TAB_KEYS = ["overview", "resume", "interview", "evaluation", "activity"];
+const TAB_KEYS = ["overview", "resume", "ai-scoring", "interview", "evaluation", "activity"];
 
 const TAB_HINT: Record<string, string> = {
     resume: "Cần xem CV",
@@ -800,6 +802,13 @@ export default function CandidateApplicationDetailPage() {
                         >
                             {application.currentStageName}
                         </Tag>
+                        {application.aiClassification && (
+                            <AIClassificationBadge
+                                classification={application.aiClassification}
+                                score={application.aiMatchScore}
+                                showScore
+                            />
+                        )}
                     </div>
                 </div>
 
@@ -852,6 +861,18 @@ export default function CandidateApplicationDetailPage() {
                     items={[
                         { key: "overview", label: tabLabel("overview", "Tổng quan"), children: overviewTab },
                         { key: "resume", label: tabLabel("resume", "Hồ sơ"), children: resumeTab },
+                        {
+                            key: "ai-scoring",
+                            label: tabLabel("ai-scoring", "AI Scoring"),
+                            children: (
+                                <ScorecardPanel
+                                    applicationId={application.id}
+                                    initialScorecard={application.aiScorecard}
+                                    initialClassification={application.aiClassification}
+                                    initialScore={application.aiMatchScore}
+                                />
+                            ),
+                        },
                         { key: "interview", label: tabLabel("interview", "Phỏng vấn"), children: interviewTab },
                         {
                             key: "evaluation",

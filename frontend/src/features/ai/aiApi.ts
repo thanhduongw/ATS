@@ -5,6 +5,9 @@ import type {
   JDGenerateResponse,
   BenchmarkGenerateRequest,
   BenchmarkGenerateResponse,
+  ScorecardResponse,
+  RescoreResponse,
+  FeedbackRequest,
 } from "./types";
 
 /**
@@ -63,4 +66,32 @@ export const generateBenchmark = (input: BenchmarkGenerateRequest) =>
   axiosClient.post<BenchmarkGenerateResponse>("/v1/ai/benchmark/generate", input, {
     timeout: 30_000,
   });
+
+// ===== Phase 6: Scoring APIs =====
+
+/**
+ * Get the AI scoring result (Scorecard) for an application.
+ * Returns status: completed | processing | failed | not_found | pending_benchmark.
+ */
+export const getApplicationScore = (applicationId: number) =>
+  axiosClient.get<ScorecardResponse>(`/v1/ai/applications/${applicationId}/score`, {
+    timeout: 10_000,
+  });
+
+/**
+ * Trigger rescoring for an application.
+ * Returns 202 Accepted with the new job ID.
+ */
+export const rescoreApplication = (applicationId: number, reason?: string) =>
+  axiosClient.post<RescoreResponse>(
+    `/v1/ai/applications/${applicationId}/rescore`,
+    { reason: reason ?? "Recruiter yêu cầu chấm lại" },
+    { timeout: 10_000 },
+  );
+
+/**
+ * Submit recruiter feedback on AI scoring.
+ */
+export const submitAiFeedback = (payload: FeedbackRequest) =>
+  axiosClient.post("/v1/ai/feedback", payload, { timeout: 10_000 });
 

@@ -35,6 +35,7 @@ import { StatRow, FilterBar, ModalTitle } from "../../../components/ui/pageKit";
 import { listCardStyle, listCardBodyStyle, listPagination } from "../../../components/ui/listStyles";
 import CandidateFormModal from "../components/CandidateFormModal";
 import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
+import AIClassificationBadge from "../../ai/components/AIClassificationBadge";
 import type { CandidateFormValues } from "../schemas/candidateSchema";
 
 const { RangePicker } = DatePicker;
@@ -291,6 +292,19 @@ export default function ApplicationsPage() {
                 <Tag color={stageTypeTagColor(r.currentStageType)} style={{ margin: 0 }}>
                     {r.currentStageName}
                 </Tag>
+            ),
+        },
+        {
+            title: "AI Score",
+            key: "aiScore",
+            width: 150,
+            sorter: (a, b) => (a.aiMatchScore ?? -1) - (b.aiMatchScore ?? -1),
+            render: (_, r) => (
+                <AIClassificationBadge
+                    classification={r.aiClassification}
+                    score={r.aiMatchScore}
+                    showScore
+                />
             ),
         },
     ];

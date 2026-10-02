@@ -69,6 +69,20 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(aiCvUploadedQueue).to(atsExchange).with(AI_CV_UPLOADED_ROUTING_KEY);
     }
 
+    /** Consumed by this service when ai-service finishes scoring an application. */
+    public static final String AI_SCORING_COMPLETED_QUEUE = "application.ai-scoring-completed.queue";
+    public static final String AI_SCORING_COMPLETED_ROUTING_KEY = "ai.scoring.completed";
+
+    @Bean
+    public Queue aiScoringCompletedQueue() {
+        return QueueBuilder.durable(AI_SCORING_COMPLETED_QUEUE).build();
+    }
+
+    @Bean
+    public Binding aiScoringCompletedBinding(Queue aiScoringCompletedQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(aiScoringCompletedQueue).to(atsExchange).with(AI_SCORING_COMPLETED_ROUTING_KEY);
+    }
+
     @Bean
     public MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();

@@ -75,6 +75,23 @@ public class Application {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // ── AI Scoring fields (populated by AiScoringCompletedListener) ──
+
+    @Column(name = "ai_match_score")
+    private java.math.BigDecimal aiMatchScore;
+
+    /** MATCH | REVIEW | NOT_MATCH */
+    @Column(name = "ai_classification", length = 20)
+    private String aiClassification;
+
+    /** Full scorecard JSON from ai-service. Stored as raw JSON string. */
+    @Column(name = "ai_scorecard", columnDefinition = "jsonb")
+    private String aiScorecard;
+
+    /** Soft reference to ats_ai.ai_jobs.id (cross-DB, no FK). */
+    @Column(name = "ai_job_id")
+    private Long aiJobId;
+
     @PrePersist
     void prePersist() {
         createdAt = LocalDateTime.now();

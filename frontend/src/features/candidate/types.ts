@@ -120,6 +120,10 @@ export interface ApplicationResponse {
   note: string | null;
   appliedAt: string;
   hiredAt: string | null;
+  // AI Scoring (Phase 6)
+  aiMatchScore: number | null;
+  aiClassification: "MATCH" | "REVIEW" | "NOT_MATCH" | null;
+  aiScorecard: string | null;
 }
 export interface CandidateWithApplications extends CandidateResponse {
   applications: ApplicationResponse[];

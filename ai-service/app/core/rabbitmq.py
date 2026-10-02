@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__)
 ATS_EXCHANGE = "ats.events"
 
 # AI Service consumes this queue
+# Routing key MUST match application-service RabbitMQConfig.AI_CV_UPLOADED_ROUTING_KEY = "ai.cv-uploaded"
 CV_UPLOADED_QUEUE = "ai.cv-uploaded.queue"
-CV_UPLOADED_ROUTING_KEY = "cv.uploaded"
+CV_UPLOADED_ROUTING_KEY = "ai.cv-uploaded"
 
 # AI Service publishes to this routing key
 AI_SCORING_COMPLETED_ROUTING_KEY = "ai.scoring.completed"

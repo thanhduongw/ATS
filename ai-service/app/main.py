@@ -3,6 +3,7 @@ AI Service — Main FastAPI Application
 Entry point for the ATS AI microservice.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -15,6 +16,8 @@ from app.api.health import router as health_router
 from app.api.extraction import router as extraction_router
 from app.api.cv_extraction import router as cv_extraction_router
 from app.api.jd_generation import router as jd_generation_router
+from app.api.retrieval import router as retrieval_router
+from app.api.scoring import router as scoring_router
 
 # Configure logging
 logging.basicConfig(
@@ -45,6 +48,23 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("S3 bucket check failed: %s", e)
 
+    # --- Phase 4: Load embedding model ---
+    try:
+        from app.services.embedding_service import embedding_service
+        await embedding_service.load()
+        logger.info("Embedding model loaded successfully.")
+    except Exception as e:
+        logger.warning("Embedding model loading failed (service will start without embeddings): %s", e)
+
+    # --- Phase 4: Start CV pipeline worker ---
+    try:
+        from app.workers.cv_pipeline_worker import CVPipelineWorker
+        worker = CVPipelineWorker()
+        asyncio.create_task(worker.start_consuming())
+        logger.info("CV Pipeline Worker started.")
+    except Exception as e:
+        logger.warning("CV Pipeline Worker failed to start: %s", e)
+
     yield
 
     # --- Shutdown ---
@@ -72,6 +92,8 @@ def create_app() -> FastAPI:
     app.include_router(extraction_router, prefix="/api/v1/ai", tags=["Text Extraction"])
     app.include_router(cv_extraction_router, prefix="/api/v1/ai", tags=["CV Extraction"])
     app.include_router(jd_generation_router, prefix="/api/v1/ai", tags=["JD Generation"])
+    app.include_router(retrieval_router, prefix="/api/v1/ai", tags=["Retrieval (Phase 4)"])
+    app.include_router(scoring_router, prefix="/api/v1/ai", tags=["Scoring (Phase 5)"])
 
     return app
 

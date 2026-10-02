@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     candidate_service_url: str = "http://localhost:8084"
     masterdata_service_url: str = "http://localhost:8082"
 
+    # --- Cross-service DB read (ats_recruitment) ---
+    # ai-service reads benchmark_criteria from job_posting table in ats_recruitment DB.
+    # This is a read-only connection; writes must go through recruitment-service REST API.
+    recruitment_database_url: str = "postgresql+asyncpg://ats_user:ats_password@localhost:5432/ats_recruitment"
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

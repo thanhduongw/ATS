@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert, Button, Card, Descriptions, Divider, Input, Modal, Progress, Space,
+  Alert, Button, Card, Descriptions, Divider, Input, Modal, Progress,
   Spin, Table, Tag, Tooltip, App,
 } from "antd";
 import {
@@ -52,8 +52,8 @@ interface Props {
 export default function ScorecardPanel({
   applicationId,
   initialScorecard,
-  initialClassification,
-  initialScore,
+  initialClassification: _initialClassification,
+  initialScore: _initialScore,
 }: Props) {
   const { message } = App.useApp();
   const [scorecard, setScorecard] = useState<Scorecard | null>(() => {

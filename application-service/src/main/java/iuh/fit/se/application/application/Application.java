@@ -2,6 +2,8 @@ package iuh.fit.se.application.application;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -85,6 +87,7 @@ public class Application {
     private String aiClassification;
 
     /** Full scorecard JSON from ai-service. Stored as raw JSON string. */
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "ai_scorecard", columnDefinition = "jsonb")
     private String aiScorecard;
 

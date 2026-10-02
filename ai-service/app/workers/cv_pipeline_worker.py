@@ -88,18 +88,19 @@ async def _process_cv_event(message_body: dict) -> None:
     async with async_session_factory() as session:
         try:
             # --- Idempotency check ---
-            existing = await session.execute(
-                select(AIJob).where(
-                    AIJob.application_id == application_id,
-                    AIJob.status == "COMPLETED",
+            if not is_rescore:
+                existing = await session.execute(
+                    select(AIJob).where(
+                        AIJob.application_id == application_id,
+                        AIJob.status == "COMPLETED",
+                    )
                 )
-            )
-            if existing.scalar_one_or_none():
-                logger.info(
-                    "AIJob already COMPLETED for application_id=%s — skipping",
-                    application_id,
-                )
-                return
+                if existing.scalar_one_or_none():
+                    logger.info(
+                        "AIJob already COMPLETED for application_id=%s — skipping",
+                        application_id,
+                    )
+                    return
 
             # --- Create AIJob record ---
             ai_job = AIJob(
@@ -283,6 +284,8 @@ async def _process_cv_event(message_body: dict) -> None:
             # --- Stage 12: Save scorecard to DB ---
             ai_job.current_stage = "SAVING_SCORECARD"
             scorecard_json = scorecard.model_dump(by_alias=True, mode="json")
+            ai_job.ai_scorecard = scorecard_json
+            ai_job.cv_file_url = cv_file_url
             ai_job.guardrail_warnings = {"scorecard": scorecard_json}
 
             # --- Stage 13: Publish ai.scoring.completed event ---

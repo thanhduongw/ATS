@@ -41,6 +41,8 @@ class AIJob(Base):
     ocr_used = Column(Boolean, default=False)
     injection_detected = Column(Boolean, default=False)
     guardrail_warnings = Column(JSONB)
+    ai_scorecard = Column(JSONB)
+    cv_file_url = Column(String(500))
 
     # Cost tracking
     total_input_tokens = Column(Integer)

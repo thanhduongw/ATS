@@ -41,6 +41,7 @@ public class AiScoringCompletedListener {
     private final ApplicationRepository applicationRepository;
     private final ObjectMapper objectMapper;
 
+    @org.springframework.transaction.annotation.Transactional
     @RabbitListener(queues = RabbitMQConfig.AI_SCORING_COMPLETED_QUEUE)
     public void onScoringCompleted(Message message) {
         try {

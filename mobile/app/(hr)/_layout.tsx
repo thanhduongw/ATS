@@ -1,38 +1,26 @@
 import { Tabs } from "expo-router";
-// Paper Icon chi nhan color?: string, con Tabs truyen ColorValue.
-// MaterialCommunityIcons nhan dung ColorValue nen khong phai ep kieu.
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { sharedTabScreenOptions } from "@/lib/tab-options";
+import { Icon } from "@/components/ui/icon";
+import { useTabScreenOptions } from "@/lib/tab-options";
+import { STRINGS } from "@/lib/strings";
 
+const T = STRINGS.tabs.hr;
+
+// Cấu trúc tab HR sẽ đổi ở đợt 8 theo phạm vi kế hoạch v1 (D1–D3). Đợt này chỉ đổi giao diện.
 export default function RecruiterLayout() {
+  const screenOptions = useTabScreenOptions();
   return (
-    <Tabs screenOptions={sharedTabScreenOptions}>
+    <Tabs screenOptions={screenOptions}>
       <Tabs.Screen
         name="index"
-        options={{
-          title: "Tổng quan",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="view-dashboard" color={color} size={size} />
-          ),
-        }}
+        options={{ title: T.home, tabBarIcon: ({ color }) => <Icon name="home" color={color} /> }}
       />
       <Tabs.Screen
         name="requisitions/index"
-        options={{
-          title: "Yêu cầu TD",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="clipboard-text" color={color} size={size} />
-          ),
-        }}
+        options={{ title: T.requisitions, tabBarIcon: ({ color }) => <Icon name="clipboardCheck" color={color} /> }}
       />
       <Tabs.Screen
         name="applications/index"
-        options={{
-          title: "Hồ sơ",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account-search" color={color} size={size} />
-          ),
-        }}
+        options={{ title: T.applications, tabBarIcon: ({ color }) => <Icon name="people" color={color} /> }}
       />
     </Tabs>
   );

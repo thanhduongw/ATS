@@ -82,6 +82,16 @@ const refreshTokens = async (): Promise<string> => {
   return refreshPromise;
 };
 
+/**
+ * Access token còn hạn, refresh trước nếu sắp hết — cho những lời gọi KHÔNG đi qua axios
+ * (tải file bằng expo-file-system cần tự gắn header Authorization).
+ */
+export const freshAccessToken = async (): Promise<string | null> => {
+  const { accessToken } = authState();
+  if (!accessToken) return null;
+  return isExpiringSoon(accessToken) ? refreshTokens() : accessToken;
+};
+
 // ===== Request interceptor: gắn token, refresh trước nếu sắp hết hạn =====
 apiClient.interceptors.request.use(async (config) => {
   const { accessToken } = authState();

@@ -1,11 +1,8 @@
 /**
- * Port từ `frontend/src/app/theme.ts` (SHADOWS), viết lại dạng chuỗi `boxShadow`.
- * React Native 0.76+ hiểu `boxShadow`; KHÔNG dùng shadowOffset/elevation kiểu cũ nữa.
+ * Canvas gần như không dùng bóng: thẻ trắng nổi lên nhờ nền xám, không nhờ đổ bóng.
+ * Chuỗi `boxShadow` — React Native 0.76+ hiểu thẳng, không dùng shadowOffset/elevation.
  */
 export const SHADOWS = {
-  sm: "0px 1px 2px rgba(0, 0, 0, 0.05)",
-  md: "0px 4px 6px rgba(0, 0, 0, 0.07)",
-  lg: "0px 10px 15px rgba(0, 0, 0, 0.08)",
-  card: "0px 1px 3px rgba(0, 0, 0, 0.06)",
-  dropdown: "0px 6px 16px rgba(0, 0, 0, 0.08)",
+  /** Ô đang chọn trong segmented control (canvas M10). */
+  raised: "0px 1px 4px rgba(0, 0, 0, 0.10)",
 } as const;

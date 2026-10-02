@@ -288,6 +288,15 @@ public class ApplicationService {
                 req.jobPostingId(), application.getId(),
                 application.getCandidateId(), application.getAssignedRecruiterId(), application.getCandidateNameSnapshot());
 
+        // Trigger AI CV processing pipeline (Phase 4: chunking + embedding → pgvector)
+        if (resumeUrl != null) {
+            eventPublisher.publishCvUploaded(
+                    application.getId(),
+                    application.getCandidateId(),
+                    application.getJobPostingId(),
+                    resumeUrl);
+        }
+
         return getById(actor, application.getId());
     }
 

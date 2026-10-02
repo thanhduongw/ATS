@@ -20,6 +20,10 @@ public class RabbitMQConfig {
     public static final String APPLICATION_STALE_ROUTING_KEY = "application.stale";
     public static final String AUDIT_LOG_ROUTING_KEY = "audit.log";
 
+    /** Published to ai-service when a new application with CV is created. */
+    public static final String AI_CV_UPLOADED_QUEUE = "ai.cv-uploaded.queue";
+    public static final String AI_CV_UPLOADED_ROUTING_KEY = "ai.cv-uploaded";
+
     /**
      * A candidate accepting or declining an offer must move the application forward, but the
      * candidate is not authorized to call the stage APIs. offer-service therefore publishes the
@@ -53,6 +57,16 @@ public class RabbitMQConfig {
     @Bean
     public Binding offerDeclinedBinding(Queue offerDeclinedQueue, TopicExchange atsExchange) {
         return BindingBuilder.bind(offerDeclinedQueue).to(atsExchange).with(OFFER_DECLINED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue aiCvUploadedQueue() {
+        return QueueBuilder.durable(AI_CV_UPLOADED_QUEUE).build();
+    }
+
+    @Bean
+    public Binding aiCvUploadedBinding(Queue aiCvUploadedQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(aiCvUploadedQueue).to(atsExchange).with(AI_CV_UPLOADED_ROUTING_KEY);
     }
 
     @Bean

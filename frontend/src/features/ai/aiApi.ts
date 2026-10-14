@@ -27,25 +27,17 @@ export const extractCvFromUpload = (file: File) => {
 };
 
 /**
- * Extract CV from a file already stored in MinIO (production path).
+ * Extract CV from a file already stored in AWS S3 (production path).
  *
- * Parses the resumeUrl to derive the MinIO storage_key, then calls
- * POST /v1/ai/extract-cv which downloads directly from MinIO — no
- * file re-upload needed.
- *
- * resumeUrl format: http://host:port/ats-bucket/resumes/uuid-file.pdf
- * storage_key:      resumes/uuid-file.pdf
+ * Sends the resumeUrl as-is; ai-service resolves it to an object key and only
+ * accepts the configured bucket — no file re-upload needed.
  */
-export const extractCvFromUrl = (resumeUrl: string) => {
-  // Extract storage_key: everything after "/ats-bucket/"
-  const match = resumeUrl.match(/\/ats-bucket\/(.+)$/);
-  const storageKey = match ? match[1] : resumeUrl;
-  return axiosClient.post<CVExtractionResponse>(
+export const extractCvFromUrl = (resumeUrl: string) =>
+  axiosClient.post<CVExtractionResponse>(
     "/v1/ai/extract-cv",
-    { storage_key: storageKey },
+    { storage_key: resumeUrl },
     { timeout: 120_000 },
   );
-};
 
 /**
  * Generate JD + benchmark criteria from basic input.

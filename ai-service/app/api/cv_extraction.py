@@ -2,7 +2,7 @@
 API endpoints for LLM-based CV extraction (Phase 2).
 
 Endpoints:
-1. POST /extract-cv         — Extract from MinIO via storage_key (production path)
+1. POST /extract-cv         — Extract from AWS S3 via storage_key (production path)
 2. POST /extract-cv/upload  — Extract from uploaded file (test convenience)
 """
 
@@ -24,17 +24,17 @@ router = APIRouter()
 @router.post(
     "/extract-cv",
     response_model=CVExtractionResponse,
-    summary="Extract structured CV data from a file in MinIO",
+    summary="Extract structured CV data from a CV in AWS S3",
     description=(
-        "Accepts a MinIO storage key, downloads the file, extracts text (Phase 1), "
-        "then uses LLM (GPT-4o-mini with Gemini fallback) to parse the CV into "
+        "Accepts an S3 key or S3 URL, downloads the file, extracts text (Phase 1), "
+        "then uses the configured LLM to parse the CV into "
         "structured JSON with confidence scoring and evidence mapping. "
         "The storage_key is resolved against the configured bucket — "
         "no arbitrary URLs accepted (SSRF safe)."
     ),
 )
 async def extract_cv(request: CVExtractionRequest) -> CVExtractionResponse:
-    """Extract structured CV data from a file stored in MinIO."""
+    """Extract structured CV data from a CV stored in AWS S3."""
     logger.info("CV extraction request: storage_key=%s", request.storage_key)
     return await extract_cv_from_storage_key(request.storage_key)
 
@@ -45,9 +45,9 @@ async def extract_cv(request: CVExtractionRequest) -> CVExtractionResponse:
     summary="Extract structured CV data from an uploaded file",
     description=(
         "Upload a CV file directly (multipart/form-data) and extract structured data. "
-        "This endpoint bypasses MinIO — useful for testing and demos. "
+        "This endpoint bypasses S3 — useful for testing and demos. "
         "Supports PDF, DOCX, PNG, and JPEG files up to 10 MB. "
-        "Uses LLM (GPT-4o-mini with Gemini fallback) for extraction."
+        "Uses the configured LLM for extraction."
     ),
 )
 async def extract_cv_upload(

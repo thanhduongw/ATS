@@ -216,7 +216,8 @@ public class ApplicationService {
                 application.getCurrentStageOrder(),
                 application.getCurrentStageType(),
                 application.getCurrentStageName(),
-                application.getAppliedAt()
+                application.getAppliedAt(),
+                application.getResumeUrl()
         );
     }
 

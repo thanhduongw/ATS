@@ -6,13 +6,13 @@ from pydantic import BaseModel, Field
 
 
 class TextExtractionRequest(BaseModel):
-    """Request to extract text from a file stored in MinIO."""
+    """Request to extract text from a CV stored in the configured AWS S3 bucket."""
 
     file_url: str = Field(
         ...,
-        description="S3/MinIO URL of the file. "
-        "e.g. http://minio:9000/ats-bucket/candidates/1/file.pdf",
-        examples=["http://minio:9000/ats-bucket/candidates/1/cv.pdf"],
+        description="S3 URL of the file (configured bucket only). "
+        "e.g. https://ats-bucket.s3.ap-southeast-1.amazonaws.com/candidates/1/file.pdf",
+        examples=["https://ats-bucket.s3.ap-southeast-1.amazonaws.com/candidates/1/cv.pdf"],
     )
 
 

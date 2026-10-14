@@ -6,7 +6,9 @@ Design principles:
 - source_text on each sub-model — evidence traceability
 - Confidence ≠ Completeness — two distinct quality signals
 - years_of_experience: claimed (LLM) vs calculated (Python deterministic)
-- NO demographic/bias fields: gender, age, religion, marital_status, photo
+- date_of_birth / gender chỉ lấy khi CV ghi rõ (để tự điền hồ sơ ứng viên). Bước CHẤM ĐIỂM
+  không bao giờ nhận các trường này (xem app/services/scoring/profile.py)
+- KHÔNG có: religion, marital_status, ethnicity, photo
 """
 
 from __future__ import annotations
@@ -272,9 +274,9 @@ class CVExtractionRequest(BaseModel):
     storage_key: str = Field(
         ...,
         description=(
-            "MinIO object key for the CV file. "
+            "S3 object key or S3 URL of the CV file, "
             "e.g. 'candidates/123/cv.pdf'. "
-            "Backend resolves this to the configured bucket."
+            "Only the configured bucket is accepted."
         ),
         examples=["candidates/123/cv.pdf"],
     )

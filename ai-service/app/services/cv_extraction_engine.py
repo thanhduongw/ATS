@@ -397,11 +397,11 @@ async def extract_cv_from_file_bytes(
 
 
 async def extract_cv_from_storage_key(storage_key: str) -> CVExtractionResponse:
-    """Full pipeline: MinIO storage key → download → text extraction → LLM extraction.
+    """Full pipeline: S3 storage key → download → text extraction → LLM extraction.
 
     Args:
-        storage_key: MinIO object key (e.g., 'candidates/123/cv.pdf').
-                     Backend resolves this to the configured bucket.
+        storage_key: S3 object key (e.g., 'candidates/123/cv.pdf') or S3 URL of the CV.
+                     Only the configured bucket is accepted.
 
     Returns:
         CVExtractionResponse with full result or error.
@@ -411,26 +411,14 @@ async def extract_cv_from_storage_key(storage_key: str) -> CVExtractionResponse:
 
     start = time.monotonic()
 
-    # --- Download from URL or MinIO/S3 ---
+    # --- Download from AWS S3 (configured bucket only — no arbitrary URLs) ---
     try:
-        if storage_key.startswith("http://") or storage_key.startswith("https://"):
-            import httpx
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(storage_key)
-                resp.raise_for_status()
-                file_bytes = resp.content
-        else:
-            from app.core.s3_client import get_s3_client
-            from app.core.config import get_settings
+        from app.core.s3_client import get_s3_client
 
-            s3 = get_s3_client()
-            settings = get_settings()
-            bucket = settings.s3_bucket
-
-            loop = asyncio.get_event_loop()
-            file_bytes = await loop.run_in_executor(
-                None, partial(s3.download_file_bytes, bucket, storage_key)
-            )
+        s3 = get_s3_client()
+        key = storage_key if "://" not in storage_key else s3.key_from_url(storage_key)
+        loop = asyncio.get_running_loop()
+        file_bytes = await loop.run_in_executor(None, partial(s3.download, key))
     except FileNotFoundError:
         elapsed_ms = int((time.monotonic() - start) * 1000)
         return CVExtractionResponse(
@@ -460,5 +448,5 @@ async def extract_cv_from_storage_key(storage_key: str) -> CVExtractionResponse:
         )
 
     # Determine filename from key
-    filename = storage_key.split("/")[-1] if "/" in storage_key else storage_key
+    filename = key.rsplit("/", 1)[-1]
     return await extract_cv_from_file_bytes(file_bytes, filename)

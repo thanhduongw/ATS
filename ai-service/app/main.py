@@ -6,10 +6,11 @@ Entry point for the ATS AI microservice.
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.core.auth import internal_only
 from app.core.rabbitmq import rabbitmq_manager
 from app.api.health import router as health_router
 from app.api.extraction import router as extraction_router
@@ -38,13 +39,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("RabbitMQ connection failed (service will start without queue): %s", e)
 
-    try:
-        from app.core.s3_client import get_s3_client
-        get_s3_client().ensure_bucket_exists()
-        logger.info("S3 default bucket checked/created successfully.")
-    except Exception as e:
-        logger.warning("S3 bucket check failed: %s", e)
-
     yield
 
     # --- Shutdown ---
@@ -69,9 +63,11 @@ def create_app() -> FastAPI:
 
     # --- Routers ---
     app.include_router(health_router, prefix="/api/v1/ai", tags=["Health"])
-    app.include_router(extraction_router, prefix="/api/v1/ai", tags=["Text Extraction"])
-    app.include_router(cv_extraction_router, prefix="/api/v1/ai", tags=["CV Extraction"])
-    app.include_router(jd_generation_router, prefix="/api/v1/ai", tags=["JD Generation"])
+    # Các công cụ AI chỉ dành cho nhân sự nội bộ (danh tính do api-gateway gắn vào header).
+    internal = [Depends(internal_only)]
+    app.include_router(extraction_router, prefix="/api/v1/ai", tags=["Text Extraction"], dependencies=internal)
+    app.include_router(cv_extraction_router, prefix="/api/v1/ai", tags=["CV Extraction"], dependencies=internal)
+    app.include_router(jd_generation_router, prefix="/api/v1/ai", tags=["JD Generation"], dependencies=internal)
 
     return app
 

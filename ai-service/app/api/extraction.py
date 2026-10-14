@@ -2,7 +2,7 @@
 API endpoints for CV text extraction.
 
 Provides two endpoints:
-1. POST /extract-text       — Extract text from file in MinIO (production path)
+1. POST /extract-text       — Extract text from a CV in AWS S3 (production path)
 2. POST /extract-text/upload — Extract text from uploaded file (test convenience)
 """
 
@@ -24,16 +24,16 @@ router = APIRouter()
 @router.post(
     "/extract-text",
     response_model=TextExtractionResponse,
-    summary="Extract text from a file in MinIO",
+    summary="Extract text from a CV in AWS S3",
     description=(
-        "Accepts a MinIO/S3 file URL, downloads the file, and extracts raw text. "
+        "Accepts an S3 URL in the configured bucket, downloads the file, and extracts raw text. "
         "Supports PDF (text + OCR fallback), DOCX, and images (PNG/JPEG via OCR). "
         "Text is normalized (Unicode NFC, Vietnamese diacritics) and scanned for "
         "prompt injection patterns."
     ),
 )
 async def extract_text(request: TextExtractionRequest) -> TextExtractionResponse:
-    """Extract text from a file stored in MinIO/S3."""
+    """Extract text from a CV stored in AWS S3."""
     logger.info("Extract text request: %s", request.file_url)
     return await extract_text_from_url(request.file_url)
 
@@ -44,7 +44,7 @@ async def extract_text(request: TextExtractionRequest) -> TextExtractionResponse
     summary="Extract text from an uploaded file",
     description=(
         "Upload a file directly (multipart/form-data) and extract text. "
-        "This endpoint bypasses MinIO — useful for testing. "
+        "This endpoint bypasses S3 — useful for testing. "
         "Supports PDF, DOCX, PNG, and JPEG files up to 10 MB."
     ),
 )

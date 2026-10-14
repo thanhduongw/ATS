@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     app_name: str = "ATS AI Service"
     app_version: str = "0.1.0"
     debug: bool = False
+    # "Ngày hiện tại" đưa vào prompt chấm điểm tính theo múi giờ này.
+    app_timezone: str = "Asia/Ho_Chi_Minh"
 
     # --- Database ---
     database_url: str = "postgresql+asyncpg://ats_user:ats_password@localhost:5432/ats_ai"
@@ -21,20 +23,32 @@ class Settings(BaseSettings):
     # --- RabbitMQ ---
     rabbitmq_url: str = "amqp://ats_user:ats_password@localhost:5672/"
 
-    # --- MinIO / S3 ---
-    s3_endpoint: str = "http://localhost:9000"
-    s3_access_key: str = "minioadmin"
-    s3_secret_key: str = "minioadmin"
-    s3_bucket: str = "ats-bucket"
+    # --- AWS S3 (cùng bucket/khoá với candidate-service) ---
+    # Khoá để trống thì boto3 dùng chuỗi credential mặc định (biến môi trường, IAM role...).
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_s3_bucket: str = "ats-bucket"
+    aws_s3_region: str = "us-east-1"
+    # Chỉ đặt khi dùng dịch vụ tương thích S3; để trống = AWS S3.
+    aws_s3_endpoint: str = ""
 
     # --- LLM API Keys ---
     openai_api_key: str = ""
     google_api_key: str = ""
 
     # --- Model Configuration ---
-    primary_llm_model: str = "gpt-4o-mini"
-    fallback_llm_model: str = "gemini-2.0-flash"
+    primary_llm_model: str = "gemini-3.5-flash-lite"
+    # Để trống = không dự phòng: lỗi thì hồ sơ được đánh dấu FAILED để HR chấm lại.
+    fallback_llm_model: str = ""
+    llm_temperature: float = 0.0
+    llm_seed: int = 42
     embedding_model: str = "intfloat/multilingual-e5-large-instruct"
+
+    # --- Chấm điểm ---
+    # Ngưỡng xếp loại tạm thời; thay bằng ngưỡng hiệu chỉnh từ benchmark.
+    scoring_tier_good_min: float = 70.0
+    scoring_tier_potential_min: float = 50.0
+    scoring_max_parallel: int = 2
 
     # --- Service URLs (Java backend) ---
     recruitment_service_url: str = "http://localhost:8083"
@@ -46,6 +60,8 @@ class Settings(BaseSettings):
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
+        # Biến cũ còn sót trong .env (vd S3_ENDPOINT của MinIO) không làm service lỗi khi khởi động.
+        "extra": "ignore",
     }
 
 

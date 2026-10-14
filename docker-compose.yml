@@ -50,28 +50,6 @@ services:
     networks:
       - ats-network
 
-  minio:
-    image: minio/minio:latest
-    container_name: ats-minio
-    restart: unless-stopped
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    command: server /data --console-address ":9001"
-    volumes:
-      - miniodata:/data
-    networks:
-      - ats-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
   # ==========================================
   # 2. JAVA BACKEND MICROSERVICES
   # ==========================================
@@ -284,16 +262,14 @@ services:
       context: ./ai-service
       dockerfile: Dockerfile
     container_name: ats-ai-service
-    ports:
-      - "8088:8088"
+    # Không publish cổng ra host: mọi request phải qua api-gateway (xác thực JWT + gắn X-User-*).
+    expose:
+      - "8088"
     env_file:
       - ./ai-service/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://ats_user:ats_password@postgres:5432/ats_ai
       RABBITMQ_URL: amqp://ats_user:ats_password@rabbitmq:5672/
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
       RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
       APPLICATION_SERVICE_URL: http://application-service:8089
       CANDIDATE_SERVICE_URL: http://candidate-service:8084
@@ -302,8 +278,6 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     networks:
       - ats-network
@@ -365,7 +339,6 @@ services:
 
 volumes:
   pgdata:
-  miniodata:
 
 networks:
   ats-network:

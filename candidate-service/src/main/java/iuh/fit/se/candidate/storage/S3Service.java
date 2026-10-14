@@ -9,14 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 @Service
@@ -48,9 +43,9 @@ public class S3Service {
         String safeFileName = UUID.randomUUID() + "-" + originalFileName.replaceAll("[^a-zA-Z0-9._-]", "_");
         String key = keyPrefix + "/" + safeFileName;
 
-        // Attempt S3 / MinIO upload
+        // CV chỉ lưu trên S3 (ai-service đọc CV từ đây để chấm điểm). Upload lỗi thì báo lỗi,
+        // không lưu tạm ra đĩa cục bộ như trước.
         try {
-            ensureBucketExists();
             s3Client.putObject(
                     PutObjectRequest.builder()
                             .bucket(bucket)
@@ -59,41 +54,17 @@ public class S3Service {
                             .build(),
                     RequestBody.fromInputStream(file.getInputStream(), file.getSize())
             );
-
-            if (publicUrl != null && !publicUrl.isBlank()) {
-                return String.format("%s/%s/%s", publicUrl.replaceAll("/+$", ""), bucket, key);
-            }
-            if (endpoint != null && !endpoint.isBlank()) {
-                return String.format("%s/%s/%s", endpoint.replaceAll("/+$", ""), bucket, key);
-            }
-            return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key);
-
-        } catch (Exception e) {
-            log.warn("Tai file len S3 that bai ({}), tam luu vao dia cuc bo", e.getMessage());
-            return saveLocally(file, safeFileName);
+        } catch (IOException | RuntimeException e) {
+            log.error("Tải file lên S3 thất bại: bucket={} key={}", bucket, key, e);
+            throw new BusinessException("Không tải được file lên kho lưu trữ, vui lòng thử lại");
         }
-    }
 
-    private String saveLocally(MultipartFile file, String fileName) {
-        try {
-            Path uploadDir = Paths.get("uploads");
-            if (!Files.exists(uploadDir)) {
-                Files.createDirectories(uploadDir);
-            }
-            Path filePath = uploadDir.resolve(fileName);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            return "http://localhost:8080/api/candidate/candidates/cv-file/" + fileName;
-        } catch (IOException ioException) {
-            throw new BusinessException("Lưu file cục bộ thất bại: " + ioException.getMessage());
+        if (publicUrl != null && !publicUrl.isBlank()) {
+            return String.format("%s/%s/%s", publicUrl.replaceAll("/+$", ""), bucket, key);
         }
-    }
-
-    private void ensureBucketExists() {
-        try {
-            s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
-        } catch (Exception ignored) {
-            // Bucket already exists or no permission to create
+        if (endpoint != null && !endpoint.isBlank()) {
+            return String.format("%s/%s/%s", endpoint.replaceAll("/+$", ""), bucket, key);
         }
+        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key);
     }
 }

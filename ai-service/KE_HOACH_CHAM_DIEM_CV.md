@@ -120,13 +120,21 @@ Ghi chú phát sinh:
 
 | # | File | Việc | Trạng thái |
 |---|---|---|---|
-| 2.1 | `app/services/scoring/` (mới, **Python thuần** — không import DB/RabbitMQ) | `profile.py`: whitelist trường từ `ExtractedCV`, che tên trong văn bản tự do · `prompt.py`: một tin nhắn gồm JD (title, experienceRequired, description, requirements — **không** benefits), hồ sơ đã lọc, ngày hiện tại, số năm tính được / tự ghi · `engine.py`: `compute_score()`, xếp loại, câu mở đầu nhận xét | ☐ |
-| 2.2 | `app/schemas/scoring.py` (mới) | Đầu ra LLM: 5 × `{dimension, applicable, level 0–4, reason}`, `must_have_unmet[]`, `summary`. Kết quả: `total_score`, `tier`, `dimensions[]` (trọng số gốc / hiệu dụng, điểm), `must_have_unmet`, `comment`, `provenance` | ☐ |
-| 2.3 | `app/models`, SQL | Bảng `ai_scores` (1 dòng/hồ sơ, **không** cột chỉnh điểm): `application_id` unique, `job_posting_id`, `candidate_id`, `cv_extraction_id`, `ai_job_id`, `status` (PENDING/COMPLETED/FAILED), `total_score`, `tier`, `result` JSONB, `provenance` JSONB, `error_message`, thời gian. Ghi log vào `ai_jobs` | ☐ |
-| 2.4 | `app/services/application_scoring.py` (mới) | Luồng 1–7. Bắt **mọi** exception → `FAILED` kèm lý do; `INSERT … ON CONFLICT` + khoá dòng (worker và Chấm lại không đụng nhau); chấm lại thất bại thì xoá điểm cũ, không để "điểm cũ + FAILED" | ☐ |
-| 2.5 | `app/workers/scoring_worker.py` (mới) | Nghe `application.created` (queue `ai.application-created.queue`), giới hạn song song, luôn ack (không có DLQ) | ☐ |
-| 2.6 | `app/api/application_scores.py` (mới) | `GET /scores/{applicationId}` (nội bộ, kiểm tra phạm vi), `POST /scores/{applicationId}/rescore` (HR), `POST /scores/rescore-posting?jobPostingId=` (HR, chấm bù các hồ sơ chưa có điểm/FAILED, chạy nền, trả số hồ sơ đưa vào hàng đợi) | ☐ |
-| 2.7 | `tests/` | Lọc PII (mốc thời gian **không** bị che), `compute_score` (chia lại trọng số, xếp loại, cảnh báo), ghép prompt, luồng worker với LLM giả, xử lý lỗi, xung đột chấm đồng thời | ☐ |
+| 2.1 | `app/services/scoring/` (mới, **Python thuần** — không import DB/RabbitMQ) | `profile.py`: whitelist trường từ `ExtractedCV`, che tên trong văn bản tự do · `prompt.py`: một tin nhắn gồm JD (title, experienceRequired, description, requirements — **không** benefits), hồ sơ đã lọc, ngày hiện tại, số năm tính được / tự ghi · `engine.py`: `compute_score()`, xếp loại, câu mở đầu nhận xét | ☑ |
+| 2.2 | `app/schemas/scoring.py` (mới) | Đầu ra LLM: 5 × `{dimension, applicable, level 0–4, reason}`, `must_have_unmet[]`, `summary`. Kết quả: `total_score`, `tier`, `dimensions[]` (trọng số gốc / hiệu dụng, điểm), `must_have_unmet`, `comment`, `provenance` | ☑ |
+| 2.3 | `app/models`, SQL | Bảng `ai_scores` (1 dòng/hồ sơ, **không** cột chỉnh điểm): `application_id` unique, `job_posting_id`, `candidate_id`, `cv_extraction_id`, `ai_job_id`, `status` (PENDING/COMPLETED/FAILED), `total_score`, `tier`, `result` JSONB, `provenance` JSONB, `error_message`, thời gian. Ghi log vào `ai_jobs` | ☑ |
+| 2.4 | `app/services/application_scoring.py` (mới) | Luồng 1–7. Bắt **mọi** exception → `FAILED` kèm lý do; `INSERT … ON CONFLICT` + khoá dòng (worker và Chấm lại không đụng nhau); chấm lại thất bại thì xoá điểm cũ, không để "điểm cũ + FAILED" | ☑ |
+| 2.5 | `app/workers/scoring_worker.py` (mới) | Nghe `application.created` (queue `ai.application-created.queue`), giới hạn song song, luôn ack (không có DLQ) | ☑ |
+| 2.6 | `app/api/application_scores.py` (mới) | `GET /scores/{applicationId}` (nội bộ, kiểm tra phạm vi), `POST /scores/{applicationId}/rescore` (HR), `POST /scores/rescore-posting?jobPostingId=` (HR, chấm bù các hồ sơ chưa có điểm/FAILED, chạy nền, trả số hồ sơ đưa vào hàng đợi) | ☑ |
+| 2.7 | `tests/` | Lọc PII (mốc thời gian **không** bị che), `compute_score` (chia lại trọng số, xếp loại, cảnh báo), ghép prompt, luồng worker với LLM giả, xử lý lỗi, xung đột chấm đồng thời | ☑ |
+
+**Kết quả Giai đoạn 2:** ai-service 128 test qua (`tests/test_phase2_scoring.py`: chấm mù — không lộ tên/SĐT/ngày sinh/giới tính/link, mốc thời gian không bị che; trọng số chia lại; ngưỡng; bắt buộc chỉ cảnh báo; luồng chấm trên Postgres thật — thành công, lỗi xoá điểm cũ, thiếu CV, tin đóng, trích xuất lỗi, 3 tiến trình đồng thời chỉ 1 chấm, PROCESSING quá hạn được chấm lại; worker; API phân quyền + chấm bù). Chạy thật (CV Java backend vs tin Frontend 5 năm React): 30/100 "Chưa phù hợp", 3 yêu cầu bắt buộc chưa đạt, 2 lần chấm cho mức giống hệt; ~$0,0018 / lần, 2–6 s.
+
+Ghi chú phát sinh:
+- Một hồ sơ chỉ một tiến trình chấm tại một thời điểm (`INSERT … ON CONFLICT … WHERE status <> PROCESSING`); PROCESSING/PENDING quá 10 phút coi là tiến trình chết → chấm lại được.
+- Chấm bù: hồ sơ chưa có điểm, FAILED, hoặc PENDING/PROCESSING quá hạn → đánh dấu PENDING rồi chấm nền (giới hạn `SCORING_MAX_PARALLEL`).
+- Gói `app/services/scoring/` không import DB/RabbitMQ (kiểm tra bằng test import) — dùng nguyên cho benchmark.
+- Postgres local dùng image không có pgvector → bảng `cv_document_chunks` (RAG, chưa dùng) không tạo được; không ảnh hưởng tính năng chấm.
 
 ### Giai đoạn 5 — Benchmark trên Kaggle (`ai-service/benchmark/`)
 

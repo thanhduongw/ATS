@@ -122,6 +122,9 @@ export interface CVExtractionResponse {
   provenance: ExtractionProvenance;
   error_code: string | null;
   error_message: string | null;
+  /** Có khi lấy từ /cv-extractions (kết quả đã lưu). */
+  extraction_id?: number;
+  updated_at?: string | null;
 }
 
 // ============================================================

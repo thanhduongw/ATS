@@ -1,5 +1,5 @@
 """
-CV Extraction Prompt — v1.0
+CV Extraction Prompt — v1.1
 
 System and user prompt templates for LLM-based CV parsing.
 
@@ -10,7 +10,7 @@ Design:
 - Evidence-based confidence: LLM must cite actual text, not generate reasons
 """
 
-PROMPT_VERSION = "v1.0"
+PROMPT_VERSION = "v1.1"  # v1.1: gộp thành một tin nhắn (giống benchmark Kaggle — không có system prompt)
 
 SYSTEM_PROMPT = """You are a professional CV/Resume Parser for an Applicant Tracking System (ATS).
 
@@ -85,14 +85,10 @@ Return the extracted data as JSON conforming to the ExtractedCV schema. Remember
 - Include source_text for work_experience, education, and project entries."""
 
 
-def build_extraction_prompt(cv_text: str) -> tuple[str, str]:
-    """Build the system and user prompts for CV extraction.
+def build_extraction_prompt(cv_text: str) -> str:
+    """Prompt trích xuất CV dạng MỘT tin nhắn: hướng dẫn rồi tới dữ liệu CV.
 
     Args:
         cv_text: Normalized text from Phase 1 extraction.
-
-    Returns:
-        Tuple of (system_prompt, user_prompt).
     """
-    user_prompt = USER_PROMPT_TEMPLATE.format(cv_text=cv_text)
-    return SYSTEM_PROMPT, user_prompt
+    return SYSTEM_PROMPT.strip() + "\n\n" + USER_PROMPT_TEMPLATE.format(cv_text=cv_text)

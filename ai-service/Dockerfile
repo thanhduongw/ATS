@@ -24,9 +24,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Pre-download PaddleOCR models (Vietnamese + English) to avoid runtime download
 # This adds ~500MB to image but ensures fast cold starts
+# Tham số chọn model phải khớp PADDLE_OCR_KWARGS trong app/services/ocr_engine.py
+# (để trước COPY code để layer này được cache, không tải lại model mỗi lần sửa code).
 RUN python -c "\
 from paddleocr import PaddleOCR; \
-PaddleOCR(lang='vi', use_textline_orientation=True); \
+PaddleOCR(lang='vi', use_textline_orientation=True, use_doc_orientation_classify=False, use_doc_unwarping=False, enable_mkldnn=False); \
 print('PaddleOCR vi models downloaded successfully')"
 
 # Copy application code

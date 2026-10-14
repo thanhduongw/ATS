@@ -99,13 +99,22 @@ Thứ tự: **0 → 1 → 2 → 5 (benchmark, lấy ngưỡng) → 3 → 4 → 6
 
 | # | File | Việc | Trạng thái |
 |---|---|---|---|
-| 1.1 | `app/models`, `docker/postgres-init/init-databases.sql` | Bảng `cv_extractions`: `id`, `file_hash` (sha256), `prompt_version` (unique cùng `file_hash`), `candidate_id`, `resume_url`, `status`, `extracted` JSONB, `years_calculated`, `years_claimed`, `model`, `provenance` JSONB, `error_message`, `created_at`, `updated_at` | ☐ |
-| 1.2 | `app/services/prompts/cv_extraction.py` | Dạng một tin nhắn; `PROMPT_VERSION = "v1.1"` | ☐ |
-| 1.3 | `app/services/cv_extraction_engine.py` | `_parse_date` bổ sung: "hiện nay", "đến nay", "to present", "12.2020", "2020.12"…; hàm `get_or_extract(cv_bytes, …)` dùng lại theo hash | ☐ |
-| 1.4 | `app/api/cv_extraction.py` | `GET /cv-extractions?applicationId=` (kiểm tra quyền qua application-service), `POST /cv-extractions/re-extract?applicationId=` (HR). **Bỏ tải URL tuỳ ý** (SSRF) | ☐ |
-| 1.5 | Frontend `CandidateApplicationDetailPage.tsx`, `features/ai/aiApi.ts` | Đọc kết quả trích xuất qua API mới; xoá `features/ai/cvCacheService.ts` | ☐ |
-| 1.6 | `tests/` | Test `_parse_date`, `calculate_years_of_experience`, `get_or_extract` (LLM giả, DB giả) | ☐ |
-| 1.7 | `app/services/ocr_engine.py` | Sửa theo API PaddleOCR 3.x (`use_gpu` không còn → `ValueError`; dùng `predict()`, đọc `rec_texts`/`rec_scores`) để CV scan đọc được | ☐ |
+| 1.1 | `app/models`, `docker/postgres-init/init-databases.sql` | Bảng `cv_extractions`: `id`, `file_hash` (sha256), `prompt_version` (unique cùng `file_hash`), `candidate_id`, `resume_url`, `status`, `extracted` JSONB, `years_calculated`, `years_claimed`, `model`, `provenance` JSONB, `error_message`, `created_at`, `updated_at` | ☑ |
+| 1.2 | `app/services/prompts/cv_extraction.py` | Dạng một tin nhắn; `PROMPT_VERSION = "v1.1"` | ☑ |
+| 1.3 | `app/services/cv_extraction_engine.py` | `_parse_date` bổ sung: "hiện nay", "đến nay", "to present", "12.2020", "2020.12"…; hàm `get_or_extract(cv_bytes, …)` dùng lại theo hash | ☑ |
+| 1.4 | `app/api/cv_extraction.py` | `GET /cv-extractions?applicationId=` (kiểm tra quyền qua application-service), `POST /cv-extractions/re-extract?applicationId=` (HR). **Bỏ tải URL tuỳ ý** (SSRF) | ☑ |
+| 1.5 | Frontend `CandidateApplicationDetailPage.tsx`, `features/ai/aiApi.ts` | Đọc kết quả trích xuất qua API mới; xoá `features/ai/cvCacheService.ts` | ☑ |
+| 1.6 | `tests/` | Test `_parse_date`, `calculate_years_of_experience`, `get_or_extract` (LLM giả, DB giả) | ☑ |
+| 1.7 | `app/services/ocr_engine.py` | Sửa theo API PaddleOCR 3.x (`use_gpu` không còn → `ValueError`; dùng `predict()`, đọc `rec_texts`/`rec_scores`) để CV scan đọc được | ☑ |
+
+**Kết quả Giai đoạn 1:** ai-service 102 test qua (`tests/test_phase1_extraction.py`: định dạng ngày, số năm, lưu trữ trên Postgres thật — DB riêng `ats_ai_test`, chạy đồng thời, lỗi LLM → FAILED rồi thử lại, API phân quyền); frontend `tsc` sạch. Chạy thật: CV trên S3 → PyMuPDF → `gemini-3.5-flash-lite` 14,3 s, ~$0,005; lần 2 lấy từ DB 0,01 s. OCR chạy thật được (ảnh PNG + PDF scan, độ tin cậy 0,99).
+
+Ghi chú phát sinh:
+- Số năm / ngày tháng tách ra `app/services/experience.py` (Python thuần, nhận `today` — chấm điểm tính lại theo ngày chấm).
+- Bỏ endpoint `POST /extract-cv` (storage key); `GET /cv-extractions` lấy CV từ `resumeUrl` của hồ sơ, client không truyền URL.
+- "Thử lại" (mọi nhân sự nội bộ) = GET — lần trước FAILED thì tự trích xuất lại; "Phân tích lại" (force) chỉ HR.
+- **OCR tiếng Việt mất chữ dấu chồng** (ệ, ậ, ố…): từ điển ký tự của model PaddleOCR 3.x không có dải U+1EA0–U+1EF9 — giới hạn của model, chỉ ảnh hưởng CV scan/ảnh. Cần quyết định có thay OCR (vd gửi ảnh cho Gemini đọc) hay chấp nhận.
+- **Postgres local chưa có database `ats_ai`** (volume tạo trước khi init SQL có dòng `CREATE DATABASE ats_ai`) → ai-service không kết nối được DB. Cần tạo DB (`CREATE DATABASE ats_ai;`) hoặc tạo lại volume.
 
 ### Giai đoạn 2 — Chấm điểm
 

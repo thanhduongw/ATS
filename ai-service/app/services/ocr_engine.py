@@ -1,6 +1,10 @@
 """
-OCR engine using PaddleOCR PP-OCRv4.
+OCR engine using PaddleOCR 3.x (pipeline OCR, lang="vi").
 Supports Vietnamese + English text recognition from PDF pages and images.
+
+Giới hạn đã biết: từ điển ký tự của model PaddleOCR 3.x (PP-OCRv6_medium_rec, latin_PP-OCRv5)
+KHÔNG có các chữ tiếng Việt dấu chồng (U+1EA0–U+1EF9: ệ, ậ, ố, ữ...), nên OCR bỏ mất các chữ đó
+("Kinh nghiệm" → "Kinh nghim"). Chỉ ảnh hưởng CV scan / ảnh; PDF có lớp chữ không đi qua OCR.
 
 PaddleOCR is initialized lazily (singleton) to avoid loading ~500MB models
 on every request. OCR calls are CPU-bound and run in thread pool executor.
@@ -38,6 +42,18 @@ class OcrResult:
     method: str = "paddleocr"
 
 
+# Dùng chung với Dockerfile (tải sẵn đúng các model này lúc build image).
+PADDLE_OCR_KWARGS = {
+    "lang": "vi",
+    "use_textline_orientation": True,
+    # CV là ảnh chụp/scan thẳng — bỏ 2 model chỉnh hướng tài liệu cho nhẹ và nhanh.
+    "use_doc_orientation_classify": False,
+    "use_doc_unwarping": False,
+    # oneDNN của Paddle 3.x lỗi "ConvertPirAttribute2RuntimeAttribute not support" trên CPU.
+    "enable_mkldnn": False,
+}
+
+
 @lru_cache(maxsize=1)
 def _get_paddle_ocr():
     """Lazy singleton for PaddleOCR instance.
@@ -47,12 +63,8 @@ def _get_paddle_ocr():
     """
     from paddleocr import PaddleOCR
 
-    logger.info("Initializing PaddleOCR (PP-OCRv4, lang=vi)...")
-    ocr = PaddleOCR(
-        lang="vi",
-        use_textline_orientation=True,
-        use_gpu=False,
-    )
+    logger.info("Initializing PaddleOCR (lang=vi)...")
+    ocr = PaddleOCR(**PADDLE_OCR_KWARGS)
     logger.info("PaddleOCR initialized successfully.")
     return ocr
 
@@ -110,22 +122,19 @@ def _run_ocr_on_image(img: np.ndarray, preprocess: bool = True) -> OcrPageResult
     else:
         processed = img
 
-    # PaddleOCR returns: list[list[line]], where each line = [bbox, (text, conf)]
-    result = ocr.ocr(processed)
+    # PaddleOCR 3.x: predict() trả list OCRResult (dạng dict) — mỗi ảnh một phần tử,
+    # dòng chữ trong "rec_texts", độ tin cậy trong "rec_scores".
+    results = ocr.predict(processed)
 
     lines: list[str] = []
     confidences: list[float] = []
 
-    if result and result[0]:
-        for line in result[0]:
-            if line and len(line) >= 2:
-                text_conf = line[1]  # (text, confidence)
-                text = text_conf[0].strip()
-                conf = float(text_conf[1])
-
-                if text:
-                    lines.append(text)
-                    confidences.append(conf)
+    for res in results or []:
+        for text, conf in zip(res["rec_texts"], res["rec_scores"]):
+            text = (text or "").strip()
+            if text:
+                lines.append(text)
+                confidences.append(float(conf))
 
     page_text = "\n".join(lines)
     mean_conf = sum(confidences) / len(confidences) if confidences else 0.0
@@ -160,11 +169,7 @@ def ocr_from_pdf(file_bytes: bytes) -> OcrResult:
         mat = fitz.Matrix(300 / 72, 300 / 72)  # 72 DPI → 300 DPI
         pix = page.get_pixmap(matrix=mat)
 
-        # Convert to numpy array
-        img_data = pix.tobytes("ppm")
-        img_array = np.frombuffer(img_data, dtype=np.uint8)
-
-        # Decode PPM to numpy via OpenCV
+        # Pixel buffer → numpy (H, W, n)
         nparr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
             pix.height, pix.width, pix.n
         )

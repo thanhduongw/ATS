@@ -5,7 +5,7 @@ SQLAlchemy ORM models for AI Service tables.
 from datetime import datetime
 from sqlalchemy import (
     BigInteger, Boolean, Column, DateTime, Integer, Numeric,
-    String, Text, ForeignKey,
+    String, Text, ForeignKey, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
@@ -83,3 +83,31 @@ class AIFeedback(Base):
     corrected_score = Column(Numeric(5, 2))
     comment = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CVExtraction(Base):
+    """Kết quả trích xuất CV theo schema ExtractedCV — một dòng cho mỗi (file CV, phiên bản prompt).
+
+    Khoá theo sha256 nội dung file nên cùng một CV nộp vào nhiều tin chỉ gọi LLM một lần.
+    `result` lưu CVExtractionResult; số năm "đến nay" trong đó tính theo ngày trích xuất —
+    bước chấm điểm tính lại theo ngày chấm.
+    """
+
+    __tablename__ = "cv_extractions"
+    __table_args__ = (UniqueConstraint("file_hash", "prompt_version", name="uq_cv_extractions_file_prompt"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    file_hash = Column(String(64), nullable=False)
+    prompt_version = Column(String(20), nullable=False)
+    resume_url = Column(Text, index=True)
+    candidate_id = Column(BigInteger)
+    status = Column(String(20), nullable=False)
+    # COMPLETED | FAILED
+    model = Column(String(100))
+    result = Column(JSONB)          # CVExtractionResult
+    provenance = Column(JSONB)      # ExtractionProvenance
+    text_metadata = Column(JSONB)   # ExtractionMetadata của bước đọc file (OCR, injection...)
+    error_code = Column(String(50))
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

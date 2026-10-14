@@ -268,20 +268,6 @@ class CVExtractionResult(BaseModel):
 # API Request / Response
 # ============================================================
 
-class CVExtractionRequest(BaseModel):
-    """Request to extract structured data from a CV."""
-
-    storage_key: str = Field(
-        ...,
-        description=(
-            "S3 object key or S3 URL of the CV file, "
-            "e.g. 'candidates/123/cv.pdf'. "
-            "Only the configured bucket is accepted."
-        ),
-        examples=["candidates/123/cv.pdf"],
-    )
-
-
 class ExtractionProvenance(BaseModel):
     """Metadata about how the extraction was performed."""
     model_used: str = Field(..., description="LLM model that produced the extraction")

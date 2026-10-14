@@ -27,17 +27,21 @@ export const extractCvFromUpload = (file: File) => {
 };
 
 /**
- * Extract CV from a file already stored in AWS S3 (production path).
- *
- * Sends the resumeUrl as-is; ai-service resolves it to an object key and only
- * accepts the configured bucket — no file re-upload needed.
+ * Kết quả trích xuất CV của một hồ sơ ứng tuyển (lưu ở ai-service, dùng chung cho mọi người xem).
+ * Chưa có thì ai-service trích xuất ngay (10–60 giây) — timeout dài.
  */
-export const extractCvFromUrl = (resumeUrl: string) =>
-  axiosClient.post<CVExtractionResponse>(
-    "/v1/ai/extract-cv",
-    { storage_key: resumeUrl },
-    { timeout: 120_000 },
-  );
+export const getCvExtraction = (applicationId: number) =>
+  axiosClient.get<CVExtractionResponse>("/v1/ai/cv-extractions", {
+    params: { applicationId },
+    timeout: 120_000,
+  });
+
+/** Trích xuất lại CV, bỏ qua kết quả đã lưu (chỉ Admin / Recruiter). */
+export const reExtractCv = (applicationId: number) =>
+  axiosClient.post<CVExtractionResponse>("/v1/ai/cv-extractions/re-extract", null, {
+    params: { applicationId },
+    timeout: 120_000,
+  });
 
 /**
  * Generate JD + benchmark criteria from basic input.

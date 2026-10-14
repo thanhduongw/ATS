@@ -163,3 +163,25 @@ CREATE TABLE IF NOT EXISTS ai_feedback (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ai_feedback_application ON ai_feedback (application_id);
+
+-- 4. CV Extractions — kết quả trích xuất CV theo schema ExtractedCV (ai-service cũng tự tạo nếu thiếu)
+--    Một dòng cho mỗi (file CV, phiên bản prompt): CV nộp vào nhiều tin chỉ trích xuất một lần.
+CREATE TABLE IF NOT EXISTS cv_extractions (
+    id BIGSERIAL PRIMARY KEY,
+    file_hash VARCHAR(64) NOT NULL,
+    prompt_version VARCHAR(20) NOT NULL,
+    resume_url TEXT,
+    candidate_id BIGINT,
+    status VARCHAR(20) NOT NULL,
+    model VARCHAR(100),
+    result JSONB,
+    provenance JSONB,
+    text_metadata JSONB,
+    error_code VARCHAR(50),
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_cv_extractions_file_prompt UNIQUE (file_hash, prompt_version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cv_extractions_resume_url ON cv_extractions (resume_url);

@@ -35,8 +35,7 @@ import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
 import CvParseResultPanel from "../../ai/components/CvParseResultPanel";
 import type { CVExtractionResult, ExtractionProvenance, CVExtractionResponse } from "../../ai/types";
-import { extractCvFromUrl } from "../../ai/aiApi";
-import { getCachedExtraction, setCachedExtraction, clearCachedExtraction } from "../../ai/cvCacheService";
+import { getCvExtraction, reExtractCv } from "../../ai/aiApi";
 
 interface ActivityItem {
     kind: "history" | "comment";
@@ -228,89 +227,54 @@ export default function CandidateApplicationDetailPage() {
 
     useEffect(() => { loadAll(); }, [loadAll]);
 
-    /**
-     * Auto-extract CV when application is loaded and has a resumeUrl.
-     * Checks cache first — only calls AI API if cache miss.
-     */
-    useEffect(() => {
-        if (!application?.resumeUrl || aiExtractTriggered.current) return;
-        aiExtractTriggered.current = true;
-
-        const resumeUrl = application.resumeUrl;
-
-        // 1. Check cache
-        const cached = getCachedExtraction(applicationId, resumeUrl);
-        if (cached) {
-            setAiResult(cached.result);
-            setAiProvenance(cached.provenance);
-            return;
+    /** Đổi lỗi gọi API trích xuất thành câu báo cho người dùng. */
+    const extractionErrorText = (err: unknown): string => {
+        const axiosErr = err as AxiosError<{ message?: string; error_message?: string; detail?: string }>;
+        if (axiosErr.code === "ECONNABORTED" || axiosErr.message?.includes("timeout")) {
+            return "Quá thời gian xử lý (>2 phút). AI-service có thể đang quá tải.";
         }
+        if (axiosErr.response) {
+            const data = axiosErr.response.data;
+            return data?.detail ?? data?.error_message ?? data?.message ?? `Lỗi server (HTTP ${axiosErr.response.status}).`;
+        }
+        return "Không thể kết nối đến server AI.";
+    };
 
-        // 2. Cache miss → call AI API in background
-        setAiLoading(true);
-        setAiError(null);
-        extractCvFromUrl(resumeUrl)
-            .then((res) => {
-                const data: CVExtractionResponse = res.data;
-                if (data.status === "error" || !data.result) {
-                    setAiError(data.error_message ?? "Không thể phân tích CV. Vui lòng thử lại.");
-                    return;
-                }
-                setAiResult(data.result);
-                setAiProvenance(data.provenance);
-                // Save to cache
-                setCachedExtraction(applicationId, {
-                    resumeUrl,
-                    result: data.result,
-                    provenance: data.provenance,
-                    cachedAt: Date.now(),
-                });
-            })
-            .catch((err) => {
-                const axiosErr = err as AxiosError<{ message?: string; error_message?: string; detail?: string }>;
-                if (axiosErr.code === "ECONNABORTED" || axiosErr.message?.includes("timeout")) {
-                    setAiError("Quá thời gian xử lý (>2 phút). AI-service có thể đang quá tải.");
-                } else if (axiosErr.response) {
-                    const data = axiosErr.response.data;
-                    setAiError(data?.error_message ?? data?.message ?? data?.detail ?? `Lỗi server (HTTP ${axiosErr.response.status}).`);
-                } else {
-                    setAiError("Không thể kết nối đến server AI.");
-                }
-            })
-            .finally(() => setAiLoading(false));
-    }, [application, applicationId]);
-
-    /** Re-extract: clear cache and call AI again */
-    const handleReExtract = useCallback(async () => {
-        if (!application?.resumeUrl) return;
-        clearCachedExtraction(applicationId);
-        setAiResult(null);
-        setAiProvenance(null);
+    /**
+     * Lấy kết quả trích xuất CV đã lưu ở ai-service (chưa có thì ai-service trích xuất ngay).
+     * `force` = trích xuất lại (chỉ HR).
+     */
+    const loadExtraction = useCallback(async (force: boolean) => {
         setAiLoading(true);
         setAiError(null);
         try {
-            const res = await extractCvFromUrl(application.resumeUrl);
+            const res = force ? await reExtractCv(applicationId) : await getCvExtraction(applicationId);
             const data: CVExtractionResponse = res.data;
             if (data.status === "error" || !data.result) {
-                setAiError(data.error_message ?? "Không thể phân tích CV.");
+                setAiResult(null);
+                setAiProvenance(null);
+                setAiError(data.error_message ?? "Không thể phân tích CV. Vui lòng thử lại.");
                 return;
             }
             setAiResult(data.result);
             setAiProvenance(data.provenance);
-            setCachedExtraction(applicationId, {
-                resumeUrl: application.resumeUrl,
-                result: data.result,
-                provenance: data.provenance,
-                cachedAt: Date.now(),
-            });
-            message.success("Đã phân tích lại CV thành công");
+            if (force) message.success("Đã phân tích lại CV thành công");
         } catch (err) {
-            const axiosErr = err as AxiosError<{ message?: string; error_message?: string; detail?: string }>;
-            setAiError(axiosErr.response?.data?.error_message ?? "Phân tích lại thất bại.");
+            setAiError(extractionErrorText(err));
         } finally {
             setAiLoading(false);
         }
-    }, [application, applicationId, message]);
+    }, [applicationId, message]);
+
+    useEffect(() => {
+        if (!application?.resumeUrl || aiExtractTriggered.current) return;
+        aiExtractTriggered.current = true;
+        loadExtraction(false);
+    }, [application, loadExtraction]);
+
+    /** Thử lại sau lỗi: lần trước thất bại thì ai-service tự trích xuất lại. */
+    const handleRetryExtract = useCallback(() => loadExtraction(false), [loadExtraction]);
+    const handleReExtract = useCallback(() => loadExtraction(true), [loadExtraction]);
 
     /** Ngày hồ sơ bước vào từng vòng — lấy lần chuyển vào vòng đó sớm nhất. */
     const stageDates = useMemo(() => {
@@ -700,7 +664,7 @@ export default function CandidateApplicationDetailPage() {
                             description={aiError}
                             style={{ borderRadius: 10, marginBottom: 12 }}
                         />
-                        <Button icon={<ReloadOutlined />} onClick={handleReExtract} block>
+                        <Button icon={<ReloadOutlined />} onClick={handleRetryExtract} block>
                             Thử lại
                         </Button>
                     </div>
@@ -711,7 +675,9 @@ export default function CandidateApplicationDetailPage() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI Trích Xuất CV</Tag>
-                            <Button size="small" icon={<RobotOutlined />} onClick={handleReExtract} loading={aiLoading}>Phân tích lại</Button>
+                            {isHr && (
+                                <Button size="small" icon={<RobotOutlined />} onClick={handleReExtract} loading={aiLoading}>Phân tích lại</Button>
+                            )}
                         </div>
                         <div
                             className="ai-result-scroll"

@@ -33,6 +33,16 @@ async def lifespan(app: FastAPI):
     logger.info("Starting %s v%s", settings.app_name, settings.app_version)
 
     # --- Startup ---
+    # Bảng mới của ai-service: tạo nếu chưa có. init-databases.sql chỉ chạy khi volume Postgres
+    # còn trống, nên DB đã tồn tại sẽ không có các bảng thêm sau.
+    try:
+        from app.core.database import Base, engine
+        from app.models import CVExtraction
+        async with engine.begin() as conn:
+            await conn.run_sync(lambda c: Base.metadata.create_all(c, tables=[CVExtraction.__table__]))
+    except Exception as e:
+        logger.warning("Không tạo được bảng cv_extractions: %s", e)
+
     try:
         await rabbitmq_manager.connect()
         logger.info("RabbitMQ connected successfully.")

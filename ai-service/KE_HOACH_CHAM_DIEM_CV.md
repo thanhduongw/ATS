@@ -140,15 +140,19 @@ Ghi chú phát sinh:
 
 | # | Bước | Chạy ở | Nội dung | Trạng thái |
 |---|---|---|---|---|
-| 5.1 | `prepare_data.py` | Local | Tải HF, lấy mẫu phân tầng test 150 / calib 60, loại CV trùng; đóng gói `app/services/scoring` + `cv_extraction` + dữ liệu thành Kaggle Dataset | ☐ |
-| 5.2 | `kaggle/01_translate.ipynb` | Kaggle | Dịch văn bản duy nhất EN→VI bằng `gemini-2.5-flash`; chạy tiếp được; kiểm tra tỉ lệ độ dài, thuật ngữ, con số | ☐ |
-| 5.3 | `kaggle/02_score.ipynb` | Kaggle | Mỗi model × ngôn ngữ: trích xuất → Python → chấm (đúng code ai-service, provider `kbench`); model `gemini-3.5-flash-lite`, `qwen3-235b-a22b-instruct-2507`; `on_failure="continue"`; lưu JSONL thô | ☐ |
-| 5.4 | `kaggle/03_stability.ipynb` | Kaggle | 50 cặp × thêm 2 lần chấm (flash-lite) | ☐ |
-| 5.5 | `baselines.py` | Local | Ngẫu nhiên, đếm từ khoá, TF-IDF | ☐ |
-| 5.6 | `evaluate.py` | Local | Ngưỡng trên calib (macro-F1); trên test: accuracy, macro-F1, P/R/F1 từng nhãn, ma trận nhầm lẫn, QWK, bootstrap CI 95%; McNemar (AI vs TF-IDF, EN vs VI, Gemini vs Qwen); độ ổn định; tỉ lệ lỗi trích xuất; chi phí, độ trễ | ☐ |
-| 5.7 | `report.py` | Local | Báo cáo HTML + biểu đồ; **ghi ngưỡng hiệu chỉnh vào config** | ☐ |
+| 5.1 | `prepare_data.py` | Local | Tải HF, lấy mẫu phân tầng test 150 / calib 60, loại CV trùng; đóng gói `app/services/scoring` + `cv_extraction` + dữ liệu thành Kaggle Dataset | ☑ |
+| 5.2 | `kaggle/01_translate.ipynb` | Kaggle | Dịch văn bản duy nhất EN→VI bằng `gemini-2.5-flash`; chạy tiếp được; kiểm tra tỉ lệ độ dài, thuật ngữ, con số | ⏳ notebook xong, chờ chạy trên Kaggle |
+| 5.3 | `kaggle/02_score.ipynb` | Kaggle | Mỗi model × ngôn ngữ: trích xuất → Python → chấm (đúng code ai-service, provider `kbench`); model `gemini-3.5-flash-lite`, `qwen3-235b-a22b-instruct-2507`; `on_failure="continue"`; lưu JSONL thô | ⏳ notebook xong, chờ chạy trên Kaggle |
+| 5.4 | `kaggle/02_score.ipynb` (ô STABILITY) | Kaggle | 50 cặp test × thêm 2 lần chấm (flash-lite, tiếng Việt) | ⏳ notebook xong, chờ chạy trên Kaggle |
+| 5.5 | `baselines.py` | Local | Ngẫu nhiên, đếm từ khoá, TF-IDF | ☑ |
+| 5.6 | `evaluate.py` | Local | Ngưỡng trên calib (macro-F1); trên test: accuracy, macro-F1, P/R/F1 từng nhãn, ma trận nhầm lẫn, QWK, bootstrap CI 95%; McNemar (AI vs TF-IDF, EN vs VI, Gemini vs Qwen); độ ổn định; tỉ lệ lỗi trích xuất; chi phí, độ trễ | ☑ |
+| 5.7 | `report.py` | Local | Báo cáo HTML + biểu đồ; **ghi ngưỡng hiệu chỉnh vào config** | ◐ report xong; ghi ngưỡng vào config sau khi có kết quả |
 
-Quota ước tính: ~420 trích xuất + ~840 chấm (2 model) + ~100 ổn định + <420 dịch ≈ **1.800 lời gọi** — vài USD với Gemini; giá Qwen đo ở lượt đầu, chia lượt theo ngày nếu cần.
+**Tiến độ Giai đoạn 5 (code):** dữ liệu 210 cặp (test 150 + calib 60; calib loại 2.414 cặp train trùng CV/JD với test) — 177 CV + 104 JD duy nhất, ~1,33 triệu ký tự; gói Kaggle `benchmark/build/ats-cv-scoring-benchmark.zip` (dữ liệu + đúng code ai-service + runner). Runner dịch / chấm chạy tiếp được sau khi hết quota (đọc output lần trước làm input). Đã chạy thử 2 notebook trên máy với `kaggle_benchmarks` giả lập + chuỗi runner → evaluate → report trên 210 cặp (`tests/test_benchmark.py`, 11 test). Baseline tiếng Anh (test 150): TF-IDF macro-F1 0,338, ngẫu nhiên 0,289, từ khoá 0,275 — bài toán khó, baseline gần mức đoán.
+
+Ước tính thực tế: 281 lời gọi dịch + ~708 trích xuất (177 CV × 2 model × 2 ngôn ngữ) + 840 chấm + 100 chấm lặp ≈ 1.930 lời gọi.
+
+Quota ước tính (ban đầu): ~420 trích xuất + ~840 chấm (2 model) + ~100 ổn định + <420 dịch ≈ **1.800 lời gọi** — vài USD với Gemini; giá Qwen đo ở lượt đầu, chia lượt theo ngày nếu cần.
 
 ### Giai đoạn 3 — application-service (sắp xếp / lọc phía server)
 

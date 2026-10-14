@@ -1,0 +1,38 @@
+<!doctype html><html lang=vi><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1"><title>Benchmark chấm điểm CV</title>
+<style>
+:root{--bg:#f7f7f5;--fg:#1d1d1b;--muted:#6b6b66;--card:#fff;--line:#e3e2dd;--accent:#4f46e5;--diag:#e0e7ff}
+@media (prefers-color-scheme:dark){:root{--bg:#151514;--fg:#ececea;--muted:#a3a29c;--card:#1f1f1d;--line:#34332f;--accent:#a5b4fc;--diag:#2e3366}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1080px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:26px;margin:0 0 4px} h2{font-size:19px;margin:36px 0 12px} h3{font-size:15px;margin:0 0 8px}
+.muted{color:var(--muted);font-size:13px} small{display:block;color:var(--muted);font-size:11.5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin:12px 0;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px} th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:600} .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cell{position:relative;min-width:90px} .bar{position:absolute;inset:0 auto 0 0;background:var(--diag);border-radius:3px;z-index:0}
+.cell b{position:relative;z-index:1} .diag{background:var(--diag);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px} .cm{max-width:420px}
+.kpi{display:flex;gap:24px;flex-wrap:wrap} .kpi div b{display:block;font-size:22px;color:var(--accent)}
+</style></head><body><main>
+<h1>Benchmark chấm điểm CV</h1>
+<p class=muted>Bộ dữ liệu cnamuangtoun/resume-job-description-fit · test 150 cặp, calib 60 cặp (chia đều 3 nhãn) ·
+sinh lúc 15/10/2026 00:07</p>
+
+<div class=card><div class=kpi>
+<div><span class=muted>Ngưỡng đang dùng</span><b>50 / 70</b></div>
+<div><span class=muted>Ngưỡng đề xuất (Gemini, tiếng Việt, calib)</span><b>—</b></div>
+</div><p class=muted>Ngưỡng = điểm tối thiểu để xếp "Tiềm năng" / "Phù hợp tốt", chọn trên tập calib để tối đa macro-F1; mọi chỉ số bên dưới tính trên tập test.</p></div>
+
+<h2>Kết quả trên tập test</h2><div class=card><table><thead><tr><th>Cấu hình</th><th>Test có kết quả</th><th>Accuracy<small>CI 95%</small></th><th>Macro-F1<small>CI 95%</small></th><th>QWK</th><th>Spearman</th><th>Ngưỡng (calib)</th><th>Macro-F1 ngưỡng 50/70</th></tr></thead><tbody><tr><td>TF-IDF cosine · Tiếng Anh</td><td class=num>150/150</td><td class=num>34.0%<small>26.7%–42.0%</small></td><td class=num><div class=cell><span class=bar style='width:34%'></span><b>33.8%</b></div><small>26.3%–41.2%</small></td><td class=num>0.059</td><td class=num>0.099</td><td class=num>1.83 / 2.65</td><td class=num>—</td></tr><tr><td>Ngẫu nhiên · Tiếng Anh</td><td class=num>150/150</td><td class=num>32.7%<small>25.3%–40.0%</small></td><td class=num><div class=cell><span class=bar style='width:29%'></span><b>28.9%</b></div><small>21.9%–35.9%</small></td><td class=num>0.018</td><td class=num>0.013</td><td class=num>21.88 / 39.34</td><td class=num>—</td></tr><tr><td>Đếm từ khoá · Tiếng Anh</td><td class=num>150/150</td><td class=num>28.7%<small>21.3%–35.3%</small></td><td class=num><div class=cell><span class=bar style='width:28%'></span><b>27.5%</b></div><small>20.6%–34.2%</small></td><td class=num>-0.081</td><td class=num>-0.082</td><td class=num>13.66 / 16.73</td><td class=num>—</td></tr></tbody></table>
+<p class=muted>Macro-F1 = trung bình F1 của 3 nhãn (chỉ số chính, không thiên về nhãn nhiều). QWK = độ đồng thuận có tính thứ tự (0 = ngẫu nhiên, 1 = hoàn hảo).
+CI 95% từ bootstrap 1000 lần.</p></div>
+
+<h2>Ma trận nhầm lẫn (AI, ngưỡng hiệu chỉnh)</h2><div class=grid><p class=muted>Chưa có kết quả AI.</p></div>
+
+<h2>So sánh cặp</h2><div class=card><p class=muted>Chưa đủ kết quả để so sánh.</p></div>
+
+<h2>Độ ổn định (Gemini, tiếng Việt — chấm lặp cùng input)</h2><div class=card><p class=muted>Chưa có lượt chấm lặp.</p></div>
+
+<h2>Trích xuất CV</h2><div class=card><p class=muted>Chưa có kết quả trích xuất.</p></div>
+</main></body></html>

@@ -33,7 +33,8 @@ class JobInfo:
         )
 
     def as_text(self) -> str:
-        parts = [f"Vị trí: {self.title}"]
+        # Tiêu đề có thể trống (JD của bộ dữ liệu benchmark chỉ có một khối văn bản).
+        parts = [f"Vị trí: {self.title}"] if self.title else []
         if self.experience_required:
             parts.append(f"Kinh nghiệm yêu cầu: {self.experience_required}")
         if self.description:

@@ -1,0 +1,232 @@
+{
+ "pairs": {
+  "calib": 60,
+  "test": 150
+ },
+ "product_thresholds_current": {
+  "potential_min": 50.0,
+  "good_min": 70.0
+ },
+ "product_thresholds_recommended": null,
+ "results": {
+  "keyword/en": {
+   "coverage": {
+    "calib": {
+     "ok": 60,
+     "attempted": 60,
+     "total": 60
+    },
+    "test": {
+     "ok": 150,
+     "attempted": 150,
+     "total": 150
+    }
+   },
+   "thresholds": {
+    "potential_min": 13.66,
+    "good_min": 16.73
+   },
+   "test": {
+    "n": 150,
+    "accuracy": 0.2866666666666667,
+    "macro_f1": 0.275271215300267,
+    "qwk": -0.08144796380090491,
+    "spearman": -0.08193323744374224,
+    "per_label": {
+     "No Fit": {
+      "precision": 0.2653061224489796,
+      "recall": 0.26,
+      "f1": 0.2626262626262626,
+      "support": 50
+     },
+     "Potential Fit": {
+      "precision": 0.27586206896551724,
+      "recall": 0.16,
+      "f1": 0.20253164556962025,
+      "support": 50
+     },
+     "Good Fit": {
+      "precision": 0.3055555555555556,
+      "recall": 0.44,
+      "f1": 0.36065573770491804,
+      "support": 50
+     }
+    },
+    "confusion": [
+     [
+      13,
+      10,
+      27
+     ],
+     [
+      19,
+      8,
+      23
+     ],
+     [
+      17,
+      11,
+      22
+     ]
+    ],
+    "ci95": {
+     "accuracy": [
+      0.21333333333333335,
+      0.35333333333333333
+     ],
+     "macro_f1": [
+      0.20573496524284413,
+      0.3415414471145543
+     ]
+    }
+   }
+  },
+  "random/en": {
+   "coverage": {
+    "calib": {
+     "ok": 60,
+     "attempted": 60,
+     "total": 60
+    },
+    "test": {
+     "ok": 150,
+     "attempted": 150,
+     "total": 150
+    }
+   },
+   "thresholds": {
+    "potential_min": 21.88,
+    "good_min": 39.34
+   },
+   "test": {
+    "n": 150,
+    "accuracy": 0.32666666666666666,
+    "macro_f1": 0.2890740740740741,
+    "qwk": 0.01777777777777778,
+    "spearman": 0.013293926544372902,
+    "per_label": {
+     "No Fit": {
+      "precision": 0.2903225806451613,
+      "recall": 0.18,
+      "f1": 0.22222222222222224,
+      "support": 50
+     },
+     "Potential Fit": {
+      "precision": 0.28,
+      "recall": 0.14,
+      "f1": 0.18666666666666668,
+      "support": 50
+     },
+     "Good Fit": {
+      "precision": 0.35106382978723405,
+      "recall": 0.66,
+      "f1": 0.45833333333333337,
+      "support": 50
+     }
+    },
+    "confusion": [
+     [
+      9,
+      9,
+      32
+     ],
+     [
+      14,
+      7,
+      29
+     ],
+     [
+      8,
+      9,
+      33
+     ]
+    ],
+    "ci95": {
+     "accuracy": [
+      0.25333333333333335,
+      0.4
+     ],
+     "macro_f1": [
+      0.21942872988459264,
+      0.3586366571679672
+     ]
+    }
+   }
+  },
+  "tfidf/en": {
+   "coverage": {
+    "calib": {
+     "ok": 60,
+     "attempted": 60,
+     "total": 60
+    },
+    "test": {
+     "ok": 150,
+     "attempted": 150,
+     "total": 150
+    }
+   },
+   "thresholds": {
+    "potential_min": 1.83,
+    "good_min": 2.65
+   },
+   "test": {
+    "n": 150,
+    "accuracy": 0.34,
+    "macro_f1": 0.338332144748074,
+    "qwk": 0.05882352941176472,
+    "spearman": 0.09862264741900134,
+    "per_label": {
+     "No Fit": {
+      "precision": 0.3333333333333333,
+      "recall": 0.42,
+      "f1": 0.3716814159292035,
+      "support": 50
+     },
+     "Potential Fit": {
+      "precision": 0.30434782608695654,
+      "recall": 0.28,
+      "f1": 0.2916666666666667,
+      "support": 50
+     },
+     "Good Fit": {
+      "precision": 0.3902439024390244,
+      "recall": 0.32,
+      "f1": 0.35164835164835173,
+      "support": 50
+     }
+    },
+    "confusion": [
+     [
+      21,
+      15,
+      14
+     ],
+     [
+      25,
+      14,
+      11
+     ],
+     [
+      17,
+      17,
+      16
+     ]
+    ],
+    "ci95": {
+     "accuracy": [
+      0.26666666666666666,
+      0.42
+     ],
+     "macro_f1": [
+      0.2631912677241923,
+      0.4123661725479908
+     ]
+    }
+   }
+  }
+ },
+ "comparisons": [],
+ "stability": null,
+ "extraction": {}
+}

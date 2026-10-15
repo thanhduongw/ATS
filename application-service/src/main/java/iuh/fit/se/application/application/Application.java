@@ -3,6 +3,7 @@ package iuh.fit.se.application.application;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -65,6 +66,23 @@ public class Application {
     /** Thời điểm chuyển sang stage type HIRED — dùng tính Time-to-Hire. */
     @Column(name = "hired_at")
     private LocalDateTime hiredAt;
+
+    /*
+     * Bản sao điểm AI từ ai-service (sự kiện ai.scoring.completed). Chỉ ghi qua các câu UPDATE trong
+     * ApplicationRepository: lưu entity không được ghi đè (đọc cũ → ghi lại) và không được chạm
+     * updatedAt (mốc "đổi giai đoạn gần nhất" của nhắc nhở hồ sơ tồn đọng).
+     */
+    @Column(name = "ai_score", precision = 5, scale = 1, insertable = false, updatable = false)
+    private BigDecimal aiScore;
+
+    @Column(name = "ai_tier", length = 20, insertable = false, updatable = false)
+    private String aiTier;
+
+    @Column(name = "ai_status", length = 20, insertable = false, updatable = false)
+    private String aiStatus;
+
+    @Column(name = "ai_updated_at", insertable = false, updatable = false)
+    private LocalDateTime aiUpdatedAt;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

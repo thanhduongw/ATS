@@ -16,7 +16,7 @@ export type LanguageProficiency = "NATIVE" | "FLUENT" | "INTERMEDIATE" | "BASIC"
 // ============================================================
 
 export interface CandidateInfo {
-  name: string;
+  name: string | null;
   email: string | null;
   phone: string | null;
   date_of_birth: string | null;

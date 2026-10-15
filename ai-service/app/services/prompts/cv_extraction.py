@@ -10,7 +10,7 @@ Design:
 - Evidence-based confidence: LLM must cite actual text, not generate reasons
 """
 
-PROMPT_VERSION = "v1.1"  # v1.1: gộp thành một tin nhắn (giống benchmark Kaggle — không có system prompt)
+PROMPT_VERSION = "v1.2"  # v1.1: gộp thành một tin nhắn (giống benchmark Kaggle — không có system prompt); v1.2: name được phép null
 
 SYSTEM_PROMPT = """You are a professional CV/Resume Parser for an Applicant Tracking System (ATS).
 

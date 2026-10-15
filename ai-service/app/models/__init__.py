@@ -111,3 +111,29 @@ class CVExtraction(Base):
     error_message = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AIScore(Base):
+    """Điểm phù hợp CV ↔ JD mới nhất của mỗi hồ sơ ứng tuyển (một dòng / hồ sơ).
+
+    status: PENDING (đã xếp hàng chấm bù) | PROCESSING | COMPLETED | FAILED.
+    HR không chỉnh điểm AI nên không có cột override.
+    """
+
+    __tablename__ = "ai_scores"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    application_id = Column(BigInteger, nullable=False, unique=True)
+    job_posting_id = Column(BigInteger, nullable=False, index=True)
+    candidate_id = Column(BigInteger, nullable=False)
+    cv_extraction_id = Column(BigInteger, ForeignKey("cv_extractions.id"))
+    ai_job_id = Column(BigInteger, ForeignKey("ai_jobs.id"))
+    status = Column(String(20), nullable=False)
+    total_score = Column(Numeric(5, 1))
+    tier = Column(String(20))
+    result = Column(JSONB)       # ScoreResult
+    provenance = Column(JSONB)   # ScoringProvenance
+    error_message = Column(Text)
+    scored_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

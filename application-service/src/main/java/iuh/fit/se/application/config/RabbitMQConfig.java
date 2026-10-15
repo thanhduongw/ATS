@@ -30,6 +30,10 @@ public class RabbitMQConfig {
     public static final String OFFER_ACCEPTED_ROUTING_KEY = "offer.accepted";
     public static final String OFFER_DECLINED_ROUTING_KEY = "offer.declined";
 
+    /** Kết quả / trạng thái chấm điểm AI từ ai-service (ai-service cũng khai báo queue này). */
+    public static final String AI_SCORING_COMPLETED_QUEUE = "application.ai-scoring-completed.queue";
+    public static final String AI_SCORING_COMPLETED_ROUTING_KEY = "ai.scoring.completed";
+
     @Bean
     public TopicExchange atsExchange() {
         return new TopicExchange(ATS_EXCHANGE);
@@ -53,6 +57,16 @@ public class RabbitMQConfig {
     @Bean
     public Binding offerDeclinedBinding(Queue offerDeclinedQueue, TopicExchange atsExchange) {
         return BindingBuilder.bind(offerDeclinedQueue).to(atsExchange).with(OFFER_DECLINED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue aiScoringCompletedQueue() {
+        return QueueBuilder.durable(AI_SCORING_COMPLETED_QUEUE).build();
+    }
+
+    @Bean
+    public Binding aiScoringCompletedBinding(Queue aiScoringCompletedQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(aiScoringCompletedQueue).to(atsExchange).with(AI_SCORING_COMPLETED_ROUTING_KEY);
     }
 
     @Bean

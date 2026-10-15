@@ -31,6 +31,9 @@ public class ApplicationController {
             @RequestParam(required = false) String stageType,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedTo,
+            @RequestParam(required = false) String aiTier,
+            /* appliedAt,desc (mặc định) | aiScore,desc | aiScore,asc */
+            @RequestParam(required = false) String sort,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
         CurrentUser actor = CurrentUser.required();
@@ -38,7 +41,7 @@ public class ApplicationController {
         return ResponseEntity.ok(service.getAll(
                 actor, jobPostingId, candidateId,
                 assignedRecruiterId, recruitmentSourceId, stageType,
-                appliedFrom, appliedTo, page, size));
+                appliedFrom, appliedTo, aiTier, sort, page, size));
     }
 
     @GetMapping("/{id}")

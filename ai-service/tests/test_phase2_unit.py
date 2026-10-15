@@ -298,12 +298,9 @@ class TestSchemaValidation:
         assert cv.work_experience == []
         assert cv.years_of_experience_claimed is None
 
-    def test_missing_name_fails(self):
-        """Name is required — should fail validation."""
-        with pytest.raises(Exception):
-            ExtractedCV.model_validate({
-                "candidate": {}
-            })
+    def test_missing_name_allowed(self):
+        """CV ẩn danh / không đọc được tên: name = None, không làm hỏng cả lượt trích xuất."""
+        assert ExtractedCV.model_validate({"candidate": {}}).candidate.name is None
 
     def test_invalid_schema_rejected(self):
         """Completely wrong schema should fail."""

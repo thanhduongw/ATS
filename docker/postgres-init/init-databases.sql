@@ -185,3 +185,25 @@ CREATE TABLE IF NOT EXISTS cv_extractions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_cv_extractions_resume_url ON cv_extractions (resume_url);
+
+-- 5. AI Scores — điểm phù hợp CV ↔ JD mới nhất của mỗi hồ sơ (ai-service cũng tự tạo nếu thiếu).
+--    HR không chỉnh được điểm AI nên không có cột override.
+CREATE TABLE IF NOT EXISTS ai_scores (
+    id BIGSERIAL PRIMARY KEY,
+    application_id BIGINT NOT NULL UNIQUE,
+    job_posting_id BIGINT NOT NULL,
+    candidate_id BIGINT NOT NULL,
+    cv_extraction_id BIGINT REFERENCES cv_extractions(id),
+    ai_job_id BIGINT REFERENCES ai_jobs(id),
+    status VARCHAR(20) NOT NULL,
+    total_score NUMERIC(5,1),
+    tier VARCHAR(20),
+    result JSONB,
+    provenance JSONB,
+    error_message TEXT,
+    scored_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_scores_posting ON ai_scores (job_posting_id);

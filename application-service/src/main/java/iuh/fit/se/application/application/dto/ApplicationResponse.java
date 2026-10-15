@@ -1,5 +1,6 @@
 package iuh.fit.se.application.application.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record ApplicationResponse(
@@ -23,5 +24,9 @@ public record ApplicationResponse(
         String rejectionReasonName,
         String note,
         LocalDateTime appliedAt,
-        LocalDateTime hiredAt
+        LocalDateTime hiredAt,
+        /* Điểm AI (bản sao từ ai-service): null khi chưa chấm / chấm lỗi. Chỉ trả cho người dùng nội bộ. */
+        BigDecimal aiScore,
+        String aiTier,
+        String aiStatus
 ) {}

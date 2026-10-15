@@ -32,6 +32,15 @@ def anyio_backend():
     return "asyncio"
 
 
+def test_cv_without_name_is_valid():
+    """CV ẩn danh (vd bộ benchmark) hoặc không đọc được tên vẫn trích xuất và chấm được."""
+    from app.services.scoring.profile import build_scoring_profile
+
+    cv = ExtractedCV.model_validate({"candidate": {"name": None}, "skills": ["Java"]})
+    assert cv.candidate.name is None
+    assert build_scoring_profile(cv.model_dump(mode="json"))["skills"] == ["Java"]
+
+
 # ============================================================
 # Số năm kinh nghiệm
 # ============================================================

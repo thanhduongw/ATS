@@ -20,6 +20,9 @@ export const getApplications = (params?: {
   stageType?: string;
   appliedFrom?: string;
   appliedTo?: string;
+  aiTier?: string;
+  /** appliedAt,desc (mặc định) | aiScore,desc | aiScore,asc — hồ sơ chưa có điểm luôn ở cuối */
+  sort?: string;
   page?: number;
   size?: number;
 }) => axiosClient.get<PageResponse<ApplicationResponse>>("/application/applications", { params });

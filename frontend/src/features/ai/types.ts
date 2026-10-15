@@ -191,3 +191,58 @@ export interface BenchmarkGenerateResponse {
   provenance: JDProvenance;
   errorMessage?: string | null;
 }
+
+// ============================================================
+// Chấm điểm hồ sơ (ai-service /scores) — `result` giữ nguyên tên trường snake_case của Python
+// ============================================================
+
+export type AiTier = "GOOD_FIT" | "POTENTIAL_FIT" | "NOT_FIT";
+export type AiScoreStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+
+export interface ScoredDimension {
+  dimension: string;
+  label: string;
+  /** Trọng số gốc 0–1 */
+  weight: number;
+  /** Trọng số sau khi chia lại (khía cạnh không áp dụng = 0) */
+  effective_weight: number;
+  applicable: boolean;
+  /** Mức 0–4; null nếu không áp dụng */
+  level: number | null;
+  /** 0–100; null nếu không áp dụng */
+  score: number | null;
+  reason: string;
+}
+
+export interface ScoreResult {
+  total_score: number;
+  tier: AiTier;
+  tier_label: string;
+  dimensions: ScoredDimension[];
+  must_have_unmet: string[];
+  /** Câu mở đầu (điểm + xếp loại) + tóm tắt của AI */
+  comment: string;
+  summary: string;
+  years_calculated: number | null;
+  years_claimed: number | null;
+  scored_on: string;
+}
+
+export interface ApplicationScoreResponse {
+  applicationId: number;
+  jobPostingId: number;
+  status: AiScoreStatus;
+  totalScore: number | null;
+  tier: AiTier | null;
+  result: ScoreResult | null;
+  errorMessage: string | null;
+  scoredAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface RescorePostingResponse {
+  jobPostingId: number;
+  total: number;
+  queued: number;
+  skipped: number;
+}

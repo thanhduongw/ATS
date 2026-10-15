@@ -1,3 +1,5 @@
+import type { AiScoreStatus, AiTier } from "../ai/types";
+
 export interface CandidateResponse {
   id: number;
   fullName: string;
@@ -120,6 +122,10 @@ export interface ApplicationResponse {
   note: string | null;
   appliedAt: string;
   hiredAt: string | null;
+  /** Bản sao điểm AI (application-service). null khi chưa chấm / chấm lỗi. */
+  aiScore: number | null;
+  aiTier: AiTier | null;
+  aiStatus: AiScoreStatus | null;
 }
 export interface CandidateWithApplications extends CandidateResponse {
   applications: ApplicationResponse[];

@@ -171,9 +171,9 @@ Quota ước tính (ban đầu): ~420 trích xuất + ~840 chấm (2 model) + ~1
 
 | # | Việc | Trạng thái |
 |---|---|---|
-| 4.1 | `ApplicationsPage`: cột badge điểm + xếp loại, sắp xếp, lọc theo xếp loại; nút "Chấm tất cả hồ sơ của tin" (Admin/Recruiter) | ☐ |
-| 4.2 | `CandidateApplicationDetailPage`: thẻ AI (điểm, nhãn, nhận xét, 5 thanh khía cạnh, cảnh báo bắt buộc, trạng thái đang chấm / lỗi); nút Chấm lại chỉ Admin/Recruiter | ☐ |
-| 4.3 | `npx tsc --noEmit` sạch | ☐ |
+| 4.1 | `ApplicationsPage`: cột badge điểm + xếp loại, sắp xếp, lọc theo xếp loại; nút "Chấm tất cả hồ sơ của tin" (Admin/Recruiter) | ☑ cột "Điểm AI" (sắp xếp phía server), lọc "Xếp loại AI", nút "AI chấm hồ sơ của tin" khi đang lọc theo tin; xuất Excel có điểm |
+| 4.2 | `CandidateApplicationDetailPage`: thẻ AI (điểm, nhãn, nhận xét, 5 thanh khía cạnh, cảnh báo bắt buộc, trạng thái đang chấm / lỗi); nút Chấm lại chỉ Admin/Recruiter | ☑ `AiScoreCard` trong tab Tổng quan; đang chấm thì tự hỏi lại mỗi 5 giây |
+| 4.3 | `npx tsc --noEmit` sạch | ☑ `tsc -p tsconfig.app.json` sạch; eslint file mới không lỗi. Chưa xem trên trình duyệt với dữ liệu thật (Giai đoạn 6) |
 
 ### Giai đoạn 6 — Kiểm thử tổng
 

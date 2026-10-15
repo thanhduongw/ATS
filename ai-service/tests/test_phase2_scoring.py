@@ -244,7 +244,7 @@ def java(monkeypatch):
 
     monkeypatch.setattr(svc, "get_application_summary", summary)
     monkeypatch.setattr(svc, "get_posting", posting)
-    monkeypatch.setattr(svc, "_publish_completed", publish)
+    monkeypatch.setattr(svc, "_publish_status", publish)
     return state
 
 
@@ -253,7 +253,7 @@ async def test_scores_application(factory, java):
     assert score.status == "COMPLETED" and float(score.total_score) == 75.0 and score.tier == "GOOD_FIT"
     assert score.result["comment"].startswith("Mức độ phù hợp: Phù hợp tốt (75/100).")
     assert score.cv_extraction_id is not None and score.ai_job_id is not None
-    assert java["published"] == [(1, "COMPLETED")]
+    assert java["published"] == [(1, "PROCESSING"), (1, "COMPLETED")]
     async with factory() as s:
         job = await s.get(AIJob, score.ai_job_id)
         assert job.status == "COMPLETED" and job.scoring_prompt_version == "v1.0" and job.completed_at
@@ -328,6 +328,7 @@ async def test_mark_pending_keeps_completed(factory, java):
     async with factory() as s:
         status = {r.application_id: r.status for r in (await s.execute(select(AIScore))).scalars()}
     assert status == {1: "COMPLETED", 2: "PENDING"}
+    assert java["published"][-1] == (2, "PENDING")  # chỉ phát cho hồ sơ thực sự chuyển sang PENDING
 
 
 # ============================================================

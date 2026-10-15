@@ -7,6 +7,8 @@ Dùng chung cho:
 
 Luồng: summary hồ sơ (+ resumeUrl) → tin tuyển dụng → trích xuất CV (lưu DB, dùng lại)
 → chấm (Python thuần + một lời gọi LLM) → lưu `ai_scores` + `ai_jobs` → phát `ai.scoring.completed`.
+Sự kiện được phát ở mọi lần đổi trạng thái (PENDING / PROCESSING / COMPLETED / FAILED) để application-service
+giữ bản sao điểm cho danh sách; `updatedAt` giúp bên nhận bỏ qua sự kiện đến muộn.
 
 Bảo đảm:
 - Một hồ sơ chỉ được chấm bởi một tiến trình tại một thời điểm: dòng `ai_scores` được "giành" bằng
@@ -91,6 +93,7 @@ async def mark_pending(session_factory: async_sessionmaker[AsyncSession], applic
     if not applications:
         return
     now = datetime.utcnow()
+    marked = []
     async with session_factory() as session:
         for app in applications:
             stmt = insert(AIScore).values(
@@ -100,9 +103,14 @@ async def mark_pending(session_factory: async_sessionmaker[AsyncSession], applic
                 index_elements=[AIScore.application_id],
                 set_={"status": PENDING, "updated_at": now},
                 where=AIScore.status != COMPLETED,
-            )
-            await session.execute(stmt)
+            ).returning(AIScore.application_id, AIScore.job_posting_id, AIScore.status,
+                        AIScore.total_score, AIScore.tier, AIScore.updated_at)
+            row = (await session.execute(stmt)).one_or_none()
+            if row is not None:
+                marked.append(row)
         await session.commit()
+    for row in marked:
+        await _publish_status(row)
 
 
 def _failure_message(exc: Exception) -> str:
@@ -119,7 +127,8 @@ def _failure_message(exc: Exception) -> str:
     return f"Lỗi không xác định khi chấm điểm: {type(exc).__name__}: {exc}"
 
 
-async def _publish_completed(score: AIScore) -> None:
+async def _publish_status(score) -> None:
+    """`score`: AIScore hoặc dòng có cùng tên cột."""
     from app.core.rabbitmq import rabbitmq_manager
     try:
         await rabbitmq_manager.publish(AI_SCORING_COMPLETED_ROUTING_KEY, json.dumps({
@@ -128,6 +137,7 @@ async def _publish_completed(score: AIScore) -> None:
             "status": score.status,
             "totalScore": float(score.total_score) if score.total_score is not None else None,
             "tier": score.tier,
+            "updatedAt": score.updated_at.isoformat() if score.updated_at else None,
         }).encode())
     except Exception as exc:  # noqa: BLE001 — thông báo phụ trợ, không làm hỏng việc chấm
         logger.warning("Không phát được ai.scoring.completed cho hồ sơ %s: %s", score.application_id, exc)
@@ -153,6 +163,7 @@ async def score_application(
 
     async with session_factory() as session:
         score_id = await _claim(session, application_id, job_posting_id, candidate_id)
+        await _publish_status(await session.get(AIScore, score_id))
         job = AIJob(application_id=application_id, candidate_id=candidate_id, job_posting_id=job_posting_id,
                     status=PROCESSING, current_stage="FETCH", started_at=started)
         session.add(job)
@@ -220,5 +231,5 @@ async def score_application(
         score = (await session.execute(select(AIScore).where(AIScore.id == score_id))).scalar_one()
         await session.refresh(score)
 
-    await _publish_completed(score)
+    await _publish_status(score)
     return score

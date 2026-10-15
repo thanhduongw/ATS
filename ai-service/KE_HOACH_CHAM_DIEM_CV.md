@@ -162,10 +162,10 @@ Quota ước tính (ban đầu): ~420 trích xuất + ~840 chấm (2 model) + ~1
 
 | # | Việc | Trạng thái |
 |---|---|---|
-| 3.1 | Consumer `ai.scoring.completed` → cập nhật `Application.aiScore`, `aiTier`, `aiStatus` | ☐ |
-| 3.2 | Cột mới cho `applications` (theo cách quản lý schema hiện có của service) | ☐ |
-| 3.3 | Endpoint danh sách: `sort=aiScore,asc|desc`, lọc `aiTier`; trả các trường AI trong `ApplicationResponse` | ☐ |
-| 3.4 | Test service/listener | ☐ |
+| 3.1 | Consumer `ai.scoring.completed` → cập nhật `Application.aiScore`, `aiTier`, `aiStatus` | ☑ `AiScoringListener`; ai-service phát ở mọi lần đổi trạng thái (PENDING / PROCESSING / COMPLETED / FAILED) kèm `updatedAt`; sự kiện đến muộn bị bỏ qua |
+| 3.2 | Cột mới cho `applications` (theo cách quản lý schema hiện có của service) | ☑ Flyway `V4__add_application_ai_score.sql` (`ai_score`, `ai_tier`, `ai_status`, `ai_updated_at`); chỉ ghi bằng UPDATE riêng — không đụng `updated_at` (mốc nhắc hồ sơ tồn đọng) |
+| 3.3 | Endpoint danh sách: `sort=aiScore,asc|desc`, lọc `aiTier`; trả các trường AI trong `ApplicationResponse` | ☑ hồ sơ chưa có điểm luôn nằm cuối; giá trị lạ → 400 |
+| 3.4 | Test service/listener | ☑ application-service 25 test (12 mới, gồm giải mã đúng JSON ai-service phát); SQL thử trên Postgres thật |
 
 ### Giai đoạn 4 — Frontend web HR
 

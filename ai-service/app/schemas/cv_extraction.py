@@ -2,7 +2,7 @@
 Pydantic schemas for LLM-based CV extraction (Phase 2).
 
 Design principles:
-- All fields Optional (except name) — LLM must NOT hallucinate missing data
+- All fields Optional (kể cả name: CV ẩn danh / không đọc được tên) — LLM must NOT hallucinate missing data
 - source_text on each sub-model — evidence traceability
 - Confidence ≠ Completeness — two distinct quality signals
 - years_of_experience: claimed (LLM) vs calculated (Python deterministic)
@@ -48,7 +48,7 @@ class LanguageProficiency(str, Enum):
 
 class CandidateInfo(BaseModel):
     """Basic candidate identification and contact info."""
-    name: str = Field(..., description="Full name of the candidate")
+    name: str | None = Field(None, description="Full name of the candidate; null if the CV has no name")
     email: str | None = Field(None, description="Email address")
     phone: str | None = Field(None, description="Phone number")
     location: str | None = Field(None, description="City/Province or full address")
@@ -180,8 +180,8 @@ class ExtractedCV(BaseModel):
     """Structured CV data extracted by LLM.
 
     This is the schema the LLM must conform to via structured outputs.
-    All fields are Optional except candidate.name — if data is not
-    present in the CV, return null instead of hallucinating.
+    All fields are Optional — if data is not present in the CV,
+    return null instead of hallucinating.
     """
 
     candidate: CandidateInfo

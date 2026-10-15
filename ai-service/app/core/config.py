@@ -45,9 +45,9 @@ class Settings(BaseSettings):
     embedding_model: str = "intfloat/multilingual-e5-large-instruct"
 
     # --- Chấm điểm ---
-    # Ngưỡng xếp loại tạm thời; thay bằng ngưỡng hiệu chỉnh từ benchmark.
-    scoring_tier_good_min: float = 70.0
-    scoring_tier_potential_min: float = 50.0
+    # Ngưỡng xếp loại hiệu chỉnh bằng benchmark (Gemini, tiếng Việt, tập calib: tối ưu 43,15 / 63,75 → làm tròn).
+    scoring_tier_good_min: float = 65.0
+    scoring_tier_potential_min: float = 45.0
     scoring_max_parallel: int = 2
 
     # --- Service URLs (Java backend) ---

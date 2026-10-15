@@ -18,6 +18,7 @@ from app.core.llm_client import BaseLLMClient, LLMError, LLMManager, LLMUsage
 from app.models import AIJob, AIScore, CVExtraction
 from app.schemas.scoring import DimensionAssessment, LLMScoringOutput, ScoringDimension as D, Tier
 from app.services import application_scoring as svc
+from app.services.prompts.cv_extraction import PROMPT_VERSION as EXTRACTION_PROMPT_VERSION
 from app.services.scoring.engine import (
     NoApplicableDimensionError,
     ScoringOptions,
@@ -214,7 +215,7 @@ async def factory():
         pytest.skip(f"Không kết nối được Postgres test: {exc}")
     f = async_sessionmaker(engine, expire_on_commit=False)
     async with f() as s:
-        s.add(CVExtraction(file_hash="h", prompt_version="v1.1", resume_url=URL,
+        s.add(CVExtraction(file_hash="h", prompt_version=EXTRACTION_PROMPT_VERSION, resume_url=URL,
                            candidate_id=9, status="COMPLETED", model="m",
                            result={"extracted_cv": EXTRACTED}, text_metadata={"ocr_used": False}))
         await s.commit()

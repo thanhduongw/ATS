@@ -9,17 +9,20 @@ import sys
 from pathlib import Path
 from typing import Iterable, Iterator
 
-# Console Windows mặc định cp1252 — in tiếng Việt sẽ lỗi.
-try:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except (AttributeError, ValueError, OSError):  # stdout của Jupyter / Kaggle không cần và có thể không hỗ trợ
-    pass
-
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 RAW_DIR = DATA_DIR / "raw" / "hf"
 BUILD_DIR = ROOT / "build"
 RESULTS_DIR = ROOT / "results"
+
+def utf8_console() -> None:
+    """Console Windows mặc định cp1252 — in tiếng Việt sẽ lỗi. Gọi ở main() của các script chạy local
+    (không gọi lúc import: đổi stdout giữa chừng làm hỏng bộ bắt output của pytest)."""
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):  # stdout của Jupyter / Kaggle không cần và có thể không hỗ trợ
+        pass
+
 
 LABELS = ["No Fit", "Potential Fit", "Good Fit"]          # nhãn gốc của bộ dữ liệu, theo thứ tự 0 / 1 / 2
 LABEL_ID = {name: i for i, name in enumerate(LABELS)}

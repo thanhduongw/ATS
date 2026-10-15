@@ -5,7 +5,7 @@ Scoring engine — Python thuần, tất định (trừ một lời gọi LLM tr
 - 5 khía cạnh, trọng số gốc 35/25/15/10/15;
 - khía cạnh LLM đánh dấu không áp dụng (JD không đề cập) bị bỏ, trọng số chia lại cho phần còn lại;
 - trượt yêu cầu bắt buộc CHỈ cảnh báo (không trừ điểm, không chặn trần).
-Xếp loại 3 mức theo ngưỡng cấu hình (tạm 70 / 50 — sẽ hiệu chỉnh bằng benchmark).
+Xếp loại 3 mức theo ngưỡng cấu hình (65 / 45 — hiệu chỉnh bằng benchmark, xem benchmark/results).
 
 `compute_score` tách riêng để benchmark tính lại (đổi trọng số / ngưỡng) mà không gọi LLM.
 """
@@ -49,8 +49,8 @@ class NoApplicableDimensionError(ValueError):
 
 @dataclass(frozen=True)
 class Thresholds:
-    good_min: float = 70.0
-    potential_min: float = 50.0
+    good_min: float = 65.0
+    potential_min: float = 45.0
 
 
 @dataclass

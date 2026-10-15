@@ -28,7 +28,8 @@ from benchmark.common import append_jsonl, find_files, read_jsonl
 TRANSLATE_MODEL = "google/gemini-2.5-flash"
 SCORING_MODELS = {
     "gemini": "google/gemini-3.5-flash-lite",          # model của sản phẩm
-    "qwen": "qwen/qwen3-235b-a22b-instruct-2507",      # model mã nguồn mở để so sánh
+    "gpt": "openai/gpt-5.4-nano-2026-03-17",           # model nhỏ, giá rẻ của hãng khác để so sánh
+                                                       # (Qwen3-235B qua Kaggle ~5 phút/cặp — quá chậm)
 }
 # Ngày chấm cố định cho mọi lượt chạy để kết quả lặp lại được (số năm "đến nay" tính theo ngày này).
 BENCH_TODAY = date(2026, 10, 15)
@@ -141,7 +142,7 @@ def load_translations(roots: list[Path], name: str = "translations_vi.jsonl") ->
 
 @dataclass
 class RunConfig:
-    model_key: str                 # "gemini" | "qwen"
+    model_key: str                 # "gemini" | "gpt"
     lang: str                      # "en" | "vi"
     out_dir: Path
     prior_roots: list[Path]

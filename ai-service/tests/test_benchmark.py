@@ -164,8 +164,8 @@ def test_score_all_uses_ai_service_code_and_resumes(tmp_path, fake_kbench):
 def test_score_failures_recorded_then_retried(tmp_path, fake_kbench, monkeypatch):
     from app.core.llm_client import LLMManager
     monkeypatch.setattr(LLMManager, "BACKOFF_SECONDS", [0, 0])
-    fake_kbench.fail_models = {"qwen/qwen3-235b-a22b-instruct-2507"}
-    cfg = kr.RunConfig(model_key="qwen", lang="vi", out_dir=tmp_path, prior_roots=[])
+    fake_kbench.fail_models = {"openai/gpt-5.4-nano-2026-03-17"}
+    cfg = kr.RunConfig(model_key="gpt", lang="vi", out_dir=tmp_path, prior_roots=[])
     stats = kr.run_scoring(cfg, PAIRS[:2], TEXTS)
     assert stats["ok"] == 0 and stats["failed"] == 2 and stats["extract_failed"] >= 1
     fake_kbench.fail_models = set()
@@ -217,7 +217,7 @@ def test_notebooks_run_end_to_end_with_built_dataset(tmp_path, fake_kbench, monk
     assert sys.modules["app.services.scoring.engine"].__file__.startswith(str(kaggle_input))
     names = sorted(p.name for p in kaggle_work.glob("scores.*.jsonl"))
     assert names == ["scores.gemini.en.jsonl", "scores.gemini.vi.jsonl", "scores.gemini.vi.r2.jsonl",
-                     "scores.gemini.vi.r3.jsonl", "scores.qwen.en.jsonl", "scores.qwen.vi.jsonl"]
+                     "scores.gemini.vi.r3.jsonl", "scores.gpt.en.jsonl", "scores.gpt.vi.jsonl"]
 
 
 # ============================================================

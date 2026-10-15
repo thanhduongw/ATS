@@ -19,7 +19,7 @@
 | Cách tính điểm | LLM xếp mức 0–4 cho từng khía cạnh; **Python** tính điểm 0–100 |
 | Khung chấm | 5 khía cạnh cố định: Kỹ năng chuyên môn 35% · Kinh nghiệm liên quan 25% · Cấp bậc/số năm 15% · Học vấn/chứng chỉ 10% · Lĩnh vực/ngành 15%. JD không nhắc khía cạnh nào → bỏ, chia lại trọng số. Không dùng `benchmarkCriteria` của tin |
 | Số năm kinh nghiệm | LLM chỉ **đọc** mốc thời gian; **Python tính** (`calculate_years_of_experience`, gộp khoảng chồng lấn). Bước chấm nhận số năm Python tính + số năm ứng viên tự ghi + ngày hiện tại |
-| Kết quả | Điểm 0–100 + **3 mức xếp loại**: Phù hợp tốt / Tiềm năng / Chưa phù hợp. Ngưỡng tạm **≥70 / 50–69 / <50**, sau đó thay bằng ngưỡng hiệu chỉnh từ benchmark |
+| Kết quả | Điểm 0–100 + **3 mức xếp loại**: Phù hợp tốt / Tiềm năng / Chưa phù hợp. Ngưỡng hiệu chỉnh từ benchmark: **≥65 / 45–64,9 / <45** (ban đầu tạm 70 / 50) |
 | Yêu cầu bắt buộc | Trượt → **chỉ cảnh báo** (không trừ điểm, không chặn trần) |
 | Nhận xét | Chỉ **tóm tắt tổng quan**, luôn **tiếng Việt**, không trích bằng chứng. Câu mở đầu do Python ghép theo điểm + xếp loại (không mâu thuẫn với điểm), phần sau do LLM viết |
 | Chỉnh điểm | HR **không** được sửa điểm AI |
@@ -37,7 +37,7 @@
 | Quy mô | **Test 150** (50/nhãn, split test) + **Calib 60** (20/nhãn, split train, loại CV trùng với test) |
 | Ngôn ngữ | Bản gốc tiếng Anh + bản dịch tiếng Việt |
 | Dịch | `google/gemini-2.5-flash` (khác model chấm) |
-| So sánh | Mốc không dùng AI (ngẫu nhiên, đếm từ khoá, TF-IDF) · model mở `qwen/qwen3-235b-a22b-instruct-2507` (qua quota, chấm cả EN và bản dịch VI) |
+| So sánh | Mốc không dùng AI (ngẫu nhiên, đếm từ khoá, TF-IDF) · `openai/gpt-5.4-nano-2026-03-17` (qua quota, chấm cả EN và bản dịch VI). Ban đầu chọn Qwen3-235B nhưng qua Kaggle mất ~5 phút/cặp → bỏ |
 | Thí nghiệm thêm | Độ ổn định (chấm lặp cùng input) |
 | Nơi chạy | **Toàn bộ trên Kaggle** (quota AI Kaggle Benchmarks, SDK `kaggle-benchmarks`); máy local chỉ chuẩn bị dữ liệu, tính chỉ số, xuất báo cáo |
 | Nguyên tắc | Notebook **gọi đúng code chấm của ai-service** (provider `kbench`), không viết bản riêng |
@@ -141,16 +141,20 @@ Ghi chú phát sinh:
 | # | Bước | Chạy ở | Nội dung | Trạng thái |
 |---|---|---|---|---|
 | 5.1 | `prepare_data.py` | Local | Tải HF, lấy mẫu phân tầng test 150 / calib 60, loại CV trùng; đóng gói `app/services/scoring` + `cv_extraction` + dữ liệu thành Kaggle Dataset | ☑ |
-| 5.2 | `kaggle/01_translate.ipynb` | Kaggle | Dịch văn bản duy nhất EN→VI bằng `gemini-2.5-flash`; chạy tiếp được; kiểm tra tỉ lệ độ dài, thuật ngữ, con số | ⏳ notebook xong, chờ chạy trên Kaggle |
-| 5.3 | `kaggle/02_score.ipynb` | Kaggle | Mỗi model × ngôn ngữ: trích xuất → Python → chấm (đúng code ai-service, provider `kbench`); model `gemini-3.5-flash-lite`, `qwen3-235b-a22b-instruct-2507`; `on_failure="continue"`; lưu JSONL thô | ⏳ notebook xong, chờ chạy trên Kaggle |
-| 5.4 | `kaggle/02_score.ipynb` (ô STABILITY) | Kaggle | 50 cặp test × thêm 2 lần chấm (flash-lite, tiếng Việt) | ⏳ notebook xong, chờ chạy trên Kaggle |
+| 5.2 | `kaggle/01_translate.ipynb` | Kaggle | Dịch văn bản duy nhất EN→VI bằng `gemini-2.5-flash`; chạy tiếp được; kiểm tra tỉ lệ độ dài, thuật ngữ, con số | ☑ 281/281, 1 cảnh báo, ~1 giờ 56 phút, $3,33 |
+| 5.3 | `kaggle/02_score.ipynb` | Kaggle | Mỗi model × ngôn ngữ: trích xuất → Python → chấm (đúng code ai-service, provider `kbench`); model `gemini-3.5-flash-lite`, `gpt-5.4-nano`; `on_failure="continue"`; lưu JSONL thô | ◐ Gemini EN+VI 210/210 (48 phút, $4,18 gồm cả 5.4); GPT chưa chạy |
+| 5.4 | `kaggle/02_score.ipynb` (ô STABILITY) | Kaggle | 50 cặp test × thêm 2 lần chấm (flash-lite, tiếng Việt) | ☑ |
 | 5.5 | `baselines.py` | Local | Ngẫu nhiên, đếm từ khoá, TF-IDF | ☑ |
-| 5.6 | `evaluate.py` | Local | Ngưỡng trên calib (macro-F1); trên test: accuracy, macro-F1, P/R/F1 từng nhãn, ma trận nhầm lẫn, QWK, bootstrap CI 95%; McNemar (AI vs TF-IDF, EN vs VI, Gemini vs Qwen); độ ổn định; tỉ lệ lỗi trích xuất; chi phí, độ trễ | ☑ |
-| 5.7 | `report.py` | Local | Báo cáo HTML + biểu đồ; **ghi ngưỡng hiệu chỉnh vào config** | ◐ report xong; ghi ngưỡng vào config sau khi có kết quả |
+| 5.6 | `evaluate.py` | Local | Ngưỡng trên calib (macro-F1); trên test: accuracy, macro-F1, P/R/F1 từng nhãn, ma trận nhầm lẫn, QWK, bootstrap CI 95%; McNemar (AI vs TF-IDF, EN vs VI, Gemini vs GPT); độ ổn định; tỉ lệ lỗi trích xuất; chi phí, độ trễ | ☑ |
+| 5.7 | `report.py` | Local | Báo cáo HTML + biểu đồ; **ghi ngưỡng hiệu chỉnh vào config** | ☑ ngưỡng 45 / 65 đã ghi vào config (cập nhật báo cáo khi có GPT) |
 
 **Tiến độ Giai đoạn 5 (code):** dữ liệu 210 cặp (test 150 + calib 60; calib loại 2.414 cặp train trùng CV/JD với test) — 177 CV + 104 JD duy nhất, ~1,33 triệu ký tự; gói Kaggle `benchmark/build/ats-cv-scoring-benchmark.zip` (dữ liệu + đúng code ai-service + runner). Runner dịch / chấm chạy tiếp được sau khi hết quota (đọc output lần trước làm input). Đã chạy thử 2 notebook trên máy với `kaggle_benchmarks` giả lập + chuỗi runner → evaluate → report trên 210 cặp (`tests/test_benchmark.py`, 11 test). Baseline tiếng Anh (test 150): TF-IDF macro-F1 0,338, ngẫu nhiên 0,289, từ khoá 0,275 — bài toán khó, baseline gần mức đoán.
 
 Ước tính thực tế: 281 lời gọi dịch + ~708 trích xuất (177 CV × 2 model × 2 ngôn ngữ) + 840 chấm + 100 chấm lặp ≈ 1.930 lời gọi.
+
+**Kết quả Gemini (test 150 cặp):** macro-F1 tiếng Việt 0,422 (CI 0,34–0,50), tiếng Anh 0,383; TF-IDF 0,33–0,34, ngẫu nhiên 0,289. Hơn TF-IDF nhưng chưa có ý nghĩa thống kê (McNemar p = 0,067 VI, 0,22 EN); EN và VI không khác biệt (p = 0,29). Điểm yếu: nhãn Good Fit hay bị xếp thấp — xem tay vài cặp thì nhãn gốc của bộ dữ liệu đáng ngờ (hạn chế của dữ liệu). Độ ổn định: cùng xếp loại 92–96%, lệch điểm TB ~3. Trích xuất 177/177 CV, trung vị ~5 giây. Ngưỡng tối ưu trên calib 43,15 / 63,75 → làm tròn **45 / 65** (macro-F1 test VI 0,414; ngưỡng cũ 50 / 70 chỉ 0,384).
+
+Sửa trong lúc chạy: `candidate.name` cho phép null (CV ẩn danh làm hỏng cả lượt trích xuất — lỗi cũng xảy ra ở sản phẩm khi không đọc được tên); `PROMPT_VERSION` trích xuất lên v1.2.
 
 Quota ước tính (ban đầu): ~420 trích xuất + ~840 chấm (2 model) + ~100 ổn định + <420 dịch ≈ **1.800 lời gọi** — vài USD với Gemini; giá Qwen đo ở lượt đầu, chia lượt theo ngày nếu cần.
 

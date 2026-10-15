@@ -16,7 +16,7 @@ import unicodedata
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from benchmark.common import DATA_DIR, RESULTS_DIR, read_jsonl, write_jsonl
+from benchmark.common import DATA_DIR, RESULTS_DIR, read_jsonl, utf8_console, write_jsonl
 
 KAGGLE_DIR = RESULTS_DIR / "kaggle"
 OUT_DIR = RESULTS_DIR / "baselines"
@@ -86,6 +86,7 @@ def run(lang: str) -> int:
 
 
 def main() -> None:
+    utf8_console()
     for lang in ("en", "vi"):
         run(lang)
 

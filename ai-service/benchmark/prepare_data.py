@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from benchmark.common import (
-    BUILD_DIR, DATA_DIR, LABEL_ID, LABELS, RAW_DIR, ROOT, file_sha1, read_jsonl, text_hash, write_jsonl,
+    BUILD_DIR, DATA_DIR, LABEL_ID, LABELS, RAW_DIR, ROOT, file_sha1, read_jsonl, text_hash, utf8_console, write_jsonl,
 )
 
 HF_URL = "https://huggingface.co/datasets/cnamuangtoun/resume-job-description-fit/resolve/main/{split}.csv"
@@ -137,6 +137,7 @@ def build_kaggle_dataset() -> None:
 
 
 def main() -> None:
+    utf8_console()
     parser = argparse.ArgumentParser()
     parser.add_argument("--resample", action="store_true", help="lấy mẫu lại dù đã có data/pairs.jsonl")
     args = parser.parse_args()

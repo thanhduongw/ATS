@@ -10,7 +10,7 @@ Cho mỗi cấu hình (phương pháp × ngôn ngữ):
 - báo trên tập test: accuracy, macro-F1, P/R/F1 từng nhãn, ma trận nhầm lẫn, QWK, Spearman,
   khoảng tin cậy 95% (bootstrap); AI còn báo thêm kết quả với ngưỡng tạm của sản phẩm (70 / 50).
 So sánh cặp (McNemar, đúng/sai trên CÙNG các cặp mà hai bên đều có kết quả): AI vs TF-IDF, Anh vs Việt,
-Gemini vs Qwen. Độ ổn định: lượt chính so với các lượt r2 / r3. Tỉ lệ lỗi, thời gian.
+Gemini vs GPT-5.4 nano. Độ ổn định: lượt chính so với các lượt r2 / r3. Tỉ lệ lỗi, thời gian.
 
 Chạy:  python -m benchmark.evaluate      → benchmark/results/summary.json
 """
@@ -24,11 +24,11 @@ from pathlib import Path
 import numpy as np
 from scipy.stats import binomtest, spearmanr
 
-from benchmark.common import DATA_DIR, LABELS, RESULTS_DIR, TIER_TO_ID, read_jsonl
+from benchmark.common import DATA_DIR, LABELS, RESULTS_DIR, read_jsonl, utf8_console
 
 KAGGLE_DIR = RESULTS_DIR / "kaggle"
 BASELINE_DIR = RESULTS_DIR / "baselines"
-PRODUCT_THRESHOLDS = (50.0, 70.0)          # ngưỡng tạm đang cấu hình trong sản phẩm (potential_min, good_min)
+PRODUCT_THRESHOLDS = (45.0, 65.0)          # ngưỡng đang cấu hình trong sản phẩm (potential_min, good_min)
 BOOTSTRAP = 1000
 SEED = 20261015
 PRODUCT_CONFIG = "gemini/vi"               # cấu hình dùng để đề xuất ngưỡng cho sản phẩm (CV chủ yếu tiếng Việt)
@@ -195,8 +195,6 @@ def evaluate_config(rows: dict[str, dict], pairs: dict[str, dict], is_ai: bool) 
     if is_ai:
         prod = [to_label(s, *PRODUCT_THRESHOLDS) for s in scores]
         out["test_product_thresholds"] = classification(labels, prod, scores)
-        tier = [TIER_TO_ID[ok[p]["tier"]] for p in test]
-        assert tier == prod, "tier do sản phẩm tính phải khớp ngưỡng 70/50"
         secs = [ok[p]["seconds"] for p in test + calib if "seconds" in ok[p]]
         out["median_seconds"] = float(np.median(secs)) if secs else None
         out["errors"] = sorted({r.get("error", "")[:120] for r in rows.values() if not r.get("ok")})[:10]
@@ -235,16 +233,17 @@ def stability(runs: dict[str, dict[str, dict]], base: str = "gemini/vi") -> dict
 
 
 def main() -> dict:
+    utf8_console()
     pairs = {p["id"]: p for p in read_jsonl(DATA_DIR / "pairs.jsonl")}
     runs = load_runs()
     results = {}
     for key in sorted(k for k in runs if k.count("/") == 1):
         method = key.split("/")[0]
-        results[key] = evaluate_config(runs[key], pairs, is_ai=method in ("gemini", "qwen"))
+        results[key] = evaluate_config(runs[key], pairs, is_ai=method in ("gemini", "gpt"))
     comparisons = [c for c in (
         compare(results, "gemini/en", "tfidf/en"), compare(results, "gemini/vi", "tfidf/vi"),
-        compare(results, "gemini/en", "gemini/vi"), compare(results, "qwen/en", "qwen/vi"),
-        compare(results, "gemini/en", "qwen/en"), compare(results, "gemini/vi", "qwen/vi"),
+        compare(results, "gemini/en", "gemini/vi"), compare(results, "gpt/en", "gpt/vi"),
+        compare(results, "gemini/en", "gpt/en"), compare(results, "gemini/vi", "gpt/vi"),
     ) if c]
     product = results.get(PRODUCT_CONFIG, {}).get("thresholds")
     summary = {

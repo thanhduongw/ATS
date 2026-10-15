@@ -83,7 +83,7 @@ SCORE = nb([
 # 02 · Trích xuất + chấm điểm (đúng code ai-service)
 
 Mỗi lượt = một model × một ngôn ngữ: trích xuất CV (LLM #1) → Python tính số năm, lọc hồ sơ → chấm (LLM #2) → Python tính điểm.
-Model: `google/gemini-3.5-flash-lite` (sản phẩm) và `qwen/qwen3-235b-a22b-instruct-2507` (mã nguồn mở).
+Model: `google/gemini-3.5-flash-lite` (sản phẩm) và `openai/gpt-5.4-nano-2026-03-17` (so sánh).
 
 **Input cần đính kèm:** dataset `ats-cv-scoring-benchmark` + output của notebook `01_translate` (bản dịch tiếng Việt).
 
@@ -93,12 +93,12 @@ Model: `google/gemini-3.5-flash-lite` (sản phẩm) và `qwen/qwen3-235b-a22b-i
     ("markdown", """
 ## Cấu hình
 - `SMOKE_LIMIT = 2`: chạy thử 2 cặp mỗi lượt để kiểm tra trước; `None` để chạy toàn bộ.
-- `RUNS`: các lượt cần chạy — có thể tách Gemini / Qwen ra hai notebook chạy song song.
+- `RUNS`: các lượt cần chạy — có thể tách Gemini / GPT ra hai lần chạy chạy song song.
 - `STABILITY`: chấm lặp thêm 2 lần 50 cặp test (Gemini, tiếng Việt) để đo độ ổn định.
 """),
     ("code", '''
 SMOKE_LIMIT = None
-RUNS = [("gemini", "en"), ("gemini", "vi"), ("qwen", "en"), ("qwen", "vi")]
+RUNS = [("gemini", "en"), ("gemini", "vi"), ("gpt", "en"), ("gpt", "vi")]
 STABILITY = True
 '''),
     ("code", '''

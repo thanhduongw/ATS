@@ -10,9 +10,9 @@ import html
 import json
 from datetime import datetime
 
-from benchmark.common import LABELS_VI, RESULTS_DIR
+from benchmark.common import LABELS_VI, RESULTS_DIR, utf8_console
 
-NAMES = {"gemini": "Gemini 3.5 Flash-Lite (sản phẩm)", "qwen": "Qwen3-235B (mã nguồn mở)",
+NAMES = {"gemini": "Gemini 3.5 Flash-Lite (sản phẩm)", "gpt": "GPT-5.4 nano (so sánh)",
          "tfidf": "TF-IDF cosine", "keyword": "Đếm từ khoá", "random": "Ngẫu nhiên"}
 LANGS = {"en": "Tiếng Anh", "vi": "Tiếng Việt (bản dịch)"}
 
@@ -51,7 +51,7 @@ def results_table(results: dict) -> str:
             f"<td class=num>{pct(r['test_product_thresholds']['macro_f1']) if 'test_product_thresholds' in r else '—'}</td></tr>")
     return ("<table><thead><tr><th>Cấu hình</th><th>Test có kết quả</th><th>Accuracy<small>CI 95%</small></th>"
             "<th>Macro-F1<small>CI 95%</small></th><th>QWK</th><th>Spearman</th><th>Ngưỡng (calib)</th>"
-            "<th>Macro-F1 ngưỡng 50/70</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>")
+            "<th>Macro-F1 ngưỡng sản phẩm</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>")
 
 
 def confusion_block(key: str, r: dict) -> str:
@@ -81,8 +81,9 @@ def comparisons_table(items: list[dict]) -> str:
 
 
 def main() -> None:
+    utf8_console()
     s = json.loads((RESULTS_DIR / "summary.json").read_text(encoding="utf-8"))
-    ai = [(k, r) for k, r in s["results"].items() if k.split("/")[0] in ("gemini", "qwen") and "test" in r]
+    ai = [(k, r) for k, r in s["results"].items() if k.split("/")[0] in ("gemini", "gpt") and "test" in r]
     rec, cur = s.get("product_thresholds_recommended"), s["product_thresholds_current"]
     stab = s.get("stability") or {}
     stab_rows = "".join(

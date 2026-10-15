@@ -4,11 +4,270 @@
   "test": 150
  },
  "product_thresholds_current": {
-  "potential_min": 50.0,
-  "good_min": 70.0
+  "potential_min": 45.0,
+  "good_min": 65.0
  },
- "product_thresholds_recommended": null,
+ "product_thresholds_recommended": {
+  "potential_min": 43.15,
+  "good_min": 63.75
+ },
  "results": {
+  "gemini/en": {
+   "coverage": {
+    "calib": {
+     "ok": 60,
+     "attempted": 60,
+     "total": 60
+    },
+    "test": {
+     "ok": 150,
+     "attempted": 150,
+     "total": 150
+    }
+   },
+   "thresholds": {
+    "potential_min": 38.15,
+    "good_min": 55.0
+   },
+   "test": {
+    "n": 150,
+    "accuracy": 0.4066666666666667,
+    "macro_f1": 0.38265648501677657,
+    "qwk": 0.1454545454545455,
+    "spearman": 0.22757285905594896,
+    "per_label": {
+     "No Fit": {
+      "precision": 0.4166666666666667,
+      "recall": 0.7,
+      "f1": 0.5223880597014926,
+      "support": 50
+     },
+     "Potential Fit": {
+      "precision": 0.4,
+      "recall": 0.24,
+      "f1": 0.3,
+      "support": 50
+     },
+     "Good Fit": {
+      "precision": 0.3888888888888889,
+      "recall": 0.28,
+      "f1": 0.32558139534883723,
+      "support": 50
+     }
+    },
+    "confusion": [
+     [
+      35,
+      7,
+      8
+     ],
+     [
+      24,
+      12,
+      14
+     ],
+     [
+      25,
+      11,
+      14
+     ]
+    ],
+    "ci95": {
+     "accuracy": [
+      0.32666666666666666,
+      0.4801666666666665
+     ],
+     "macro_f1": [
+      0.3042686095650792,
+      0.4560791917040753
+     ]
+    }
+   },
+   "test_product_thresholds": {
+    "n": 150,
+    "accuracy": 0.44666666666666666,
+    "macro_f1": 0.417399405459107,
+    "qwk": 0.16190476190476188,
+    "spearman": 0.22757285905594896,
+    "per_label": {
+     "No Fit": {
+      "precision": 0.40860215053763443,
+      "recall": 0.76,
+      "f1": 0.5314685314685315,
+      "support": 50
+     },
+     "Potential Fit": {
+      "precision": 0.475,
+      "recall": 0.38,
+      "f1": 0.4222222222222222,
+      "support": 50
+     },
+     "Good Fit": {
+      "precision": 0.5882352941176471,
+      "recall": 0.2,
+      "f1": 0.29850746268656714,
+      "support": 50
+     }
+    },
+    "confusion": [
+     [
+      38,
+      9,
+      3
+     ],
+     [
+      27,
+      19,
+      4
+     ],
+     [
+      28,
+      12,
+      10
+     ]
+    ],
+    "ci95": {
+     "accuracy": [
+      0.37333333333333335,
+      0.5268333333333332
+     ],
+     "macro_f1": [
+      0.33898876550697365,
+      0.49880789274459025
+     ]
+    }
+   },
+   "median_seconds": 2.0,
+   "errors": []
+  },
+  "gemini/vi": {
+   "coverage": {
+    "calib": {
+     "ok": 60,
+     "attempted": 60,
+     "total": 60
+    },
+    "test": {
+     "ok": 150,
+     "attempted": 150,
+     "total": 150
+    }
+   },
+   "thresholds": {
+    "potential_min": 43.15,
+    "good_min": 63.75
+   },
+   "test": {
+    "n": 150,
+    "accuracy": 0.44666666666666666,
+    "macro_f1": 0.4221452262497039,
+    "qwk": 0.13725490196078427,
+    "spearman": 0.1935368546812242,
+    "per_label": {
+     "No Fit": {
+      "precision": 0.4166666666666667,
+      "recall": 0.7,
+      "f1": 0.5223880597014926,
+      "support": 50
+     },
+     "Potential Fit": {
+      "precision": 0.4782608695652174,
+      "recall": 0.44,
+      "f1": 0.4583333333333333,
+      "support": 50
+     },
+     "Good Fit": {
+      "precision": 0.5,
+      "recall": 0.2,
+      "f1": 0.28571428571428575,
+      "support": 50
+     }
+    },
+    "confusion": [
+     [
+      35,
+      11,
+      4
+     ],
+     [
+      22,
+      22,
+      6
+     ],
+     [
+      27,
+      13,
+      10
+     ]
+    ],
+    "ci95": {
+     "accuracy": [
+      0.36666666666666664,
+      0.5266666666666666
+     ],
+     "macro_f1": [
+      0.34014023465541554,
+      0.49583536919475696
+     ]
+    }
+   },
+   "test_product_thresholds": {
+    "n": 150,
+    "accuracy": 0.44666666666666666,
+    "macro_f1": 0.41384235286154264,
+    "qwk": 0.1287128712871286,
+    "spearman": 0.1935368546812242,
+    "per_label": {
+     "No Fit": {
+      "precision": 0.4235294117647059,
+      "recall": 0.72,
+      "f1": 0.5333333333333333,
+      "support": 50
+     },
+     "Potential Fit": {
+      "precision": 0.4791666666666667,
+      "recall": 0.46,
+      "f1": 0.46938775510204084,
+      "support": 50
+     },
+     "Good Fit": {
+      "precision": 0.47058823529411764,
+      "recall": 0.16,
+      "f1": 0.23880597014925375,
+      "support": 50
+     }
+    },
+    "confusion": [
+     [
+      36,
+      10,
+      4
+     ],
+     [
+      22,
+      23,
+      5
+     ],
+     [
+      27,
+      15,
+      8
+     ]
+    ],
+    "ci95": {
+     "accuracy": [
+      0.36666666666666664,
+      0.5266666666666666
+     ],
+     "macro_f1": [
+      0.3365730482880762,
+      0.48594254473277787
+     ]
+    }
+   },
+   "median_seconds": 1.9,
+   "errors": []
+  },
   "keyword/en": {
    "coverage": {
     "calib": {
@@ -81,7 +340,151 @@
     }
    }
   },
+  "keyword/vi": {
+   "coverage": {
+    "calib": {
+     "ok": 60,
+     "attempted": 60,
+     "total": 60
+    },
+    "test": {
+     "ok": 150,
+     "attempted": 150,
+     "total": 150
+    }
+   },
+   "thresholds": {
+    "potential_min": 39.52,
+    "good_min": 59.79
+   },
+   "test": {
+    "n": 150,
+    "accuracy": 0.30666666666666664,
+    "macro_f1": 0.29728328738719634,
+    "qwk": -0.011695906432748648,
+    "spearman": -0.04685894226216545,
+    "per_label": {
+     "No Fit": {
+      "precision": 0.25,
+      "recall": 0.22,
+      "f1": 0.23404255319148937,
+      "support": 50
+     },
+     "Potential Fit": {
+      "precision": 0.3037974683544304,
+      "recall": 0.48,
+      "f1": 0.37209302325581395,
+      "support": 50
+     },
+     "Good Fit": {
+      "precision": 0.4074074074074074,
+      "recall": 0.22,
+      "f1": 0.2857142857142857,
+      "support": 50
+     }
+    },
+    "confusion": [
+     [
+      11,
+      31,
+      8
+     ],
+     [
+      18,
+      24,
+      8
+     ],
+     [
+      15,
+      24,
+      11
+     ]
+    ],
+    "ci95": {
+     "accuracy": [
+      0.23333333333333334,
+      0.38
+     ],
+     "macro_f1": [
+      0.22413766767704146,
+      0.3709044004411709
+     ]
+    }
+   }
+  },
   "random/en": {
+   "coverage": {
+    "calib": {
+     "ok": 60,
+     "attempted": 60,
+     "total": 60
+    },
+    "test": {
+     "ok": 150,
+     "attempted": 150,
+     "total": 150
+    }
+   },
+   "thresholds": {
+    "potential_min": 21.88,
+    "good_min": 39.34
+   },
+   "test": {
+    "n": 150,
+    "accuracy": 0.32666666666666666,
+    "macro_f1": 0.2890740740740741,
+    "qwk": 0.01777777777777778,
+    "spearman": 0.013293926544372902,
+    "per_label": {
+     "No Fit": {
+      "precision": 0.2903225806451613,
+      "recall": 0.18,
+      "f1": 0.22222222222222224,
+      "support": 50
+     },
+     "Potential Fit": {
+      "precision": 0.28,
+      "recall": 0.14,
+      "f1": 0.18666666666666668,
+      "support": 50
+     },
+     "Good Fit": {
+      "precision": 0.35106382978723405,
+      "recall": 0.66,
+      "f1": 0.45833333333333337,
+      "support": 50
+     }
+    },
+    "confusion": [
+     [
+      9,
+      9,
+      32
+     ],
+     [
+      14,
+      7,
+      29
+     ],
+     [
+      8,
+      9,
+      33
+     ]
+    ],
+    "ci95": {
+     "accuracy": [
+      0.25333333333333335,
+      0.4
+     ],
+     "macro_f1": [
+      0.21942872988459264,
+      0.3586366571679672
+     ]
+    }
+   }
+  },
+  "random/vi": {
    "coverage": {
     "calib": {
      "ok": 60,
@@ -224,9 +627,140 @@
      ]
     }
    }
+  },
+  "tfidf/vi": {
+   "coverage": {
+    "calib": {
+     "ok": 60,
+     "attempted": 60,
+     "total": 60
+    },
+    "test": {
+     "ok": 150,
+     "attempted": 150,
+     "total": 150
+    }
+   },
+   "thresholds": {
+    "potential_min": 6.1,
+    "good_min": 7.17
+   },
+   "test": {
+    "n": 150,
+    "accuracy": 0.3466666666666667,
+    "macro_f1": 0.32764222177410324,
+    "qwk": 0.1071428571428571,
+    "spearman": 0.1563220466944983,
+    "per_label": {
+     "No Fit": {
+      "precision": 0.3181818181818182,
+      "recall": 0.42,
+      "f1": 0.3620689655172414,
+      "support": 50
+     },
+     "Potential Fit": {
+      "precision": 0.23076923076923078,
+      "recall": 0.12,
+      "f1": 0.15789473684210525,
+      "support": 50
+     },
+     "Good Fit": {
+      "precision": 0.43103448275862066,
+      "recall": 0.5,
+      "f1": 0.46296296296296297,
+      "support": 50
+     }
+    },
+    "confusion": [
+     [
+      21,
+      10,
+      19
+     ],
+     [
+      30,
+      6,
+      14
+     ],
+     [
+      15,
+      10,
+      25
+     ]
+    ],
+    "ci95": {
+     "accuracy": [
+      0.2733333333333333,
+      0.4266666666666667
+     ],
+     "macro_f1": [
+      0.25800869028759343,
+      0.39845052244519935
+     ]
+    }
+   }
   }
  },
- "comparisons": [],
- "stability": null,
- "extraction": {}
+ "comparisons": [
+  {
+   "n": 150,
+   "a_only_correct": 32,
+   "b_only_correct": 22,
+   "p_value": 0.22032849417661093,
+   "a": "gemini/en",
+   "b": "tfidf/en",
+   "accuracy_a": 0.4066666666666667,
+   "accuracy_b": 0.34
+  },
+  {
+   "n": 150,
+   "a_only_correct": 37,
+   "b_only_correct": 22,
+   "p_value": 0.06744461190078899,
+   "a": "gemini/vi",
+   "b": "tfidf/vi",
+   "accuracy_a": 0.44666666666666666,
+   "accuracy_b": 0.3466666666666667
+  },
+  {
+   "n": 150,
+   "a_only_correct": 8,
+   "b_only_correct": 14,
+   "p_value": 0.28627872467041016,
+   "a": "gemini/en",
+   "b": "gemini/vi",
+   "accuracy_a": 0.4066666666666667,
+   "accuracy_b": 0.44666666666666666
+  }
+ ],
+ "stability": {
+  "gemini/vi/r2": {
+   "n": 50,
+   "mean_abs_diff": 3.036,
+   "max_abs_diff": 18.700000000000003,
+   "same_tier": 0.96,
+   "same_all_levels": 0.44
+  },
+  "gemini/vi/r3": {
+   "n": 50,
+   "mean_abs_diff": 3.19,
+   "max_abs_diff": 12.5,
+   "same_tier": 0.92,
+   "same_all_levels": 0.38
+  }
+ },
+ "extraction": {
+  "gemini/en": {
+   "cv": 177,
+   "ok": 177,
+   "failed": 0,
+   "median_seconds": 4.9
+  },
+  "gemini/vi": {
+   "cv": 177,
+   "ok": 177,
+   "failed": 0,
+   "median_seconds": 5.3
+  }
+ }
 }

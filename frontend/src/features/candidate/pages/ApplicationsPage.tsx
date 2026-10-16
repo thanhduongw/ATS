@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type Key } from "react";
 import { Table, Button, Select, Modal, Form, Input, App, DatePicker, Card, Avatar, Tooltip, Tag } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import type { ColumnsType, SortOrder } from "antd/es/table/interface";
 import { useSearchParams } from "react-router-dom";
 import { getCandidates } from "../candidateApi";
 import { useTrailNavigate } from "../../../app/useNavTrail";
@@ -35,6 +35,9 @@ import { StatRow, FilterBar, ModalTitle } from "../../../components/ui/pageKit";
 import { listCardStyle, listCardBodyStyle, listPagination } from "../../../components/ui/listStyles";
 import CandidateFormModal from "../components/CandidateFormModal";
 import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
+import AiScoreBadge from "../../ai/components/AiScoreBadge";
+import { AI_TIER_META, AI_TIER_OPTIONS } from "../../ai/aiScore";
+import { rescorePosting } from "../../ai/aiApi";
 import type { CandidateFormValues } from "../schemas/candidateSchema";
 
 const { RangePicker } = DatePicker;
@@ -83,6 +86,10 @@ export default function ApplicationsPage() {
         () => searchParams.get("stageType") ?? undefined,
     );
     const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
+    const [aiTier, setAiTier] = useState<string | undefined>();
+    /** Sắp xếp phía server theo điểm AI; undefined = mới nộp trước. */
+    const [aiScoreOrder, setAiScoreOrder] = useState<SortOrder>(null);
+    const [rescoringPosting, setRescoringPosting] = useState(false);
 
     // Phân trang
     const [page, setPage] = useState(1);
@@ -123,6 +130,8 @@ export default function ApplicationsPage() {
                 stageType,
                 appliedFrom: dateRange ? dateRange[0].format("YYYY-MM-DD") : undefined,
                 appliedTo: dateRange ? dateRange[1].format("YYYY-MM-DD") : undefined,
+                aiTier,
+                sort: aiScoreOrder ? `aiScore,${aiScoreOrder === "ascend" ? "asc" : "desc"}` : undefined,
                 page: page - 1,
                 size: pageSize,
             });
@@ -134,7 +143,7 @@ export default function ApplicationsPage() {
         } finally {
             setLoading(false);
         }
-    }, [jobPostingId, stageType, dateRange, page, pageSize, message]);
+    }, [jobPostingId, stageType, dateRange, aiTier, aiScoreOrder, page, pageSize, message]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -212,13 +221,42 @@ export default function ApplicationsPage() {
         }
     };
 
-    const hasActiveFilters = !!(departmentId || jobPostingId || stageType || dateRange);
+    const handleRescorePosting = () => {
+        if (jobPostingId == null) return;
+        const title = postings.find((p) => p.id === jobPostingId)?.title ?? `tin #${jobPostingId}`;
+        modal.confirm({
+            title: `AI chấm các hồ sơ của "${title}"?`,
+            content: "Chỉ chấm hồ sơ chưa có điểm hoặc chấm lỗi; hồ sơ đã có điểm được giữ nguyên. "
+                + "AI chạy nền, mỗi hồ sơ mất khoảng 10–40 giây.",
+            okText: "Chấm",
+            onOk: async () => {
+                setRescoringPosting(true);
+                try {
+                    const res = await rescorePosting(jobPostingId);
+                    const { queued, skipped } = res.data;
+                    message.success(queued > 0
+                        ? `Đã đưa ${queued} hồ sơ vào hàng chờ chấm${skipped ? ` (bỏ qua ${skipped} hồ sơ đã có điểm hoặc đang chấm)` : ""}`
+                        : "Mọi hồ sơ của tin này đã có điểm hoặc đang được chấm");
+                    // Trạng thái "chờ chấm" tới danh sách qua hàng đợi sự kiện — đợi một nhịp rồi tải lại.
+                    if (queued > 0) setTimeout(load, 1500);
+                } catch (err) {
+                    const e = err as AxiosError<{ detail?: string }>;
+                    message.error(e.response?.data?.detail ?? "Không gửi được yêu cầu chấm");
+                } finally {
+                    setRescoringPosting(false);
+                }
+            },
+        });
+    };
+
+    const hasActiveFilters = !!(departmentId || jobPostingId || stageType || dateRange || aiTier);
 
     const handleResetFilters = () => {
         setDepartmentId(undefined);
         setJobPostingId(undefined);
         setStageType(undefined);
         setDateRange(null);
+        setAiTier(undefined);
         setPage(1);
     };
 
@@ -275,6 +313,15 @@ export default function ApplicationsPage() {
             render: (_, r) => <span style={{ fontWeight: 500 }}>{r.jobTitle || `Job #${r.jobPostingId}`}</span>,
         },
         {
+            title: "Điểm AI",
+            key: "aiScore",
+            width: 170,
+            sorter: true,
+            sortOrder: aiScoreOrder,
+            sortDirections: ["descend", "ascend"],
+            render: (_, r) => <AiScoreBadge score={r.aiScore} tier={r.aiTier} status={r.aiStatus} />,
+        },
+        {
             title: "Ngày nộp",
             dataIndex: "appliedAt",
             key: "appliedAt",
@@ -304,6 +351,8 @@ export default function ApplicationsPage() {
                 { header: "Giai đoạn", value: (r: ApplicationResponse) => r.currentStageName },
                 { header: "Người phụ trách", value: (r: ApplicationResponse) => r.assignedRecruiterName },
                 { header: "Nguồn", value: (r: ApplicationResponse) => r.recruitmentSourceName },
+                { header: "Điểm AI", value: (r: ApplicationResponse) => r.aiScore ?? "" },
+                { header: "Xếp loại AI", value: (r: ApplicationResponse) => (r.aiTier ? AI_TIER_META[r.aiTier].label : "") },
                 { header: "Ngày nộp", value: (r: ApplicationResponse) => new Date(r.appliedAt).toLocaleDateString("vi-VN") },
             ],
             rows,
@@ -374,6 +423,13 @@ export default function ApplicationsPage() {
                         <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
                             Xuất Excel
                         </Button>
+                        {isHr && jobPostingId != null && (
+                            <Tooltip title="Chấm các hồ sơ chưa có điểm hoặc chấm lỗi của tin đang lọc">
+                                <Button icon={<RobotOutlined />} loading={rescoringPosting} onClick={handleRescorePosting}>
+                                    AI chấm hồ sơ của tin
+                                </Button>
+                            </Tooltip>
+                        )}
                         {isHr && (
                             <Button icon={<RobotOutlined />} onClick={() => setAiUploadOpen(true)}>
                                 AI đọc CV
@@ -423,6 +479,14 @@ export default function ApplicationsPage() {
                     onChange={(v) => { setStageType(v); setPage(1); }}
                     options={STAGE_TYPE_OPTIONS.map((t) => ({ value: t, label: STAGE_TYPE_LABEL[t] ?? t }))}
                 />
+                <Select
+                    allowClear
+                    placeholder="Xếp loại AI"
+                    style={{ width: 160 }}
+                    value={aiTier}
+                    onChange={(v) => { setAiTier(v); setPage(1); }}
+                    options={AI_TIER_OPTIONS}
+                />
                 <RangePicker
                     placeholder={["Nộp từ ngày", "Đến ngày"]}
                     format="DD/MM/YYYY"
@@ -470,6 +534,12 @@ export default function ApplicationsPage() {
                         dataSource={rows}
                         sticky
                         scroll={{ y: scrollY }}
+                        onChange={(_, __, sorter, extra) => {
+                            if (extra.action !== "sort") return;
+                            const order = Array.isArray(sorter) ? null : sorter.order ?? null;
+                            setAiScoreOrder(order);
+                            setPage(1);
+                        }}
                         onRow={(record) => ({
                             onClick: (event) => {
                                 // Bam o chon hang loat thi chi tick, khong mo chi tiet.

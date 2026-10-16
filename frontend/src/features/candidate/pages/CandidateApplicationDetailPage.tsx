@@ -34,6 +34,7 @@ import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
 import CvParseResultPanel from "../../ai/components/CvParseResultPanel";
+import AiScoreCard from "../../ai/components/AiScoreCard";
 import type { CVExtractionResult, ExtractionProvenance, CVExtractionResponse } from "../../ai/types";
 import { getCvExtraction, reExtractCv } from "../../ai/aiApi";
 
@@ -417,6 +418,14 @@ export default function CandidateApplicationDetailPage() {
                     />
                 </Section>
             )}
+
+            <Section title="Mức độ phù hợp (AI)">
+                <AiScoreCard
+                    applicationId={application.id}
+                    canRescore={isHr}
+                    hasResume={!!application.resumeUrl}
+                />
+            </Section>
 
             {/* Ho ten, email, dien thoai, dia chi da nam tren the dinh danh phia tren
                 nen khong lap lai o day. */}

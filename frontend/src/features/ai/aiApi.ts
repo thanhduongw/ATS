@@ -5,6 +5,8 @@ import type {
   JDGenerateResponse,
   BenchmarkGenerateRequest,
   BenchmarkGenerateResponse,
+  ApplicationScoreResponse,
+  RescorePostingResponse,
 } from "./types";
 
 /**
@@ -60,3 +62,18 @@ export const generateBenchmark = (input: BenchmarkGenerateRequest) =>
     timeout: 30_000,
   });
 
+/** Điểm AI + nhận xét của một hồ sơ. 404 = hồ sơ chưa được chấm. */
+export const getApplicationScore = (applicationId: number) =>
+  axiosClient.get<ApplicationScoreResponse>(`/v1/ai/scores/${applicationId}`);
+
+/** Chấm lại ngay (chờ kết quả, ~10–40 giây). Chỉ Admin / Recruiter; 409 nếu đang được chấm. */
+export const rescoreApplication = (applicationId: number) =>
+  axiosClient.post<ApplicationScoreResponse>(`/v1/ai/scores/${applicationId}/rescore`, null, {
+    timeout: 120_000,
+  });
+
+/** Chấm nền mọi hồ sơ chưa có điểm / chấm lỗi của một tin. Chỉ Admin / Recruiter. */
+export const rescorePosting = (jobPostingId: number) =>
+  axiosClient.post<RescorePostingResponse>("/v1/ai/scores/rescore-posting", null, {
+    params: { jobPostingId },
+  });

@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
+# [GIẢI THÍCH] Các cách ghi "đến nay" trong CV -> được hiểu là ngày hôm nay.
 _PRESENT = {
     "present", "now", "current", "currently", "today", "ongoing", "to date", "to present", "till now",
     "hiện tại", "hiện nay", "nay", "đến nay", "tới nay", "đến hiện tại", "tới hiện tại", "bây giờ",
@@ -31,6 +32,7 @@ _MONTHS_EN = {
     "nov": 11, "november": 11, "dec": 12, "december": 12,
 }
 
+# [GIẢI THÍCH] Các mẫu (regex) nhận dạng định dạng ngày tháng hay gặp trong CV Anh/Việt.
 _SEP = r"\s*[/.\-]\s*"
 _YEAR_ONLY = re.compile(r"^(\d{4})$")
 _YEAR_MONTH = re.compile(rf"^(\d{{4}}){_SEP}(\d{{1,2}})(?:{_SEP}\d{{1,2}})?$")      # 2020-01, 2020.12, 2020/01/15
@@ -49,6 +51,8 @@ def _month_ok(m: int) -> bool:
     return 1 <= m <= 12
 
 
+# [GIẢI THÍCH] Đổi một chuỗi ngày trong CV ("01/2020", "Tháng 1/2020", "Jan 2020", "hiện nay"...)
+# thành ngày thật (ngày 1 của tháng). Thử lần lượt từng mẫu; không khớp mẫu nào -> None.
 def parse_date(value: str | None, today: date | None = None) -> date | None:
     """Đọc một mốc thời gian trong CV thành ngày (ngày 1 của tháng). Không đọc được → None.
 
@@ -87,6 +91,10 @@ class _Job(Protocol):
     is_current: bool
 
 
+# [GIẢI THÍCH] TÍNH SỐ NĂM KINH NGHIỆM BẰNG PYTHON (không để AI tự cộng vì AI hay sai).
+# Ví dụ 01/2018-12/2020 và 06/2020-12/2022: gộp thành 01/2018-12/2022 = 4,9 năm (không phải 5,4).
+# Các bước: đọc ngày bắt đầu/kết thúc -> bỏ công việc thiếu ngày -> chặn ngày tương lai
+# -> sắp xếp -> gộp các khoảng chồng lấn -> tổng số ngày / 365.25.
 def calculate_years_of_experience(jobs: Iterable[_Job], today: date | None = None) -> float | None:
     """Tổng số năm làm việc từ các mốc thời gian, gộp các khoảng chồng lấn (không đếm trùng).
 
@@ -114,6 +122,7 @@ def calculate_years_of_experience(jobs: Iterable[_Job], today: date | None = Non
     if not ranges:
         return None
 
+    # Sắp xếp các khoảng theo ngày bắt đầu, rồi gộp khoảng nào chồng lên khoảng trước đó.
     ranges.sort()
     merged = [ranges[0]]
     for start, end in ranges[1:]:

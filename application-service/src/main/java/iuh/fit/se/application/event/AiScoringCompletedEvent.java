@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
  * @param tier      GOOD_FIT | POTENTIAL_FIT | NOT_FIT, chỉ có khi COMPLETED
  * @param updatedAt thời điểm đổi trạng thái theo đồng hồ ai-service — để bỏ qua sự kiện đến muộn
  */
+// [GIẢI THÍCH] Dữ liệu của sự kiện ai.scoring.completed. record = lớp chỉ chứa dữ liệu,
+// Java tự sinh constructor và getter. Tên trường trùng tên khoá JSON ai-service gửi.
 public record AiScoringCompletedEvent(
         Long applicationId, Long jobPostingId, String status, BigDecimal totalScore, String tier,
         LocalDateTime updatedAt

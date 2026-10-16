@@ -15,6 +15,7 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 
+# [GIẢI THÍCH] 5 tiêu chí cố định. Kiểu enum: AI trả tên khác 5 tên này -> bị từ chối.
 class ScoringDimension(str, Enum):
     TECHNICAL_SKILLS = "TECHNICAL_SKILLS"
     RELEVANT_EXPERIENCE = "RELEVANT_EXPERIENCE"
@@ -32,6 +33,7 @@ DIMENSION_LABELS: dict[ScoringDimension, str] = {
 }
 
 
+# [GIẢI THÍCH] 3 mức xếp loại: Phù hợp tốt / Tiềm năng / Chưa phù hợp.
 class Tier(str, Enum):
     GOOD_FIT = "GOOD_FIT"
     POTENTIAL_FIT = "POTENTIAL_FIT"
@@ -49,6 +51,8 @@ TIER_LABELS: dict[Tier, str] = {
 # Đầu ra LLM (response_model cho structured output)
 # ============================================================
 
+# [GIẢI THÍCH] KHUÔN ĐẦU RA CỦA AI cho MỘT tiêu chí (pydantic BaseModel ~ DTO Java có kiểm tra hợp lệ).
+# level: Field(..., ge=0, le=4) = bắt buộc, số nguyên từ 0 đến 4; AI trả 5 hay "cao" -> lỗi.
 class DimensionAssessment(BaseModel):
     dimension: ScoringDimension
     applicable: bool = Field(..., description="False nếu JD hoàn toàn không đề cập khía cạnh này")
@@ -59,6 +63,8 @@ class DimensionAssessment(BaseModel):
     reason: str = Field(..., description="1–2 câu tiếng Việt giải thích mức đã chọn")
 
 
+# [GIẢI THÍCH] TOÀN BỘ những gì AI được phép trả về khi chấm: 5 đánh giá + yêu cầu bắt buộc chưa đạt + tóm tắt.
+# Không có trường nào để AI ghi điểm số.
 class LLMScoringOutput(BaseModel):
     dimensions: list[DimensionAssessment] = Field(..., description="Đúng 5 khía cạnh, mỗi khía cạnh một lần")
     must_have_unmet: list[str] = Field(
@@ -72,6 +78,7 @@ class LLMScoringOutput(BaseModel):
 # Kết quả cuối (Python tính)
 # ============================================================
 
+# [GIẢI THÍCH] Một tiêu chí SAU KHI Python tính: thêm nhãn, trọng số gốc, trọng số sau chia lại, điểm 0-100.
 class ScoredDimension(BaseModel):
     dimension: ScoringDimension
     label: str
@@ -83,6 +90,8 @@ class ScoredDimension(BaseModel):
     reason: str = ""
 
 
+# [GIẢI THÍCH] KẾT QUẢ CUỐI (Python tạo, lưu vào ai_scores.result): điểm, xếp loại, 5 tiêu chí,
+# yêu cầu bắt buộc chưa đạt, nhận xét (câu đầu Python ghép + tóm tắt AI), số năm, ngày chấm.
 class ScoreResult(BaseModel):
     total_score: float = Field(..., description="0–100")
     tier: Tier
@@ -96,6 +105,7 @@ class ScoreResult(BaseModel):
     scored_on: date
 
 
+# [GIẢI THÍCH] Thông tin truy vết: model nào, prompt phiên bản mấy, bao nhiêu token, chi phí, thời gian.
 class ScoringProvenance(BaseModel):
     model: str
     prompt_version: str

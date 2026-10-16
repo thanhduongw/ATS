@@ -22,6 +22,9 @@ public class AiScoringListener {
 
     private final ApplicationService applicationService;
 
+    // [GIẢI THÍCH] Spring tự gọi hàm này mỗi khi hàng đợi application.ai-scoring-completed.queue có tin nhắn
+    // (ai-service vừa đổi trạng thái chấm). JSON trong tin nhắn được tự đổi thành AiScoringCompletedEvent.
+    // Lỗi chỉ ghi log để tin nhắn được ack, không bị gửi lại vô hạn (hệ thống chưa có dead-letter queue).
     @RabbitListener(queues = RabbitMQConfig.AI_SCORING_COMPLETED_QUEUE)
     public void onAiScoring(AiScoringCompletedEvent event) {
         try {

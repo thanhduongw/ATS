@@ -37,6 +37,7 @@ from app.workers.scoring_worker import schedule_scoring
 router = APIRouter()
 
 
+# [GIẢI THÍCH] Đổi một dòng ai_scores thành JSON trả cho frontend (tên trường kiểu camelCase).
 def to_dto(s: AIScore) -> dict:
     return {
         "applicationId": s.application_id,
@@ -56,6 +57,9 @@ async def _find(db: AsyncSession, application_id: int) -> AIScore | None:
     return (await db.execute(select(AIScore).where(AIScore.application_id == application_id))).scalar_one_or_none()
 
 
+# [GIẢI THÍCH] GET /api/v1/ai/scores/{id}: xem điểm một hồ sơ (thẻ AI ở trang chi tiết gọi API này).
+# require_internal: chặn ứng viên. require_application_access: hỏi application-service người gọi có quyền
+# xem hồ sơ này không (Hiring Manager phòng ban khác bị chặn). Chưa chấm -> 404.
 @router.get("/scores/{application_id}", summary="Điểm AI và nhận xét của một hồ sơ")
 async def get_score(application_id: int, user: CurrentUser = Depends(current_user),
                     db: AsyncSession = Depends(get_db)) -> dict:
@@ -67,6 +71,8 @@ async def get_score(application_id: int, user: CurrentUser = Depends(current_use
     return to_dto(score)
 
 
+# [GIẢI THÍCH] POST .../rescore: nút "Chấm lại". require_hr: chỉ Admin/Recruiter.
+# Chạy ngay và chờ kết quả (10-40 giây). Đang có người chấm -> 409.
 @router.post("/scores/{application_id}/rescore", summary="Chấm lại một hồ sơ (HR)")
 async def rescore(application_id: int, user: CurrentUser = Depends(current_user)) -> dict:
     require_hr(user)
@@ -80,6 +86,9 @@ async def rescore(application_id: int, user: CurrentUser = Depends(current_user)
     return to_dto(score)
 
 
+# [GIẢI THÍCH] POST .../rescore-posting?jobPostingId=: nút "AI chấm hồ sơ của tin" (chỉ Admin/Recruiter).
+# Lấy mọi hồ sơ của tin, bỏ qua hồ sơ đã có điểm hoặc đang chấm (busy), phần còn lại (todo)
+# đánh dấu PENDING rồi đưa vào hàng chờ chấm nền. Trả về ngay số hồ sơ được xếp hàng / bỏ qua.
 @router.post("/scores/rescore-posting", summary="Chấm tất cả hồ sơ chưa có điểm của một tin (HR)")
 async def rescore_posting(
     job_posting_id: int = Query(..., alias="jobPostingId"),

@@ -43,6 +43,7 @@ public class ApplicationService {
 
     private static final String STAGE_TYPE_REJECTED = "REJECTED";
     private static final String STAGE_TYPE_HIRED = "HIRED";
+    // [GIẢI THÍCH] 3 giá trị xếp loại hợp lệ, dùng để kiểm tra bộ lọc aiTier và sự kiện từ ai-service.
     private static final Set<String> AI_TIERS = Set.of("GOOD_FIT", "POTENTIAL_FIT", "NOT_FIT");
 
     private final ApplicationRepository applicationRepository;
@@ -63,9 +64,11 @@ public class ApplicationService {
             String aiTier, String sort,
             Integer page, Integer size) {
 
+        // [GIẢI THÍCH] Bộ lọc xếp loại không hợp lệ -> BusinessException -> HTTP 400.
         if (aiTier != null && !aiTier.isBlank() && !AI_TIERS.contains(aiTier)) {
             throw new BusinessException("Xếp loại AI không hợp lệ: " + aiTier);
         }
+        // [GIẢI THÍCH] Cách sắp xếp danh sách theo tham số sort (null = mặc định mới nộp trước).
         Comparator<Application> order = listOrder(sort);
         Long effectiveCandidateId = candidateId;
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
@@ -98,6 +101,7 @@ public class ApplicationService {
         List<Application> scopedApplications = new ArrayList<>(applicationRepository
                 .findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt")));
         if (order != null) {
+            // [GIẢI THÍCH] Sắp theo điểm AI TRƯỚC khi cắt trang -> đúng trên mọi trang, không chỉ trang đang xem.
             scopedApplications.sort(order); // sort ổn định: cùng điểm thì giữ thứ tự mới nộp trước
         }
         Map<Long, JobPostingResponse> postingMap = buildPostingMap(scopedApplications);
@@ -123,6 +127,8 @@ public class ApplicationService {
      * hồ sơ chưa có điểm (chưa chấm / đang chấm lần đầu / lỗi) luôn nằm cuối, cả khi tăng dần.
      * Sắp trong bộ nhớ vì danh sách đã được tải toàn bộ để phân trang.
      */
+    // [GIẢI THÍCH] Trả về cách so sánh để sắp xếp: aiScore,desc (cao -> thấp) hoặc aiScore,asc (thấp -> cao).
+    // nullsLast: hồ sơ chưa có điểm luôn nằm cuối ở cả hai chiều. Giá trị lạ -> HTTP 400.
     static Comparator<Application> listOrder(String sort) {
         if (sort == null || sort.isBlank() || sort.equals("appliedAt,desc")) {
             return null;
@@ -141,6 +147,12 @@ public class ApplicationService {
      *
      * @return false nếu không có gì thay đổi: hồ sơ không tồn tại hoặc sự kiện cũ hơn sự kiện đã áp dụng
      */
+    // [GIẢI THÍCH] Ghi bản sao điểm AI lên hồ sơ khi nhận sự kiện từ ai-service:
+    // - PENDING / PROCESSING: chỉ đổi trạng thái, GIỮ điểm cũ (đang chấm lại vẫn hiện điểm cũ).
+    // - COMPLETED: kiểm tra có điểm + xếp loại hợp lệ rồi ghi.
+    // - FAILED: xoá điểm (ai-service cũng đã xoá).
+    // Trả về false khi không có dòng nào đổi: hồ sơ không tồn tại hoặc sự kiện đến muộn (cũ hơn lần đã ghi).
+    // yield = giá trị trả về của một nhánh case có nhiều dòng.
     public boolean applyAiScore(AiScoringCompletedEvent event) {
         if (event.applicationId() == null || event.status() == null || event.updatedAt() == null) {
             throw new BusinessException("Sự kiện điểm AI thiếu applicationId / status / updatedAt");

@@ -8,6 +8,7 @@ import { AI_TIER_META, isAiScoring } from "../aiScore";
 import { COLORS } from "../../../app/theme";
 
 /** Đang chấm (nền) thì hỏi lại sau mỗi khoảng này. */
+// [GIẢI THÍCH] Khi hồ sơ đang chấm, cứ 5 giây thẻ tự hỏi lại server một lần (polling).
 const POLL_MS = 5000;
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
     hasResume: boolean;
 }
 
+// [GIẢI THÍCH] Đổi lỗi gọi API thành câu dễ hiểu (hết thời gian / lỗi server / mất kết nối).
 function errorText(err: unknown): string {
     const e = err as AxiosError<{ detail?: string; message?: string }>;
     if (e.code === "ECONNABORTED") return "Quá thời gian chờ AI chấm (>2 phút). Vui lòng thử lại sau.";
@@ -24,6 +26,8 @@ function errorText(err: unknown): string {
     return "Không thể kết nối đến server AI.";
 }
 
+// [GIẢI THÍCH] Vẽ MỘT dòng tiêu chí: tên, trọng số (sau chia lại), mức x/4, thanh điểm, lý do của AI.
+// Tiêu chí không áp dụng thì hiện mờ "Không áp dụng".
 function DimensionRow({ d }: { d: ScoredDimension }) {
     const weight = Math.round(d.effective_weight * 100);
     if (!d.applicable) {
@@ -55,6 +59,8 @@ function DimensionRow({ d }: { d: ScoredDimension }) {
  * Thẻ điểm AI của một hồ sơ: điểm, xếp loại, nhận xét, 5 tiêu chí, cảnh báo yêu cầu bắt buộc.
  * Điểm do ai-service tự chấm khi hồ sơ được nộp; khi đang chấm thì tự cập nhật.
  */
+// [GIẢI THÍCH] THẺ AI ở tab Tổng quan của trang chi tiết hồ sơ.
+// canRescore = người xem là Admin/Recruiter (được bấm Chấm lại). Server vẫn kiểm tra quyền lần nữa.
 export default function AiScoreCard({ applicationId, canRescore, hasResume }: Props) {
     const { message } = App.useApp();
     const [score, setScore] = useState<ApplicationScoreResponse | null>(null);
@@ -63,6 +69,7 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
     const [loadError, setLoadError] = useState<string | null>(null);
     const [rescoring, setRescoring] = useState(false);
 
+    // Gọi GET /api/v1/ai/scores/{id}. 404 KHÔNG phải lỗi: nghĩa là hồ sơ chưa được chấm -> hiện nút "Chấm ngay".
     const load = useCallback(async () => {
         try {
             const res = await getApplicationScore(applicationId);
@@ -82,8 +89,11 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
         }
     }, [applicationId]);
 
+    // Mở trang -> tải điểm một lần.
     useEffect(() => { load(); }, [load]);
 
+    // Đang chấm -> hẹn 5 giây gọi lại load; mỗi lần load xong score đổi -> hẹn tiếp; chấm xong thì dừng.
+    // return () => clearTimeout(...): rời trang thì huỷ hẹn giờ, không gọi API thừa.
     const scoring = isAiScoring(score?.status);
     useEffect(() => {
         if (!scoring) return;
@@ -91,6 +101,7 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
         return () => clearTimeout(timer);
     }, [scoring, score, load]);
 
+    // Nút Chấm lại: gọi POST .../rescore và chờ kết quả (10-40 giây). 409 = đang có người chấm -> chờ polling.
     const handleRescore = async () => {
         setRescoring(true);
         try {
@@ -116,6 +127,7 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
         </Button>
     ) : null;
 
+    // Các trạng thái của thẻ, theo thứ tự: đang tải -> lỗi tải -> đang chấm -> chưa chấm -> chấm lỗi -> có kết quả.
     if (loading) return <Skeleton active paragraph={{ rows: 3 }} />;
 
     if (loadError) {
@@ -164,6 +176,7 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
         );
     }
 
+    // Có kết quả: vòng tròn điểm + xếp loại, nhận xét, cảnh báo yêu cầu bắt buộc (nếu có), 5 dòng tiêu chí.
     const result = score.result;
     const tier = AI_TIER_META[score.tier];
     return (

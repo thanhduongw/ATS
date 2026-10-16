@@ -53,22 +53,33 @@ COMPLETED = "COMPLETED"
 FAILED = "FAILED"
 
 # Quá thời gian này mà còn PROCESSING thì coi như tiến trình đã chết, cho phép chấm lại.
+# [GIẢI THÍCH] Nếu một hồ sơ ở trạng thái PROCESSING quá 10 phút thì coi như tiến trình chấm đã chết
+# (vd ai-service bị tắt giữa chừng) -> cho phép chấm lại.
 STALE_PROCESSING = timedelta(minutes=10)
 
 
+# [GIẢI THÍCH] Lỗi "hồ sơ đang được chấm ở nơi khác" -> API trả 409 cho người bấm sau.
 class ScoringInProgressError(Exception):
     """Hồ sơ đang được một tiến trình khác chấm."""
 
 
+# [GIẢI THÍCH] Lỗi nghiệp vụ có câu thông báo cho HR, vd "Hồ sơ không có CV đính kèm".
 class ScoringFailure(Exception):
     """Lỗi có thông điệp dành cho HR (ghi vào ai_scores.error_message)."""
 
 
+# [GIẢI THÍCH] Đọc ngưỡng xếp loại (45 / 65) từ cấu hình (.env / config.py) mỗi lần chấm.
 def scoring_options() -> ScoringOptions:
     s = get_settings()
     return ScoringOptions(thresholds=Thresholds(s.scoring_tier_good_min, s.scoring_tier_potential_min))
 
 
+# [GIẢI THÍCH] "Giành quyền chấm" một hồ sơ bằng MỘT câu SQL:
+#   INSERT ... ON CONFLICT (application_id) DO UPDATE ... WHERE status <> PROCESSING (hoặc đã quá 10 phút)
+# - Chưa có dòng -> thêm mới với PROCESSING.
+# - Đã có dòng và không ai đang chấm -> cập nhật thành PROCESSING.
+# - Đang có người chấm -> câu lệnh không có tác dụng -> trả None -> ném ScoringInProgressError.
+# Vì là một câu lệnh nên database đảm bảo hai người bấm cùng lúc thì chỉ một người thắng.
 async def _claim(session: AsyncSession, application_id: int, job_posting_id: int, candidate_id: int) -> int:
     now = datetime.utcnow()
     stmt = insert(AIScore).values(
@@ -88,6 +99,8 @@ async def _claim(session: AsyncSession, application_id: int, job_posting_id: int
     return score_id
 
 
+# [GIẢI THÍCH] Dùng cho nút "AI chấm hồ sơ của tin": đánh dấu PENDING (đang chờ) cho các hồ sơ chưa có điểm
+# hoặc chấm lỗi, để giao diện hiện "Chờ chấm" ngay. Hồ sơ đã COMPLETED thì giữ nguyên (điều kiện where).
 async def mark_pending(session_factory: async_sessionmaker[AsyncSession], applications: list[dict]) -> None:
     """Chấm bù: đánh dấu PENDING cho hồ sơ chưa có điểm / FAILED (để giao diện hiện "đang chờ")."""
     if not applications:
@@ -113,6 +126,8 @@ async def mark_pending(session_factory: async_sessionmaker[AsyncSession], applic
         await _publish_status(row)
 
 
+# [GIẢI THÍCH] Đổi từng loại lỗi kỹ thuật thành một câu tiếng Việt để HR đọc trên thẻ AI.
+# isinstance(exc, X) = "lỗi này có thuộc loại X không" (giống instanceof của Java).
 def _failure_message(exc: Exception) -> str:
     if isinstance(exc, ScoringFailure):
         return str(exc)
@@ -127,6 +142,10 @@ def _failure_message(exc: Exception) -> str:
     return f"Lỗi không xác định khi chấm điểm: {type(exc).__name__}: {exc}"
 
 
+# [GIẢI THÍCH] Gửi sự kiện ai.scoring.completed lên RabbitMQ mỗi khi trạng thái chấm thay đổi
+# (PENDING / PROCESSING / COMPLETED / FAILED). application-service nghe sự kiện này để chép điểm lên hồ sơ.
+# updatedAt = thời điểm đổi trạng thái, giúp bên nhận bỏ qua sự kiện đến muộn.
+# Gửi lỗi thì chỉ ghi cảnh báo, không làm hỏng việc chấm.
 async def _publish_status(score) -> None:
     """`score`: AIScore hoặc dòng có cùng tên cột."""
     from app.core.rabbitmq import rabbitmq_manager
@@ -143,6 +162,11 @@ async def _publish_status(score) -> None:
         logger.warning("Không phát được ai.scoring.completed cho hồ sơ %s: %s", score.application_id, exc)
 
 
+# [GIẢI THÍCH] HÀM CHÍNH: chấm một hồ sơ từ đầu đến cuối. Cả 3 lối vào đều gọi hàm này:
+#   (1) worker khi có hồ sơ mới, (2) nút Chấm lại, (3) nút AI chấm hồ sơ của tin.
+# Thứ tự: lấy thông tin hồ sơ -> giành quyền chấm -> lấy tin tuyển dụng -> trích xuất CV (LLM lần 1)
+# -> chấm + tính điểm (LLM lần 2 + Python) -> lưu DB -> phát sự kiện.
+# headers = danh tính người bấm (HR); None = chạy nền với danh tính SYSTEM.
 async def score_application(
     application_id: int,
     headers: dict[str, str] | None = None,
@@ -158,12 +182,15 @@ async def score_application(
     """
     started = datetime.utcnow()
     manager = manager or get_llm_manager()
+    # Hỏi application-service: hồ sơ này thuộc tin nào, ứng viên nào, link CV ở đâu.
     summary = await get_application_summary(application_id, headers)
     job_posting_id, candidate_id = summary["jobPostingId"], summary["candidateId"]
 
     async with session_factory() as session:
+        # Giành quyền chấm (PROCESSING), rồi báo "đang chấm" cho application-service.
         score_id = await _claim(session, application_id, job_posting_id, candidate_id)
         await _publish_status(await session.get(AIScore, score_id))
+        # Tạo một dòng nhật ký trong bảng ai_jobs: ghi lại bước đang làm, thời gian, token, chi phí.
         job = AIJob(application_id=application_id, candidate_id=candidate_id, job_posting_id=job_posting_id,
                     status=PROCESSING, current_stage="FETCH", started_at=started)
         session.add(job)
@@ -171,22 +198,32 @@ async def score_application(
 
         values: dict
         try:
+            # Mọi bước bên dưới nằm trong try: bước nào lỗi cũng nhảy xuống except và ghi FAILED.
             resume_url = summary.get("resumeUrl")
             if not resume_url:
                 raise ScoringFailure("Hồ sơ không có CV đính kèm")
+            # Hỏi recruitment-service: nội dung tin tuyển dụng (tiêu đề, mô tả, yêu cầu).
             posting = await get_posting(job_posting_id, headers)
 
+            # ----- LLM LẦN 1: TRÍCH XUẤT CV -----
+            # get_or_extract: CV này đã trích xuất rồi thì lấy từ DB (không gọi AI); chưa thì tải S3 -> đọc chữ -> gọi Gemini -> lưu.
             job.current_stage = "EXTRACT"
             extraction = await get_or_extract(session_factory, resume_url, candidate_id, manager=manager)
             job.extraction_model = extraction.model
             job.extraction_prompt_version = extraction.prompt_version
+            # Ghi vào nhật ký: CV có phải đọc bằng OCR (ảnh scan) không, có bị nghi chèn lệnh không.
             job.ocr_used = bool((extraction.text_metadata or {}).get("ocr_used"))
             job.injection_detected = bool((extraction.text_metadata or {}).get("injection_detected"))
+            # Trích xuất thất bại thì dừng, không chấm trên dữ liệu hỏng.
             if extraction.status != EXTRACTION_COMPLETED:
                 raise ScoringFailure(f"Không trích xuất được CV: {extraction.error_message}")
 
+            # ----- LLM LẦN 2: CHẤM -----
+            # names: tên ứng viên, KHÔNG gửi cho AI mà dùng để tìm và CHE tên trong đoạn văn (chấm mù).
             job.current_stage = "SCORE"
             names = [summary.get("candidateName") or ""]
+            # Đưa vào KẾT QUẢ TRÍCH XUẤT (không phải file CV gốc). Trả về:
+            #   result = điểm, xếp loại, nhận xét, 5 tiêu chí;  provenance = model, phiên bản prompt, token, chi phí.
             result, provenance = await score_candidate(
                 JobInfo.from_posting(posting),
                 extraction.result["extracted_cv"],
@@ -203,12 +240,14 @@ async def score_application(
                 "provenance": provenance.model_dump(mode="json"), "error_message": None,
                 "scored_at": datetime.utcnow(),
             }
+            # Thành công: values ở trên là các giá trị sẽ ghi vào bảng ai_scores; ghi thêm thông tin vào nhật ký.
             job.status = COMPLETED
             job.scoring_model = provenance.model
             job.scoring_prompt_version = provenance.prompt_version
             job.total_input_tokens = provenance.input_tokens
             job.total_output_tokens = provenance.output_tokens
             job.estimated_cost_usd = round(provenance.estimated_cost_usd, 4)
+        # Bất kỳ lỗi nào ở trên: ghi FAILED + lý do tiếng Việt, xoá điểm cũ (total_score = None).
         except Exception as exc:  # noqa: BLE001 — mọi lỗi đều phải kết thúc bằng FAILED
             message = _failure_message(exc)
             log = logger.warning if isinstance(exc, (ScoringFailure, JavaServiceError, CVUnavailableError)) \
@@ -221,6 +260,7 @@ async def score_application(
             job.status = FAILED
             job.error_message = message[:2000]
 
+        # Ghi kết quả (thành công hay thất bại) vào bảng ai_scores, lưu thời gian chạy vào nhật ký.
         job.completed_at = datetime.utcnow()
         job.total_latency_ms = int((job.completed_at - started).total_seconds() * 1000)
         await session.execute(
@@ -231,5 +271,6 @@ async def score_application(
         score = (await session.execute(select(AIScore).where(AIScore.id == score_id))).scalar_one()
         await session.refresh(score)
 
+    # Báo kết quả cuối cho application-service qua RabbitMQ.
     await _publish_status(score)
     return score

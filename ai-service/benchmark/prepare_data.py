@@ -28,11 +28,19 @@ from benchmark.common import (
     BUILD_DIR, DATA_DIR, LABEL_ID, LABELS, RAW_DIR, ROOT, file_sha1, read_jsonl, text_hash, utf8_console, write_jsonl,
 )
 
+# [GIẢI THÍCH] NGUỒN DỮ LIỆU: bộ công khai "cnamuangtoun/resume-job-description-fit" trên Hugging Face.
+# Mỗi dòng = 1 CV + 1 tin tuyển dụng (JD) + 1 nhãn: No Fit / Potential Fit / Good Fit.
+# Bộ gốc chia sẵn 2 file: train.csv (6.241 cặp) và test.csv (1.759 cặp). {split} được thay bằng train / test.
 HF_URL = "https://huggingface.co/datasets/cnamuangtoun/resume-job-description-fit/resolve/main/{split}.csv"
+# [GIẢI THÍCH] Hạt giống ngẫu nhiên cố định: ai chạy lại cũng bốc ra ĐÚNG 210 cặp như nhau (tái lập được).
 SEED = 20261015
+# [GIẢI THÍCH] Lấy CHIA ĐỀU mỗi nhãn: test 50 cặp/nhãn (= 150), calib 20 cặp/nhãn (= 60).
+# Chia đều vì bộ gốc lệch (No Fit ~49%): nếu lấy theo tỉ lệ gốc, đoán toàn "No Fit" đã đúng gần một nửa.
 TEST_PER_LABEL = 50
 CALIB_PER_LABEL = 20
 
+# [GIẢI THÍCH] Danh sách file code ai-service được đóng gói lên Kaggle, để benchmark chạy ĐÚNG code của sản phẩm
+# (trích xuất + chấm điểm), không viết lại. Không cần DB / RabbitMQ / S3 / OCR.
 APP_ROOT = ROOT.parent
 # Đúng các module ai-service cần cho trích xuất + chấm điểm (không DB / RabbitMQ / S3 / OCR).
 CODE_FILES = [
@@ -47,6 +55,7 @@ CODE_FILES = [
 ]
 
 
+# [GIẢI THÍCH] Tải 2 file CSV gốc từ Hugging Face về data/raw/hf/ (bỏ qua nếu đã có).
 def download() -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     for split in ("train", "test"):
@@ -56,6 +65,9 @@ def download() -> None:
             urllib.request.urlretrieve(HF_URL.format(split=split), path)
 
 
+# [GIẢI THÍCH] Đọc một file CSV, bỏ dòng thiếu dữ liệu / nhãn lạ, rồi gán cho mỗi CV và JD một "mã băm"
+# của nội dung (text_hash) để nhận ra văn bản trùng nhau giữa các cặp và giữa train / test.
+# row = số dòng gốc trong file, lưu lại để truy ngược cặp nào lấy từ đâu.
 def load(split: str) -> pd.DataFrame:
     df = pd.read_csv(RAW_DIR / f"{split}.csv")
     df = df.dropna(subset=["resume_text", "job_description_text", "label"])
@@ -66,6 +78,8 @@ def load(split: str) -> pd.DataFrame:
     return df
 
 
+# [GIẢI THÍCH] LẤY MẪU PHÂN TẦNG: với MỖI nhãn, bốc ngẫu nhiên đúng per_label cặp (seed cố định),
+# rồi trộn thứ tự. Nhãn nào không đủ cặp thì dừng báo lỗi.
 def stratified(df: pd.DataFrame, per_label: int, seed: int) -> pd.DataFrame:
     parts = []
     for label in LABELS:
@@ -76,15 +90,25 @@ def stratified(df: pd.DataFrame, per_label: int, seed: int) -> pd.DataFrame:
     return pd.concat(parts).sample(frac=1, random_state=seed)
 
 
+# [GIẢI THÍCH] TẠO 2 TẬP:
+# - test  : 50 cặp/nhãn lấy từ test.csv -> chỉ dùng để BÁO KẾT QUẢ CUỐI.
+# - calib : 20 cặp/nhãn lấy từ train.csv -> chỉ dùng để CHỌN NGƯỠNG xếp loại.
+# Bộ gốc có CV / JD xuất hiện ở cả train lẫn test, nên cặp train nào dùng chung CV hoặc JD với tập test
+# bị loại khỏi calib (leak). Nếu không, lúc chọn ngưỡng sẽ "nhìn trộm" dữ liệu test. Kết quả: loại 2.414 cặp.
 def sample() -> tuple[pd.DataFrame, pd.DataFrame]:
     train, test = load("train"), load("test")
     test_s = stratified(test, TEST_PER_LABEL, SEED)
+    # leak = True cho cặp train có CV HOẶC JD trùng với tập test đã chọn; ~leak = các cặp còn lại.
     leak = train["resume_hash"].isin(test_s["resume_hash"]) | train["jd_hash"].isin(test_s["jd_hash"])
     calib_s = stratified(train[~leak], CALIB_PER_LABEL, SEED)
     print(f"Calib: loại {int(leak.sum())}/{len(train)} cặp train trùng CV/JD với test")
     return test_s, calib_s
 
 
+# [GIẢI THÍCH] Ghi kết quả lấy mẫu ra 3 file trong data/:
+# - pairs.jsonl   : 210 cặp (id test-001..., split, nhãn, mã băm CV/JD, dòng gốc).
+# - texts_en.jsonl: mỗi CV / JD DUY NHẤT một dòng (177 CV + 104 JD), vì nhiều cặp dùng chung một CV hoặc JD.
+# - meta.json     : tên bộ dữ liệu, mã SHA-1 của file gốc (chứng minh đúng phiên bản), seed, số lượng.
 def write_data(test_s: pd.DataFrame, calib_s: pd.DataFrame) -> None:
     pairs, texts = [], {}
     for split, df in (("test", test_s), ("calib", calib_s)):
@@ -94,6 +118,7 @@ def write_data(test_s: pd.DataFrame, calib_s: pd.DataFrame) -> None:
                 "label": r.label, "label_id": LABEL_ID[r.label],
                 "resume_hash": r.resume_hash, "jd_hash": r.jd_hash,
             })
+            # setdefault: văn bản đã có thì giữ nguyên, chưa có mới thêm -> mỗi văn bản chỉ lưu một lần.
             texts.setdefault(r.resume_hash, {"hash": r.resume_hash, "type": "CV", "text": r.resume_text})
             texts.setdefault(r.jd_hash, {"hash": r.jd_hash, "type": "JD", "text": r.job_description_text})
     write_jsonl(DATA_DIR / "pairs.jsonl", pairs)
@@ -111,6 +136,8 @@ def write_data(test_s: pd.DataFrame, calib_s: pd.DataFrame) -> None:
     print(json.dumps({k: meta[k] for k in ("pairs", "unique_cv", "unique_jd", "chars_total")}, ensure_ascii=False))
 
 
+# [GIẢI THÍCH] Đóng gói để tải lên Kaggle: build/kaggle_dataset/ gồm data/ (dữ liệu đã lấy mẫu)
+# + ats_code/ (đúng code ai-service ở CODE_FILES), và nén thành build/ats-cv-scoring-benchmark.zip.
 def build_kaggle_dataset() -> None:
     """build/kaggle_dataset/: data/ + ats_code/ (code ai-service) + dataset-metadata.json, và bản .zip."""
     out = BUILD_DIR / "kaggle_dataset"
@@ -136,6 +163,10 @@ def build_kaggle_dataset() -> None:
     print(f"Kaggle Dataset: {out}  |  zip: {zip_path} ({zip_path.stat().st_size // 1024} KB)")
 
 
+# [GIẢI THÍCH] Chạy: python -m benchmark.prepare_data
+# 1. Tải dữ liệu gốc (nếu chưa có).
+# 2. Đã có data/pairs.jsonl thì GIỮ NGUYÊN 210 cặp cũ (để kết quả không đổi); muốn bốc lại thì thêm --resample.
+# 3. Đóng gói lại file zip cho Kaggle.
 def main() -> None:
     utf8_console()
     parser = argparse.ArgumentParser()

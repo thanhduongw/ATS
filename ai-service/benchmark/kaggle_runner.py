@@ -25,7 +25,9 @@ from typing import Callable
 
 from benchmark.common import append_jsonl, find_files, read_jsonl
 
+# [GIẢI THÍCH] Model DỊCH (Gemini 2.5 Flash) cố ý KHÁC model CHẤM, để không phải model tự dịch rồi tự chấm.
 TRANSLATE_MODEL = "google/gemini-2.5-flash"
+# [GIẢI THÍCH] Tên model trên Kaggle cho từng "khoá" lượt chạy. Kết quả hiện có chỉ của "gemini" (model của sản phẩm).
 SCORING_MODELS = {
     "gemini": "google/gemini-3.5-flash-lite",          # model của sản phẩm
     "gpt": "openai/gpt-5.4-nano-2026-03-17",           # model nhỏ, giá rẻ của hãng khác để so sánh
@@ -34,6 +36,8 @@ SCORING_MODELS = {
 # Ngày chấm cố định cho mọi lượt chạy để kết quả lặp lại được (số năm "đến nay" tính theo ngày này).
 BENCH_TODAY = date(2026, 10, 15)
 
+# [GIẢI THÍCH] Prompt dịch: dịch đủ, giữ cấu trúc, GIỮ NGUYÊN tên công nghệ, công ty, trường, số liệu, ngày tháng;
+# không thêm / bớt / tóm tắt. Văn bản gốc bọc trong <source>...</source>.
 TRANSLATE_PROMPT = """Translate the following {kind} from English to Vietnamese for a recruitment system.
 Rules:
 - Translate everything; keep the original structure, line breaks and bullet points.
@@ -45,6 +49,7 @@ Rules:
 {text}
 </source>"""
 
+# [GIẢI THÍCH] Mẫu tìm các con số, dùng để kiểm tra bản dịch có giữ nguyên số liệu không.
 _NUM = re.compile(r"\d+(?:[.,]\d+)?")
 
 
@@ -56,6 +61,8 @@ def now() -> str:
 # Gọi model qua kaggle_benchmarks
 # ============================================================
 
+# [GIẢI THÍCH] Gọi model qua SDK kaggle_benchmarks (quota AI miễn phí của Kaggle), trả về văn bản thường (dùng cho dịch).
+# Mỗi lời gọi mở một cuộc chat MỚI vì SDK mặc định nhớ lịch sử, tránh văn bản trước ảnh hưởng văn bản sau.
 def kbench_text(model: str, message: str, seed: int = 42) -> str:
     """Một lời gọi văn bản thuần, trong chat riêng (llm.prompt mặc định giữ lịch sử hội thoại)."""
     import kaggle_benchmarks as kbench
@@ -69,6 +76,10 @@ def kbench_text(model: str, message: str, seed: int = 42) -> str:
 # Dịch
 # ============================================================
 
+# [GIẢI THÍCH] KIỂM TRA CHẤT LƯỢNG BẢN DỊCH tự động:
+# - Rỗng, độ dài bất thường (< 0.5 hoặc > 2.5 lần bản gốc), hay chép lại cả thẻ <source> -> LỖI NẶNG, bỏ bản dịch.
+# - Độ dài hơi lệch (ngoài 0.8-1.8 lần) hoặc mất > 10% con số -> CẢNH BÁO, vẫn dùng nhưng ghi lại.
+# Kết quả thật: 281/281 văn bản dịch được, 1 cảnh báo.
 def translation_issues(source: str, translated: str) -> tuple[list[str], list[str]]:
     """(lỗi nặng → bản dịch hỏng, cảnh báo → vẫn dùng nhưng ghi lại)."""
     hard, warn = [], []
@@ -90,6 +101,10 @@ def translation_issues(source: str, translated: str) -> tuple[list[str], list[st
     return hard, warn
 
 
+# [GIẢI THÍCH] DỊCH TOÀN BỘ CV + JD sang tiếng Việt (notebook 01_translate gọi hàm này).
+# - done: văn bản đã dịch xong ở lần chạy trước -> bỏ qua (hết quota thì chạy lại làm tiếp được).
+# - Mỗi văn bản thử tối đa 2 lần; bản dịch lỗi nặng thì thử lại.
+# - Ghi NGAY từng dòng vào translations_vi.jsonl. Log chỉ in mã văn bản, không in nội dung CV.
 def translate_all(
     texts: list[dict],
     out_path: Path,
@@ -108,6 +123,7 @@ def translate_all(
     for i, t in enumerate(todo, 1):
         row = {"hash": t["hash"], "type": t["type"], "model": model, "at": now()}
         started = time.monotonic()
+        # Thử dịch; không có lỗi nặng thì dừng (break), có thì thử lần nữa.
         for attempt in range(1, max_attempts + 1):
             try:
                 kind = "CV / resume" if t["type"] == "CV" else "job description"
@@ -126,6 +142,7 @@ def translate_all(
     return stats
 
 
+# [GIẢI THÍCH] Đọc bản dịch đã lưu: trả về {mã văn bản: bản dịch tiếng Việt} để lượt chấm tiếng Việt dùng.
 def load_translations(roots: list[Path], name: str = "translations_vi.jsonl") -> dict[str, str]:
     """hash → bản dịch ok (bản mới nhất thắng)."""
     out: dict[str, str] = {}
@@ -141,6 +158,9 @@ def load_translations(roots: list[Path], name: str = "translations_vi.jsonl") ->
 # ============================================================
 
 @dataclass
+# [GIẢI THÍCH] CẤU HÌNH MỘT LƯỢT CHẤM = 1 model x 1 ngôn ngữ (vd gemini + vi).
+# tag = "r2", "r3" cho các lượt chấm lặp đo độ ổn định. today cố định 15/10/2026 để số năm kinh nghiệm
+# luôn tính giống nhau. Mỗi lượt có 2 file kết quả: extractions.<model>.<ngôn ngữ>.jsonl và scores.<...>.jsonl.
 class RunConfig:
     model_key: str                 # "gemini" | "gpt"
     lang: str                      # "en" | "vi"
@@ -162,6 +182,8 @@ class RunConfig:
         return f"scores.{self.model_key}.{self.lang}{'.' + self.tag if self.tag else ''}.jsonl"
 
 
+# [GIẢI THÍCH] Đọc kết quả đã có (lần chạy trước + lần này), CHỈ lấy dòng thành công (ok).
+# Nhờ vậy hết quota giữa chừng thì lần sau chỉ làm phần còn thiếu; dòng lỗi sẽ được làm lại.
 def _load_ok(roots: list[Path], name: str, key: str) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for path in find_files(roots, name):
@@ -171,6 +193,9 @@ def _load_ok(roots: list[Path], name: str, key: str) -> dict[str, dict]:
     return out
 
 
+# [GIẢI THÍCH] TRÍCH XUẤT + CHẤM mọi cặp chưa chấm, bằng ĐÚNG code ai-service (3 dòng import bên dưới).
+# Với mỗi cặp: CV chưa trích xuất -> GỌI AI LẦN 1 (extract_cv_from_text) và lưu;
+# rồi GỌI AI LẦN 2 + Python tính điểm (score_candidate) dựa trên KẾT QUẢ TRÍCH XUẤT. Lưu kèm nhãn thật để so sánh.
 async def score_all(
     cfg: RunConfig,
     pairs: list[dict],
@@ -184,11 +209,15 @@ async def score_all(
     from app.services.scoring.engine import score_candidate
     from app.services.scoring.prompt import JobInfo
 
+    # "kbench:" = gọi model qua quota Kaggle (lớp KbenchClient trong llm_client.py).
+    # use_fallback=False: chỉ dùng đúng một model, không chuyển model khác khi lỗi (kết quả không bị trộn).
     manager = manager or LLMManager(primary=make_client(f"kbench:{cfg.model}"), use_fallback=False)
     roots = [*cfg.prior_roots, cfg.out_dir]
+    # Kết quả đã có: CV đã trích xuất (theo mã CV) và cặp đã chấm (theo mã cặp).
     extractions = _load_ok(roots, cfg.extraction_file, "resume_hash")
     scored = _load_ok(roots, cfg.score_file, "pair_id")
 
+    # todo = các cặp CHƯA chấm; bỏ cặp thiếu văn bản (vd bản dịch lỗi); limit dùng khi chạy thử vài cặp.
     todo = [p for p in pairs if p["id"] not in scored]
     missing_text = [p["id"] for p in todo if p["resume_hash"] not in texts or p["jd_hash"] not in texts]
     todo = [p for p in todo if p["id"] not in missing_text][: limit or None]
@@ -197,17 +226,22 @@ async def score_all(
     print(f"Chấm {cfg.model_key}/{cfg.lang}{'/' + cfg.tag if cfg.tag else ''}: đã có {len(scored)}, "
           f"cần chấm {len(todo)}, thiếu văn bản {len(missing_text)}")
 
+    # ----- Duyệt từng cặp (i đếm từ 1 để in tiến độ) -----
     for i, pair in enumerate(todo, 1):
+        # ----- LLM LẦN 1: TRÍCH XUẤT CV, chỉ khi CV này chưa có -----
+        # Mỗi CV chỉ trích xuất 1 lần cho mỗi ngôn ngữ (177 lần cho 210 cặp), cặp sau dùng chung CV thì dùng lại.
         rh = pair["resume_hash"]
         if rh not in extractions:
             started = time.monotonic()
             row = {"resume_hash": rh, "model": cfg.model, "lang": cfg.lang, "at": now()}
             try:
+                # GỌI AI LẦN 1: đúng hàm trích xuất của ai-service (CV ở đây đã là văn bản, không qua S3 / OCR).
                 result, usage = await extract_cv_from_text(texts[rh], manager)
                 row.update(ok=True, result=result.model_dump(mode="json"), retries=usage.retries, error=None)
             except Exception as exc:  # noqa: BLE001
                 row.update(ok=False, result=None, error=f"{type(exc).__name__}: {exc}"[:500])
             row["seconds"] = round(time.monotonic() - started, 1)
+            # Ghi NGAY một dòng xuống ổ đĩa: máy Kaggle dừng giữa chừng cũng không mất phần đã làm.
             append_jsonl(cfg.out_dir / cfg.extraction_file, row)
             if row["ok"]:
                 extractions[rh] = row
@@ -215,12 +249,17 @@ async def score_all(
                 stats["extract_failed"] += 1
 
         started = time.monotonic()
+        # ----- LLM LẦN 2: CHẤM (cặp nào cũng chấm) -----
+        # label_id = nhãn thật của bộ dữ liệu (0/1/2), lưu cạnh điểm để evaluate.py so sánh.
         row = {"pair_id": pair["id"], "split": pair["split"], "label_id": pair["label_id"],
                "model": cfg.model, "lang": cfg.lang, "tag": cfg.tag, "at": now()}
         if rh not in extractions:
+            # Trích xuất hỏng thì ghi lỗi, không chấm bừa.
             row.update(ok=False, error="extraction_failed")
         else:
             try:
+                # GỌI AI LẦN 2 + Python tính điểm: đúng hàm chấm của ai-service (lọc thông tin cá nhân -> số năm -> Gemini -> điểm).
+                # title="": JD trong bộ dữ liệu chỉ là một khối văn bản; đưa vào KẾT QUẢ TRÍCH XUẤT chứ không phải CV gốc.
                 result, prov = await score_candidate(
                     JobInfo(title="", description=texts[pair["jd_hash"]]),
                     extractions[rh]["result"]["extracted_cv"],
@@ -233,6 +272,7 @@ async def score_all(
             except Exception as exc:  # noqa: BLE001
                 row.update(ok=False, error=f"{type(exc).__name__}: {exc}"[:500])
         row["seconds"] = round(time.monotonic() - started, 1)
+        # Ghi NGAY kết quả chấm (điểm, xếp loại, 5 tiêu chí, model, phiên bản prompt) vào scores.*.jsonl.
         append_jsonl(cfg.out_dir / cfg.score_file, row)
         stats["ok" if row["ok"] else "failed"] += 1
         print(f"[{i}/{len(todo)}] {pair['id']} ok={row['ok']} {row.get('total_score', '')} {row['seconds']}s"
@@ -240,6 +280,8 @@ async def score_all(
     return stats
 
 
+# [GIẢI THÍCH] Notebook gọi hàm này. Code ai-service viết kiểu bất đồng bộ (async), mà Jupyter đã có sẵn
+# vòng lặp sự kiện riêng nên không gọi trực tiếp được -> chạy score_all trong một luồng riêng rồi trả kết quả.
 def run_scoring(cfg: RunConfig, pairs: list[dict], texts: dict[str, str], limit: int | None = None) -> dict:
     """Bản đồng bộ cho notebook (Jupyter đã có event loop → chạy trong thread riêng)."""
     import concurrent.futures

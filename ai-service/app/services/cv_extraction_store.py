@@ -37,10 +37,12 @@ class CVUnavailableError(Exception):
     """Không tải được file CV (URL ngoài bucket, file không tồn tại, lỗi S3...)."""
 
 
+# [GIẢI THÍCH] "Dấu vân tay" của nội dung file: hai file giống hệt nhau luôn có cùng mã.
 def file_sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+# [GIẢI THÍCH] Tìm bản trích xuất đã lưu theo LINK CV (và đúng phiên bản prompt hiện tại).
 async def find_by_resume_url(session: AsyncSession, resume_url: str) -> CVExtraction | None:
     """Bản trích xuất mới nhất của URL này với prompt hiện tại (kể cả FAILED)."""
     stmt = (
@@ -52,12 +54,14 @@ async def find_by_resume_url(session: AsyncSession, resume_url: str) -> CVExtrac
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+# [GIẢI THÍCH] Tìm bản trích xuất theo NỘI DUNG file: cùng một CV nằm ở link khác vẫn dùng lại được.
 async def _find_by_hash(session: AsyncSession, file_hash: str) -> CVExtraction | None:
     stmt = select(CVExtraction).where(
         CVExtraction.file_hash == file_hash, CVExtraction.prompt_version == PROMPT_VERSION)
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+# [GIẢI THÍCH] Lưu bản trích xuất: chưa có thì thêm, có rồi (cùng file + cùng phiên bản prompt) thì cập nhật.
 async def _upsert(session: AsyncSession, values: dict) -> CVExtraction:
     values = {**values, "prompt_version": PROMPT_VERSION, "updated_at": datetime.utcnow()}
     stmt = insert(CVExtraction).values(**values)
@@ -71,6 +75,8 @@ async def _upsert(session: AsyncSession, values: dict) -> CVExtraction:
     return row
 
 
+# [GIẢI THÍCH] Tải file CV từ AWS S3. Link ngoài bucket cho phép / file không tồn tại / lỗi mạng
+# -> ném CVUnavailableError (sẽ thành lý do FAILED cho HR).
 async def _download(resume_url: str) -> tuple[bytes, str]:
     s3 = get_s3_client()
     try:
@@ -83,6 +89,12 @@ async def _download(resume_url: str) -> tuple[bytes, str]:
     return data, key.rsplit("/", 1)[-1]
 
 
+# [GIẢI THÍCH] TRÍCH XUẤT MỘT LẦN, DÙNG LẠI NHIỀU LẦN.
+# 1. Tìm theo link CV -> có bản thành công thì trả về luôn (không gọi AI).
+# 2. Chưa có -> tải file từ S3, tính mã băm -> tìm theo mã băm -> có thì trả về.
+# 3. Vẫn chưa có -> đọc chữ trong file (ảnh thì OCR) -> gọi Gemini (LLM lần 1) -> lưu DB.
+# force=True khi HR bấm "Phân tích lại": bỏ qua bản cũ.
+# Mọi nhánh lỗi đều lưu FAILED kèm lý do; lần sau gọi lại sẽ tự thử lại.
 async def get_or_extract(
     session_factory: async_sessionmaker[AsyncSession],
     resume_url: str,
@@ -120,6 +132,7 @@ async def get_or_extract(
 
         base = {"file_hash": file_hash, "resume_url": resume_url, "candidate_id": candidate_id}
 
+        # Đọc chữ trong file: PDF, DOCX; ảnh scan thì dùng PaddleOCR.
         text = await extract_text_from_bytes(cv_bytes, filename)
         text_meta = text.metadata.model_dump(mode="json")
         if text.status != "success" or not text.text:
@@ -132,6 +145,7 @@ async def get_or_extract(
             })
 
         try:
+            # GỌI GEMINI (LLM lần 1): tách CV thành các trường theo khuôn ExtractedCV.
             result, usage = await extract_cv_from_text(text.text, manager)
         except LLMError as exc:
             logger.error("Trích xuất CV %s thất bại: %s", resume_url, exc)

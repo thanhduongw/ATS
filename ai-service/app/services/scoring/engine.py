@@ -34,6 +34,8 @@ from app.services.scoring.prompt import PROMPT_VERSION, JobInfo, build_scoring_p
 
 SCORING_VERSION = "v1.0"
 
+# [GIẢI THÍCH] TRỌNG SỐ 5 tiêu chí (tổng = 1). Đây là GIẢ ĐỊNH THIẾT KẾ, chưa kiểm chứng bằng dữ liệu.
+# Kỹ năng + Kinh nghiệm = 60% vì trả lời trực tiếp "có làm được việc ngay không". Muốn đổi thì sửa ở đây.
 DEFAULT_WEIGHTS: dict[ScoringDimension, float] = {
     ScoringDimension.TECHNICAL_SKILLS: 0.35,
     ScoringDimension.RELEVANT_EXPERIENCE: 0.25,
@@ -48,6 +50,8 @@ class NoApplicableDimensionError(ValueError):
 
 
 @dataclass(frozen=True)
+# [GIẢI THÍCH] NGƯỠNG XẾP LOẠI mặc định (giá trị thật đọc từ config): >= 65 Phù hợp tốt, >= 45 Tiềm năng.
+# Ngưỡng này ĐO bằng benchmark (tối ưu trên tập calib 43,15 / 63,75 rồi làm tròn).
 class Thresholds:
     good_min: float = 65.0
     potential_min: float = 45.0
@@ -59,6 +63,7 @@ class ScoringOptions:
     thresholds: Thresholds = field(default_factory=Thresholds)
 
 
+# [GIẢI THÍCH] Đổi điểm thành xếp loại theo ngưỡng.
 def tier_for(total: float, thresholds: Thresholds) -> Tier:
     if total >= thresholds.good_min:
         return Tier.GOOD_FIT
@@ -67,6 +72,8 @@ def tier_for(total: float, thresholds: Thresholds) -> Tier:
     return Tier.NOT_FIT
 
 
+# [GIẢI THÍCH] Câu mở đầu nhận xét do PYTHON viết, vd "Mức độ phù hợp: Phù hợp tốt (75/100)."
+# Python viết nên luôn khớp điểm. Có yêu cầu bắt buộc chưa đạt thì nối thêm danh sách (chỉ cảnh báo, không trừ điểm).
 def headline(total: float, tier: Tier, must_have_unmet: list[str]) -> str:
     """Câu mở đầu nhận xét do Python ghép — luôn khớp với điểm (LLM viết tóm tắt trước khi có điểm)."""
     text = f"Mức độ phù hợp: {TIER_LABELS[tier]} ({total:g}/100)."
@@ -75,6 +82,11 @@ def headline(total: float, tier: Tier, must_have_unmet: list[str]) -> str:
     return text
 
 
+# [GIẢI THÍCH] PYTHON TÍNH ĐIỂM từ các mức AI trả về:
+#   điểm tiêu chí = mức / 4 * 100   (0, 25, 50, 75, 100)
+#   tổng = cộng (trọng số / tổng trọng số các tiêu chí áp dụng) * điểm tiêu chí
+# Tiêu chí không áp dụng bị bỏ, trọng số chia lại cho đủ 100%.
+# Ví dụ mức 1,1,2,2,1: 25*0.35 + 25*0.25 + 50*0.15 + 50*0.10 + 25*0.15 = 31.25 -> 31.2 -> Chưa phù hợp.
 def compute_score(
     output: LLMScoringOutput,
     scored_on: date,
@@ -84,11 +96,13 @@ def compute_score(
 ) -> ScoreResult:
     options = options or ScoringOptions()
     # Khía cạnh LLM trả trùng → lấy lần đầu; thiếu → coi như không áp dụng.
+    # AI trả trùng một tiêu chí -> lấy lần đầu (setdefault).
     by_dimension: dict[ScoringDimension, Any] = {}
     for d in output.dimensions:
         by_dimension.setdefault(d.dimension, d)
 
     dimensions: list[ScoredDimension] = []
+    # Duyệt đủ 5 tiêu chí; tiêu chí AI không trả về -> coi là không áp dụng.
     for dimension, weight in options.weights.items():
         a = by_dimension.get(dimension)
         applicable = bool(a and a.applicable)
@@ -103,9 +117,11 @@ def compute_score(
             reason=a.reason if a else "",
         ))
 
+    # active = tổng trọng số các tiêu chí áp dụng (vd bỏ Lĩnh vực 15% thì active = 0.85).
     active = sum(d.weight for d in dimensions if d.applicable)
     if active <= 0:
         raise NoApplicableDimensionError("Không khía cạnh nào áp dụng được cho tin tuyển dụng này")
+    # Cộng dồn: (trọng số / active) * điểm tiêu chí. effective_weight = trọng số sau khi chia lại.
     total = 0.0
     for d in dimensions:
         if d.applicable:
@@ -113,6 +129,7 @@ def compute_score(
             total += d.weight / active * d.score
     total = round(total, 1)
 
+    # Làm sạch danh sách yêu cầu bắt buộc chưa đạt (bỏ phần tử rỗng), rồi xếp loại theo ngưỡng.
     must_have_unmet = [m.strip() for m in output.must_have_unmet if m and m.strip()]
     tier = tier_for(total, options.thresholds)
     summary = output.summary.strip()
@@ -130,6 +147,8 @@ def compute_score(
     )
 
 
+# [GIẢI THÍCH] CHẤM MỘT HỒ SƠ (gọi từ score_application). Chỉ có MỘT dòng gọi AI ở giữa:
+#   Python tính số năm -> Python lọc hồ sơ (chấm mù) -> ghép prompt -> GỌI GEMINI (LLM lần 2) -> Python tính điểm.
 async def score_candidate(
     job: JobInfo,
     extracted_cv: dict[str, Any],
@@ -150,14 +169,19 @@ async def score_candidate(
     from app.schemas.cv_extraction import WorkExperience
 
     started = time.monotonic()
+    # Lấy danh sách công việc đã trích xuất, đổi thành đối tượng có kiểm tra kiểu.
     jobs = [WorkExperience.model_validate(j) for j in extracted_cv.get("work_experience") or []]
+    # Số năm do Python tính (gộp khoảng chồng lấn); years_claimed = số năm ứng viên tự ghi trong CV.
     years_calculated = calculate_years_of_experience(jobs, today)
     years_claimed = extracted_cv.get("years_of_experience_claimed")
 
+    # Chấm mù: bỏ thông tin cá nhân, chỉ giữ thông tin nghề nghiệp.
     profile = build_scoring_profile(extracted_cv, candidate_names)
     prompt = build_scoring_prompt(job, profile, today, years_calculated, years_claimed)
+    # GỌI GEMINI: bắt AI trả JSON đúng khuôn LLMScoringOutput (mức 0-4 cho 5 tiêu chí, yêu cầu bắt buộc, tóm tắt).
     output, usage = await manager.generate_structured(prompt, LLMScoringOutput)
 
+    # Python tính điểm 0-100 và xếp loại; provenance = thông tin truy vết.
     result = compute_score(output, today, options, years_calculated, years_claimed)
     provenance = ScoringProvenance(
         model=usage.model,

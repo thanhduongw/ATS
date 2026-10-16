@@ -10,6 +10,10 @@ interface Props {
 }
 
 /** Điểm AI gọn cho bảng danh sách. Đang chấm lại thì vẫn hiện điểm cũ kèm biểu tượng chờ. */
+// [GIẢI THÍCH] Huy hiệu điểm trong cột "Điểm AI" của bảng danh sách. 4 trường hợp:
+// 1. Có điểm -> thẻ màu "75 · Phù hợp tốt" (đang chấm lại thì thêm biểu tượng xoay).
+// 2. Chưa có điểm, đang chờ/đang chấm -> "Chờ chấm" / "Đang chấm".
+// 3. FAILED -> "Chấm lỗi".   4. Chưa chấm lần nào -> "—".
 export default function AiScoreBadge({ score, tier, status }: Props) {
     if (score != null && tier) {
         const meta = AI_TIER_META[tier];

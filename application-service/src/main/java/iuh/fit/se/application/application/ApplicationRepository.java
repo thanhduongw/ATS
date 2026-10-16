@@ -33,6 +33,11 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
      * và trả về số dòng đã đổi. Tách 3 câu để không phải bind tham số NULL trong native query.
      */
 
+    // [GIẢI THÍCH] 3 câu UPDATE riêng cho điểm AI thay vì repository.save(application), vì:
+    // 1. save() kích hoạt @PreUpdate -> đổi updated_at, mà job nhắc hồ sơ tồn đọng dùng updated_at làm mốc.
+    // 2. save() ghi lại mọi cột -> có thể đè lên lần HR vừa chuyển vòng hồ sơ.
+    // Điều kiện ai_updated_at <= :eventAt: chỉ ghi khi sự kiện mới hơn lần đã ghi (bỏ qua sự kiện đến muộn).
+    // @Modifying = câu lệnh sửa dữ liệu, trả về số dòng bị đổi. nativeQuery = SQL thuần PostgreSQL.
     /** PENDING / PROCESSING: chỉ đổi trạng thái, giữ điểm cũ (nếu có) trong lúc chấm lại. */
     @Modifying
     @Transactional

@@ -63,6 +63,8 @@ export const generateBenchmark = (input: BenchmarkGenerateRequest) =>
   });
 
 /** Điểm AI + nhận xét của một hồ sơ. 404 = hồ sơ chưa được chấm. */
+// [GIẢI THÍCH] 3 API chấm điểm của ai-service (đi qua API Gateway, tự gắn token đăng nhập):
+// lấy điểm một hồ sơ / chấm lại một hồ sơ (chờ tối đa 2 phút) / chấm nền mọi hồ sơ chưa có điểm của một tin.
 export const getApplicationScore = (applicationId: number) =>
   axiosClient.get<ApplicationScoreResponse>(`/v1/ai/scores/${applicationId}`);
 

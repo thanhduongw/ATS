@@ -190,6 +190,7 @@ class OpenAIClient(BaseLLMClient):
 # Gemini Client
 # ============================================================
 
+# [GIẢI THÍCH] Gọi Google Gemini (model của sản phẩm: gemini-3.5-flash-lite).
 class GeminiClient(BaseLLMClient):
     """Google Gemini client using google-genai SDK with response_schema."""
 
@@ -219,6 +220,9 @@ class GeminiClient(BaseLLMClient):
         try:
             from google.genai import types
 
+            # Gửi prompt cho Gemini. Cấu hình quan trọng:
+            # - response_mime_type JSON + response_schema: Gemini CHỈ được trả JSON đúng khuôn (lớp kiểm soát 1).
+            # - temperature=0, seed=42 (trong config.py): giảm tính ngẫu nhiên, chấm lại ra gần như cùng kết quả.
             response = await client.aio.models.generate_content(
                 model=self._model,
                 contents=user_prompt,
@@ -230,6 +234,7 @@ class GeminiClient(BaseLLMClient):
                     seed=settings.llm_seed,
                 ),
             )
+            # pydantic kiểm tra lại JSON (lớp kiểm soát 2): sai kiểu / thiếu trường / level ngoài 0-4 -> lỗi -> LLMError.
             parsed = response_model.model_validate_json(response.text)
             meta = response.usage_metadata
             return parsed, _usage(
@@ -313,6 +318,8 @@ def make_client(model_name: str) -> BaseLLMClient:
 # LLM Manager — Retry + optional fallback
 # ============================================================
 
+# [GIẢI THÍCH] Bọc ngoài client: gọi AI, lỗi thì THỬ LẠI. Sản phẩm không cấu hình model dự phòng
+# (hai model cho điểm khác thang, trộn vào sẽ so sánh sai).
 class LLMManager:
     """Orchestrates LLM calls with retry logic and optional primary→fallback failover.
 
@@ -321,6 +328,7 @@ class LLMManager:
         result, usage = await manager.generate_structured(prompt, ExtractedCV)
     """
 
+    # Thử lại tối đa 2 lần (tổng 3 lần), chờ 2 giây rồi 4 giây giữa các lần.
     MAX_RETRIES = 2
     BACKOFF_SECONDS = [2, 4]  # exponential: 2s, 4s
 
@@ -391,6 +399,7 @@ class LLMManager:
         """Call an LLM client with retry logic."""
         last_error: Exception | None = None
 
+        # Vòng thử: thành công thì trả về ngay; lỗi thì chờ rồi thử lại; hết lượt thì ném LLMError.
         for attempt in range(self.MAX_RETRIES + 1):
             try:
                 result, usage = await client.generate_structured(user_prompt, response_model, system_prompt)

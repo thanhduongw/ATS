@@ -5,7 +5,7 @@ SQLAlchemy ORM models for AI Service tables.
 from datetime import datetime
 from sqlalchemy import (
     BigInteger, Boolean, Column, DateTime, Integer, Numeric,
-    String, Text, ForeignKey,
+    String, Text, ForeignKey, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
@@ -41,8 +41,6 @@ class AIJob(Base):
     ocr_used = Column(Boolean, default=False)
     injection_detected = Column(Boolean, default=False)
     guardrail_warnings = Column(JSONB)
-    ai_scorecard = Column(JSONB)
-    cv_file_url = Column(String(500))
 
     # Cost tracking
     total_input_tokens = Column(Integer)
@@ -85,3 +83,57 @@ class AIFeedback(Base):
     corrected_score = Column(Numeric(5, 2))
     comment = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CVExtraction(Base):
+    """Kết quả trích xuất CV theo schema ExtractedCV — một dòng cho mỗi (file CV, phiên bản prompt).
+
+    Khoá theo sha256 nội dung file nên cùng một CV nộp vào nhiều tin chỉ gọi LLM một lần.
+    `result` lưu CVExtractionResult; số năm "đến nay" trong đó tính theo ngày trích xuất —
+    bước chấm điểm tính lại theo ngày chấm.
+    """
+
+    __tablename__ = "cv_extractions"
+    __table_args__ = (UniqueConstraint("file_hash", "prompt_version", name="uq_cv_extractions_file_prompt"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    file_hash = Column(String(64), nullable=False)
+    prompt_version = Column(String(20), nullable=False)
+    resume_url = Column(Text, index=True)
+    candidate_id = Column(BigInteger)
+    status = Column(String(20), nullable=False)
+    # COMPLETED | FAILED
+    model = Column(String(100))
+    result = Column(JSONB)          # CVExtractionResult
+    provenance = Column(JSONB)      # ExtractionProvenance
+    text_metadata = Column(JSONB)   # ExtractionMetadata của bước đọc file (OCR, injection...)
+    error_code = Column(String(50))
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AIScore(Base):
+    """Điểm phù hợp CV ↔ JD mới nhất của mỗi hồ sơ ứng tuyển (một dòng / hồ sơ).
+
+    status: PENDING (đã xếp hàng chấm bù) | PROCESSING | COMPLETED | FAILED.
+    HR không chỉnh điểm AI nên không có cột override.
+    """
+
+    __tablename__ = "ai_scores"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    application_id = Column(BigInteger, nullable=False, unique=True)
+    job_posting_id = Column(BigInteger, nullable=False, index=True)
+    candidate_id = Column(BigInteger, nullable=False)
+    cv_extraction_id = Column(BigInteger, ForeignKey("cv_extractions.id"))
+    ai_job_id = Column(BigInteger, ForeignKey("ai_jobs.id"))
+    status = Column(String(20), nullable=False)
+    total_score = Column(Numeric(5, 1))
+    tier = Column(String(20))
+    result = Column(JSONB)       # ScoreResult
+    provenance = Column(JSONB)   # ScoringProvenance
+    error_message = Column(Text)
+    scored_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

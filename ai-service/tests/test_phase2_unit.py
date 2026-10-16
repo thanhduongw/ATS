@@ -298,31 +298,24 @@ class TestSchemaValidation:
         assert cv.work_experience == []
         assert cv.years_of_experience_claimed is None
 
-    def test_missing_name_fails(self):
-        """Name is required — should fail validation."""
-        with pytest.raises(Exception):
-            ExtractedCV.model_validate({
-                "candidate": {}
-            })
+    def test_missing_name_allowed(self):
+        """CV ẩn danh / không đọc được tên: name = None, không làm hỏng cả lượt trích xuất."""
+        assert ExtractedCV.model_validate({"candidate": {}}).candidate.name is None
 
     def test_invalid_schema_rejected(self):
         """Completely wrong schema should fail."""
         with pytest.raises(Exception):
             ExtractedCV.model_validate({"foo": "bar"})
 
-    def test_no_bias_fields_in_schema(self):
-        """Ensure schema doesn't have bias-prone fields."""
-        fields = set()
-        for f in CandidateInfo.model_fields:
-            fields.add(f)
-        # These should NOT exist
-        assert "gender" not in fields
-        assert "age" not in fields
-        assert "date_of_birth" not in fields
-        assert "religion" not in fields
-        assert "marital_status" not in fields
-        assert "photo" not in fields
-        # name SHOULD exist
+    def test_no_sensitive_fields_in_schema(self):
+        """Schema trích xuất không có trường nhạy cảm ngoài ngày sinh / giới tính.
+
+        date_of_birth và gender được giữ để tự điền hồ sơ ứng viên (chỉ khi CV ghi rõ);
+        bước chấm điểm loại chúng ra — được kiểm tra ở test của bộ lọc hồ sơ chấm điểm.
+        """
+        fields = set(CandidateInfo.model_fields)
+        for forbidden in ("age", "religion", "marital_status", "ethnicity", "photo"):
+            assert forbidden not in fields
         assert "name" in fields
 
 

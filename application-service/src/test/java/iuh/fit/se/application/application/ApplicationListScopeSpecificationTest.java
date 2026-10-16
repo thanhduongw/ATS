@@ -67,7 +67,7 @@ class ApplicationListScopeSpecificationTest {
 
     private Specification<Application> scope(Long departmentId, Long recruiterId, boolean restrictToScope) {
         return ApplicationSpecifications.build(
-                null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null,
                 departmentId, recruiterId, restrictToScope);
     }
 

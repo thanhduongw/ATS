@@ -164,18 +164,46 @@ CREATE TABLE IF NOT EXISTS ai_feedback (
 
 CREATE INDEX IF NOT EXISTS idx_ai_feedback_application ON ai_feedback (application_id);
 
--- ============================================================
--- Application Service Database (ats_application) — AI scoring columns
--- Phase 6: application-service stores AI results pushed via RabbitMQ
--- ============================================================
-\c ats_application;
+-- 4. CV Extractions — kết quả trích xuất CV theo schema ExtractedCV (ai-service cũng tự tạo nếu thiếu)
+--    Một dòng cho mỗi (file CV, phiên bản prompt): CV nộp vào nhiều tin chỉ trích xuất một lần.
+CREATE TABLE IF NOT EXISTS cv_extractions (
+    id BIGSERIAL PRIMARY KEY,
+    file_hash VARCHAR(64) NOT NULL,
+    prompt_version VARCHAR(20) NOT NULL,
+    resume_url TEXT,
+    candidate_id BIGINT,
+    status VARCHAR(20) NOT NULL,
+    model VARCHAR(100),
+    result JSONB,
+    provenance JSONB,
+    text_metadata JSONB,
+    error_code VARCHAR(50),
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_cv_extractions_file_prompt UNIQUE (file_hash, prompt_version)
+);
 
-ALTER TABLE application
-    ADD COLUMN IF NOT EXISTS ai_match_score    NUMERIC(5,2),
-    ADD COLUMN IF NOT EXISTS ai_classification VARCHAR(20),
-    ADD COLUMN IF NOT EXISTS ai_scorecard      JSONB,
-    ADD COLUMN IF NOT EXISTS ai_job_id         BIGINT;
+CREATE INDEX IF NOT EXISTS idx_cv_extractions_resume_url ON cv_extractions (resume_url);
 
-CREATE INDEX IF NOT EXISTS idx_application_ai_classification
-    ON application (ai_classification)
-    WHERE ai_classification IS NOT NULL;
+-- 5. AI Scores — điểm phù hợp CV ↔ JD mới nhất của mỗi hồ sơ (ai-service cũng tự tạo nếu thiếu).
+--    HR không chỉnh được điểm AI nên không có cột override.
+CREATE TABLE IF NOT EXISTS ai_scores (
+    id BIGSERIAL PRIMARY KEY,
+    application_id BIGINT NOT NULL UNIQUE,
+    job_posting_id BIGINT NOT NULL,
+    candidate_id BIGINT NOT NULL,
+    cv_extraction_id BIGINT REFERENCES cv_extractions(id),
+    ai_job_id BIGINT REFERENCES ai_jobs(id),
+    status VARCHAR(20) NOT NULL,
+    total_score NUMERIC(5,1),
+    tier VARCHAR(20),
+    result JSONB,
+    provenance JSONB,
+    error_message TEXT,
+    scored_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_scores_posting ON ai_scores (job_posting_id);

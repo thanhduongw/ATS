@@ -1,0 +1,6 @@
+# Dữ liệu gốc tải từ Hugging Face (~68 MB) — tải lại bằng `python -m benchmark.prepare_data`
+data/raw/
+# Gói Kaggle Dataset sinh ra từ prepare_data (tải lên Kaggle, không commit)
+build/
+# Kết quả tải về từ Kaggle (lớn) — chỉ commit summary/report
+results/kaggle/

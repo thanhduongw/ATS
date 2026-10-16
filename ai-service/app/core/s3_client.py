@@ -1,11 +1,15 @@
 """
-S3 / MinIO client for downloading CV files.
+AWS S3 client for downloading CV files.
 Uses boto3 synchronously — wrap with run_in_executor for async contexts.
+
+ai-service chỉ ĐỌC, và chỉ đọc bucket đã cấu hình (AWS_S3_BUCKET): URL trỏ sang bucket khác
+hoặc host lạ bị từ chối, nên không thể dùng service này để đọc dữ liệu ngoài phạm vi CV.
 """
 
 import logging
+import re
 from functools import lru_cache
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import boto3
 from botocore.config import Config as BotoConfig
@@ -15,89 +19,88 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+# Giới hạn trùng với file_validator.MAX_FILE_SIZE; đọc dư 1 byte để biết file vượt giới hạn.
+MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024
+
+# {bucket}.s3.amazonaws.com | {bucket}.s3.{region}.amazonaws.com | {bucket}.s3-{region}.amazonaws.com
+_VIRTUAL_HOSTED = re.compile(r"^(?P<bucket>.+)\.s3([.-][a-z0-9-]+)?\.amazonaws\.com$")
+# s3.amazonaws.com | s3.{region}.amazonaws.com | s3-{region}.amazonaws.com  (path-style)
+_PATH_STYLE = re.compile(r"^s3([.-][a-z0-9-]+)?\.amazonaws\.com$")
+
 
 class S3Client:
-    """Manages S3/MinIO operations for the ai-service."""
+    """Đọc CV từ AWS S3 cho ai-service."""
 
     def __init__(self):
         settings = get_settings()
-        self._client = boto3.client(
-            "s3",
-            endpoint_url=settings.s3_endpoint,
-            aws_access_key_id=settings.s3_access_key,
-            aws_secret_access_key=settings.s3_secret_key,
-            region_name="us-east-1",
-            config=BotoConfig(
-                signature_version="s3v4",
-                retries={"max_attempts": 3, "mode": "standard"},
-            ),
-        )
-        self._default_bucket = settings.s3_bucket
-        self._endpoint = settings.s3_endpoint
+        kwargs = {
+            "region_name": settings.aws_s3_region,
+            "config": BotoConfig(signature_version="s3v4", retries={"max_attempts": 3, "mode": "standard"}),
+        }
+        if settings.aws_s3_endpoint:
+            kwargs["endpoint_url"] = settings.aws_s3_endpoint
+        if settings.aws_access_key_id and settings.aws_secret_access_key:
+            kwargs["aws_access_key_id"] = settings.aws_access_key_id
+            kwargs["aws_secret_access_key"] = settings.aws_secret_access_key
+        self._client = boto3.client("s3", **kwargs)
+        self._bucket = settings.aws_s3_bucket
+        self._endpoint = settings.aws_s3_endpoint.rstrip("/")
 
-    def download_file_bytes(self, bucket: str, key: str) -> bytes:
-        """Download a file from S3/MinIO and return its raw bytes."""
+    @property
+    def bucket(self) -> str:
+        return self._bucket
+
+    def download(self, key: str) -> bytes:
+        """Tải một object trong bucket đã cấu hình. Quá 10 MB thì báo lỗi, không đọc hết vào bộ nhớ."""
         try:
-            response = self._client.get_object(Bucket=bucket, Key=key)
-            return response["Body"].read()
+            response = self._client.get_object(Bucket=self._bucket, Key=key)
         except ClientError as e:
-            error_code = e.response["Error"]["Code"]
-            if error_code == "NoSuchKey":
-                raise FileNotFoundError(f"File not found: s3://{bucket}/{key}") from e
+            if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+                raise FileNotFoundError(f"Không tìm thấy file trên S3: {key}") from e
             raise
+        body = response["Body"].read(MAX_DOWNLOAD_BYTES + 1)
+        if len(body) > MAX_DOWNLOAD_BYTES:
+            raise ValueError("File CV vượt quá 10 MB")
+        return body
 
-    def get_file_info(self, bucket: str, key: str) -> dict:
-        """Get metadata (content-type, size) for a file in S3/MinIO."""
-        try:
-            response = self._client.head_object(Bucket=bucket, Key=key)
-            return {
-                "content_type": response.get("ContentType", ""),
-                "content_length": response.get("ContentLength", 0),
-            }
-        except ClientError as e:
-            error_code = e.response["Error"]["Code"]
-            if error_code in ("404", "NoSuchKey"):
-                raise FileNotFoundError(f"File not found: s3://{bucket}/{key}") from e
-            raise
+    def key_from_url(self, file_url: str) -> str:
+        """Lấy object key từ URL CV, chỉ chấp nhận bucket đã cấu hình.
 
-    def parse_file_url(self, file_url: str) -> tuple[str, str]:
-        """Parse a MinIO/S3 URL into (bucket, key).
-
-        Handles multiple URL formats:
-        - http://minio:9000/ats-bucket/candidates/1/file.pdf   (internal Docker)
-        - http://localhost:9000/ats-bucket/candidates/1/file.pdf (external)
-        - s3://ats-bucket/candidates/1/file.pdf                 (S3 scheme)
-
-        Returns:
-            Tuple of (bucket_name, object_key)
+        Hỗ trợ:
+        - s3://{bucket}/{key}
+        - https://{bucket}.s3.{region}.amazonaws.com/{key}   (dạng candidate-service tạo ra)
+        - https://s3.{region}.amazonaws.com/{bucket}/{key}
+        - {AWS_S3_ENDPOINT}/{bucket}/{key}                   (khi cấu hình endpoint riêng)
         """
-        parsed = urlparse(file_url)
+        bucket, key = parse_s3_url(file_url, self._endpoint)
+        if bucket != self._bucket:
+            raise ValueError(f"CV không nằm trong bucket được phép ({self._bucket})")
+        return key
 
-        if parsed.scheme == "s3":
-            return parsed.netloc, parsed.path.lstrip("/")
+    def download_url(self, file_url: str) -> bytes:
+        return self.download(self.key_from_url(file_url))
 
-        # HTTP URL: path = /bucket/key/...
-        path = parsed.path.strip("/")
-        parts = path.split("/", 1)
-        if len(parts) == 2:
-            return parts[0], parts[1]
 
-        raise ValueError(
-            f"Cannot parse bucket/key from URL: {file_url}. "
-            f"Expected format: http://host:port/bucket/key or s3://bucket/key"
-        )
+def parse_s3_url(file_url: str, endpoint: str = "") -> tuple[str, str]:
+    """Tách (bucket, key) từ URL S3. Host không phải S3 (và không phải endpoint cấu hình) → ValueError."""
+    parsed = urlparse((file_url or "").strip())
+    host = (parsed.hostname or "").lower()
+    path = unquote(parsed.path.lstrip("/"))
 
-    def ensure_bucket_exists(self, bucket: str | None = None) -> None:
-        """Create bucket if it doesn't exist (idempotent)."""
-        bucket = bucket or self._default_bucket
-        try:
-            self._client.create_bucket(Bucket=bucket)
-            logger.info("Created S3 bucket: %s", bucket)
-        except ClientError as e:
-            error_code = e.response["Error"]["Code"]
-            if error_code in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
-                return
-            logger.warning("Could not create bucket %s: %s", bucket, e)
+    if parsed.scheme == "s3":
+        bucket, key = parsed.netloc, path
+    elif parsed.scheme in ("http", "https") and (m := _VIRTUAL_HOSTED.match(host)):
+        bucket, key = m.group("bucket"), path
+    elif parsed.scheme in ("http", "https") and (
+        _PATH_STYLE.match(host) or (endpoint and file_url.startswith(endpoint + "/"))
+    ):
+        bucket, _, key = path.partition("/")
+    else:
+        raise ValueError(f"Không phải URL S3 hợp lệ: {file_url}")
+
+    if not bucket or not key:
+        raise ValueError(f"URL S3 thiếu bucket hoặc key: {file_url}")
+    return bucket, key
 
 
 @lru_cache

@@ -5,9 +5,8 @@ import type {
   JDGenerateResponse,
   BenchmarkGenerateRequest,
   BenchmarkGenerateResponse,
-  ScorecardResponse,
-  RescoreResponse,
-  FeedbackRequest,
+  ApplicationScoreResponse,
+  RescorePostingResponse,
 } from "./types";
 
 /**
@@ -30,25 +29,21 @@ export const extractCvFromUpload = (file: File) => {
 };
 
 /**
- * Extract CV from a file already stored in MinIO (production path).
- *
- * Parses the resumeUrl to derive the MinIO storage_key, then calls
- * POST /v1/ai/extract-cv which downloads directly from MinIO — no
- * file re-upload needed.
- *
- * resumeUrl format: http://host:port/ats-bucket/resumes/uuid-file.pdf
- * storage_key:      resumes/uuid-file.pdf
+ * Kết quả trích xuất CV của một hồ sơ ứng tuyển (lưu ở ai-service, dùng chung cho mọi người xem).
+ * Chưa có thì ai-service trích xuất ngay (10–60 giây) — timeout dài.
  */
-export const extractCvFromUrl = (resumeUrl: string) => {
-  // Extract storage_key: everything after "/ats-bucket/"
-  const match = resumeUrl.match(/\/ats-bucket\/(.+)$/);
-  const storageKey = match ? match[1] : resumeUrl;
-  return axiosClient.post<CVExtractionResponse>(
-    "/v1/ai/extract-cv",
-    { storage_key: storageKey },
-    { timeout: 120_000 },
-  );
-};
+export const getCvExtraction = (applicationId: number) =>
+  axiosClient.get<CVExtractionResponse>("/v1/ai/cv-extractions", {
+    params: { applicationId },
+    timeout: 120_000,
+  });
+
+/** Trích xuất lại CV, bỏ qua kết quả đã lưu (chỉ Admin / Recruiter). */
+export const reExtractCv = (applicationId: number) =>
+  axiosClient.post<CVExtractionResponse>("/v1/ai/cv-extractions/re-extract", null, {
+    params: { applicationId },
+    timeout: 120_000,
+  });
 
 /**
  * Generate JD + benchmark criteria from basic input.
@@ -67,31 +62,20 @@ export const generateBenchmark = (input: BenchmarkGenerateRequest) =>
     timeout: 30_000,
   });
 
-// ===== Phase 6: Scoring APIs =====
-
-/**
- * Get the AI scoring result (Scorecard) for an application.
- * Returns status: completed | processing | failed | not_found | pending_benchmark.
- */
+/** Điểm AI + nhận xét của một hồ sơ. 404 = hồ sơ chưa được chấm. */
+// [GIẢI THÍCH] 3 API chấm điểm của ai-service (đi qua API Gateway, tự gắn token đăng nhập):
+// lấy điểm một hồ sơ / chấm lại một hồ sơ (chờ tối đa 2 phút) / chấm nền mọi hồ sơ chưa có điểm của một tin.
 export const getApplicationScore = (applicationId: number) =>
-  axiosClient.get<ScorecardResponse>(`/v1/ai/applications/${applicationId}/score`, {
-    timeout: 10_000,
+  axiosClient.get<ApplicationScoreResponse>(`/v1/ai/scores/${applicationId}`);
+
+/** Chấm lại ngay (chờ kết quả, ~10–40 giây). Chỉ Admin / Recruiter; 409 nếu đang được chấm. */
+export const rescoreApplication = (applicationId: number) =>
+  axiosClient.post<ApplicationScoreResponse>(`/v1/ai/scores/${applicationId}/rescore`, null, {
+    timeout: 120_000,
   });
 
-/**
- * Trigger rescoring for an application.
- * Returns 202 Accepted with the new job ID.
- */
-export const rescoreApplication = (applicationId: number, reason?: string) =>
-  axiosClient.post<RescoreResponse>(
-    `/v1/ai/applications/${applicationId}/rescore`,
-    { reason: reason ?? "Recruiter yêu cầu chấm lại" },
-    { timeout: 10_000 },
-  );
-
-/**
- * Submit recruiter feedback on AI scoring.
- */
-export const submitAiFeedback = (payload: FeedbackRequest) =>
-  axiosClient.post("/v1/ai/feedback", payload, { timeout: 10_000 });
-
+/** Chấm nền mọi hồ sơ chưa có điểm / chấm lỗi của một tin. Chỉ Admin / Recruiter. */
+export const rescorePosting = (jobPostingId: number) =>
+  axiosClient.post<RescorePostingResponse>("/v1/ai/scores/rescore-posting", null, {
+    params: { jobPostingId },
+  });

@@ -63,26 +63,4 @@ public class ApplicationEventPublisher {
                         applicationId, mentionedUserId, authorUserId, authorName, commentExcerpt)
         );
     }
-
-    /**
-     * Publish event to ai-service to trigger CV processing pipeline.
-     * ai-service listens on {@code ai.cv-uploaded.queue} and will:
-     * text extract → LLM extraction → chunking → embedding → save to pgvector.
-     *
-     * @param applicationId  ID of the newly created application
-     * @param candidateId    ID of the candidate
-     * @param jobPostingId   ID of the job posting
-     * @param cvFileUrl      URL of the CV file in S3/MinIO
-     */
-    public void publishCvUploaded(
-            Long applicationId,
-            Long candidateId,
-            Long jobPostingId,
-            String cvFileUrl) {
-        rabbitTemplate.convertAndSend(
-                RabbitMQConfig.ATS_EXCHANGE,
-                RabbitMQConfig.AI_CV_UPLOADED_ROUTING_KEY,
-                new CvUploadedEvent(applicationId, candidateId, jobPostingId, cvFileUrl)
-        );
-    }
 }

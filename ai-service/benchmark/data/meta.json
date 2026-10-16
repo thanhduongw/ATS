@@ -1,0 +1,15 @@
+{
+ "dataset": "cnamuangtoun/resume-job-description-fit",
+ "source_sha1": {
+  "train": "475a9f5a599dc06e4bfec4484338a8da4008fa8e",
+  "test": "2462f2d388b7247f9c8610da8cd0a4faf0c0ac73"
+ },
+ "seed": 20261015,
+ "test_per_label": 50,
+ "calib_per_label": 20,
+ "pairs": 210,
+ "unique_cv": 177,
+ "unique_jd": 104,
+ "chars_total": 1332431,
+ "created_at": "2026-10-14T17:03:47+00:00"
+}

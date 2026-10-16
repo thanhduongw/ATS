@@ -18,5 +18,7 @@ public record ApplicationSummaryResponse(
         Integer currentStageOrder,
         String currentStageType,
         String currentStageName,
-        LocalDateTime appliedAt
+        LocalDateTime appliedAt,
+        // CV đính kèm lúc nộp — ai-service đọc để chấm điểm (role SYSTEM chỉ gọi được summary)
+        String resumeUrl
 ) {}

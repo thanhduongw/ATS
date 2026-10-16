@@ -23,6 +23,7 @@ public final class ApplicationSpecifications {
             Long assignedRecruiterId,
             Long recruitmentSourceId,
             String stageType,
+            String aiTier,
             LocalDateTime appliedFrom,
             LocalDateTime appliedTo,
             Long scopeDepartmentId,
@@ -59,6 +60,9 @@ public final class ApplicationSpecifications {
             }
             if (stageType != null && !stageType.isBlank()) {
                 predicates.add(cb.equal(root.get("currentStageType"), stageType));
+            }
+            if (aiTier != null && !aiTier.isBlank()) {
+                predicates.add(cb.equal(root.get("aiTier"), aiTier));
             }
             if (appliedFrom != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("appliedAt"), appliedFrom));

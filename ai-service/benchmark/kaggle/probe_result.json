@@ -1,0 +1,272 @@
+{
+ "version": "0.6.1",
+ "calls": [
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "label": "score",
+   "kwargs": {},
+   "ok": true,
+   "type": "ScoringOutput",
+   "output": {
+    "dimensions": [
+     {
+      "dimension": "TECHNICAL_SKILLS",
+      "applicable": true,
+      "level": 3,
+      "reason": "Ứng viên đáp ứng đầy đủ các kỹ năng bắt buộc gồm Java, Spring Boot, PostgreSQL và Docker."
+     },
+     {
+      "dimension": "RELEVANT_EXPERIENCE",
+      "applicable": true,
+      "level": 4,
+      "reason": "Ứng viên có hơn 4 năm kinh nghiệm làm Backend Developer, vượt mức tối thiểu 3 năm theo yêu cầu."
+     },
+     {
+      "dimension": "SENIORITY",
+      "applicable": true,
+      "level": 3,
+      "reason": "Thời gian làm việc từ năm 2019 đến nay cho thấy ứng viên ở cấp độ phù hợp với yêu cầu kinh nghiệm."
+     },
+     {
+      "dimension": "EDUCATION_CERTIFICATION",
+      "applicable": true,
+      "level": 3,
+      "reason": "Ứng viên tốt nghiệp Cử nhân Kỹ thuật phần mềm tại Đại học Công nghiệp TP.HCM, đáp ứng yêu cầu tốt nghiệp đại học CNTT."
+     },
+     {
+      "dimension": "DOMAIN",
+      "applicable": true,
+      "level": 4,
+      "reason": "Ứng viên có kinh nghiệm làm việc tại ví điện tử XYZ thuộc ngành fintech, đáp ứng điểm ưu tiên của JD."
+     }
+    ],
+    "must_have_unmet": [],
+    "summary": "Ứng viên đáp ứng xuất sắc toàn bộ các yêu cầu từ kỹ năng kỹ thuật, thời gian kinh nghiệm cho đến học vấn và có thêm lợi thế nhờ kinh nghiệm trong lĩnh vực fintech. Đây là một hồ sơ rất phù hợp cho vị trí Backend Developer (Java) của công ty."
+   },
+   "seconds": 1.79
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "label": "score-params",
+   "kwargs": {
+    "temperature": "0.1"
+   },
+   "ok": true,
+   "type": "ScoringOutput",
+   "output": {
+    "dimensions": [
+     {
+      "dimension": "TECHNICAL_SKILLS",
+      "applicable": true,
+      "level": 3,
+      "reason": "Ứng viên đáp ứng đầy đủ các kỹ năng bắt buộc gồm Java, Spring Boot, PostgreSQL và Docker."
+     },
+     {
+      "dimension": "RELEVANT_EXPERIENCE",
+      "applicable": true,
+      "level": 4,
+      "reason": "Ứng viên có hơn 4 năm kinh nghiệm làm Backend Developer, vượt mức tối thiểu 3 năm theo yêu cầu."
+     },
+     {
+      "dimension": "SENIORITY",
+      "applicable": true,
+      "level": 3,
+      "reason": "Với kinh nghiệm từ năm 2019 và hiện tại giữ vị trí Senior Developer, ứng viên hoàn toàn phù hợp về cấp bậc."
+     },
+     {
+      "dimension": "EDUCATION_CERTIFICATION",
+      "applicable": true,
+      "level": 3,
+      "reason": "Ứng viên tốt nghiệp Cử nhân Kỹ thuật phần mềm tại Đại học Công nghiệp TP.HCM, đáp ứng yêu cầu tốt nghiệp đại học CNTT."
+     },
+     {
+      "dimension": "DOMAIN",
+      "applicable": true,
+      "level": 4,
+      "reason": "Ứng viên có kinh nghiệm làm việc tại ví điện tử XYZ, đáp ứng yêu cầu ưu tiên về lĩnh vực fintech."
+     }
+    ],
+    "must_have_unmet": [],
+    "summary": "Ứng viên có lý lịch rất phù hợp với vị trí Backend Developer (Java) khi đáp ứng toàn bộ các yêu cầu bắt buộc về kỹ năng kỹ thuật, kinh nghiệm tối thiểu 3 năm và trình độ học vấn. Thêm vào đó, ứng viên còn vượt trội nhờ có sẵn kinh nghiệm trong ngành fintech và đạt cấp độ Senior."
+   },
+   "seconds": 1.69
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "label": "repeat-1",
+   "kwargs": {},
+   "ok": true,
+   "type": "ScoringOutput",
+   "output": {
+    "dimensions": [
+     {
+      "dimension": "TECHNICAL_SKILLS",
+      "applicable": true,
+      "level": 3,
+      "reason": "Ứng viên đáp ứng đầy đủ các kỹ năng bắt buộc gồm Java, Spring Boot, PostgreSQL và Docker."
+     },
+     {
+      "dimension": "RELEVANT_EXPERIENCE",
+      "applicable": true,
+      "level": 4,
+      "reason": "Ứng viên có hơn 4 năm kinh nghiệm làm Backend Developer, vượt mức tối thiểu 3 năm theo yêu cầu."
+     },
+     {
+      "dimension": "SENIORITY",
+      "applicable": true,
+      "level": 3,
+      "reason": "Với kinh nghiệm từ năm 2019 và hiện là Senior Developer, ứng viên đáp ứng tốt yêu cầu thâm niên."
+     },
+     {
+      "dimension": "EDUCATION_CERTIFICATION",
+      "applicable": true,
+      "level": 3,
+      "reason": "Ứng viên tốt nghiệp Cử nhân Kỹ thuật phần mềm tại Đại học Công nghiệp TP.HCM, đáp ứng yêu cầu tốt nghiệp đại học CNTT."
+     },
+     {
+      "dimension": "DOMAIN",
+      "applicable": true,
+      "level": 4,
+      "reason": "Ứng viên có kinh nghiệm làm việc tại ví điện tử XYZ, đáp ứng tiêu chí ưu tiên trong ngành fintech."
+     }
+    ],
+    "must_have_unmet": [],
+    "summary": "Ứng viên hoàn toàn phù hợp và vượt trội so với các yêu cầu của JD với hơn 4 năm kinh nghiệm Java/Spring Boot, thành thạo PostgreSQL và Docker. Thêm vào đó, ứng viên còn có lợi thế lớn nhờ kinh nghiệm làm việc trong lĩnh vực fintech và trình độ học vấn phù hợp."
+   },
+   "seconds": 1.94
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "label": "repeat-2",
+   "kwargs": {},
+   "ok": true,
+   "type": "ScoringOutput",
+   "output": {
+    "dimensions": [
+     {
+      "dimension": "TECHNICAL_SKILLS",
+      "applicable": true,
+      "level": 3,
+      "reason": "Ứng viên đáp ứng đầy đủ các kỹ năng bắt buộc gồm Java, Spring Boot, PostgreSQL và Docker."
+     },
+     {
+      "dimension": "RELEVANT_EXPERIENCE",
+      "applicable": true,
+      "level": 4,
+      "reason": "Ứng viên có hơn 4 năm kinh nghiệm làm Backend Developer, vượt mức tối thiểu 3 năm theo yêu cầu."
+     },
+     {
+      "dimension": "SENIORITY",
+      "applicable": true,
+      "level": 3,
+      "reason": "Với kinh nghiệm từ năm 2019 và hiện là Senior Developer, ứng viên đáp ứng tốt yêu cầu thâm niên."
+     },
+     {
+      "dimension": "EDUCATION_CERTIFICATION",
+      "applicable": true,
+      "level": 3,
+      "reason": "Ứng viên tốt nghiệp Cử nhân Kỹ thuật phần mềm tại Đại học Công nghiệp TP.HCM, đáp ứng yêu cầu tốt nghiệp đại học CNTT."
+     },
+     {
+      "dimension": "DOMAIN",
+      "applicable": true,
+      "level": 4,
+      "reason": "Ứng viên vượt yêu cầu ưu tiên nhờ có kinh nghiệm làm việc tại ví điện tử thuộc ngành fintech."
+     }
+    ],
+    "must_have_unmet": [],
+    "summary": "Ứng viên đáp ứng xuất sắc toàn bộ các yêu cầu bắt buộc và ưu tiên của mô tả công việc (JD) về kỹ năng kỹ thuật, kinh nghiệm, thâm niên và chuyên ngành fintech. Với nền tảng vững chắc và vị trí hiện tại là Senior Developer, đây là một ứng viên rất phù hợp cho vị trí Backend Developer."
+   },
+   "seconds": 1.74
+  },
+  {
+   "model": "google/gemini-2.5-flash",
+   "label": "translate",
+   "kwargs": {},
+   "ok": true,
+   "type": "str",
+   "output": "Chuyên viên Phân tích Dữ liệu Cấp cao với hơn 5 năm kinh nghiệm trong SQL, Python (pandas) và Power BI.\nĐã lãnh đạo một nhóm 3 chuyên viên phân tích; giảm 40% thời gian báo cáo hàng tháng. Cử nhân Khoa học chuyên ngành Thống kê.",
+   "seconds": 4.09
+  },
+  {
+   "model": "google/gemini-3-flash-preview",
+   "label": "translate",
+   "kwargs": {},
+   "ok": true,
+   "type": "str",
+   "output": "Chuyên viên Phân tích Dữ liệu Cao cấp với 5+ năm kinh nghiệm về SQL, Python (pandas) và Power BI.\nDẫn dắt một nhóm gồm 3 chuyên viên phân tích; giảm 40% thời gian báo cáo hàng tháng. Cử nhân Thống kê.",
+   "seconds": 2.53
+  }
+ ],
+ "models": [
+  "anthropic/claude-haiku-4-5@20251001",
+  "anthropic/claude-haiku-5-5",
+  "anthropic/claude-opus-4-5@20251101",
+  "anthropic/claude-opus-4-6@default",
+  "anthropic/claude-opus-4-7@default",
+  "anthropic/claude-opus-4-8@default",
+  "anthropic/claude-opus-5-5@default",
+  "anthropic/claude-opus-5@default",
+  "anthropic/claude-sonnet-4-6@default",
+  "anthropic/claude-sonnet-5-5@default",
+  "anthropic/claude-sonnet-5@default",
+  "deepseek-ai/deepseek-r1-0528",
+  "google/gemini-2.5-flash",
+  "google/gemini-2.5-pro",
+  "google/gemini-3-flash-preview",
+  "google/gemini-3.1-flash-lite-preview",
+  "google/gemini-3.1-pro-preview",
+  "google/gemini-3.5-flash-lite",
+  "google/gemini-3.6-flash",
+  "google/gemini-3.8-flash",
+  "google/gemini-4-argon",
+  "google/gemma-4-26b-a4b",
+  "google/gemma-4-31b",
+  "openai/gpt-5.4-2026-03-05",
+  "openai/gpt-5.4-mini-2026-03-17",
+  "openai/gpt-5.4-nano-2026-03-17",
+  "openai/gpt-5.5-2026-04-23",
+  "openai/gpt-5.6-luna",
+  "openai/gpt-5.6-sol",
+  "openai/gpt-5.6-terra",
+  "openai/gpt-6-astra",
+  "openai/gpt-6-luna",
+  "openai/gpt-6-sol",
+  "openai/gpt-6.1-sol",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "qwen/qwen3-235b-a22b-instruct-2507",
+  "qwen/qwen3-coder-480b-a35b-instruct",
+  "qwen/qwen3-next-80b-a3b-instruct",
+  "qwen/qwen3-next-80b-a3b-thinking",
+  "xai/grok-4.5-0708",
+  "xai/grok-4.6",
+  "zai/glm-5"
+ ],
+ "prompt_signature": "(message: str, schema: type[~T] = <class 'str'>, seed: int = 0, temperature: float = 0, tools: list[typing.Callable] | None = None, image: kaggle_benchmarks.content_types.images.ImageContent | None = None, video: kaggle_benchmarks.content_types.videos.VideoContent | None = None, audio: kaggle_benchmarks.content_types.audios.AudioContent | None = None, reasoning: Optional[Literal['none', 'low', 'medium', 'high']] = None, extra_api_params: dict[str, typing.Any] | None = None) -> ~T",
+ "llm_attrs": [
+  "as_dict",
+  "avatar",
+  "client",
+  "id",
+  "invoke",
+  "model",
+  "name",
+  "prompt",
+  "respond",
+  "role",
+  "send",
+  "serializer",
+  "stream",
+  "stream_responses",
+  "support_structured_outputs",
+  "support_temperature"
+ ],
+ "qwen_models": [
+  "qwen/qwen3-235b-a22b-instruct-2507",
+  "qwen/qwen3-coder-480b-a35b-instruct",
+  "qwen/qwen3-next-80b-a3b-instruct",
+  "qwen/qwen3-next-80b-a3b-thinking"
+ ],
+ "total_calls": 6
+}

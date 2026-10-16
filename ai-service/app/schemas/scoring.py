@@ -1,233 +1,119 @@
 """
-Pydantic schemas for AI Scoring & Matching (Phase 5).
+Schemas chấm mức độ phù hợp CV ↔ JD.
 
-Design:
-- CriterionEvaluation: LLM structured output for a single criterion
-- CriterionScore: Full criterion result (input + LLM output merged)
-- HardFilterFlag: Rule-based must-have check result
-- Scorecard: Complete scoring result for an application
-- Blind scoring: No candidate name/email/gender in LLM-facing schemas
+Thiết kế (ai-service/KE_HOACH_CHAM_DIEM_CV.md):
+- LLM KHÔNG cho điểm số: chỉ xác định khía cạnh nào JD có đề cập (`applicable`), xếp mức 0–4
+  cho từng khía cạnh, liệt kê yêu cầu bắt buộc chưa đạt và viết tóm tắt tiếng Việt.
+- Python tính điểm 0–100 (trọng số cố định, chia lại khi khía cạnh không áp dụng) và xếp loại.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date
 from enum import Enum
 
 from pydantic import BaseModel, Field
 
 
-# ============================================================
-# Enums
-# ============================================================
-
-class CriterionStatus(str, Enum):
-    """Result of evaluating a single criterion."""
-    PASS = "PASS"          # Fully meets the requirement
-    PARTIAL = "PARTIAL"    # Partially meets the requirement
-    FAIL = "FAIL"          # Does not meet the requirement
+# [GIẢI THÍCH] 5 tiêu chí cố định. Kiểu enum: AI trả tên khác 5 tên này -> bị từ chối.
+class ScoringDimension(str, Enum):
+    TECHNICAL_SKILLS = "TECHNICAL_SKILLS"
+    RELEVANT_EXPERIENCE = "RELEVANT_EXPERIENCE"
+    SENIORITY = "SENIORITY"
+    EDUCATION_CERTIFICATION = "EDUCATION_CERTIFICATION"
+    DOMAIN = "DOMAIN"
 
 
-class ApplicationClassification(str, Enum):
-    """Overall application classification based on total score."""
-    MATCH = "MATCH"            # totalScore >= 80
-    REVIEW = "REVIEW"          # 50 <= totalScore < 80
-    NOT_MATCH = "NOT_MATCH"    # totalScore < 50
+DIMENSION_LABELS: dict[ScoringDimension, str] = {
+    ScoringDimension.TECHNICAL_SKILLS: "Kỹ năng chuyên môn",
+    ScoringDimension.RELEVANT_EXPERIENCE: "Kinh nghiệm liên quan",
+    ScoringDimension.SENIORITY: "Cấp bậc / số năm",
+    ScoringDimension.EDUCATION_CERTIFICATION: "Học vấn / chứng chỉ",
+    ScoringDimension.DOMAIN: "Lĩnh vực / ngành",
+}
 
 
-# ============================================================
-# LLM Output Model (structured output target)
-# ============================================================
+# [GIẢI THÍCH] 3 mức xếp loại: Phù hợp tốt / Tiềm năng / Chưa phù hợp.
+class Tier(str, Enum):
+    GOOD_FIT = "GOOD_FIT"
+    POTENTIAL_FIT = "POTENTIAL_FIT"
+    NOT_FIT = "NOT_FIT"
 
-class CriterionEvaluation(BaseModel):
-    """LLM output for evaluating a single benchmark criterion.
 
-    This is the Pydantic model passed to `generate_structured()`.
-    The LLM must return JSON conforming to this schema.
-    """
-    score: int = Field(
-        ...,
-        ge=0,
-        le=100,
-        description=(
-            "Score from 0 to 100 indicating how well the candidate "
-            "meets this criterion. 100 = fully meets, 0 = no evidence at all."
-        ),
-    )
-    status: CriterionStatus = Field(
-        ...,
-        description=(
-            "PASS if score >= 70, PARTIAL if 40 <= score < 70, "
-            "FAIL if score < 40."
-        ),
-    )
-    evidence: str = Field(
-        ...,
-        description=(
-            "Direct quote from the CV chunks provided. "
-            "Must be an EXACT substring from the CV text above. "
-            "If no relevant information found, write: "
-            "'Không tìm thấy thông tin liên quan trong CV'"
-        ),
-    )
-    gap_analysis: str = Field(
-        ...,
-        description=(
-            "What is missing compared to the requirement. "
-            "Be specific. Example: 'CV chỉ có 1 năm Java, yêu cầu 3 năm'. "
-            "If fully met, write: 'Đáp ứng đầy đủ yêu cầu'"
-        ),
-    )
-    reasoning: str = Field(
-        ...,
-        description=(
-            "Brief explanation (1-2 sentences) of why this score was given. "
-            "Must reference specific information from the CV."
-        ),
-    )
+TIER_LABELS: dict[Tier, str] = {
+    Tier.GOOD_FIT: "Phù hợp tốt",
+    Tier.POTENTIAL_FIT: "Tiềm năng",
+    Tier.NOT_FIT: "Chưa phù hợp",
+}
 
 
 # ============================================================
-# Hard Filter Result (Rule-based, no AI)
+# Đầu ra LLM (response_model cho structured output)
 # ============================================================
 
-class HardFilterFlag(BaseModel):
-    """Result of a must-have rule-based check."""
-    criterion_name: str = Field(
-        ..., description="Name of the must-have criterion being checked",
+# [GIẢI THÍCH] KHUÔN ĐẦU RA CỦA AI cho MỘT tiêu chí (pydantic BaseModel ~ DTO Java có kiểm tra hợp lệ).
+# level: Field(..., ge=0, le=4) = bắt buộc, số nguyên từ 0 đến 4; AI trả 5 hay "cao" -> lỗi.
+class DimensionAssessment(BaseModel):
+    dimension: ScoringDimension
+    applicable: bool = Field(..., description="False nếu JD hoàn toàn không đề cập khía cạnh này")
+    level: int = Field(
+        ..., ge=0, le=4,
+        description="0 không có · 1 có liên quan · 2 đạt một phần · 3 đạt · 4 vượt rõ rệt",
     )
-    passed: bool = Field(
-        ..., description="True if the candidate meets this must-have requirement",
-    )
-    reason: str = Field(
-        ..., description="Explanation of why it passed or failed",
-    )
+    reason: str = Field(..., description="1–2 câu tiếng Việt giải thích mức đã chọn")
 
 
-# ============================================================
-# Criterion Score (merged input + LLM output)
-# ============================================================
-
-class CriterionScore(BaseModel):
-    """Complete result for a single criterion: benchmark input + evaluation."""
-
-    # From BenchmarkCriterion (input)
-    name: str
-    weight: int
-    category: str
-    is_must_have: bool = Field(alias="isMustHave", default=False)
-    standard_requirement: str = Field(alias="standardRequirement")
-
-    # From CriterionEvaluation (LLM output)
-    raw_score: int = Field(
-        ..., ge=0, le=100,
-        description="Raw score 0-100 from LLM evaluation",
-    )
-    weighted_score: float = Field(
-        ...,
-        description="raw_score * weight / 100",
-    )
-    status: CriterionStatus
-    evidence: str
-    gap_analysis: str = Field(alias="gapAnalysis")
-    reasoning: str = ""
-
-    model_config = {"populate_by_name": True}
-
-
-# ============================================================
-# Scorecard (complete scoring result)
-# ============================================================
-
-class Scorecard(BaseModel):
-    """Complete scoring result for an application.
-
-    This is stored as JSON in application.ai_scorecard and returned
-    by the GET /score API endpoint.
-    """
-    application_id: int = Field(alias="applicationId")
-    job_posting_id: int = Field(alias="jobPostingId")
-
-    total_score: float = Field(
-        alias="totalScore",
-        description="Weighted sum: Σ(raw_score × weight / 100). Range 0-100.",
-    )
-    classification: ApplicationClassification = Field(
-        description="MATCH (≥80) / REVIEW (50-79) / NOT_MATCH (<50)",
-    )
-    summary: str = Field(
-        description="2-3 sentence summary in Vietnamese of the candidate's fit",
-    )
-
-    hard_filter_flags: list[HardFilterFlag] = Field(
-        alias="hardFilterFlags",
+# [GIẢI THÍCH] TOÀN BỘ những gì AI được phép trả về khi chấm: 5 đánh giá + yêu cầu bắt buộc chưa đạt + tóm tắt.
+# Không có trường nào để AI ghi điểm số.
+class LLMScoringOutput(BaseModel):
+    dimensions: list[DimensionAssessment] = Field(..., description="Đúng 5 khía cạnh, mỗi khía cạnh một lần")
+    must_have_unmet: list[str] = Field(
         default_factory=list,
+        description="Các yêu cầu JD ghi rõ là BẮT BUỘC mà hồ sơ chưa đáp ứng (cụm ngắn, tiếng Việt)",
     )
-    criteria_scores: list[CriterionScore] = Field(
-        alias="criteriaScores",
-    )
-
-    scored_at: datetime = Field(alias="scoredAt")
-    scoring_model: str = Field(alias="scoringModel")
-    prompt_version: str = Field(alias="promptVersion")
-    guardrail_warnings: list[str] = Field(
-        alias="guardrailWarnings",
-        default_factory=list,
-    )
-
-    model_config = {"populate_by_name": True}
+    summary: str = Field(..., description="Nhận xét tổng quan 2–3 câu tiếng Việt, không nêu điểm số")
 
 
 # ============================================================
-# API Request / Response Schemas
+# Kết quả cuối (Python tính)
 # ============================================================
 
-class ScorecardResponse(BaseModel):
-    """Response from GET /applications/{id}/score."""
-    status: str = Field(
-        ...,
-        description="processing | completed | failed | pending_benchmark | not_found",
-    )
-    scorecard: Scorecard | None = None
-    current_stage: str | None = Field(
-        None, alias="currentStage",
-        description="Current pipeline stage if still processing",
-    )
-    error_message: str | None = Field(
-        None, alias="errorMessage",
-    )
-
-    model_config = {"populate_by_name": True}
+# [GIẢI THÍCH] Một tiêu chí SAU KHI Python tính: thêm nhãn, trọng số gốc, trọng số sau chia lại, điểm 0-100.
+class ScoredDimension(BaseModel):
+    dimension: ScoringDimension
+    label: str
+    weight: float = Field(..., description="Trọng số gốc (0–1)")
+    effective_weight: float = Field(..., description="Trọng số sau khi chia lại (khía cạnh không áp dụng = 0)")
+    applicable: bool
+    level: int | None = Field(None, description="Mức 0–4; None nếu không áp dụng")
+    score: float | None = Field(None, description="0–100; None nếu không áp dụng")
+    reason: str = ""
 
 
-class RescoreRequest(BaseModel):
-    """Request to trigger a rescore."""
-    reason: str = Field(
-        default="Recruiter requested rescore",
-        description="Reason for rescoring",
-    )
+# [GIẢI THÍCH] KẾT QUẢ CUỐI (Python tạo, lưu vào ai_scores.result): điểm, xếp loại, 5 tiêu chí,
+# yêu cầu bắt buộc chưa đạt, nhận xét (câu đầu Python ghép + tóm tắt AI), số năm, ngày chấm.
+class ScoreResult(BaseModel):
+    total_score: float = Field(..., description="0–100")
+    tier: Tier
+    tier_label: str
+    dimensions: list[ScoredDimension]
+    must_have_unmet: list[str] = Field(default_factory=list)
+    comment: str = Field(..., description="Câu mở đầu do Python ghép theo điểm + tóm tắt của LLM")
+    summary: str = Field(..., description="Tóm tắt nguyên văn của LLM")
+    years_calculated: float | None = Field(None, description="Số năm Python tính tại ngày chấm")
+    years_claimed: float | None = None
+    scored_on: date
 
 
-class RescoreResponse(BaseModel):
-    """Response from POST /applications/{id}/rescore."""
-    message: str
-    new_job_id: int = Field(alias="newJobId")
-
-    model_config = {"populate_by_name": True}
-
-
-class FeedbackRequest(BaseModel):
-    """Request to submit recruiter feedback on scoring."""
-    application_id: int = Field(alias="applicationId")
-    action: str = Field(
-        ...,
-        description="ACCEPT | OVERRIDE_SCORE | REPORT_ISSUE",
-    )
-    original_score: float = Field(alias="originalScore")
-    corrected_score: float | None = Field(
-        None, alias="correctedScore",
-        description="New score if action is OVERRIDE_SCORE",
-    )
-    comment: str | None = None
-
-    model_config = {"populate_by_name": True}
+# [GIẢI THÍCH] Thông tin truy vết: model nào, prompt phiên bản mấy, bao nhiêu token, chi phí, thời gian.
+class ScoringProvenance(BaseModel):
+    model: str
+    prompt_version: str
+    scoring_version: str
+    extraction_id: int | None = None
+    extraction_prompt_version: str | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    latency_ms: int = 0
+    retries: int = 0

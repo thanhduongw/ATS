@@ -44,53 +44,35 @@ def _error_response(
 
 
 async def extract_text_from_url(file_url: str) -> TextExtractionResponse:
-    """Extract text from a file stored in MinIO/S3.
-
-    Downloads the file from MinIO using the S3 client, then delegates
-    to the main extraction pipeline.
+    """Extract text from a CV stored in the configured AWS S3 bucket.
 
     Args:
-        file_url: S3/MinIO URL (e.g. http://minio:9000/ats-bucket/candidates/1/cv.pdf)
+        file_url: S3 URL of the CV (e.g. https://{bucket}.s3.{region}.amazonaws.com/candidates/1/cv.pdf).
+                  URLs outside the configured bucket are rejected.
 
     Returns:
         TextExtractionResponse with extracted text and metadata.
     """
     start = time.monotonic()
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
-    # --- Download file from MinIO ---
     try:
         s3 = get_s3_client()
-        bucket, key = s3.parse_file_url(file_url)
+        key = s3.key_from_url(file_url)
         # boto3 is synchronous → run in executor
-        file_bytes = await loop.run_in_executor(
-            None, partial(s3.download_file_bytes, bucket, key)
-        )
+        file_bytes = await loop.run_in_executor(None, partial(s3.download, key))
     except FileNotFoundError:
         elapsed_ms = int((time.monotonic() - start) * 1000)
-        return _error_response(
-            FileErrorCode.FILE_NOT_FOUND,
-            f"File not found at: {file_url}",
-            elapsed_ms,
-        )
+        return _error_response(FileErrorCode.FILE_NOT_FOUND, f"File not found at: {file_url}", elapsed_ms)
     except ValueError as e:
         elapsed_ms = int((time.monotonic() - start) * 1000)
-        return _error_response(
-            FileErrorCode.FILE_NOT_FOUND,
-            str(e),
-            elapsed_ms,
-        )
+        return _error_response(FileErrorCode.FILE_NOT_FOUND, str(e), elapsed_ms)
     except Exception as e:
         elapsed_ms = int((time.monotonic() - start) * 1000)
         logger.error("Failed to download file from %s: %s", file_url, e)
-        return _error_response(
-            "DOWNLOAD_ERROR",
-            f"Failed to download file: {e}",
-            elapsed_ms,
-        )
+        return _error_response("DOWNLOAD_ERROR", f"Failed to download file: {e}", elapsed_ms)
 
-    # Determine filename from key
-    filename = key.split("/")[-1] if "/" in key else key
+    filename = key.rsplit("/", 1)[-1]
     return await extract_text_from_bytes(file_bytes, filename)
 
 
@@ -115,7 +97,7 @@ async def extract_text_from_bytes(
         TextExtractionResponse with extracted text and metadata.
     """
     start = time.monotonic()
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     # ================================================================
     # 1. VALIDATE

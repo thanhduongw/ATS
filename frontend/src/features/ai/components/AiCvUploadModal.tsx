@@ -178,7 +178,7 @@ export function mapToCandidateFormValues(
   }
 
   return {
-    fullName: cv.candidate.name,
+    fullName: cv.candidate.name ?? "",
     email: cv.candidate.email ?? "",
     phone: cv.candidate.phone,
     dateOfBirth: formattedDob,

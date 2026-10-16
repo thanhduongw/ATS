@@ -12,6 +12,7 @@ import iuh.fit.se.application.client.dto.PipelineResponse;
 import iuh.fit.se.application.client.dto.PipelineStageResponse;
 import iuh.fit.se.application.client.dto.UserSummaryResponse;
 import iuh.fit.se.application.common.PageResponse;
+import iuh.fit.se.application.event.AiScoringCompletedEvent;
 import iuh.fit.se.application.event.ApplicationEventPublisher;
 import iuh.fit.se.application.event.AuditEventPublisher;
 import iuh.fit.se.application.exception.BusinessException;
@@ -29,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +43,8 @@ public class ApplicationService {
 
     private static final String STAGE_TYPE_REJECTED = "REJECTED";
     private static final String STAGE_TYPE_HIRED = "HIRED";
+    // [GIẢI THÍCH] 3 giá trị xếp loại hợp lệ, dùng để kiểm tra bộ lọc aiTier và sự kiện từ ai-service.
+    private static final Set<String> AI_TIERS = Set.of("GOOD_FIT", "POTENTIAL_FIT", "NOT_FIT");
 
     private final ApplicationRepository applicationRepository;
     private final ApplicationHistoryRepository historyRepository;
@@ -57,8 +61,15 @@ public class ApplicationService {
             Long jobPostingId, Long candidateId,
             Long assignedRecruiterId, Long recruitmentSourceId, String stageType,
             LocalDate appliedFrom, LocalDate appliedTo,
+            String aiTier, String sort,
             Integer page, Integer size) {
 
+        // [GIẢI THÍCH] Bộ lọc xếp loại không hợp lệ -> BusinessException -> HTTP 400.
+        if (aiTier != null && !aiTier.isBlank() && !AI_TIERS.contains(aiTier)) {
+            throw new BusinessException("Xếp loại AI không hợp lệ: " + aiTier);
+        }
+        // [GIẢI THÍCH] Cách sắp xếp danh sách theo tham số sort (null = mặc định mới nộp trước).
+        Comparator<Application> order = listOrder(sort);
         Long effectiveCandidateId = candidateId;
         AuthorizationPolicy.Role role = AuthorizationPolicy.roleOf(actor);
         Long scopeDepartmentId = null;
@@ -75,7 +86,7 @@ public class ApplicationService {
         }
 
         Specification<Application> spec = ApplicationSpecifications.build(
-                jobPostingId, effectiveCandidateId, assignedRecruiterId, recruitmentSourceId, stageType,
+                jobPostingId, effectiveCandidateId, assignedRecruiterId, recruitmentSourceId, stageType, aiTier,
                 appliedFrom != null ? appliedFrom.atStartOfDay() : null,
                 appliedTo != null ? appliedTo.atTime(LocalTime.MAX) : null,
                 scopeDepartmentId, null, restrictToScope);
@@ -87,8 +98,12 @@ public class ApplicationService {
                 : authServiceClient.getUsers(null).stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
 
-        List<Application> scopedApplications = applicationRepository
-                .findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+        List<Application> scopedApplications = new ArrayList<>(applicationRepository
+                .findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt")));
+        if (order != null) {
+            // [GIẢI THÍCH] Sắp theo điểm AI TRƯỚC khi cắt trang -> đúng trên mọi trang, không chỉ trang đang xem.
+            scopedApplications.sort(order); // sort ổn định: cùng điểm thì giữ thứ tự mới nộp trước
+        }
         Map<Long, JobPostingResponse> postingMap = buildPostingMap(scopedApplications);
         List<ApplicationResponse> responses = scopedApplications.stream()
                 .map(application -> toResponse(application, sourceMap, reasonMap, userMap, postingMap))
@@ -105,6 +120,57 @@ public class ApplicationService {
         int totalPages = responses.isEmpty() ? 0 : (int) Math.ceil((double) responses.size() / pageSize);
         return new PageResponse<>(responses.subList(fromIndex, toIndex), responses.size(),
                 totalPages, pageNumber, pageSize);
+    }
+
+    /**
+     * Thứ tự danh sách. Mặc định (null) giữ thứ tự mới nộp trước của truy vấn. Sắp theo điểm AI thì
+     * hồ sơ chưa có điểm (chưa chấm / đang chấm lần đầu / lỗi) luôn nằm cuối, cả khi tăng dần.
+     * Sắp trong bộ nhớ vì danh sách đã được tải toàn bộ để phân trang.
+     */
+    // [GIẢI THÍCH] Trả về cách so sánh để sắp xếp: aiScore,desc (cao -> thấp) hoặc aiScore,asc (thấp -> cao).
+    // nullsLast: hồ sơ chưa có điểm luôn nằm cuối ở cả hai chiều. Giá trị lạ -> HTTP 400.
+    static Comparator<Application> listOrder(String sort) {
+        if (sort == null || sort.isBlank() || sort.equals("appliedAt,desc")) {
+            return null;
+        }
+        return switch (sort) {
+            case "aiScore,desc" -> Comparator.comparing(Application::getAiScore,
+                    Comparator.nullsLast(Comparator.reverseOrder()));
+            case "aiScore,asc" -> Comparator.comparing(Application::getAiScore,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+            default -> throw new BusinessException("Kiểu sắp xếp không hợp lệ: " + sort);
+        };
+    }
+
+    /**
+     * Áp dụng sự kiện điểm AI vào bản sao trên hồ sơ.
+     *
+     * @return false nếu không có gì thay đổi: hồ sơ không tồn tại hoặc sự kiện cũ hơn sự kiện đã áp dụng
+     */
+    // [GIẢI THÍCH] Ghi bản sao điểm AI lên hồ sơ khi nhận sự kiện từ ai-service:
+    // - PENDING / PROCESSING: chỉ đổi trạng thái, GIỮ điểm cũ (đang chấm lại vẫn hiện điểm cũ).
+    // - COMPLETED: kiểm tra có điểm + xếp loại hợp lệ rồi ghi.
+    // - FAILED: xoá điểm (ai-service cũng đã xoá).
+    // Trả về false khi không có dòng nào đổi: hồ sơ không tồn tại hoặc sự kiện đến muộn (cũ hơn lần đã ghi).
+    // yield = giá trị trả về của một nhánh case có nhiều dòng.
+    public boolean applyAiScore(AiScoringCompletedEvent event) {
+        if (event.applicationId() == null || event.status() == null || event.updatedAt() == null) {
+            throw new BusinessException("Sự kiện điểm AI thiếu applicationId / status / updatedAt");
+        }
+        int changed = switch (event.status()) {
+            case "PENDING", "PROCESSING" -> applicationRepository.updateAiStatus(
+                    event.applicationId(), event.status(), event.updatedAt());
+            case "COMPLETED" -> {
+                if (event.totalScore() == null || !AI_TIERS.contains(event.tier())) {
+                    throw new BusinessException("Sự kiện COMPLETED thiếu điểm hoặc xếp loại không hợp lệ");
+                }
+                yield applicationRepository.updateAiCompleted(
+                        event.applicationId(), event.totalScore(), event.tier(), event.updatedAt());
+            }
+            case "FAILED" -> applicationRepository.updateAiFailed(event.applicationId(), event.updatedAt());
+            default -> throw new BusinessException("Trạng thái chấm AI không hợp lệ: " + event.status());
+        };
+        return changed > 0;
     }
 
     /** Lấy thông tin (title, department) của tất cả job posting liên quan (tránh N+1). */
@@ -198,9 +264,9 @@ public class ApplicationService {
                 a.getNote(),
                 a.getAppliedAt(),
                 a.getHiredAt(),
-                a.getAiMatchScore(),
-                a.getAiClassification(),
-                a.getAiScorecard()
+                a.getAiScore(),
+                a.getAiTier(),
+                a.getAiStatus()
         );
     }
 
@@ -219,7 +285,8 @@ public class ApplicationService {
                 application.getCurrentStageOrder(),
                 application.getCurrentStageType(),
                 application.getCurrentStageName(),
-                application.getAppliedAt()
+                application.getAppliedAt(),
+                application.getResumeUrl()
         );
     }
 
@@ -290,15 +357,6 @@ public class ApplicationService {
         eventPublisher.publishApplicationCreated(
                 req.jobPostingId(), application.getId(),
                 application.getCandidateId(), application.getAssignedRecruiterId(), application.getCandidateNameSnapshot());
-
-        // Trigger AI CV processing pipeline (Phase 4: chunking + embedding → pgvector)
-        if (resumeUrl != null) {
-            eventPublisher.publishCvUploaded(
-                    application.getId(),
-                    application.getCandidateId(),
-                    application.getJobPostingId(),
-                    resumeUrl);
-        }
 
         return getById(actor, application.getId());
     }
@@ -624,7 +682,7 @@ public class ApplicationService {
         }
 
         Specification<Application> spec = ApplicationSpecifications.build(
-                null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null,
                 actor.departmentId(), null, true);
         return applicationRepository.findAll(spec).stream()
                 .map(Application::getCandidateId)

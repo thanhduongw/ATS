@@ -2,9 +2,8 @@ package iuh.fit.se.application.application;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -68,6 +67,23 @@ public class Application {
     @Column(name = "hired_at")
     private LocalDateTime hiredAt;
 
+    /*
+     * Bản sao điểm AI từ ai-service (sự kiện ai.scoring.completed). Chỉ ghi qua các câu UPDATE trong
+     * ApplicationRepository: lưu entity không được ghi đè (đọc cũ → ghi lại) và không được chạm
+     * updatedAt (mốc "đổi giai đoạn gần nhất" của nhắc nhở hồ sơ tồn đọng).
+     */
+    @Column(name = "ai_score", precision = 5, scale = 1, insertable = false, updatable = false)
+    private BigDecimal aiScore;
+
+    @Column(name = "ai_tier", length = 20, insertable = false, updatable = false)
+    private String aiTier;
+
+    @Column(name = "ai_status", length = 20, insertable = false, updatable = false)
+    private String aiStatus;
+
+    @Column(name = "ai_updated_at", insertable = false, updatable = false)
+    private LocalDateTime aiUpdatedAt;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -76,24 +92,6 @@ public class Application {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    // ── AI Scoring fields (populated by AiScoringCompletedListener) ──
-
-    @Column(name = "ai_match_score")
-    private java.math.BigDecimal aiMatchScore;
-
-    /** MATCH | REVIEW | NOT_MATCH */
-    @Column(name = "ai_classification", length = 20)
-    private String aiClassification;
-
-    /** Full scorecard JSON from ai-service. Stored as raw JSON string. */
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "ai_scorecard", columnDefinition = "jsonb")
-    private String aiScorecard;
-
-    /** Soft reference to ats_ai.ai_jobs.id (cross-DB, no FK). */
-    @Column(name = "ai_job_id")
-    private Long aiJobId;
 
     @PrePersist
     void prePersist() {

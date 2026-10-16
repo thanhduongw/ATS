@@ -16,7 +16,7 @@ export type LanguageProficiency = "NATIVE" | "FLUENT" | "INTERMEDIATE" | "BASIC"
 // ============================================================
 
 export interface CandidateInfo {
-  name: string;
+  name: string | null;
   email: string | null;
   phone: string | null;
   date_of_birth: string | null;
@@ -122,6 +122,9 @@ export interface CVExtractionResponse {
   provenance: ExtractionProvenance;
   error_code: string | null;
   error_message: string | null;
+  /** Có khi lấy từ /cv-extractions (kết quả đã lưu). */
+  extraction_id?: number;
+  updated_at?: string | null;
 }
 
 // ============================================================
@@ -190,67 +193,56 @@ export interface BenchmarkGenerateResponse {
 }
 
 // ============================================================
-// Phase 5 & 6: AI Scoring types
+// Chấm điểm hồ sơ (ai-service /scores) — `result` giữ nguyên tên trường snake_case của Python
 // ============================================================
 
-export type AiClassification = "MATCH" | "REVIEW" | "NOT_MATCH";
-export type AiScoringStatus =
-  | "completed"
-  | "processing"
-  | "failed"
-  | "not_found"
-  | "pending_benchmark";
+export type AiTier = "GOOD_FIT" | "POTENTIAL_FIT" | "NOT_FIT";
+export type AiScoreStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 
-export interface CriterionScore {
-  name: string;
+export interface ScoredDimension {
+  dimension: string;
+  label: string;
+  /** Trọng số gốc 0–1 */
   weight: number;
-  category: string;
-  isMustHave: boolean;
-  standardRequirement: string;
-  rawScore: number;
-  weightedScore: number;
-  status: "PASS" | "PARTIAL" | "FAIL";
-  evidence: string;
-  gapAnalysis: string;
-  reasoning?: string;
-}
-
-export interface HardFilterFlag {
-  criterionName: string;
-  passed: boolean;
+  /** Trọng số sau khi chia lại (khía cạnh không áp dụng = 0) */
+  effective_weight: number;
+  applicable: boolean;
+  /** Mức 0–4; null nếu không áp dụng */
+  level: number | null;
+  /** 0–100; null nếu không áp dụng */
+  score: number | null;
   reason: string;
 }
 
-export interface Scorecard {
+export interface ScoreResult {
+  total_score: number;
+  tier: AiTier;
+  tier_label: string;
+  dimensions: ScoredDimension[];
+  must_have_unmet: string[];
+  /** Câu mở đầu (điểm + xếp loại) + tóm tắt của AI */
+  comment: string;
+  summary: string;
+  years_calculated: number | null;
+  years_claimed: number | null;
+  scored_on: string;
+}
+
+export interface ApplicationScoreResponse {
   applicationId: number;
   jobPostingId: number;
-  totalScore: number;
-  classification: AiClassification;
-  summary: string;
-  hardFilterFlags: HardFilterFlag[];
-  criteriaScores: CriterionScore[];
-  scoredAt: string;
-  scoringModel: string;
-  promptVersion: string;
-  guardrailWarnings: string[];
+  status: AiScoreStatus;
+  totalScore: number | null;
+  tier: AiTier | null;
+  result: ScoreResult | null;
+  errorMessage: string | null;
+  scoredAt: string | null;
+  updatedAt: string | null;
 }
 
-export interface ScorecardResponse {
-  status: AiScoringStatus;
-  scorecard?: Scorecard | null;
-  currentStage?: string | null;
-  errorMessage?: string | null;
-}
-
-export interface RescoreResponse {
-  message: string;
-  newJobId: number;
-}
-
-export interface FeedbackRequest {
-  applicationId: number;
-  action: "ACCEPT" | "OVERRIDE_SCORE" | "REPORT_ISSUE";
-  originalScore: number;
-  correctedScore?: number | null;
-  comment?: string | null;
+export interface RescorePostingResponse {
+  jobPostingId: number;
+  total: number;
+  queued: number;
+  skipped: number;
 }

@@ -15,6 +15,7 @@ from app.services.scoring.rules import (
     education_outcome,
     highest_degree_level,
     items_to_check,
+    min_degree_level,
     onet_band,
     seniority_outcome,
 )
@@ -76,6 +77,8 @@ def test_seniority_unknown_when_cv_has_no_dates():
 def test_seniority_required_zero_is_level_3():
     assert seniority_outcome(0, 0).level == 3
     assert seniority_outcome(4, 0).level == 3
+    out = seniority_outcome(None, 0)   # JD không đòi kinh nghiệm: không cần biết số năm của CV
+    assert out.level == 3 and "không yêu cầu" in out.reason
 
 
 def test_seniority_candidate_zero_is_level_0():
@@ -109,14 +112,32 @@ def test_seniority_band_comparisons(candidate, required, level):
     ("Cao đẳng", 5), ("Cao đẳng trở lên", 5), ("College diploma", 5), ("Associate degree", 5),
     ("Trung cấp", 4), ("Vocational certificate", 4),
     ("Sơ cấp", 2),
+    ("Sau đại học", 7), ("Postgraduate diploma", 7), ("Post-graduate", 7),
+    ("B.Eng in Software", 6), ("BEng", 6), ("Bachelor of Engineering", 6), ("M.Eng", 7), ("MEng", 7),
+    ("Đại học hoặc Cao đẳng", 6),   # CV: lấy bậc cao nhất
 ])
 def test_degree_level_recognized(text, level):
     assert degree_level(text) == level
 
 
-@pytest.mark.parametrize("text", [None, "", "   ", "Chứng chỉ IELTS 7.0", "Tốt nghiệp THPT", "Khóa học online"])
+@pytest.mark.parametrize("text", [None, "", "   ", "Chứng chỉ IELTS 7.0", "Tốt nghiệp THPT", "Khóa học online",
+                                  "BA", "Business Analyst (BA)"])
 def test_degree_level_unknown_is_none(text):
     assert degree_level(text) is None
+
+
+@pytest.mark.parametrize("text, level", [
+    ("Tốt nghiệp Đại học hoặc Cao đẳng", 5),
+    ("Cao đẳng trở lên", 5),
+    ("Thạc sĩ hoặc Đại học", 6),
+    ("Đại học", 6),
+    ("Sau đại học", 7),          # không tính thêm "đại học" nằm bên trong
+    ("Bachelor's or Master's degree", 6),
+    ("Chuỗi lạ", None),
+    (None, None),
+])
+def test_min_degree_level_for_jd(text, level):
+    assert min_degree_level(text) == level
 
 
 def test_degree_labels_cover_all_levels():
@@ -217,6 +238,8 @@ def test_education_outcome_evidence_names_levels():
     (5, 3, RequirementStatus.MET),
     (2.9, 3, RequirementStatus.UNMET),
     (0, 0, RequirementStatus.MET),
+    (None, 0, RequirementStatus.MET),      # JD không đòi kinh nghiệm
+    (None, None, RequirementStatus.MET),
 ])
 def test_check_years_requirement(cand, req, status):
     assert check_years_requirement(cand, req) == status

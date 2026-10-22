@@ -79,7 +79,7 @@ class RuleOutcome:
 #   2: ít hơn N, cùng khoảng hoặc thấp hơn 1 khoảng
 #   3: từ N năm trở lên, chưa cao hơn khoảng của N quá 1 khoảng
 #   4: cao hơn khoảng của N từ 2 khoảng trở lên
-# Ví dụ docs (N = 3, khoảng 2–4 năm): 2,5 năm -> 2; 1 năm -> 1; 5 năm -> 3; 7 năm -> 4.
+# Ví dụ docs (N = 3, khoảng 2–4 năm): 2,5 năm -> 2; 1 năm -> 1; 5 năm -> 3; 7 năm -> 4. N = 0 -> luôn mức 3.
 # Cách so khoảng là quy ước của nhóm (bảng "Các phần là quy ước của nhóm" trong docs).
 def seniority_outcome(candidate_years: float | None, required_years: float | None) -> RuleOutcome | None:
     """None = tiêu chí không áp dụng (JD không ghi số năm)."""
@@ -88,6 +88,12 @@ def seniority_outcome(candidate_years: float | None, required_years: float | Non
     req_band = onet_band(required_years)
     req_text = f"JD yêu cầu {_fmt_years(required_years)} (khoảng {_BAND_LABELS[req_band]})"
 
+    # [GIẢI THÍCH] JD ghi "0 năm" = không đòi kinh nghiệm: ai cũng đạt, kể cả CV không có mốc thời gian.
+    # Xét TRƯỚC trường hợp thiếu dữ liệu để không đẩy oan hồ sơ vào "Chưa phân loại".
+    if required_years == 0:
+        cand = "không tính được" if candidate_years is None else _fmt_years(candidate_years)
+        return RuleOutcome(3, f"Ứng viên: {cand}; {req_text}", "JD không yêu cầu kinh nghiệm tối thiểu.")
+
     if candidate_years is None:
         return RuleOutcome(None, f"CV không có mốc thời gian làm việc để tính; {req_text}",
                            "Không tính được số năm kinh nghiệm vì CV không ghi mốc thời gian làm việc.")
@@ -95,8 +101,6 @@ def seniority_outcome(candidate_years: float | None, required_years: float | Non
     cand_band = onet_band(candidate_years)
     evidence = f"{_fmt_years(candidate_years)} (khoảng O*NET {_BAND_LABELS[cand_band]}); {req_text}"
 
-    if required_years == 0:
-        return RuleOutcome(3, evidence, "JD không yêu cầu kinh nghiệm tối thiểu.")
     if candidate_years <= 0:
         return RuleOutcome(0, evidence, "Ứng viên chưa có kinh nghiệm làm việc trong khi JD yêu cầu có.")
     if candidate_years < required_years:
@@ -129,10 +133,14 @@ DEGREE_LEVEL_LABELS: dict[int, str] = {
 # Xét từ bậc cao xuống thấp, gặp bậc nào trước thì lấy bậc đó ("Thạc sĩ" không bị nhận nhầm thành "đại học").
 # Bằng nước ngoài quy đổi tương ứng: bachelor -> 6, master -> 7, PhD -> 8 — quy đổi này là quy ước của nhóm
 # (nêu trong phần hạn chế, docs mục "Các phần là quy ước của nhóm").
+# "Sau đại học" / postgraduate nằm ở bậc 7 và xét TRƯỚC mẫu "đại học" (bậc 6) để không bị nhận nhầm.
+# KHÔNG nhận "BA" không dấu chấm: dễ nhầm với Business Analyst (chức danh rất hay gặp trong CV/JD ngành IT);
+# chỉ nhận dạng có dấu chấm "B.A.".
 _DEGREE_PATTERNS: list[tuple[int, re.Pattern]] = [
     (8, re.compile(r"tien si|\bph\.?\s?d\b|\bdoctor")),
-    (7, re.compile(r"thac si|\bmaster|\bmba\b|\bm\.?sc\b")),
-    (6, re.compile(r"dai hoc|cu nhan|ky su|\bbachelor|\bb\.?sc\b|\bb\.a\b|\bb\.e\b|engineer'?s degree|university degree")),
+    (7, re.compile(r"thac si|sau dai hoc|\bpost-?\s?graduate|\bmaster|\bmba\b|\bm\.?sc\b|\bm\.?eng\b")),
+    (6, re.compile(r"dai hoc|cu nhan|ky su|\bbachelor|\bb\.?sc\b|\bb\.a\b|\bb\.e\b|\bb\.?eng\b"
+                   r"|engineer'?s degree|university degree")),
     (5, re.compile(r"cao dang|\bcollege\b|\bassociate")),
     (4, re.compile(r"trung cap|\bvocational")),
     (2, re.compile(r"so cap")),
@@ -146,15 +154,32 @@ def _strip_accents(text: str) -> str:
 
 
 # [GIẢI THÍCH] Đổi tên bằng (CV hoặc JD, Việt hoặc Anh) ra bậc Khung trình độ quốc gia; không nhận ra -> None
-# (không đoán). "Cao đẳng trở lên" -> 5 (bậc tối thiểu JD chấp nhận).
+# (không đoán). Chuỗi nhắc nhiều bậc thì lấy bậc CAO NHẤT — dùng cho CV; JD dùng min_degree_level.
 def degree_level(text: str | None) -> int | None:
+    levels = _mentioned_levels(text)
+    return max(levels) if levels else None
+
+
+# [GIẢI THÍCH] Bậc THẤP NHẤT được nhắc trong chuỗi — dùng cho JD. JD ghi nhiều bậc ("Đại học hoặc Cao đẳng",
+# "Cao đẳng trở lên") nghĩa là chấp nhận bậc thấp nhất; ngược lại CV ghi nhiều bậc thì lấy bậc cao nhất ứng viên
+# đạt (degree_level). Không nhận ra bậc nào -> None.
+def min_degree_level(text: str | None) -> int | None:
+    levels = _mentioned_levels(text)
+    return min(levels) if levels else None
+
+
+# [GIẢI THÍCH] Mọi bậc được nhắc trong chuỗi. Xét từ bậc cao xuống thấp; đoạn đã khớp bị xóa trước khi xét bậc thấp hơn,
+# để "Sau đại học" chỉ tính bậc 7 (không tính thêm "đại học" bậc 6 nằm bên trong).
+def _mentioned_levels(text: str | None) -> list[int]:
     if not text or not text.strip():
-        return None
-    normalized = _strip_accents(text).lower()
+        return []
+    remaining = _strip_accents(text).lower()
+    levels: list[int] = []
     for level, pattern in _DEGREE_PATTERNS:
-        if pattern.search(normalized):
-            return level
-    return None
+        if pattern.search(remaining):
+            levels.append(level)
+            remaining = pattern.sub(" ", remaining)
+    return levels
 
 
 # [GIẢI THÍCH] Bậc cao nhất ứng viên đạt, xét các mục học vấn trong CV (chỉ khóa "degree" —
@@ -285,8 +310,9 @@ def education_outcome(
 
 # [GIẢI THÍCH] Yêu cầu bắt buộc về số năm: so trực tiếp với N (không qua khoảng — "cửa" là con số JD ghi).
 # CV không tính được số năm -> Không xác định được (dẫn tới Chưa phân loại ở Bước 6, để HR xem tay).
+# JD không yêu cầu (None hoặc 0 năm) -> Đạt, xét trước khi xem CV có số năm hay không.
 def check_years_requirement(candidate_years: float | None, required_years: float | None) -> RequirementStatus:
-    if required_years is None:
+    if required_years is None or required_years == 0:
         return RequirementStatus.MET
     if candidate_years is None:
         return RequirementStatus.UNKNOWN

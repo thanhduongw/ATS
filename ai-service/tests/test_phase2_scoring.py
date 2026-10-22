@@ -185,10 +185,23 @@ async def test_score_candidate_end_to_end_with_fake_llm():
     assert prov.extraction_id == 3 and prov.jd_extraction_id == 8 and prov.jd_extraction_prompt_version == "v1.0"
 
 
+# CV không ghi "Spring Boot" ở đâu cả (kỹ năng, công nghệ) — để code không nâng kết quả AI lên Đạt.
+EXTRACTED_NO_SPRING = {**EXTRACTED, "skills": ["Java", "PostgreSQL"]}
+
+
 async def test_score_candidate_unmet_requirement_not_fit():
     llm = ScoringLLM(llm_out(checks={"Java": "MET", "Spring Boot": "UNMET"}))
-    result, _ = await score_candidate(JD, EXTRACTED, manager(llm), TODAY)
+    result, _ = await score_candidate(JD, EXTRACTED_NO_SPRING, manager(llm), TODAY)
     assert result.tier == Tier.NOT_FIT and "Spring Boot" in result.tier_reason
+
+
+async def test_named_skill_written_in_cv_overrides_ai_unmet():
+    """AI chấm Spring Boot UNMET nhưng mục kỹ năng của CV ghi Spring Boot -> code nâng lên Đạt."""
+    llm = ScoringLLM(llm_out(checks={"Java": "MET", "Spring Boot": "UNMET"}))
+    result, _ = await score_candidate(JD, EXTRACTED, manager(llm), TODAY)
+    spring = next(r for r in result.requirements if r.requirement == "Spring Boot")
+    assert spring.status.value == "MET" and spring.evidence.startswith("Hồ sơ ghi: Kỹ năng:")
+    assert result.tier == Tier.FIT
 
 
 async def test_score_candidate_custom_thresholds():
@@ -319,6 +332,10 @@ async def test_jd_extraction_failure_recorded_then_retried(factory, java):
 
 async def test_unclassified_is_completed(factory, java):
     """Chưa phân loại vẫn là lần chấm thành công (COMPLETED), không phải FAILED."""
+    async with factory() as s:
+        row = (await s.execute(select(CVExtraction))).scalar_one()
+        row.result = {"extracted_cv": EXTRACTED_NO_SPRING}
+        await s.commit()
     llm = ScoringLLM(llm_out(checks={"Java": "MET", "Spring Boot": "UNKNOWN"}))
     score = await svc.score_application(1, session_factory=factory, manager=manager(llm))
     assert score.status == "COMPLETED" and score.tier == "UNCLASSIFIED"

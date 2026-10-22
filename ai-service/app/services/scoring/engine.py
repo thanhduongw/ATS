@@ -91,6 +91,7 @@ async def score_candidate(
         today=today,
         thresholds=thresholds,
         degree_note=degree_note,
+        profile=profile,
     )
     provenance = ScoringProvenance(
         model=usage.model,

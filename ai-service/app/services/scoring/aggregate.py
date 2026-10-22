@@ -11,8 +11,10 @@ Python thuần, tất định: không gọi LLM, không DB. Benchmark dùng lạ
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 from app.schemas.jd_extraction import ExtractedJD, Importance, RequirementItem
 from app.schemas.scoring import (
@@ -33,6 +35,8 @@ from app.services.scoring import rules
 
 D = ScoringDimension
 
+logger = logging.getLogger(__name__)
+
 
 # [GIẢI THÍCH] Ngưỡng xếp loại (Bước 6): T = 62,5 (giữa mức 2 và mức 3), vùng không chắc chắn ± δ = 5.
 # Giá trị khởi đầu là QUY ƯỚC của nhóm; hiệu chỉnh lại trên tập hiệu chỉnh (không dùng tập kiểm tra).
@@ -51,6 +55,9 @@ _SCORED_BY: dict[ScoringDimension, ScoredBy] = {
     D.EDUCATION_CERTIFICATION: ScoredBy.CODE_AND_LLM,
     D.DOMAIN: ScoredBy.LLM,
 }
+
+# Loại yêu cầu code được phép kiểm tra lại bằng so khớp chữ (tên riêng); DOMAIN cần đọc hiểu nên để AI.
+_NAMED_CATEGORIES = {RequirementCategory.SKILL, RequirementCategory.CERTIFICATION}
 
 _NOT_APPLICABLE_REASON = "JD không nêu yêu cầu cho tiêu chí này nên không tính vào điểm."
 _LLM_MISSING_REASON = "AI không trả kết quả cho tiêu chí này"
@@ -225,7 +232,9 @@ def build_requirements(
     years_calculated: float | None,
     candidate_degree_level: int | None,
     degree_note: str | None = None,
+    profile: dict[str, Any] | None = None,
 ) -> list[RequirementResult]:
+    """`profile`: hồ sơ chấm mù (build_scoring_profile) — để code kiểm tra lại công cụ / chứng chỉ có tên."""
     out: list[RequirementResult] = []
 
     # Yêu cầu số năm chỉ tạo khi JD đòi > 0 năm: JD ghi 0 năm (vd Fresher) thì không có gì để kiểm tra.
@@ -264,9 +273,17 @@ def build_requirements(
             seen.add(key)
             check = checks.get(key)
             if check is None:
-                out.append(_requirement(item.name, category, RequirementStatus.UNKNOWN, ScoredBy.LLM, _CHECK_MISSING_EVIDENCE))
+                status, checked_by, evidence = RequirementStatus.UNKNOWN, ScoredBy.LLM, _CHECK_MISSING_EVIDENCE
             else:
-                out.append(_requirement(item.name, category, check.status, ScoredBy.LLM, check.evidence))
+                status, checked_by, evidence = check.status, ScoredBy.LLM, check.evidence
+            # [GIẢI THÍCH] Công cụ / chứng chỉ CÓ TÊN: hồ sơ ghi nguyên văn thì code tính Đạt, kể cả khi AI chấm Không đạt
+            # hoặc không xác định — việc này kiểm tra được bằng chữ nên kết quả lặp lại được (docs Bước 4).
+            # CHỈ nâng lên Đạt, không bao giờ hạ Đạt của AI. Không áp dụng cho lĩnh vực (cần đọc hiểu, để AI).
+            if (category in _NAMED_CATEGORIES and status != RequirementStatus.MET and profile
+                    and (found := rules.find_named_item(item.name, profile))):
+                logger.info("requirement '%s' %s->MET by exact match", item.name, status.value)
+                status, checked_by, evidence = RequirementStatus.MET, ScoredBy.CODE_AND_LLM, f"Hồ sơ ghi: {found}"
+            out.append(_requirement(item.name, category, status, checked_by, evidence))
     return out
 
 
@@ -335,12 +352,14 @@ def assemble_result(
     today: date,
     thresholds: Thresholds,
     degree_note: str | None = None,
+    profile: dict[str, Any] | None = None,
 ) -> ScoreResult:
-    """`degree_note`: ghi chú khi bậc học của ứng viên được suy từ tên trường (rules.candidate_degree_level)."""
+    """`degree_note`: ghi chú khi bậc học của ứng viên được suy từ tên trường (rules.candidate_degree_level).
+    `profile`: hồ sơ chấm mù — để code kiểm tra lại công cụ / chứng chỉ có tên (build_requirements)."""
     checks = _checks_by_name(llm)
     dimensions = _score_dimensions(jd, llm, checks, years_calculated, candidate_degree_level, degree_note)
     total = _total_score(dimensions)
-    requirements = build_requirements(jd, checks, years_calculated, candidate_degree_level, degree_note)
+    requirements = build_requirements(jd, checks, years_calculated, candidate_degree_level, degree_note, profile)
     tier, tier_reason = classify(total, requirements, thresholds)
     summary = llm.summary.strip()
     return ScoreResult(

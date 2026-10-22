@@ -279,6 +279,60 @@ def _degree_text(level: int | None) -> str:
 
 
 # ============================================================
+# Công cụ / công nghệ / chứng chỉ có tên — kiểm tra bằng so khớp chữ
+# ============================================================
+
+# [GIẢI THÍCH] Chuẩn hóa để so tên công cụ: chữ thường, bỏ dấu, bỏ dấu chấm, gộp khoảng trắng, bỏ hậu tố "js" dính liền
+# ("React.js" -> "reactjs" -> "react"). GIỮ "#" và "+" vì C#, C++ khác C.
+_JS_SUFFIX = re.compile(r"(?<=[a-z0-9])js\b")
+
+
+def _normalize_name(text: str) -> str:
+    text = _strip_accents(text).lower().replace(".", "")
+    text = " ".join(text.split())
+    return _JS_SUFFIX.sub("", text).strip()
+
+
+def _contains_name(haystack: str, needle: str) -> bool:
+    """Khớp NGUYÊN CỤM theo ranh giới từ: "java" không khớp "javascript", "c" không khớp "css" hay "c#"."""
+    if not needle:
+        return False
+    pattern = r"(?<![a-z0-9#+])" + re.escape(needle) + r"(?![a-z0-9#+])"
+    return re.search(pattern, haystack) is not None
+
+
+# [GIẢI THÍCH] Tìm một công cụ / công nghệ / chứng chỉ CÓ TÊN trong các phần nghề nghiệp của hồ sơ chấm mù:
+# danh sách kỹ năng, công nghệ của từng công việc và dự án, tên chứng chỉ. KHÔNG tìm trong phần tóm tắt / mục tiêu
+# (câu "mong muốn học React" không phải bằng chứng có React). Trả đoạn chữ gốc chứa tên đó, hoặc None.
+# Việc CV có ghi một tên hay không kiểm tra được bằng chữ -> kết quả lặp lại được, không phụ thuộc AI (docs Bước 4).
+# Chỉ dùng cho tên riêng; kiến thức nền (OOP, cấu trúc dữ liệu...) vẫn để AI đánh giá.
+def find_named_item(requirement: str, profile: dict) -> str | None:
+    needle = _normalize_name(requirement or "")
+    if not needle or not profile:
+        return None
+
+    candidates: list[tuple[str, list[str]]] = []
+    if profile.get("skills"):
+        candidates.append(("Kỹ năng", list(profile["skills"])))
+    for job in profile.get("work_experience") or []:
+        if job.get("technologies"):
+            where = " — ".join(x for x in (job.get("title"), job.get("company")) if x)
+            candidates.append((f"Công nghệ ({where})" if where else "Công nghệ", list(job["technologies"])))
+    for project in profile.get("projects") or []:
+        if project.get("technologies"):
+            name = project.get("name")
+            candidates.append((f"Dự án {name}" if name else "Dự án", list(project["technologies"])))
+    certs = [c.get("name") for c in profile.get("certifications") or [] if c.get("name")]
+    if certs:
+        candidates.append(("Chứng chỉ", certs))
+
+    for label, items in candidates:
+        if any(_contains_name(_normalize_name(str(item)), needle) for item in items):
+            return f"{label}: {', '.join(str(i) for i in items)}"
+    return None
+
+
+# ============================================================
 # Danh sách yêu cầu cần Gemini kiểm tra
 # ============================================================
 

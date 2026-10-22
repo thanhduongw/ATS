@@ -302,3 +302,74 @@ def test_full_fit_example():
     r = assemble(backend_jd(), llm_output(levels={"TECHNICAL_SKILLS": 4, "DOMAIN": 3}), years=5.0, degree=6)
     assert r.total_score == round((100 + 75 + 75 + 75 + 75) / 5, 1)
     assert r.tier == Tier.FIT and all(q.status == MET for q in r.requirements)
+
+
+# ============================================================
+# Code kiểm tra lại công cụ / chứng chỉ có tên (chỉ nâng lên Đạt, không hạ)
+# ============================================================
+
+NAMED_PROFILE = {
+    "summary": "Mong muốn làm việc với Kafka.",
+    "skills": ["Java", "Spring Boot", "SQL", "MySQL"],
+    "certifications": [{"name": "AWS Certified Developer"}],
+}
+
+
+def _named_jd(**overrides):
+    data = dict(skills=[item("Java"), item("MySQL"), item("Kafka")],
+                certifications=[item("AWS Certified Developer")], domains=[item("Ngân hàng")])
+    data.update(overrides)
+    return backend_jd(years_importance=PREF, **data)
+
+
+def _assemble_named(jd, checks):
+    return assemble_result(jd, llm_output(checks=checks), years_calculated=2.5, years_claimed=None,
+                           candidate_degree_level=6, today=TODAY, thresholds=T, profile=NAMED_PROFILE)
+
+
+def _req_of(r, name):
+    return next(q for q in r.requirements if q.requirement == name)
+
+
+def test_named_skill_in_profile_upgraded_to_met():
+    checks = [("Java", "SKILL", "MET"), ("MySQL", "SKILL", "UNMET"), ("Kafka", "SKILL", "UNMET"),
+              ("AWS Certified Developer", "CERTIFICATION", "UNKNOWN"), ("Ngân hàng", "DOMAIN", "MET")]
+    r = _assemble_named(_named_jd(), checks)
+    mysql = _req_of(r, "MySQL")
+    assert mysql.status == MET and mysql.checked_by == ScoredBy.CODE_AND_LLM
+    assert mysql.evidence == "Hồ sơ ghi: Kỹ năng: Java, Spring Boot, SQL, MySQL"
+    aws = _req_of(r, "AWS Certified Developer")
+    assert aws.status == MET and aws.evidence.startswith("Hồ sơ ghi: Chứng chỉ:")
+    kafka = _req_of(r, "Kafka")                       # chỉ có trong phần tóm tắt -> không tính
+    assert kafka.status == UNMET and kafka.checked_by == ScoredBy.LLM
+
+
+def test_ai_met_is_never_downgraded():
+    checks = [("Java", "SKILL", "MET"), ("MySQL", "SKILL", "MET"), ("Kafka", "SKILL", "MET"),
+              ("AWS Certified Developer", "CERTIFICATION", "MET"), ("Ngân hàng", "DOMAIN", "MET")]
+    r = _assemble_named(_named_jd(), checks)
+    kafka = _req_of(r, "Kafka")                       # code không tìm thấy nhưng AI MET -> giữ MET
+    assert kafka.status == MET and kafka.checked_by == ScoredBy.LLM
+
+
+def test_domain_is_not_overridden():
+    profile_with_domain = {**NAMED_PROFILE, "skills": [*NAMED_PROFILE["skills"], "Ngân hàng"]}
+    checks = [("Java", "SKILL", "MET"), ("MySQL", "SKILL", "MET"), ("Kafka", "SKILL", "MET"),
+              ("AWS Certified Developer", "CERTIFICATION", "MET"), ("Ngân hàng", "DOMAIN", "UNMET")]
+    r = assemble_result(_named_jd(), llm_output(checks=checks), years_calculated=2.5, years_claimed=None,
+                        candidate_degree_level=6, today=TODAY, thresholds=T, profile=profile_with_domain)
+    assert _req_of(r, "Ngân hàng").status == UNMET
+
+
+def test_no_profile_keeps_ai_result():
+    checks = [("Java", "SKILL", "MET"), ("MySQL", "SKILL", "UNMET"), ("Kafka", "SKILL", "MET"),
+              ("AWS Certified Developer", "CERTIFICATION", "MET"), ("Ngân hàng", "DOMAIN", "MET")]
+    r = assemble(_named_jd(), llm_output(checks=checks))
+    assert _req_of(r, "MySQL").status == UNMET
+
+
+def test_technical_skills_level_not_changed_by_override():
+    checks = [("Java", "SKILL", "MET"), ("MySQL", "SKILL", "UNMET"), ("Kafka", "SKILL", "MET"),
+              ("AWS Certified Developer", "CERTIFICATION", "MET"), ("Ngân hàng", "DOMAIN", "MET")]
+    r = _assemble_named(_named_jd(), checks)
+    assert dim(r, D.TECHNICAL_SKILLS).level == 3 and dim(r, D.TECHNICAL_SKILLS).scored_by == ScoredBy.LLM

@@ -137,11 +137,13 @@ Mỗi yêu cầu bắt buộc có một trong 3 trạng thái: **Đạt**, **Kh�
 - Công cụ, công nghệ, sản phẩm, chứng chỉ có tên (React, AWS, Docker, IELTS): chỉ Đạt khi CV ghi tên (hoặc biến thể, phiên bản rõ ràng).
 - Kiến thức nền, nguyên lý (OOP, cấu trúc dữ liệu và giải thuật, mạng máy tính căn bản, design pattern): Đạt cả khi CV có công việc hoặc ngành học **chắc chắn** dùng đến kiến thức đó — ví dụ lập trình bằng ngôn ngữ / framework hướng đối tượng (Java, C#, Spring Boot) thể hiện OOP; tốt nghiệp ngành Khoa học máy tính / CNTT / Kỹ thuật phần mềm (môn cốt lõi) thể hiện cấu trúc dữ liệu và giải thuật. Dẫn chứng vẫn phải trích nguyên văn dòng CV thể hiện công việc / ngành học đó; không có thì Không đạt. Dẫn chứng phải là việc ứng viên **đã làm hoặc đã học** (công việc, dự án, môn học, bằng cấp); câu định hướng, mục tiêu, mong muốn không phải bằng chứng; có dòng dự án / công việc thì ưu tiên hơn dòng tóm tắt (prompt chấm v2.2).
 
+**Công cụ / chứng chỉ có tên mà hồ sơ ghi nguyên văn thì code tính Đạt, kể cả khi AI chấm Không đạt; code không bao giờ hạ Đạt của AI.** Code so khớp tên (không phân biệt hoa thường, dấu, dấu chấm; "React" = "React.js" = "ReactJS"; khớp nguyên cụm nên "Java" không khớp "JavaScript", "C" không khớp "C#") trong danh sách kỹ năng, công nghệ của từng công việc / dự án và tên chứng chỉ — không tìm trong phần tóm tắt, mục tiêu. Lý do: việc CV có ghi một tên hay không kiểm tra được bằng chữ, cho kết quả lặp lại được; một lần AI chấm sai không được làm cả hồ sơ thành Không phù hợp. Không áp dụng cho lĩnh vực và kiến thức nền (cần đọc hiểu, để AI).
+
 JD ghi 0 năm kinh nghiệm (vd Fresher) thì không tạo yêu cầu bắt buộc về số năm (không có gì để kiểm tra); tiêu chí Số năm vẫn chấm như thường.
 
 CV không đạt yêu cầu bắt buộc vẫn hiện cho HR, kèm lý do cụ thể.
 
-*Phát hiện từ lần chạy thử thật (22/10/2026):* JD Backend Developer (Fresher) có yêu cầu bắt buộc "OOP" và "Cấu trúc dữ liệu và giải thuật". Với quy tắc cũ (mọi yêu cầu phải được CV ghi đúng tên), hai hồ sơ 75 điểm làm Java / Spring Boot, học ngành CNTT bị Không đạt hai yêu cầu này và xếp Không phù hợp. Quy tắc kiến thức nền ở trên được thêm để sửa lỗi này (prompt chấm v2.1).
+*Phát hiện từ lần chạy thử thật (22/10/2026):* JD Backend Developer (Fresher) có yêu cầu bắt buộc "OOP" và "Cấu trúc dữ liệu và giải thuật". Với quy tắc cũ (mọi yêu cầu phải được CV ghi đúng tên), hai hồ sơ 75 điểm làm Java / Spring Boot, học ngành CNTT bị Không đạt hai yêu cầu này và xếp Không phù hợp. Quy tắc kiến thức nền ở trên được thêm để sửa lỗi này (prompt chấm v2.1). Ở lần chấm lại với prompt v2.2, Gemini chấm "MySQL" là Không đạt dù mục kỹ năng của CV ghi rõ MySQL (lần chấm trước đó là Đạt), làm hồ sơ 75 điểm thành Không phù hợp; quy tắc code kiểm tra lại công cụ có tên ở trên được thêm để kết quả không phụ thuộc vào một lần AI chấm sai.
 
 ## Bước 5: Tính điểm tổng với trọng số bằng nhau
 
@@ -186,6 +188,7 @@ Mọi kết quả hiển thị cho HR đều kèm: điểm tổng, mức và d�
 | Lưỡng lự giữa hai mức thì chọn mức thấp hơn | So kết quả AI với đáp án của người trên tập hiệu chỉnh |
 | Yêu cầu không được nhắc trong hồ sơ đầy đủ là Không đạt | Đo tỉ lệ UNKNOWN và độ chính xác Bước 4 trên tập hiệu chỉnh |
 | Kiến thức nền được tính Đạt khi CV có công việc / ngành học chắc chắn dùng đến kiến thức đó | Đo ở phần 7: so trạng thái AI với nhãn của nhóm |
+| Công cụ / chứng chỉ có tên mà CV ghi nguyên văn thì code tính Đạt (chỉ nâng, không hạ kết quả AI) | Đo ở phần 7: số lần code nâng và tỉ lệ đúng so với nhãn của nhóm |
 | Quy đổi bằng nước ngoài sang Khung trình độ quốc gia | Nêu trong phần hạn chế |
 | CV không ghi bằng nhưng đã học xong ở trường có tên Đại học / Học viện / University thì tính bậc 6; Cao đẳng / College thì bậc 5. Mục học vấn đang học (đến nay / năm kết thúc ở tương lai) không được tính bậc, kể cả khi có ghi tên bằng. | Đo tỉ lệ đúng trên đáp án trích xuất (phần 7) |
 | Dùng O\*NET (dữ liệu Hoa Kỳ) làm khung tham chiếu | Nêu trong phần hạn chế |

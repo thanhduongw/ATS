@@ -16,6 +16,7 @@ from app.services.scoring.rules import (
     check_years_requirement,
     degree_level,
     education_outcome,
+    find_named_item,
     highest_degree_level,
     items_to_check,
     min_degree_level,
@@ -318,3 +319,48 @@ def test_check_years_requirement(cand, req, status):
 ])
 def test_check_education_requirement(cand, req, status):
     assert check_education_requirement(cand, req) == status
+
+
+# ============================================================
+# Công cụ / chứng chỉ có tên — so khớp chữ trong hồ sơ chấm mù
+# ============================================================
+
+PROFILE = {
+    "summary": "Mong muốn học thêm Kubernetes và Golang.",
+    "skills": ["Java", "SQL", "PostgreSQL", "MySQL", "React.js"],
+    "work_experience": [{"title": "Backend Intern", "company": "ABC", "technologies": ["Spring Boot", "C#"]}],
+    "projects": [{"name": "Web bán hàng", "technologies": ["HTML", "CSS", "JavaScript"]}],
+    "certifications": [{"name": "AWS Certified Developer", "issuer": "Amazon"}],
+}
+
+
+@pytest.mark.parametrize("requirement, expected_prefix", [
+    ("MySQL", "Kỹ năng:"),
+    ("mysql", "Kỹ năng:"),
+    ("ReactJS", "Kỹ năng:"),                     # "ReactJS" khớp "React.js"
+    ("React", "Kỹ năng:"),
+    ("Spring Boot", "Công nghệ (Backend Intern — ABC):"),
+    ("C#", "Công nghệ (Backend Intern — ABC):"),
+    ("CSS", "Dự án Web bán hàng:"),
+    ("AWS Certified Developer", "Chứng chỉ:"),
+])
+def test_find_named_item_found(requirement, expected_prefix):
+    found = find_named_item(requirement, PROFILE)
+    assert found is not None and found.startswith(expected_prefix)
+
+
+@pytest.mark.parametrize("requirement, profile", [
+    ("Java", {"skills": ["JavaScript", "TypeScript"]}),   # Java không khớp JavaScript
+    ("C", {"skills": ["CSS", "C#", "C++"]}),               # C không khớp CSS / C# / C++
+    ("C++", {"skills": ["C#"]}),
+    ("Kubernetes", PROFILE),                               # chỉ có trong phần tóm tắt -> không tính
+    ("Docker", PROFILE),
+    ("", PROFILE),
+    ("MySQL", {}),
+])
+def test_find_named_item_not_found(requirement, profile):
+    assert find_named_item(requirement, profile) is None
+
+
+def test_find_named_item_returns_original_text():
+    assert find_named_item("MySQL", PROFILE) == "Kỹ năng: Java, SQL, PostgreSQL, MySQL, React.js"

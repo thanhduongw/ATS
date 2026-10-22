@@ -30,7 +30,7 @@ from app.schemas.scoring import (
     ScoringDimension,
     Tier,
 )
-from app.schemas.scoring_llm import LLMScoringOutput, RequirementCheck
+from app.schemas.scoring_llm import FieldMatch, LLMScoringOutput, RequirementCheck
 from app.services.scoring import rules
 
 D = ScoringDimension
@@ -143,6 +143,8 @@ def _score_dimensions(
     years_calculated: float | None,
     candidate_degree_level: int | None,
     degree_note: str | None = None,
+    studying: str | None = None,
+    profile: dict[str, Any] | None = None,
 ) -> list[ScoredDimension]:
     applicable = applicable_dimensions(jd)
     assessments = {}
@@ -157,7 +159,7 @@ def _score_dimensions(
             outcome = rules.seniority_outcome(years_calculated, jd.experience.min_years)
             out.append(_dimension(dim, True, outcome.level, [outcome.evidence], outcome.reason))
         elif dim == D.EDUCATION_CERTIFICATION:
-            out.append(_education_dimension(jd, llm, checks, candidate_degree_level, degree_note))
+            out.append(_education_dimension(jd, llm, checks, candidate_degree_level, degree_note, studying, profile))
         else:
             a = assessments.get(dim.value)
             if a is None:
@@ -173,24 +175,53 @@ def _education_dimension(
     checks: dict[str, RequirementCheck],
     candidate_degree_level: int | None,
     degree_note: str | None = None,
+    studying: str | None = None,
+    profile: dict[str, Any] | None = None,
 ) -> ScoredDimension:
     degree_text = jd.education.degree_text if jd.education else None
     required_level = rules.min_degree_level(degree_text)
     required_certs_met, preferred_cert_met = _cert_status(jd, checks)
+    jd_fields = list(jd.education.fields) if jd.education else []
+    field_match, field_note = _field_match(llm.education_field.match, jd_fields, profile)
+
+    # [GIẢI THÍCH] Đang học (chưa có bậc nào hoàn thành) mà JD đòi một bậc -> mức 1, cùng mức với "thấp hơn 1 bậc":
+    # chưa có văn bằng JD yêu cầu. Đây là thông tin đã đủ, không phải "không xác định được".
+    if candidate_degree_level is None and studying and required_level is not None:
+        label = rules.DEGREE_LEVEL_LABELS.get(required_level, "Bậc")
+        evidence = f"{studying}; JD yêu cầu: {label} (bậc {required_level})"
+        return _dimension(D.EDUCATION_CERTIFICATION, True, 1, [evidence], "Đang học, chưa có văn bằng JD yêu cầu.")
+
     outcome = rules.education_outcome(
         candidate_degree_level,
         required_level,
-        llm.education_field.match,
-        fields_restricted=bool(jd.education and jd.education.fields),
+        field_match,
+        fields_restricted=bool(jd_fields),
         required_certs_met=required_certs_met,
         preferred_cert_met=preferred_cert_met,
     )
     reason = outcome.reason
     if degree_text and required_level is None:
         reason += f" Không nhận ra bậc học JD yêu cầu (\"{degree_text}\") nên không so bậc."
-    # Bậc học suy từ tên trường (CV không ghi bằng) -> ghi rõ trong dẫn chứng để HR biết.
-    evidence = f"{outcome.evidence} ({degree_note})" if degree_note else outcome.evidence
+    # Bậc học suy từ tên trường / ngành được code nâng thành đúng ngành -> ghi rõ trong dẫn chứng để HR biết.
+    notes = [n for n in (degree_note, field_note) if n]
+    evidence = f"{outcome.evidence} ({'; '.join(notes)})" if notes else outcome.evidence
     return _dimension(D.EDUCATION_CERTIFICATION, True, outcome.level, [evidence], reason)
+
+
+# [GIẢI THÍCH] Ngành học: AI trả RELATED / UNRELATED / UNKNOWN mà ngành trong CV và một ngành JD chấp nhận cùng thuộc
+# nhóm 748 "Máy tính và công nghệ thông tin" (Thông tư 09/2022/TT-BGDĐT) -> code nâng thành EXACT.
+# Chỉ nâng, không hạ: AI đã trả EXACT thì giữ nguyên. Trả (độ phù hợp, ghi chú cho dẫn chứng).
+def _field_match(
+    ai_match: FieldMatch, jd_fields: list[str], profile: dict[str, Any] | None,
+) -> tuple[FieldMatch, str | None]:
+    if ai_match == FieldMatch.EXACT or not jd_fields or not profile:
+        return ai_match, None
+    for entry in profile.get("education") or []:
+        cv_field = entry.get("field_of_study")
+        if rules.same_field_group(cv_field, jd_fields):
+            logger.info("education field '%s' %s->EXACT by field group 748", cv_field, ai_match.value)
+            return FieldMatch.EXACT, f"ngành {cv_field} cùng nhóm ngành 748 Máy tính và CNTT (TT 09/2022/TT-BGDĐT)"
+    return ai_match, None
 
 
 # ============================================================
@@ -233,6 +264,7 @@ def build_requirements(
     candidate_degree_level: int | None,
     degree_note: str | None = None,
     profile: dict[str, Any] | None = None,
+    studying: str | None = None,
 ) -> list[RequirementResult]:
     """`profile`: hồ sơ chấm mù (build_scoring_profile) — để code kiểm tra lại công cụ / chứng chỉ có tên."""
     out: list[RequirementResult] = []
@@ -253,6 +285,10 @@ def build_requirements(
         status = rules.check_education_requirement(candidate_degree_level, required_level)
         evidence = (f"Ứng viên: {rules.DEGREE_LEVEL_LABELS.get(candidate_degree_level, 'Bậc')} (bậc {candidate_degree_level})"
                     if candidate_degree_level is not None else "CV không ghi rõ văn bằng")
+        # [GIẢI THÍCH] Không có bậc nào đã hoàn thành nhưng có mục ĐANG HỌC -> Không đạt (thông tin đã đủ: chưa tốt nghiệp,
+        # JD đòi đã tốt nghiệp), không phải Không xác định được. CV không có mục học vấn nào thì giữ như cũ.
+        if candidate_degree_level is None and studying:
+            status, evidence = RequirementStatus.UNMET, studying
         if degree_note and candidate_degree_level is not None:
             evidence += f" ({degree_note})"
         label = rules.DEGREE_LEVEL_LABELS.get(required_level, "Bậc")
@@ -353,13 +389,17 @@ def assemble_result(
     thresholds: Thresholds,
     degree_note: str | None = None,
     profile: dict[str, Any] | None = None,
+    studying: str | None = None,
 ) -> ScoreResult:
     """`degree_note`: ghi chú khi bậc học của ứng viên được suy từ tên trường (rules.candidate_degree_level).
-    `profile`: hồ sơ chấm mù — để code kiểm tra lại công cụ / chứng chỉ có tên (build_requirements)."""
+    `profile`: hồ sơ chấm mù — để code kiểm tra lại công cụ / chứng chỉ có tên và nhóm ngành.
+    `studying`: mô tả mục học vấn đang học (rules.studying_text) khi ứng viên chưa có bậc nào hoàn thành."""
     checks = _checks_by_name(llm)
-    dimensions = _score_dimensions(jd, llm, checks, years_calculated, candidate_degree_level, degree_note)
+    dimensions = _score_dimensions(jd, llm, checks, years_calculated, candidate_degree_level, degree_note,
+                                   studying, profile)
     total = _total_score(dimensions)
-    requirements = build_requirements(jd, checks, years_calculated, candidate_degree_level, degree_note, profile)
+    requirements = build_requirements(jd, checks, years_calculated, candidate_degree_level, degree_note, profile,
+                                      studying)
     tier, tier_reason = classify(total, requirements, thresholds)
     summary = llm.summary.strip()
     return ScoreResult(

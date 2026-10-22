@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
 from app.core.database import async_session_factory
-from app.core.java_services import JavaServiceError, get_application_summary, get_posting
+from app.core.java_services import JavaServiceError, get_application_summary, get_posting, get_skill_names
 from app.core.llm_client import LLMError, LLMManager, get_llm_manager
 from app.models import AIJob, AIScore
 from app.services.cv_extraction_store import COMPLETED as EXTRACTION_COMPLETED
@@ -139,6 +139,16 @@ def _failure_message(exc: Exception) -> str:
     return f"Lỗi không xác định khi chấm điểm: {type(exc).__name__}: {exc}"
 
 
+# [GIẢI THÍCH] Tên kỹ năng HR chọn cho tin (đưa vào JD để AI trích xuất thành yêu cầu bắt buộc).
+# masterdata-service lỗi -> ghi cảnh báo và chấm tiếp không có danh sách kỹ năng, không làm hỏng cả lượt chấm.
+async def _posting_skill_names(posting: dict) -> list[str]:
+    try:
+        return await get_skill_names(posting.get("skillIds") or [])
+    except JavaServiceError as exc:
+        logger.warning("Không lấy được tên kỹ năng của tin %s: %s", posting.get("id"), exc)
+        return []
+
+
 # [GIẢI THÍCH] Gửi sự kiện ai.scoring.completed lên RabbitMQ mỗi khi trạng thái chấm thay đổi
 # (PENDING / PROCESSING / COMPLETED / FAILED). application-service nghe sự kiện này để chép điểm lên hồ sơ.
 # updatedAt = thời điểm đổi trạng thái, giúp bên nhận bỏ qua sự kiện đến muộn.
@@ -206,7 +216,7 @@ async def score_application(
             # get_or_extract_jd: cùng nội dung JD đã tách rồi thì lấy từ DB (mọi CV của tin dùng chung một danh sách
             # yêu cầu); HR sửa JD thì nội dung đổi -> tách lại. Lỗi LLM được lưu FAILED trong jd_extractions.
             job.current_stage = "JD_EXTRACT"
-            job_info = JobInfo.from_posting(posting)
+            job_info = JobInfo.from_posting(posting, await _posting_skill_names(posting))
             jd_row = await get_or_extract_jd(session_factory, job_info, job_posting_id, manager=manager)
             if jd_row.status != JD_EXTRACTION_COMPLETED:
                 raise ScoringFailure(f"Không trích xuất được JD: {jd_row.error_message}")

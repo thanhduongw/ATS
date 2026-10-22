@@ -45,8 +45,8 @@ def _prompt() -> str:
     return build_scoring_prompt(JD, profile, TODAY, 5.8, None, items_to_check(JD))
 
 
-def test_prompt_version_is_v2_2():
-    assert prompt_module.PROMPT_VERSION == "v2.2"
+def test_prompt_version_is_v2_3():
+    assert prompt_module.PROMPT_VERSION == "v2.3"
 
 
 def test_prompt_contains_three_level_tables():
@@ -121,3 +121,8 @@ def test_jobinfo_unchanged():
     assert job.as_text() == ("Vị trí: Backend\n\nKinh nghiệm yêu cầu: 3 năm\n\n"
                              "Mô tả công việc:\nMô tả\n\nYêu cầu ứng viên:\nYêu cầu")
     assert JobInfo(title="", requirements="X").as_text() == "Yêu cầu ứng viên:\nX"
+
+
+def test_prompt_alternatives_met_with_one_option():
+    """v2.3: yêu cầu "X hoặc Y" Đạt khi hồ sơ có ít nhất một lựa chọn."""
+    assert 'a requirement written as "X hoặc Y" (or "X or Y", "X/Y") is MET when the profile shows AT LEAST ONE' in _prompt()

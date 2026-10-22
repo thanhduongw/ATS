@@ -74,7 +74,7 @@ def test_prompt_wraps_jd_and_has_version():
     prompt = build_jd_extraction_prompt(JOB.as_text())
     begin, end = prompt.index("### BEGIN JD ###"), prompt.index("### END JD ###")
     assert begin < prompt.index("Bắt buộc: Java, Spring Boot, SQL.") < end
-    assert PROMPT_VERSION == "v1.0"
+    assert PROMPT_VERSION == "v1.1"
     assert "REQUIRED" in prompt and "PREFERRED" in prompt
 
 
@@ -167,3 +167,18 @@ async def test_concurrent_requests_one_row(session_factory):
     assert len({r.id for r in rows}) == 1
     async with session_factory() as s:
         assert (await s.execute(select(func.count()).select_from(JDExtraction))).scalar_one() == 1
+
+
+def test_prompt_v1_1_hr_skills_and_alternatives():
+    prompt = build_jd_extraction_prompt(JOB.as_text())
+    assert 'Every item listed under "Kỹ năng yêu cầu (HR chọn)" is a separate REQUIRED skill' in prompt
+    assert 'one item named "MySQL hoặc PostgreSQL"' in prompt
+
+
+def test_job_info_includes_hr_selected_skills():
+    job = JobInfo.from_posting({"title": "Backend", "requirements": "R"}, ["Java", "Spring Boot", " "])
+    assert job.skills == ["Java", "Spring Boot"]
+    assert job.as_text().endswith("Kỹ năng yêu cầu (HR chọn): Java, Spring Boot")
+    assert "Kỹ năng yêu cầu" not in JobInfo.from_posting({"title": "Backend"}).as_text()
+    # Thêm kỹ năng làm đổi nội dung JD -> đổi mã băm -> JD được trích xuất lại
+    assert jd_content_hash(job) != jd_content_hash(JobInfo.from_posting({"title": "Backend", "requirements": "R"}))

@@ -82,6 +82,10 @@ Khung trình độ quốc gia Việt Nam có 8 bậc: sơ cấp bậc 2, trung c
 | 3 | Đủ bậc, đúng ngành (hoặc JD không giới hạn ngành), đủ chứng chỉ bắt buộc |
 | 4 | Cao hơn bậc yêu cầu với ngành phù hợp; hoặc đạt mức 3 và có thêm chứng chỉ JD ghi là ưu tiên |
 
+**Đang học.** Ứng viên chưa có bậc nào hoàn thành nhưng đang học (đến nay / năm kết thúc ở tương lai) mà JD đòi một bậc học: mức 1 ("Đang học, chưa có văn bằng JD yêu cầu"), cùng mức với "thấp hơn 1 bậc".
+
+**Ngành cùng nhóm.** Ngành trong CV và một ngành JD chấp nhận cùng thuộc nhóm 748 "Máy tính và công nghệ thông tin" theo Thông tư 09/2022/TT-BGDĐT (danh mục thống kê ngành đào tạo giáo dục đại học: 7480101 Khoa học máy tính, 7480102 Mạng máy tính và truyền thông dữ liệu, 7480103 Kỹ thuật phần mềm, 7480104 Hệ thống thông tin, 7480106 Kỹ thuật máy tính, 7480107 Trí tuệ nhân tạo, 7480108 Công nghệ kỹ thuật máy tính, 7480201 Công nghệ thông tin, 7480202 An toàn thông tin) thì tính **đúng ngành**: AI chấm "ngành gần" / "không liên quan" / "không rõ" thì code nâng lên đúng ngành, kèm ghi chú trong dẫn chứng. Chỉ nâng, không hạ kết quả AI.
+
 ### Kỹ năng chuyên môn (LLM)
 
 Kỹ năng chỉ tính đầy đủ khi CV cho thấy đã **dùng** nó trong công việc hoặc dự án, không chỉ liệt kê tên.
@@ -141,6 +145,10 @@ Mỗi yêu cầu bắt buộc có một trong 3 trạng thái: **Đạt**, **Kh�
 
 JD ghi 0 năm kinh nghiệm (vd Fresher) thì không tạo yêu cầu bắt buộc về số năm (không có gì để kiểm tra); tiêu chí Số năm vẫn chấm như thường.
 
+**Đang học mà JD đòi đã tốt nghiệp → Không đạt** (thông tin đã đủ, không phải thiếu): yêu cầu bậc học tối thiểu là Không đạt, dẫn chứng "Đang học: <bằng / trường>, <bắt đầu> – <kết thúc>" (kèm "dự kiến tốt nghiệp ..." nếu CV ghi). Chỉ khi CV không có mục học vấn nào mới là Không xác định được.
+
+**Lựa chọn thay thế.** JD ghi "MySQL/PostgreSQL", "Java hoặc C#" là **một** yêu cầu (ứng viên có một trong các lựa chọn là Đạt), không tách thành nhiều yêu cầu bắt buộc. Kỹ năng HR chọn trong form tin tuyển dụng là các yêu cầu bắt buộc riêng (trích xuất JD v1.1, prompt chấm v2.3).
+
 CV không đạt yêu cầu bắt buộc vẫn hiện cho HR, kèm lý do cụ thể.
 
 *Phát hiện từ lần chạy thử thật (22/10/2026):* JD Backend Developer (Fresher) có yêu cầu bắt buộc "OOP" và "Cấu trúc dữ liệu và giải thuật". Với quy tắc cũ (mọi yêu cầu phải được CV ghi đúng tên), hai hồ sơ 75 điểm làm Java / Spring Boot, học ngành CNTT bị Không đạt hai yêu cầu này và xếp Không phù hợp. Quy tắc kiến thức nền ở trên được thêm để sửa lỗi này (prompt chấm v2.1). Ở lần chấm lại với prompt v2.2, Gemini chấm "MySQL" là Không đạt dù mục kỹ năng của CV ghi rõ MySQL (lần chấm trước đó là Đạt), làm hồ sơ 75 điểm thành Không phù hợp; quy tắc code kiểm tra lại công cụ có tên ở trên được thêm để kết quả không phụ thuộc vào một lần AI chấm sai.
@@ -189,6 +197,8 @@ Mọi kết quả hiển thị cho HR đều kèm: điểm tổng, mức và d�
 | Yêu cầu không được nhắc trong hồ sơ đầy đủ là Không đạt | Đo tỉ lệ UNKNOWN và độ chính xác Bước 4 trên tập hiệu chỉnh |
 | Kiến thức nền được tính Đạt khi CV có công việc / ngành học chắc chắn dùng đến kiến thức đó | Đo ở phần 7: so trạng thái AI với nhãn của nhóm |
 | Công cụ / chứng chỉ có tên mà CV ghi nguyên văn thì code tính Đạt (chỉ nâng, không hạ kết quả AI) | Đo ở phần 7: số lần code nâng và tỉ lệ đúng so với nhãn của nhóm |
+| Đang học mà JD đòi đã tốt nghiệp → Không đạt (thông tin đã đủ, không phải thiếu); tiêu chí Học vấn mức 1 | Đối chiếu với HR trên các hồ sơ sinh viên của tập hiệu chỉnh |
+| Ngành cùng nhóm 748 (TT 09/2022/TT-BGDĐT) được tính đúng ngành | Đo ở phần 7: so độ phù hợp ngành với nhãn của nhóm |
 | Quy đổi bằng nước ngoài sang Khung trình độ quốc gia | Nêu trong phần hạn chế |
 | CV không ghi bằng nhưng đã học xong ở trường có tên Đại học / Học viện / University thì tính bậc 6; Cao đẳng / College thì bậc 5. Mục học vấn đang học (đến nay / năm kết thúc ở tương lai) không được tính bậc, kể cả khi có ghi tên bằng. | Đo tỉ lệ đúng trên đáp án trích xuất (phần 7) |
 | Dùng O\*NET (dữ liệu Hoa Kỳ) làm khung tham chiếu | Nêu trong phần hạn chế |

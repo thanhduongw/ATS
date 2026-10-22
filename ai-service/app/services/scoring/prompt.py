@@ -14,7 +14,7 @@ truy được prompt nào cho ra điểm nào.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
@@ -26,26 +26,30 @@ from app.services.scoring.rules import CheckItem
 # v2.0: rubric riêng cho 3 tiêu chí LLM chấm, kiểm tra yêu cầu bắt buộc, đầu vào là ExtractedJD.
 # v2.1: kiến thức nền (OOP, cấu trúc dữ liệu...) được Đạt khi hồ sơ có công việc / ngành học chắc chắn dùng đến nó.
 # v2.2: dẫn chứng kiến thức nền phải là việc ĐÃ LÀM / ĐÃ HỌC (không lấy câu định hướng, mong muốn); ưu tiên dòng dự án / công việc.
-PROMPT_VERSION = "v2.2"
+# v2.3: yêu cầu dạng "X hoặc Y" Đạt khi hồ sơ có ít nhất một lựa chọn.
+PROMPT_VERSION = "v2.3"
 
 
 @dataclass(frozen=True)
-# [GIẢI THÍCH] Phần tin tuyển dụng dùng để chấm: tiêu đề, kinh nghiệm yêu cầu, mô tả, yêu cầu.
+# [GIẢI THÍCH] Phần tin tuyển dụng dùng để chấm: tiêu đề, kinh nghiệm yêu cầu, mô tả, yêu cầu, kỹ năng HR chọn.
 # Không có lương/phúc lợi vì không liên quan mức độ phù hợp.
+# skills = tên các kỹ năng HR chọn trong form tin (posting chỉ lưu skillIds; tên lấy từ masterdata-service).
 class JobInfo:
     """Phần JD dùng để chấm. Không gồm quyền lợi (benefits) — không liên quan mức độ phù hợp."""
     title: str
     experience_required: str | None = None
     description: str | None = None
     requirements: str | None = None
+    skills: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_posting(cls, posting: dict[str, Any]) -> "JobInfo":
+    def from_posting(cls, posting: dict[str, Any], skill_names: list[str] | None = None) -> "JobInfo":
         return cls(
             title=(posting.get("title") or "").strip(),
             experience_required=posting.get("experienceRequired"),
             description=posting.get("description"),
             requirements=posting.get("requirements"),
+            skills=[n for n in (skill_names or []) if n and n.strip()],
         )
 
     def as_text(self) -> str:
@@ -57,6 +61,8 @@ class JobInfo:
             parts.append(f"Mô tả công việc:\n{self.description.strip()}")
         if self.requirements:
             parts.append(f"Yêu cầu ứng viên:\n{self.requirements.strip()}")
+        if self.skills:
+            parts.append(f"Kỹ năng yêu cầu (HR chọn): {', '.join(self.skills)}")
         return "\n\n".join(parts)
 
 
@@ -153,6 +159,8 @@ Two kinds of requirements are checked differently:
   The evidence line must describe something the candidate HAS DONE or STUDIED (a job, a project, a course, a degree).
   Career objectives, goals or wishes (e.g. 'aiming to become', 'định hướng', 'mong muốn') are NOT evidence.
   Prefer a project or job line over a summary line when both exist.
+- Alternatives: a requirement written as "X hoặc Y" (or "X or Y", "X/Y") is MET when the profile shows AT LEAST ONE of the
+  options; quote the line showing that option as evidence.
 
 ## 4. `summary`
 2–3 sentences IN VIETNAMESE on the main strengths and the main gaps of the profile against the JD.

@@ -141,6 +141,7 @@ class ScoringLLM(BaseLLMClient):
         self.output, self.fail, self.fail_jd = output or llm_out(), fail, fail_jd
         self.prompts: list[str] = []
         self.jd_calls = 0
+        self.jd_prompts: list[str] = []
 
     def provider_name(self):
         return "fake"
@@ -150,6 +151,7 @@ class ScoringLLM(BaseLLMClient):
         assert system_prompt is None
         if response_model is ExtractedJD:
             self.jd_calls += 1
+            self.jd_prompts.append(user_prompt)
             if self.fail_jd:
                 raise LLMError("JD quota", provider="fake")
             return JD, LLMUsage(model=self.model, input_tokens=20, output_tokens=8)
@@ -181,7 +183,7 @@ async def test_score_candidate_end_to_end_with_fake_llm():
     assert result.total_score == 80 and result.tier == Tier.FIT
     assert result.comment.startswith("Gợi ý: Phù hợp (80/100).") and result.comment.endswith("Tóm tắt.")
     assert result.threshold == 62.5 and result.uncertainty == 5.0
-    assert prov.prompt_version == "v2.2" and prov.scoring_version == "v2.0" and prov.model == "fake-scorer"
+    assert prov.prompt_version == "v2.3" and prov.scoring_version == "v2.0" and prov.model == "fake-scorer"
     assert prov.extraction_id == 3 and prov.jd_extraction_id == 8 and prov.jd_extraction_prompt_version == "v1.0"
 
 
@@ -276,7 +278,8 @@ async def factory():
 def java(monkeypatch):
     state = {"summary": {"id": 1, "jobPostingId": 5, "candidateId": 9, "candidateName": "Nguyễn Văn An",
                          "resumeUrl": URL},
-             "posting": {"title": JOB.title, "requirements": JOB.requirements}, "published": []}
+             "posting": {"title": JOB.title, "requirements": JOB.requirements, "skillIds": [1, 2]},
+             "skills": ["Java", "Spring Boot"], "published": []}
 
     async def summary(application_id, headers=None):
         if state["summary"] is None:
@@ -291,9 +294,15 @@ def java(monkeypatch):
     async def publish(score):
         state["published"].append((score.application_id, score.status))
 
+    async def skill_names(skill_ids):
+        if state["skills"] is None:
+            raise JavaServiceError("masterdata down", 503)
+        return state["skills"]
+
     monkeypatch.setattr(svc, "get_application_summary", summary)
     monkeypatch.setattr(svc, "get_posting", posting)
     monkeypatch.setattr(svc, "_publish_status", publish)
+    monkeypatch.setattr(svc, "get_skill_names", skill_names)
     return state
 
 
@@ -304,15 +313,30 @@ async def test_scores_application(factory, java):
     assert score.result["comment"].startswith("Gợi ý: Phù hợp (80/100).")
     assert score.result["tier_label"] == "Phù hợp" and len(score.result["dimensions"]) == 5
     assert {r["requirement"] for r in score.result["requirements"]} >= {"Java", "Spring Boot"}
-    assert score.provenance["jd_extraction_id"] is not None and score.provenance["prompt_version"] == "v2.2"
+    assert score.provenance["jd_extraction_id"] is not None and score.provenance["prompt_version"] == "v2.3"
     assert score.cv_extraction_id is not None and score.ai_job_id is not None
     assert java["published"] == [(1, "PROCESSING"), (1, "COMPLETED")]
     assert llm.jd_calls == 1
     async with factory() as s:
         job = await s.get(AIJob, score.ai_job_id)
-        assert job.status == "COMPLETED" and job.scoring_prompt_version == "v2.2" and job.completed_at
+        assert job.status == "COMPLETED" and job.scoring_prompt_version == "v2.3" and job.completed_at
         jd_row = (await s.execute(select(JDExtraction))).scalar_one()
         assert jd_row.job_posting_id == 5 and jd_row.status == "COMPLETED"
+
+
+async def test_hr_selected_skills_sent_to_jd_extraction(factory, java):
+    llm = ScoringLLM()
+    await svc.score_application(1, session_factory=factory, manager=manager(llm))
+    jd_block = llm.jd_prompts[0].split("### BEGIN JD ###")[1]
+    assert "Kỹ năng yêu cầu (HR chọn): Java, Spring Boot" in jd_block
+
+
+async def test_masterdata_down_still_scores_without_skill_block(factory, java):
+    java["skills"] = None
+    llm = ScoringLLM()
+    score = await svc.score_application(1, session_factory=factory, manager=manager(llm))
+    assert score.status == "COMPLETED"
+    assert "Kỹ năng yêu cầu (HR chọn)" not in llm.jd_prompts[0].split("### BEGIN JD ###")[1]
 
 
 async def test_jd_extraction_reused_for_second_application(factory, java):

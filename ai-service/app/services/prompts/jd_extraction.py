@@ -13,7 +13,8 @@ Design:
 
 # [GIẢI THÍCH] Đổi phiên bản -> mọi JD được trích xuất lại ở lần chấm sau (bảng jd_extractions khóa theo
 # mã băm nội dung JD + phiên bản prompt).
-PROMPT_VERSION = "v1.0"
+# v1.1: kỹ năng HR chọn trong form tin là kỹ năng BẮT BUỘC (gộp nếu trùng); "A/B", "A hoặc B" là MỘT yêu cầu.
+PROMPT_VERSION = "v1.1"
 
 # [GIẢI THÍCH] Hướng dẫn tách JD. Viết tiếng Anh như prompt CV vì model làm theo hướng dẫn tiếng Anh ổn định hơn.
 # Mỗi quy tắc bám một ý của Bước 1:
@@ -23,6 +24,9 @@ PROMPT_VERSION = "v1.0"
 # - degree_text: giữ nguyên chữ; code đổi ra bậc Khung trình độ quốc gia (phần 3).
 # - domains: chỉ ngành JD yêu cầu ứng viên có kinh nghiệm / hiểu biết, không phải ngành của công ty.
 # - source_text: trích nguyên văn để người đọc đối chiếu và đo độ chính xác trích xuất.
+# - v1.1: khối "Kỹ năng yêu cầu (HR chọn)" (JobInfo.as_text) — mỗi mục là kỹ năng BẮT BUỘC riêng, trùng thì gộp;
+#   lựa chọn thay thế ("MySQL/PostgreSQL", "Java hoặc C#") là MỘT yêu cầu, ghi "MySQL hoặc PostgreSQL", để không biến
+#   "có một trong hai" thành "phải có cả hai".
 INSTRUCTIONS = """You are a job description (JD) analyst for an Applicant Tracking System (ATS).
 
 ## Your Task
@@ -45,6 +49,11 @@ The list will be used to assess every candidate who applies for this job, so it 
 - `skills`: hard skills, programming languages, frameworks, tools, methods. ONE skill per item; split lists such as
   "Java, Spring Boot, SQL" into separate items. Use the standard / common name (e.g. "JavaScript" not "Java Script",
   "Spring Boot" not "springboot"). Do NOT include soft skills (communication, teamwork, problem solving, working under pressure, ...).
+  - Alternatives are ONE requirement, not several: "MySQL/PostgreSQL", "MySQL or PostgreSQL", "Java hoặc C#" ->
+    one item named "MySQL hoặc PostgreSQL" / "Java hoặc C#" (join the options with " hoặc ").
+  - Every item listed under "Kỹ năng yêu cầu (HR chọn)" is a separate REQUIRED skill (the HR picked it explicitly),
+    even if the JD text also mentions it among alternatives. If the same skill already appears elsewhere in the JD,
+    keep ONE item for it (REQUIRED), do not repeat it.
 - `tasks`: the main duties of the role, one short sentence per item.
 - `experience.min_years`: ONLY a number the JD states explicitly, converted to years ("3+ năm" -> 3, "6 tháng" -> 0.5,
   "2-3 years" -> 2). If the JD gives no number, use null — do NOT infer years from the level ("Senior", "Junior").

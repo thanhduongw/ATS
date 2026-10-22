@@ -17,6 +17,10 @@ from app.services.scoring.rules import (
     degree_level,
     education_outcome,
     find_named_item,
+    max_degree_level,
+    same_field_group,
+    studying_degree_level,
+    studying_text,
     highest_degree_level,
     items_to_check,
     min_degree_level,
@@ -175,7 +179,8 @@ def _edu(institution, end=None, start=None, degree=None):
     (_edu("FPT Polytechnic College", end="2022"), 5),
 ])
 def test_degree_inferred_from_institution(entry, level):
-    got, note = candidate_degree_level([entry], TODAY)
+    info = candidate_degree_level([entry], TODAY)
+    got, note = info.level, info.note
     assert got == level and note == f"suy từ tên trường: {entry['institution']}"
 
 
@@ -188,17 +193,20 @@ def test_degree_inferred_from_institution(entry, level):
     _edu("Trung tâm Tin học", end="2020"),                  # tên trường không cho biết bậc
 ])
 def test_degree_not_inferred(entry):
-    assert candidate_degree_level([entry], TODAY) == (None, None)
+    info = candidate_degree_level([entry], TODAY)
+    assert (info.level, info.note) == (None, None)
 
 
 def test_degree_inferred_when_started_four_years_ago_without_end():
-    assert candidate_degree_level([_edu("Đại học Bách Khoa TP.HCM", start="2015")], TODAY)[0] == 6
+    assert candidate_degree_level([_edu("Đại học Bách Khoa TP.HCM", start="2015")], TODAY).level == 6
 
 
 def test_written_degree_wins_without_note():
-    assert candidate_degree_level([_edu("Đại học Bách Khoa TP.HCM", end="2022", degree="Thạc sĩ")], TODAY) == (7, None)
+    info = candidate_degree_level([_edu("Đại học Bách Khoa TP.HCM", end="2022", degree="Thạc sĩ")], TODAY)
+    assert (info.level, info.note) == (7, None)
     both = [_edu("Đại học Bách Khoa TP.HCM", end="2020"), _edu("Đại học Kinh tế", end="2022", degree="Cử nhân")]
-    assert candidate_degree_level(both, TODAY) == (6, None)          # cùng bậc: ưu tiên mục ghi bằng
+    info = candidate_degree_level(both, TODAY)
+    assert (info.level, info.note) == (6, None)          # cùng bậc: ưu tiên mục ghi bằng
 
 
 @pytest.mark.parametrize("entries, expected", [
@@ -210,7 +218,8 @@ def test_written_degree_wins_without_note():
     ([_edu("Đại học Kinh tế", end="không rõ", degree="Cử nhân")], (6, None)),            # end_date không đọc được
 ])
 def test_degree_in_progress_not_counted(entries, expected):
-    assert candidate_degree_level(entries, TODAY) == expected
+    info = candidate_degree_level(entries, TODAY)
+    assert (info.level, info.note) == expected
 
 
 def test_highest_degree_level_unchanged():
@@ -364,3 +373,114 @@ def test_find_named_item_not_found(requirement, profile):
 
 def test_find_named_item_returns_original_text():
     assert find_named_item("MySQL", PROFILE) == "Kỹ năng: Java, SQL, PostgreSQL, MySQL, React.js"
+
+
+# ============================================================
+# Phát hiện từ CV sinh viên thật: đang học, lựa chọn thay thế, nhóm ngành 748, JD 0 năm
+# ============================================================
+
+STUDYING = {"institution": "Đại học Công nghiệp TP.HCM (IUH)", "degree": "Kỹ sư", "field_of_study": "Kỹ thuật phần mềm",
+            "start_date": "10/2022", "end_date": "Hiện tại",
+            "source_text": "Kỹ sư Kỹ thuật phần mềm 10/2022 – Hiện tại\nDự kiến tốt nghiệp: 2027"}
+
+
+def test_studying_entry_returned_and_described():
+    info = candidate_degree_level([STUDYING], TODAY)
+    assert info.level is None and info.studying_entry is STUDYING
+    assert studying_text(info.studying_entry, 6) == (
+        "Chưa tốt nghiệp: đang học Kỹ sư (bậc 6) — Đại học Công nghiệp TP.HCM (IUH), 10/2022 – Hiện tại "
+        "(dự kiến tốt nghiệp 2027)")
+    # Không xác định được bậc -> bỏ "(bậc X)"
+    assert studying_text(info.studying_entry) == (
+        "Chưa tốt nghiệp: đang học Kỹ sư — Đại học Công nghiệp TP.HCM (IUH), 10/2022 – Hiện tại "
+        "(dự kiến tốt nghiệp 2027)")
+    assert studying_text({"institution": "Cao đẳng FPT", "start_date": "2024", "end_date": "nay"}, 5) == (
+        "Chưa tốt nghiệp: đang học tại Cao đẳng FPT (bậc 5), 2024 – nay")
+    assert candidate_degree_level([], TODAY).studying_entry is None
+    assert studying_text(None) is None
+
+
+@pytest.mark.parametrize("requirement, profile, found", [
+    ("MySQL hoặc PostgreSQL", {"skills": ["PostgreSQL"]}, True),
+    ("MySQL/PostgreSQL", {"skills": ["PostgreSQL"]}, True),
+    ("Java or C#", {"skills": ["C#"]}, True),
+    ("MySQL hoặc PostgreSQL", {"skills": ["MongoDB"]}, False),
+    ("CI/CD", {"skills": ["CI/CD"]}, True),             # "/" giữa tên ngắn không tách
+    ("CI/CD", {"skills": ["CircleCI"]}, False),
+])
+def test_find_named_item_alternatives(requirement, profile, found):
+    assert (find_named_item(requirement, profile) is not None) == found
+
+
+@pytest.mark.parametrize("cv_field, jd_fields, same", [
+    ("Kỹ thuật phần mềm", ["Công nghệ thông tin", "Khoa học máy tính"], True),
+    ("Software Engineering", ["Information Technology"], True),
+    ("ky thuat phan mem", ["Công nghệ thông tin hoặc tương đương"], True),
+    ("Hệ thống thông tin", ["CNTT"], True),
+    ("Quản trị kinh doanh", ["Công nghệ thông tin"], False),
+    ("Kỹ thuật phần mềm", ["Kế toán"], False),
+    (None, ["Công nghệ thông tin"], False),
+])
+def test_same_field_group_748(cv_field, jd_fields, same):
+    assert same_field_group(cv_field, jd_fields) == same
+
+
+def test_seniority_zero_required_evidence():
+    out = seniority_outcome(1.5, 0)
+    assert out.evidence == "Ứng viên: 1,5 năm; JD không yêu cầu số năm tối thiểu" and "Không có" not in out.evidence
+
+
+# ============================================================
+# Câu khẳng định trong phần tóm tắt; bậc cao nhất JD nêu; bậc đang học
+# ============================================================
+
+SUMMARY_PROFILE = {
+    "summary": "Thành thạo Spring Boot, Docker và có kiến thức cơ bản về CI/CD. Mong muốn học thêm Kubernetes; "
+               "định hướng trở thành DevOps với Terraform.\nAiming to learn Golang",
+    "skills": ["Java", "Docker"],
+}
+
+
+@pytest.mark.parametrize("requirement, expected", [
+    ("CI/CD", "Tóm tắt: Thành thạo Spring Boot, Docker và có kiến thức cơ bản về CI/CD"),
+    ("Spring Boot", "Tóm tắt: Thành thạo Spring Boot, Docker và có kiến thức cơ bản về CI/CD"),
+    ("Docker", "Kỹ năng: Java, Docker"),          # mục kỹ năng được ưu tiên hơn tóm tắt
+    ("Kubernetes", None),                          # câu mong muốn
+    ("Terraform", None),                           # câu định hướng
+    ("Golang", None),                              # "learn"
+])
+def test_find_named_item_in_summary_affirmative_only(requirement, expected):
+    assert find_named_item(requirement, SUMMARY_PROFILE) == expected
+
+
+def test_summary_split_keeps_dotted_names():
+    profile = {"summary": "Có kinh nghiệm với React.js và Node.js. Biết Java 8."}
+    assert find_named_item("Node.js", profile) == "Tóm tắt: Có kinh nghiệm với React.js và Node.js"
+
+
+@pytest.mark.parametrize("text, level", [
+    ("Tốt nghiệp Cao đẳng/Đại học", 6), ("Cao đẳng trở lên", 5), ("Thạc sĩ hoặc Đại học", 7), ("lạ", None),
+])
+def test_max_degree_level(text, level):
+    assert max_degree_level(text) == level
+
+
+@pytest.mark.parametrize("cand, req, max_req, level", [
+    (6, 5, 6, 3),          # JD "Cao đẳng/Đại học" + đại học -> đúng yêu cầu, không phải cao hơn
+    (7, 5, 6, 4),          # + thạc sĩ -> cao hơn
+    (6, 5, 5, 4),          # JD chỉ "Cao đẳng" + đại học -> cao hơn như cũ
+    (6, 5, None, 4),       # không truyền max -> dùng bậc tối thiểu như cũ
+])
+def test_education_outcome_higher_uses_max_jd_level(cand, req, max_req, level):
+    assert education_outcome(cand, req, FieldMatch.EXACT, True, None, False, max_required_level=max_req).level == level
+
+
+@pytest.mark.parametrize("entry, level", [
+    ({"degree": "Kỹ sư", "institution": "IUH"}, 6),
+    ({"degree": None, "institution": "Đại học Công nghiệp TP.HCM"}, 6),
+    ({"degree": None, "institution": "Cao đẳng FPT Polytechnic"}, 5),
+    ({"degree": None, "institution": "Trung tâm Tin học"}, None),
+    (None, None),
+])
+def test_studying_degree_level(entry, level):
+    assert studying_degree_level(entry) == level

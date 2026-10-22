@@ -26,7 +26,7 @@ import type {
     RequisitionPriority,
 } from "../types";
 import { COLORS, RADIUS } from "../../../app/theme";
-import { WORK_ARRANGEMENT_OPTIONS, PRIORITY_LABEL } from "../requisitionOptions";
+import { WORK_ARRANGEMENT_OPTIONS, PRIORITY_LABEL, SKILL_REQUIRED_HINT } from "../requisitionOptions";
 import { SectionHeader, SectionContainer, InfoField } from "../../../components/ui/sectionKit";
 import { ModalTitle } from "../../../components/ui/pageKit";
 import { moneyFormatter, moneyParser, formatSalaryRange } from "../../../app/money";
@@ -551,7 +551,8 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                             )}
                         />
                     </Form.Item>
-                    <Form.Item label="Kỹ năng yêu cầu" style={spanAll}>
+                    {/* AI chấm điểm coi mọi kỹ năng chọn ở đây là yêu cầu BẮT BUỘC (trích xuất JD v1.1). */}
+                    <Form.Item label="Kỹ năng yêu cầu" style={spanAll} extra={SKILL_REQUIRED_HINT}>
                         <Controller
                             name="skillIds"
                             control={control}

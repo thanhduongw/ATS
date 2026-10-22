@@ -94,7 +94,8 @@ def seniority_outcome(candidate_years: float | None, required_years: float | Non
     # Xét TRƯỚC trường hợp thiếu dữ liệu để không đẩy oan hồ sơ vào "Chưa phân loại".
     if required_years == 0:
         cand = "không tính được" if candidate_years is None else _fmt_years(candidate_years)
-        return RuleOutcome(3, f"Ứng viên: {cand}; {req_text}", "JD không yêu cầu kinh nghiệm tối thiểu.")
+        return RuleOutcome(3, f"Ứng viên: {cand}; JD không yêu cầu số năm tối thiểu",
+                           "JD không yêu cầu kinh nghiệm tối thiểu.")
 
     if candidate_years is None:
         return RuleOutcome(None, f"CV không có mốc thời gian làm việc để tính; {req_text}",
@@ -168,6 +169,14 @@ def degree_level(text: str | None) -> int | None:
 def min_degree_level(text: str | None) -> int | None:
     levels = _mentioned_levels(text)
     return min(levels) if levels else None
+
+
+# [GIẢI THÍCH] Bậc CAO NHẤT JD nêu tên — dùng để xét "bậc học cao hơn yêu cầu" (mức 4 tiêu chí Học vấn).
+# JD ghi "Cao đẳng/Đại học" thì ứng viên có bằng đại học chỉ là ĐÚNG yêu cầu, chưa phải cao hơn; bậc tối thiểu để
+# kiểm tra Đạt / Không đạt vẫn là min_degree_level.
+def max_degree_level(text: str | None) -> int | None:
+    levels = _mentioned_levels(text)
+    return max(levels) if levels else None
 
 
 # [GIẢI THÍCH] Mọi bậc được nhắc trong chuỗi. Xét từ bậc cao xuống thấp; đoạn đã khớp bị xóa trước khi xét bậc thấp hơn,
@@ -246,19 +255,32 @@ def _still_studying(entry: dict, today: date) -> bool:
     return end is not None and end > today
 
 
+# [GIẢI THÍCH] Kết quả xác định bậc học của ứng viên:
+# - level, note: bậc cao nhất ĐÃ HOÀN THÀNH và ghi chú khi bậc đó suy từ tên trường;
+# - studying_entry: một mục học vấn ĐANG HỌC đã bị bỏ qua (nếu có). Khi không có bậc nào đã hoàn thành mà có mục đang học,
+#   đây là thông tin ĐÃ ĐỦ ("chưa tốt nghiệp"), khác với CV không ghi học vấn (thiếu thông tin).
+@dataclass(frozen=True)
+class DegreeInfo:
+    level: int | None
+    note: str | None = None
+    studying_entry: dict | None = None
+
+
 # [GIẢI THÍCH] BẬC HỌC CỦA ỨNG VIÊN dùng khi chấm: bậc cao nhất trong các mục học vấn.
 # - Mục ĐANG HỌC (đến nay / năm kết thúc ở tương lai) -> bỏ qua, kể cả khi có ghi tên bằng: chưa có bằng thì
 #   không được tính bậc (yêu cầu "Tốt nghiệp đại học" không thể Đạt nhờ một bằng đang học).
 # - Mục có tên bằng nhận ra được -> dùng bậc của bằng.
 # - Mục không có / không nhận ra tên bằng -> suy từ tên trường (quy ước ở trên), chỉ khi đã học xong.
-# Trả (bậc, ghi chú). Ghi chú "suy từ tên trường: <tên trường>" khi bậc cao nhất là bậc suy ra, để HR biết
+# Trả DegreeInfo. Ghi chú "suy từ tên trường: <tên trường>" khi bậc cao nhất là bậc suy ra, để HR biết
 # bậc này không do CV ghi trực tiếp. highest_degree_level giữ nguyên (chỉ đọc tên bằng).
-def candidate_degree_level(education: list[dict], today: date) -> tuple[int | None, str | None]:
+def candidate_degree_level(education: list[dict], today: date) -> DegreeInfo:
     best_level: int | None = None
     best_note: str | None = None
+    studying: dict | None = None
     for entry in education or []:
         entry = entry or {}
         if _still_studying(entry, today):
+            studying = studying or entry
             continue
         level = degree_level(entry.get("degree"))
         note = None
@@ -271,7 +293,70 @@ def candidate_degree_level(education: list[dict], today: date) -> tuple[int | No
         # Cùng bậc thì ưu tiên mục ghi bằng trực tiếp (không ghi chú).
         if best_level is None or level > best_level or (level == best_level and note is None):
             best_level, best_note = level, note
-    return best_level, best_note
+    return DegreeInfo(best_level, best_note, studying)
+
+
+_EXPECTED_GRADUATION = re.compile(r"(dự kiến tốt nghiệp|expected graduation|expected to graduate)\s*[:\-]?\s*([^\n,;)]+)",
+                                  re.IGNORECASE)
+
+
+# [GIẢI THÍCH] Bậc của mục ĐANG HỌC, xác định như người đã tốt nghiệp: theo tên bằng, không có thì theo tên trường.
+# Dùng cho mức tiêu chí Học vấn (đang học đúng bậc, đúng ngành -> mức 2), không dùng để tính Đạt yêu cầu bậc học.
+def studying_degree_level(entry: dict | None) -> int | None:
+    if not entry:
+        return None
+    return degree_level(entry.get("degree")) or _institution_level(entry.get("institution"))
+
+
+# [GIẢI THÍCH] Mô tả mục đang học để làm dẫn chứng:
+# "Chưa tốt nghiệp: đang học <tên bằng> (bậc X) — <trường>, <bắt đầu> – <kết thúc>",
+# thêm "dự kiến tốt nghiệp ..." nếu CV có ghi (trong mốc thời gian hoặc đoạn văn gốc của mục).
+def studying_text(entry: dict | None, level: int | None = None) -> str | None:
+    """`level`: bậc đang học (studying_degree_level); None thì không ghi "(bậc X)"."""
+    if not entry:
+        return None
+    degree, institution = entry.get("degree"), entry.get("institution")
+    level_text = f" (bậc {level})" if level is not None else ""
+    if degree:
+        what = f"{degree}{level_text}" + (f" — {institution}" if institution else "")
+    elif institution:
+        what = f"tại {institution}{level_text}"
+    else:
+        what = f"chương trình học{level_text}"
+    period = " – ".join(x for x in (entry.get("start_date"), entry.get("end_date")) if x)
+    text = f"Chưa tốt nghiệp: đang học {what}" + (f", {period}" if period else "")
+    for source in (entry.get("end_date"), entry.get("source_text")):
+        if source and (m := _EXPECTED_GRADUATION.search(source)):
+            text += f" (dự kiến tốt nghiệp {m.group(2).strip()})"
+            break
+    return text
+
+
+# [GIẢI THÍCH] Nhóm ngành 748 "Máy tính và công nghệ thông tin" theo Thông tư 09/2022/TT-BGDĐT (danh mục thống kê ngành
+# đào tạo giáo dục đại học): 7480101 Khoa học máy tính, 7480102 Mạng máy tính và truyền thông dữ liệu, 7480103 Kỹ thuật
+# phần mềm, 7480104 Hệ thống thông tin, 7480106 Kỹ thuật máy tính, 7480107 Trí tuệ nhân tạo, 7480108 Công nghệ kỹ thuật
+# máy tính, 7480201 Công nghệ thông tin, 7480202 An toàn thông tin. Kèm tên tiếng Anh thường gặp và viết tắt CNTT.
+# Viết KHÔNG DẤU, chữ thường (so trên chuỗi đã bỏ dấu).
+_FIELD_GROUP_748 = [
+    "khoa hoc may tinh", "mang may tinh va truyen thong du lieu", "mang may tinh", "ky thuat phan mem",
+    "he thong thong tin", "ky thuat may tinh", "tri tue nhan tao", "cong nghe ky thuat may tinh",
+    "cong nghe thong tin", "an toan thong tin", "cntt",
+    "computer science", "software engineering", "information technology", "information systems",
+    "computer engineering", "information security", "artificial intelligence", "computer networks",
+    "computer networking",
+]
+_FIELD_GROUP_748_PATTERN = re.compile(r"\b(" + "|".join(re.escape(n) for n in _FIELD_GROUP_748) + r")\b")
+
+
+def in_field_group_748(field: str | None) -> bool:
+    return bool(field) and _FIELD_GROUP_748_PATTERN.search(_strip_accents(field).lower()) is not None
+
+
+# [GIẢI THÍCH] Ngành của CV và (ít nhất) một ngành JD chấp nhận cùng thuộc nhóm 748 -> coi là đúng ngành:
+# các ngành trong cùng nhóm thống kê có chương trình đào tạo cốt lõi chung, JD ghi "CNTT hoặc tương đương" thường hiểu
+# theo nghĩa này. QUY ƯỚC của nhóm (docs mục "Các phần là quy ước của nhóm").
+def same_field_group(cv_field: str | None, jd_fields: list[str]) -> bool:
+    return in_field_group_748(cv_field) and any(in_field_group_748(f) for f in jd_fields or [])
 
 
 def _degree_text(level: int | None) -> str:
@@ -310,7 +395,40 @@ def find_named_item(requirement: str, profile: dict) -> str | None:
     needle = _normalize_name(requirement or "")
     if not needle or not profile:
         return None
+    # Yêu cầu dạng lựa chọn thay thế ("MySQL hoặc PostgreSQL", "Java or C#", "MySQL/PostgreSQL"): thấy MỘT lựa chọn là đủ.
+    # Thử nguyên cụm trước (để tên có "/" như "CI/CD" vẫn khớp), rồi mới thử từng lựa chọn.
+    found = _find_exact(needle, profile)
+    if found is not None:
+        return found
+    alternatives = _alternatives(requirement)
+    if len(alternatives) > 1:
+        for alt in alternatives:
+            alt_needle = _normalize_name(alt)
+            if alt_needle and (found := _find_exact(alt_needle, profile)) is not None:
+                return found
+        return None
+    return _find_exact(needle, profile)
 
+
+_ALTERNATIVE_SPLIT = re.compile(r"\s+(?:hoặc|hoac|or)\s+", re.IGNORECASE)
+
+
+# [GIẢI THÍCH] Tách yêu cầu thành các lựa chọn: theo " hoặc " / " or ", và theo "/" chỉ khi mỗi phía dài từ 3 ký tự
+# (để "CI/CD", "TCP/IP" vẫn là một tên).
+def _alternatives(requirement: str) -> list[str]:
+    parts = [p.strip() for p in _ALTERNATIVE_SPLIT.split(requirement or "") if p.strip()]
+    out: list[str] = []
+    for part in parts:
+        pieces = [x.strip() for x in part.split("/")]
+        if len(pieces) > 1 and all(len(x) >= 3 for x in pieces):
+            out.extend(pieces)
+        else:
+            out.append(part)
+    return out
+
+
+def _find_exact(needle: str, profile: dict) -> str | None:
+    """Tìm đúng một tên (đã chuẩn hóa) trong các phần nghề nghiệp của hồ sơ."""
     candidates: list[tuple[str, list[str]]] = []
     if profile.get("skills"):
         candidates.append(("Kỹ năng", list(profile["skills"])))
@@ -329,7 +447,32 @@ def find_named_item(requirement: str, profile: dict) -> str | None:
     for label, items in candidates:
         if any(_contains_name(_normalize_name(str(item)), needle) for item in items):
             return f"{label}: {', '.join(str(i) for i in items)}"
+
+    # Cuối cùng mới tới phần tóm tắt: chỉ câu KHẲNG ĐỊNH, bỏ câu mong muốn / định hướng.
+    for sentence in _summary_sentences(profile.get("summary")):
+        if not _is_wish(sentence) and _contains_name(_normalize_name(sentence), needle):
+            return f"Tóm tắt: {sentence}"
     return None
+
+
+# [GIẢI THÍCH] Câu trong phần tóm tắt / giới thiệu: tách theo . ! ? ; và xuống dòng. Dấu chấm chỉ tách khi theo sau là
+# khoảng trắng hoặc hết chuỗi, để "React.js", "Node.js", "3.5" không bị cắt.
+_SENTENCE_SPLIT = re.compile(r"[!?;\n]+|\.(?=\s|$)")
+
+# [GIẢI THÍCH] Từ chỉ mong muốn / định hướng (viết không dấu, chữ thường): câu có các từ này không phải bằng chứng ứng viên
+# ĐÃ có kỹ năng ("Mong muốn học thêm Kubernetes"). Mục kỹ năng và câu khẳng định ở tóm tắt đều là ứng viên tự khai —
+# phân biệt khẳng định với mong muốn, không phân biệt theo mục; mức thành thạo do tiêu chí Kỹ năng chuyên môn đánh giá.
+_WISH_WORDS = re.compile(r"\b(muon|mong muon|dinh huong|muc tieu|hoc hoi|tim hieu|want|aim|goal|hope|learn|would like)\b")
+
+
+def _summary_sentences(summary: str | None) -> list[str]:
+    if not summary:
+        return []
+    return [s.strip() for s in _SENTENCE_SPLIT.split(summary) if s and s.strip()]
+
+
+def _is_wish(sentence: str) -> bool:
+    return _WISH_WORDS.search(_strip_accents(sentence).lower()) is not None
 
 
 # ============================================================
@@ -403,7 +546,9 @@ def education_outcome(
     fields_restricted: bool,
     required_certs_met: bool | None,
     preferred_cert_met: bool,
+    max_required_level: int | None = None,
 ) -> RuleOutcome:
+    """`max_required_level`: bậc CAO NHẤT JD nêu tên (max_degree_level); None = dùng required_level."""
     parts = [f"Ứng viên: {_degree_text(candidate_level)}"]
     if required_level is not None:
         parts.append(f"JD yêu cầu: {_degree_text(required_level)}")
@@ -435,7 +580,9 @@ def education_outcome(
     if required_certs_met is False:
         return RuleOutcome(2, evidence, "Đủ bậc học và ngành nhưng thiếu chứng chỉ JD ghi là bắt buộc.")
 
-    higher = required_level is not None and candidate_level is not None and candidate_level > required_level
+    # "Cao hơn yêu cầu" so với bậc CAO NHẤT JD nêu: JD "Cao đẳng/Đại học" + bằng đại học là đúng yêu cầu (mức 3).
+    top_level = max_required_level if max_required_level is not None else required_level
+    higher = top_level is not None and candidate_level is not None and candidate_level > top_level
     if higher or preferred_cert_met:
         why = "bậc học cao hơn yêu cầu" if higher else "có thêm chứng chỉ JD ghi là ưu tiên"
         return RuleOutcome(4, evidence, f"Đáp ứng yêu cầu học vấn và {why}.")

@@ -373,3 +373,117 @@ def test_technical_skills_level_not_changed_by_override():
               ("AWS Certified Developer", "CERTIFICATION", "MET"), ("Ngân hàng", "DOMAIN", "MET")]
     r = _assemble_named(_named_jd(), checks)
     assert dim(r, D.TECHNICAL_SKILLS).level == 3 and dim(r, D.TECHNICAL_SKILLS).scored_by == ScoredBy.LLM
+
+
+# ============================================================
+# Đang học và nhóm ngành 748
+# ============================================================
+
+STUDYING_TEXT = "Chưa tốt nghiệp: đang học Kỹ sư (bậc 6) — IUH, 10/2022 – Hiện tại (dự kiến tốt nghiệp 2027)"
+
+
+def test_studying_makes_education_requirement_unmet_and_level_1():
+    r = assemble_result(backend_jd(years_importance=PREF), llm_output(), years_calculated=0.5, years_claimed=None,
+                        candidate_degree_level=None, today=TODAY, thresholds=T, studying=STUDYING_TEXT)
+    edu_req = next(q for q in r.requirements if q.category == RequirementCategory.EDUCATION_LEVEL)
+    assert edu_req.status == UNMET and edu_req.evidence == STUDYING_TEXT
+    assert edu_req.requirement == "Tốt nghiệp từ Đại học (bậc 6) trở lên"
+    assert r.tier_reason == "Không đạt yêu cầu bắt buộc: Tốt nghiệp từ Đại học (bậc 6) trở lên."
+    edu = dim(r, D.EDUCATION_CERTIFICATION)
+    assert edu.level == 1 and edu.reason == "Đang học, chưa có văn bằng JD yêu cầu."
+    assert r.tier == Tier.NOT_FIT
+
+
+def test_no_education_at_all_stays_unknown():
+    r = assemble(backend_jd(years_importance=PREF), llm_output(), degree=None)
+    edu_req = next(q for q in r.requirements if q.category == RequirementCategory.EDUCATION_LEVEL)
+    assert edu_req.status == UNKNOWN and edu_req.evidence == "CV không ghi rõ văn bằng"
+    assert dim(r, D.EDUCATION_CERTIFICATION).level is None
+
+
+@pytest.mark.parametrize("cv_field, ai_match, expected_level, upgraded", [
+    ("Kỹ thuật phần mềm", "RELATED", 3, True),        # cùng nhóm 748 -> EXACT
+    ("Software Engineering", "UNRELATED", 3, True),
+    ("Quản trị kinh doanh", "UNRELATED", 1, False),    # không cùng nhóm -> giữ kết quả AI
+    ("Kỹ thuật phần mềm", "EXACT", 3, False),          # AI EXACT giữ EXACT, không ghi chú
+])
+def test_field_group_748_upgrades_only(cv_field, ai_match, expected_level, upgraded):
+    profile = {"education": [{"degree": "Kỹ sư", "field_of_study": cv_field}]}
+    jd = backend_jd(years_importance=PREF,
+                    education=EducationRequirement(degree_text="Đại học", fields=["Công nghệ thông tin", "Khoa học máy tính"],
+                                                   importance=REQ))
+    r = assemble_result(jd, llm_output(field=ai_match), years_calculated=2.5, years_claimed=None,
+                        candidate_degree_level=6, today=TODAY, thresholds=T, profile=profile)
+    edu = dim(r, D.EDUCATION_CERTIFICATION)
+    assert edu.level == expected_level
+    assert ("cùng nhóm ngành 748" in edu.evidence[0]) == upgraded
+
+
+# ============================================================
+# Dẫn chứng đúng chỗ; bậc cao nhất JD nêu; đang học đúng bậc đúng ngành
+# ============================================================
+
+def test_named_item_evidence_replaced_even_when_ai_met():
+    """AI chấm Java Đạt nhưng trích câu không có chữ Java -> dẫn chứng là đoạn hồ sơ ghi Java, trạng thái giữ Đạt."""
+    checks = [("Java", "SKILL", "MET"), ("MySQL", "SKILL", "MET"), ("Kafka", "SKILL", "MET"),
+              ("AWS Certified Developer", "CERTIFICATION", "MET"), ("Ngân hàng", "DOMAIN", "MET")]
+    r = _assemble_named(_named_jd(), checks)
+    java = _req_of(r, "Java")
+    assert java.status == MET and java.checked_by == ScoredBy.CODE_AND_LLM
+    assert java.evidence == "Hồ sơ ghi: Kỹ năng: Java, Spring Boot, SQL, MySQL"
+    kafka = _req_of(r, "Kafka")                       # không tìm thấy tên -> giữ dẫn chứng / người kiểm tra của AI
+    assert kafka.checked_by == ScoredBy.LLM
+
+
+def test_summary_affirmative_sentence_upgrades_named_skill():
+    profile = {"summary": "Có kiến thức cơ bản về CI/CD.", "skills": ["Java"]}
+    jd = backend_jd(years_importance=PREF, skills=[item("Java"), item("CI/CD")])
+    checks = [("Java", "SKILL", "MET"), ("CI/CD", "SKILL", "UNMET")]
+    r = assemble_result(jd, llm_output(checks=checks), years_calculated=2.5, years_claimed=None,
+                        candidate_degree_level=6, today=TODAY, thresholds=T, profile=profile)
+    cicd = _req_of(r, "CI/CD")
+    assert cicd.status == MET and cicd.evidence == "Hồ sơ ghi: Tóm tắt: Có kiến thức cơ bản về CI/CD"
+
+
+@pytest.mark.parametrize("degree_text, cand, level", [
+    ("Tốt nghiệp Cao đẳng/Đại học", 6, 3),   # đúng yêu cầu, không phải "cao hơn"
+    ("Tốt nghiệp Cao đẳng/Đại học", 7, 4),
+    ("Cao đẳng", 6, 4),
+])
+def test_education_higher_compares_with_highest_jd_level(degree_text, cand, level):
+    jd = backend_jd(years_importance=PREF,
+                    education=EducationRequirement(degree_text=degree_text, fields=["Công nghệ thông tin"], importance=REQ))
+    r = assemble(jd, llm_output(), degree=cand)
+    assert dim(r, D.EDUCATION_CERTIFICATION).level == level
+    edu_req = next(q for q in r.requirements if q.category == RequirementCategory.EDUCATION_LEVEL)
+    assert edu_req.status == MET                       # bậc tối thiểu vẫn là min (Cao đẳng)
+
+
+@pytest.mark.parametrize("studying_level, cv_field, ai_match, level", [
+    (6, "Kỹ thuật phần mềm", "RELATED", 2),   # đúng bậc, ngành cùng nhóm 748 -> mức 2
+    (6, "Công nghệ thông tin", "EXACT", 2),
+    (6, "Quản trị kinh doanh", "UNRELATED", 1),
+    (5, "Công nghệ thông tin", "EXACT", 1),   # đang học thấp hơn bậc tối thiểu JD (Đại học)
+    (None, "Công nghệ thông tin", "EXACT", 1),
+])
+def test_studying_level_and_field(studying_level, cv_field, ai_match, level):
+    profile = {"education": [{"degree": "Kỹ sư", "field_of_study": cv_field}]}
+    r = assemble_result(backend_jd(years_importance=PREF), llm_output(field=ai_match), years_calculated=0.5,
+                        years_claimed=None, candidate_degree_level=None, today=TODAY, thresholds=T, profile=profile,
+                        studying=STUDYING_TEXT, studying_level=studying_level)
+    edu = dim(r, D.EDUCATION_CERTIFICATION)
+    assert edu.level == level
+    if level == 2:
+        assert edu.reason == "Đang học đúng bậc và đúng ngành, chưa tốt nghiệp."
+    edu_req = next(q for q in r.requirements if q.category == RequirementCategory.EDUCATION_LEVEL)
+    assert edu_req.status == UNMET                     # yêu cầu bậc học vẫn Không đạt khi đang học
+
+
+def test_education_requirement_name_and_graduated_evidence():
+    jd = backend_jd(years_importance=PREF,
+                    education=EducationRequirement(degree_text="Tốt nghiệp Cao đẳng/Đại học", importance=REQ))
+    r = assemble_result(jd, llm_output(), years_calculated=2.5, years_claimed=None, candidate_degree_level=6,
+                        today=TODAY, thresholds=T, degree_note="suy từ tên trường: Đại học Bách Khoa")
+    edu_req = next(q for q in r.requirements if q.category == RequirementCategory.EDUCATION_LEVEL)
+    assert edu_req.requirement == "Tốt nghiệp từ Cao đẳng (bậc 5) trở lên"
+    assert edu_req.evidence == "Ứng viên: Đại học (bậc 6) (suy từ tên trường: Đại học Bách Khoa)"

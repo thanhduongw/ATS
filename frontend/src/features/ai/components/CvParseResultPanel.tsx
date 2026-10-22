@@ -98,10 +98,6 @@ export default function CvParseResultPanel({ result, provenance }: Props) {
           <Descriptions.Item label="Họ tên">{candidate.name}</Descriptions.Item>
           <Descriptions.Item label="Email">{candidate.email ?? "—"}</Descriptions.Item>
           <Descriptions.Item label="Số điện thoại">{candidate.phone ?? "—"}</Descriptions.Item>
-          <Descriptions.Item label="Ngày sinh">{candidate.date_of_birth ?? "—"}</Descriptions.Item>
-          <Descriptions.Item label="Giới tính">
-            {candidate.gender === "MALE" ? "Nam" : candidate.gender === "FEMALE" ? "Nữ" : candidate.gender === "OTHER" ? "Khác" : "—"}
-          </Descriptions.Item>
           <Descriptions.Item label="Địa chỉ">{candidate.location ?? "—"}</Descriptions.Item>
         </Descriptions>
 

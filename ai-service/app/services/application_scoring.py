@@ -35,12 +35,11 @@ from app.models import AIJob, AIScore
 from app.services.cv_extraction_store import COMPLETED as EXTRACTION_COMPLETED
 from app.services.cv_extraction_store import CVUnavailableError, get_or_extract
 from app.services.experience import today_in
-from app.services.scoring.engine import (
-    NoApplicableDimensionError,
-    ScoringOptions,
-    Thresholds,
-    score_candidate,
-)
+from app.schemas.jd_extraction import ExtractedJD
+from app.services.jd_extraction_store import COMPLETED as JD_EXTRACTION_COMPLETED
+from app.services.jd_extraction_store import get_or_extract_jd
+from app.services.scoring.aggregate import Thresholds
+from app.services.scoring.engine import score_candidate
 from app.services.scoring.prompt import JobInfo
 
 logger = logging.getLogger(__name__)
@@ -68,10 +67,10 @@ class ScoringFailure(Exception):
     """Lỗi có thông điệp dành cho HR (ghi vào ai_scores.error_message)."""
 
 
-# [GIẢI THÍCH] Đọc ngưỡng xếp loại (45 / 65) từ cấu hình (.env / config.py) mỗi lần chấm.
-def scoring_options() -> ScoringOptions:
+# [GIẢI THÍCH] Đọc ngưỡng xếp loại T và δ (khởi đầu 62,5 và 5) từ cấu hình (.env / config.py) mỗi lần chấm.
+def scoring_options() -> Thresholds:
     s = get_settings()
-    return ScoringOptions(thresholds=Thresholds(s.scoring_tier_good_min, s.scoring_tier_potential_min))
+    return Thresholds(threshold=s.scoring_threshold, uncertainty=s.scoring_uncertainty)
 
 
 # [GIẢI THÍCH] "Giành quyền chấm" một hồ sơ bằng MỘT câu SQL:
@@ -137,8 +136,6 @@ def _failure_message(exc: Exception) -> str:
         return f"Không tải được file CV: {exc}"
     if isinstance(exc, LLMError):
         return f"Lỗi gọi AI (có thể do quá tải hoặc hết hạn mức): {exc}"
-    if isinstance(exc, NoApplicableDimensionError):
-        return str(exc)
     return f"Lỗi không xác định khi chấm điểm: {type(exc).__name__}: {exc}"
 
 
@@ -164,8 +161,8 @@ async def _publish_status(score) -> None:
 
 # [GIẢI THÍCH] HÀM CHÍNH: chấm một hồ sơ từ đầu đến cuối. Cả 3 lối vào đều gọi hàm này:
 #   (1) worker khi có hồ sơ mới, (2) nút Chấm lại, (3) nút AI chấm hồ sơ của tin.
-# Thứ tự: lấy thông tin hồ sơ -> giành quyền chấm -> lấy tin tuyển dụng -> trích xuất CV (LLM lần 1)
-# -> chấm + tính điểm (LLM lần 2 + Python) -> lưu DB -> phát sự kiện.
+# Thứ tự: lấy thông tin hồ sơ -> giành quyền chấm -> lấy tin tuyển dụng -> trích xuất JD (dùng lại nếu đã có)
+# -> trích xuất CV (dùng lại nếu đã có) -> chấm (một lời gọi LLM + quy tắc code) -> lưu DB -> phát sự kiện.
 # headers = danh tính người bấm (HR); None = chạy nền với danh tính SYSTEM.
 async def score_application(
     application_id: int,
@@ -205,7 +202,17 @@ async def score_application(
             # Hỏi recruitment-service: nội dung tin tuyển dụng (tiêu đề, mô tả, yêu cầu).
             posting = await get_posting(job_posting_id, headers)
 
-            # ----- LLM LẦN 1: TRÍCH XUẤT CV -----
+            # ----- TRÍCH XUẤT JD (Bước 1) -----
+            # get_or_extract_jd: cùng nội dung JD đã tách rồi thì lấy từ DB (mọi CV của tin dùng chung một danh sách
+            # yêu cầu); HR sửa JD thì nội dung đổi -> tách lại. Lỗi LLM được lưu FAILED trong jd_extractions.
+            job.current_stage = "JD_EXTRACT"
+            job_info = JobInfo.from_posting(posting)
+            jd_row = await get_or_extract_jd(session_factory, job_info, job_posting_id, manager=manager)
+            if jd_row.status != JD_EXTRACTION_COMPLETED:
+                raise ScoringFailure(f"Không trích xuất được JD: {jd_row.error_message}")
+            jd = ExtractedJD.model_validate(jd_row.result)
+
+            # ----- TRÍCH XUẤT CV -----
             # get_or_extract: CV này đã trích xuất rồi thì lấy từ DB (không gọi AI); chưa thì tải S3 -> đọc chữ -> gọi Gemini -> lưu.
             job.current_stage = "EXTRACT"
             extraction = await get_or_extract(session_factory, resume_url, candidate_id, manager=manager)
@@ -218,21 +225,25 @@ async def score_application(
             if extraction.status != EXTRACTION_COMPLETED:
                 raise ScoringFailure(f"Không trích xuất được CV: {extraction.error_message}")
 
-            # ----- LLM LẦN 2: CHẤM -----
+            # ----- CHẤM (Bước 3–6) -----
             # names: tên ứng viên, KHÔNG gửi cho AI mà dùng để tìm và CHE tên trong đoạn văn (chấm mù).
             job.current_stage = "SCORE"
             names = [summary.get("candidateName") or ""]
-            # Đưa vào KẾT QUẢ TRÍCH XUẤT (không phải file CV gốc). Trả về:
-            #   result = điểm, xếp loại, nhận xét, 5 tiêu chí;  provenance = model, phiên bản prompt, token, chi phí.
+            # Đưa vào danh sách yêu cầu JD + KẾT QUẢ TRÍCH XUẤT CV (không phải file gốc). Trả về:
+            #   result = điểm, xếp loại, lý do, 5 tiêu chí, yêu cầu bắt buộc;
+            #   provenance = model, phiên bản prompt, bản trích xuất CV và JD, token, chi phí.
+            # Không tính được điểm (không tiêu chí nào chấm được) thì vẫn COMPLETED với xếp loại Chưa phân loại.
             result, provenance = await score_candidate(
-                JobInfo.from_posting(posting),
+                jd,
                 extraction.result["extracted_cv"],
                 manager,
                 today_in(get_settings().app_timezone),
                 candidate_names=names,
-                options=scoring_options(),
+                thresholds=scoring_options(),
                 extraction_id=extraction.id,
                 extraction_prompt_version=extraction.prompt_version,
+                jd_extraction_id=jd_row.id,
+                jd_extraction_prompt_version=jd_row.prompt_version,
             )
             values = {
                 "status": COMPLETED, "cv_extraction_id": extraction.id, "total_score": result.total_score,

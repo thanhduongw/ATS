@@ -15,7 +15,6 @@ from app.core.rabbitmq import rabbitmq_manager
 from app.api.health import router as health_router
 from app.api.extraction import router as extraction_router
 from app.api.cv_extraction import router as cv_extraction_router
-from app.api.jd_generation import router as jd_generation_router
 from app.api.application_scores import router as application_scores_router
 
 # Configure logging
@@ -38,8 +37,8 @@ async def lifespan(app: FastAPI):
     # còn trống, nên DB đã tồn tại sẽ không có các bảng thêm sau.
     try:
         from app.core.database import Base, engine
-        from app.models import AIJob, AIScore, CVExtraction
-        tables = [CVExtraction.__table__, AIJob.__table__, AIScore.__table__]
+        from app.models import AIJob, AIScore, CVExtraction, JDExtraction
+        tables = [CVExtraction.__table__, JDExtraction.__table__, AIJob.__table__, AIScore.__table__]
         async with engine.begin() as conn:
             await conn.run_sync(lambda c: Base.metadata.create_all(c, tables=tables))
     except Exception as e:
@@ -81,7 +80,6 @@ def create_app() -> FastAPI:
     internal = [Depends(internal_only)]
     app.include_router(extraction_router, prefix="/api/v1/ai", tags=["Text Extraction"], dependencies=internal)
     app.include_router(cv_extraction_router, prefix="/api/v1/ai", tags=["CV Extraction"], dependencies=internal)
-    app.include_router(jd_generation_router, prefix="/api/v1/ai", tags=["JD Generation"], dependencies=internal)
     app.include_router(application_scores_router, prefix="/api/v1/ai", tags=["CV Scoring"], dependencies=internal)
 
     return app

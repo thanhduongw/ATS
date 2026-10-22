@@ -1,4 +1,4 @@
-"""Giai đoạn 2: chấm điểm — lọc hồ sơ (chấm mù), prompt, tính điểm, luồng chấm trên Postgres thật, worker, API."""
+"""Chấm điểm v2: lọc hồ sơ (chấm mù), prompt, score_candidate, luồng chấm trên Postgres thật (có bước JD), worker, API."""
 
 from __future__ import annotations
 
@@ -15,19 +15,23 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.java_services import JavaServiceError
 from app.core.llm_client import BaseLLMClient, LLMError, LLMManager, LLMUsage
-from app.models import AIJob, AIScore, CVExtraction
-from app.schemas.scoring import DimensionAssessment, LLMScoringOutput, ScoringDimension as D, Tier
+from app.models import AIJob, AIScore, CVExtraction, JDExtraction
+from app.schemas.jd_extraction import (
+    EducationRequirement,
+    ExperienceRequirement,
+    ExtractedJD,
+    Importance,
+    RequirementItem,
+)
+from app.schemas.scoring import ScoringDimension as D, Tier
+from app.schemas.scoring_llm import LLMScoringOutput
 from app.services import application_scoring as svc
 from app.services.prompts.cv_extraction import PROMPT_VERSION as EXTRACTION_PROMPT_VERSION
-from app.services.scoring.engine import (
-    NoApplicableDimensionError,
-    ScoringOptions,
-    Thresholds,
-    compute_score,
-    score_candidate,
-)
+from app.services.scoring.aggregate import Thresholds
+from app.services.scoring.engine import score_candidate
 from app.services.scoring.profile import build_scoring_profile
 from app.services.scoring.prompt import JobInfo, build_scoring_prompt
+from app.services.scoring.rules import items_to_check
 
 pytestmark = pytest.mark.anyio
 TODAY = date(2026, 10, 15)
@@ -38,6 +42,8 @@ def anyio_backend():
     return "asyncio"
 
 
+# date_of_birth / gender: mô phỏng dữ liệu cũ (prompt trích xuất ≤ v1.2) còn trong bảng cv_extractions —
+# hồ sơ chấm điểm vẫn phải loại ra (từ v1.3 schema không còn hai trường này).
 EXTRACTED = {
     "candidate": {
         "name": "Nguyễn Văn An", "email": "an.nguyen@gmail.com", "phone": "0912 345 678",
@@ -65,6 +71,17 @@ EXTRACTED = {
 JOB = JobInfo(title="Backend Developer (Java)", experience_required="3 năm",
               description="Phát triển API thanh toán", requirements="Bắt buộc: Java, Spring Boot. Ưu tiên fintech.")
 
+# Danh sách yêu cầu sau trích xuất JD (Bước 1) của JOB — LLM giả trả về bản này.
+JD = ExtractedJD(
+    job_title="Backend Developer (Java)",
+    skills=[RequirementItem(name="Java", importance=Importance.REQUIRED),
+            RequirementItem(name="Spring Boot", importance=Importance.REQUIRED)],
+    tasks=["Phát triển API thanh toán"],
+    experience=ExperienceRequirement(min_years=3, importance=Importance.REQUIRED),
+    education=EducationRequirement(degree_text="Đại học", fields=["Công nghệ thông tin"], importance=Importance.REQUIRED),
+    domains=[RequirementItem(name="Fintech", importance=Importance.PREFERRED)],
+)
+
 
 # ============================================================
 # Lọc hồ sơ / prompt
@@ -86,11 +103,11 @@ def test_profile_drops_personal_fields_and_redacts_free_text():
 
 def test_prompt_single_message_contents():
     profile = build_scoring_profile(EXTRACTED, ["Nguyễn Văn An"])
-    prompt = build_scoring_prompt(JOB, profile, TODAY, 7.8, 6)
+    prompt = build_scoring_prompt(JD, profile, TODAY, 7.8, 6, items_to_check(JD))
     assert "Ngày hiện tại: 2026-10-15" in prompt
     assert "7.8 năm" in prompt and "tự ghi trong CV: 6 năm" in prompt
-    assert "Bắt buộc: Java" in prompt and "Nguyễn Văn An" not in prompt
-    assert prompt.index("<job_description>") < prompt.index("<candidate_profile>")
+    assert '"name": "Spring Boot"' in prompt and "Nguyễn Văn An" not in prompt
+    assert prompt.index("<job_requirements>\n") < prompt.index("<candidate_profile>\n")
 
 
 def test_job_info_excludes_benefits():
@@ -99,81 +116,48 @@ def test_job_info_excludes_benefits():
 
 
 # ============================================================
-# Tính điểm
+# score_candidate (LLM giả)
 # ============================================================
 
-def out(levels: dict, must=(), summary="Ứng viên phù hợp."):
-    dims = [DimensionAssessment(dimension=d, applicable=lv is not None, level=lv or 0, reason=f"lý do {d.value}")
-            for d, lv in levels.items()]
-    return LLMScoringOutput(dimensions=dims, must_have_unmet=list(must), summary=summary)
-
-
-ALL3 = {D.TECHNICAL_SKILLS: 3, D.RELEVANT_EXPERIENCE: 3, D.SENIORITY: 3, D.EDUCATION_CERTIFICATION: 3, D.DOMAIN: 3}
-
-
-def test_weighted_total_and_tier():
-    r = compute_score(out({**ALL3, D.TECHNICAL_SKILLS: 4}), TODAY)
-    # 0.35*100 + 0.65*75 = 83.75
-    assert r.total_score == 83.8 and r.tier == Tier.GOOD_FIT
-    assert r.comment.startswith("Mức độ phù hợp: Phù hợp tốt (83.8/100).")
-    assert sum(d.effective_weight for d in r.dimensions) == pytest.approx(1.0, abs=1e-3)
-
-
-def test_not_applicable_dimension_reweighted():
-    r = compute_score(out({**ALL3, D.DOMAIN: None, D.TECHNICAL_SKILLS: 4}), TODAY)
-    domain = next(d for d in r.dimensions if d.dimension == D.DOMAIN)
-    assert not domain.applicable and domain.score is None and domain.effective_weight == 0
-    # (0.35*100 + 0.50*75) / 0.85 = 85.29
-    assert r.total_score == 85.3
-
-
-def test_missing_and_duplicate_dimensions():
-    o = out({D.TECHNICAL_SKILLS: 2, D.SENIORITY: 2})
-    o.dimensions.append(DimensionAssessment(dimension=D.TECHNICAL_SKILLS, applicable=True, level=4, reason="trùng"))
-    r = compute_score(o, TODAY)
-    assert r.total_score == 50.0  # bản trùng bị bỏ, khía cạnh thiếu = không áp dụng
-
-
-@pytest.mark.parametrize("levels, tier", [
-    ({D.TECHNICAL_SKILLS: 4, D.SENIORITY: 2}, Tier.GOOD_FIT),      # (0.35*100+0.15*50)/0.5 = 85
-    ({D.TECHNICAL_SKILLS: 2}, Tier.POTENTIAL_FIT),                   # 50 — đúng ngưỡng dưới
-    ({D.TECHNICAL_SKILLS: 1}, Tier.NOT_FIT),                         # 25
-])
-def test_tier_boundaries(levels, tier):
-    assert compute_score(out(levels), TODAY).tier == tier
-
-
-def test_custom_thresholds():
-    opts = ScoringOptions(thresholds=Thresholds(good_min=90, potential_min=80))
-    assert compute_score(out(ALL3), TODAY, opts).tier == Tier.NOT_FIT
-
-
-def test_must_have_only_warns():
-    r = compute_score(out({**ALL3, D.TECHNICAL_SKILLS: 4}, must=["Chứng chỉ AWS"]), TODAY)
-    assert r.total_score == 83.8 and r.tier == Tier.GOOD_FIT  # không trừ điểm, không chặn trần
-    assert "Chưa đáp ứng yêu cầu bắt buộc: Chứng chỉ AWS." in r.comment
-
-
-def test_no_applicable_dimension():
-    with pytest.raises(NoApplicableDimensionError):
-        compute_score(out({D.DOMAIN: None}), TODAY)
+def llm_out(levels=None, checks=None, summary="Tóm tắt.") -> LLMScoringOutput:
+    levels = {"TECHNICAL_SKILLS": 3, "RELEVANT_EXPERIENCE": 3, "DOMAIN": 3, **(levels or {})}
+    if checks is None:
+        checks = {"Java": "MET", "Spring Boot": "MET"}
+    return LLMScoringOutput.model_validate({
+        "dimensions": [{"dimension": d, "applicable": True, "level": lv, "evidence": ["Java"], "reason": f"lý do {d}"}
+                       for d, lv in levels.items()],
+        "education_field": {"match": "EXACT", "evidence": "CNTT"},
+        "requirement_checks": [{"requirement": n, "category": "SKILL", "status": st, "evidence": None}
+                               for n, st in checks.items()],
+        "summary": summary,
+    })
 
 
 class ScoringLLM(BaseLLMClient):
-    def __init__(self, levels=None, fail=False):
+    """LLM giả cho cả hai lời gọi: trích xuất JD (ExtractedJD) và chấm (LLMScoringOutput)."""
+
+    def __init__(self, output=None, fail=False, fail_jd=False):
         super().__init__("fake-scorer")
-        self.levels, self.fail, self.prompts = levels or ALL3, fail, []
+        self.output, self.fail, self.fail_jd = output or llm_out(), fail, fail_jd
+        self.prompts: list[str] = []
+        self.jd_calls = 0
 
     def provider_name(self):
         return "fake"
 
     async def generate_structured(self, user_prompt, response_model, system_prompt=None):
-        self.prompts.append(user_prompt)
         await asyncio.sleep(0.05)
+        assert system_prompt is None
+        if response_model is ExtractedJD:
+            self.jd_calls += 1
+            if self.fail_jd:
+                raise LLMError("JD quota", provider="fake")
+            return JD, LLMUsage(model=self.model, input_tokens=20, output_tokens=8)
+        assert response_model is LLMScoringOutput
+        self.prompts.append(user_prompt)
         if self.fail:
             raise LLMError("429 quota", provider="fake")
-        assert system_prompt is None and response_model is LLMScoringOutput
-        return out(self.levels, summary="Tóm tắt."), LLMUsage(model=self.model, input_tokens=10, output_tokens=5)
+        return self.output, LLMUsage(model=self.model, input_tokens=10, output_tokens=5)
 
 
 def manager(llm):
@@ -182,14 +166,78 @@ def manager(llm):
     return m
 
 
-async def test_score_candidate_recomputes_years_with_today():
+async def test_score_candidate_end_to_end_with_fake_llm():
     llm = ScoringLLM()
-    result, prov = await score_candidate(JOB, EXTRACTED, manager(llm), TODAY, candidate_names=["Nguyễn Văn An"],
-                                         extraction_id=3, extraction_prompt_version="v1.1")
+    result, prov = await score_candidate(JD, EXTRACTED, manager(llm), TODAY, candidate_names=["Nguyễn Văn An"],
+                                         extraction_id=3, extraction_prompt_version="v1.3",
+                                         jd_extraction_id=8, jd_extraction_prompt_version="v1.0")
     assert result.years_calculated == pytest.approx(7.8, abs=0.1)   # 2019 → nay (15/10/2026)
     assert result.years_claimed == 6 and result.scored_on == TODAY
     assert "7.8 năm" in llm.prompts[0] and "Nguyễn Văn An" not in llm.prompts[0]
-    assert prov.extraction_id == 3 and prov.prompt_version == "v1.0" and prov.model == "fake-scorer"
+    # Kỹ năng 3, Kinh nghiệm 3, Số năm 4 (7,8 năm vs 3 năm: cao hơn 2 khoảng), Học vấn 3 (Cử nhân = bậc 6), Lĩnh vực 3
+    levels = {d.dimension: d.level for d in result.dimensions}
+    assert levels == {D.TECHNICAL_SKILLS: 3, D.RELEVANT_EXPERIENCE: 3, D.SENIORITY: 4,
+                      D.EDUCATION_CERTIFICATION: 3, D.DOMAIN: 3}
+    assert result.total_score == 80 and result.tier == Tier.FIT
+    assert result.comment.startswith("Gợi ý: Phù hợp (80/100).") and result.comment.endswith("Tóm tắt.")
+    assert result.threshold == 62.5 and result.uncertainty == 5.0
+    assert prov.prompt_version == "v2.2" and prov.scoring_version == "v2.0" and prov.model == "fake-scorer"
+    assert prov.extraction_id == 3 and prov.jd_extraction_id == 8 and prov.jd_extraction_prompt_version == "v1.0"
+
+
+# CV không ghi "Spring Boot" ở đâu cả (kỹ năng, công nghệ) — để code không nâng kết quả AI lên Đạt.
+EXTRACTED_NO_SPRING = {**EXTRACTED, "skills": ["Java", "PostgreSQL"]}
+
+
+async def test_score_candidate_unmet_requirement_not_fit():
+    llm = ScoringLLM(llm_out(checks={"Java": "MET", "Spring Boot": "UNMET"}))
+    result, _ = await score_candidate(JD, EXTRACTED_NO_SPRING, manager(llm), TODAY)
+    assert result.tier == Tier.NOT_FIT and "Spring Boot" in result.tier_reason
+
+
+async def test_named_skill_written_in_cv_overrides_ai_unmet():
+    """AI chấm Spring Boot UNMET nhưng mục kỹ năng của CV ghi Spring Boot -> code nâng lên Đạt."""
+    llm = ScoringLLM(llm_out(checks={"Java": "MET", "Spring Boot": "UNMET"}))
+    result, _ = await score_candidate(JD, EXTRACTED, manager(llm), TODAY)
+    spring = next(r for r in result.requirements if r.requirement == "Spring Boot")
+    assert spring.status.value == "MET" and spring.evidence.startswith("Hồ sơ ghi: Kỹ năng:")
+    assert result.tier == Tier.FIT
+
+
+async def test_score_candidate_custom_thresholds():
+    result, _ = await score_candidate(JD, EXTRACTED, manager(ScoringLLM()), TODAY,
+                                      thresholds=Thresholds(threshold=90, uncertainty=5))
+    assert result.total_score == 80 and result.tier == Tier.NOT_FIT
+
+
+async def test_no_work_experience_is_zero_years():
+    cv = {**EXTRACTED, "work_experience": []}
+    result, _ = await score_candidate(JD, cv, manager(ScoringLLM()), TODAY)
+    seniority = next(d for d in result.dimensions if d.dimension == D.SENIORITY)
+    assert result.years_calculated == 0.0 and seniority.level == 0
+    assert result.tier == Tier.NOT_FIT                     # yêu cầu 3 năm Không đạt
+
+
+async def test_work_experience_without_dates_is_unknown():
+    cv = {**EXTRACTED, "work_experience": [{"company": "ABC", "title": "Dev"}]}
+    result, _ = await score_candidate(JD, cv, manager(ScoringLLM()), TODAY)
+    seniority = next(d for d in result.dimensions if d.dimension == D.SENIORITY)
+    assert result.years_calculated is None and seniority.level is None
+    assert result.tier == Tier.UNCLASSIFIED                # yêu cầu 3 năm Không xác định được
+
+
+async def test_degree_inferred_from_institution_meets_required_education():
+    """CV chỉ ghi tên trường (đã học xong), JD bắt buộc "Đại học" -> yêu cầu bậc học Đạt, có ghi chú suy luận."""
+    cv = {**EXTRACTED, "education": [{"institution": "Đại học Bách Khoa TP.HCM", "start_date": "2016", "end_date": "2020"}]}
+    result, _ = await score_candidate(JD, cv, manager(ScoringLLM()), TODAY)
+    edu_req = next(r for r in result.requirements if r.category.value == "EDUCATION_LEVEL")
+    assert edu_req.status.value == "MET" and "suy từ tên trường" in edu_req.evidence
+    assert result.tier == Tier.FIT
+
+
+async def test_scoring_llm_error_propagates():
+    with pytest.raises(LLMError):
+        await score_candidate(JD, EXTRACTED, manager(ScoringLLM(fail=True)), TODAY)
 
 
 # ============================================================
@@ -205,11 +253,12 @@ async def factory():
     engine = create_async_engine(TEST_DB)
     try:
         async with engine.begin() as conn:
-            for t in (CVExtraction, AIJob, AIScore):
+            for t in (CVExtraction, JDExtraction, AIJob, AIScore):
                 await conn.run_sync(lambda c, t=t: t.__table__.create(c, checkfirst=True))
             await conn.execute(delete(AIScore))
             await conn.execute(delete(AIJob))
             await conn.execute(delete(CVExtraction))
+            await conn.execute(delete(JDExtraction))
     except Exception as exc:  # noqa: BLE001
         await engine.dispose()
         pytest.skip(f"Không kết nối được Postgres test: {exc}")
@@ -249,14 +298,47 @@ def java(monkeypatch):
 
 
 async def test_scores_application(factory, java):
-    score = await svc.score_application(1, session_factory=factory, manager=manager(ScoringLLM()))
-    assert score.status == "COMPLETED" and float(score.total_score) == 75.0 and score.tier == "GOOD_FIT"
-    assert score.result["comment"].startswith("Mức độ phù hợp: Phù hợp tốt (75/100).")
+    llm = ScoringLLM()
+    score = await svc.score_application(1, session_factory=factory, manager=manager(llm))
+    assert score.status == "COMPLETED" and float(score.total_score) == 80.0 and score.tier == "FIT"
+    assert score.result["comment"].startswith("Gợi ý: Phù hợp (80/100).")
+    assert score.result["tier_label"] == "Phù hợp" and len(score.result["dimensions"]) == 5
+    assert {r["requirement"] for r in score.result["requirements"]} >= {"Java", "Spring Boot"}
+    assert score.provenance["jd_extraction_id"] is not None and score.provenance["prompt_version"] == "v2.2"
     assert score.cv_extraction_id is not None and score.ai_job_id is not None
     assert java["published"] == [(1, "PROCESSING"), (1, "COMPLETED")]
+    assert llm.jd_calls == 1
     async with factory() as s:
         job = await s.get(AIJob, score.ai_job_id)
-        assert job.status == "COMPLETED" and job.scoring_prompt_version == "v1.0" and job.completed_at
+        assert job.status == "COMPLETED" and job.scoring_prompt_version == "v2.2" and job.completed_at
+        jd_row = (await s.execute(select(JDExtraction))).scalar_one()
+        assert jd_row.job_posting_id == 5 and jd_row.status == "COMPLETED"
+
+
+async def test_jd_extraction_reused_for_second_application(factory, java):
+    llm = ScoringLLM()
+    await svc.score_application(1, session_factory=factory, manager=manager(llm))
+    second = await svc.score_application(2, session_factory=factory, manager=manager(llm))
+    assert second.status == "COMPLETED" and llm.jd_calls == 1 and len(llm.prompts) == 2
+
+
+async def test_jd_extraction_failure_recorded_then_retried(factory, java):
+    failed = await svc.score_application(1, session_factory=factory, manager=manager(ScoringLLM(fail_jd=True)))
+    assert failed.status == "FAILED" and "Không trích xuất được JD" in failed.error_message
+    assert failed.total_score is None and java["published"][-1] == (1, "FAILED")
+    ok = await svc.score_application(1, session_factory=factory, manager=manager(ScoringLLM()))
+    assert ok.status == "COMPLETED"
+
+
+async def test_unclassified_is_completed(factory, java):
+    """Chưa phân loại vẫn là lần chấm thành công (COMPLETED), không phải FAILED."""
+    async with factory() as s:
+        row = (await s.execute(select(CVExtraction))).scalar_one()
+        row.result = {"extracted_cv": EXTRACTED_NO_SPRING}
+        await s.commit()
+    llm = ScoringLLM(llm_out(checks={"Java": "MET", "Spring Boot": "UNKNOWN"}))
+    score = await svc.score_application(1, session_factory=factory, manager=manager(llm))
+    assert score.status == "COMPLETED" and score.tier == "UNCLASSIFIED"
 
 
 async def test_failure_clears_previous_score(factory, java):
@@ -388,7 +470,7 @@ async def api(factory, monkeypatch):
     async def fake_score(application_id, headers=None):
         if application_id == 409:
             raise svc.ScoringInProgressError("busy")
-        return AIScore(application_id=application_id, job_posting_id=5, status="COMPLETED", total_score=80, tier="GOOD_FIT")
+        return AIScore(application_id=application_id, job_posting_id=5, status="COMPLETED", total_score=80, tier="FIT")
 
     async def apps(job_posting_id, headers):
         return state["applications"]
@@ -415,10 +497,10 @@ async def test_api_get_score(api, factory):
     assert r.status_code == 404
     async with factory() as s:
         s.add(AIScore(application_id=7, job_posting_id=5, candidate_id=9, status="COMPLETED", total_score=66.5,
-                      tier="POTENTIAL_FIT", result={"comment": "x"}))
+                      tier="UNCLASSIFIED", result={"comment": "x"}))
         await s.commit()
     r = await client.get("/api/v1/ai/scores/7", headers=HM)
-    assert r.status_code == 200 and r.json()["totalScore"] == 66.5 and r.json()["tier"] == "POTENTIAL_FIT"
+    assert r.status_code == 200 and r.json()["totalScore"] == 66.5 and r.json()["tier"] == "UNCLASSIFIED"
     assert (await client.get("/api/v1/ai/scores/403", headers=HM)).status_code == 403
 
 

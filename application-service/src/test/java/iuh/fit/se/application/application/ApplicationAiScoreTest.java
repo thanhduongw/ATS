@@ -48,9 +48,43 @@ class ApplicationAiScoreTest {
 
     @Test
     void completedEventStoresScoreAndTier() {
-        when(applicationRepository.updateAiCompleted(7L, new BigDecimal("75.0"), "GOOD_FIT", AT)).thenReturn(1);
+        when(applicationRepository.updateAiCompleted(7L, new BigDecimal("75.0"), "FIT", AT)).thenReturn(1);
 
-        assertTrue(service.applyAiScore(event("COMPLETED", new BigDecimal("75.0"), "GOOD_FIT")));
+        assertTrue(service.applyAiScore(event("COMPLETED", new BigDecimal("75.0"), "FIT")));
+    }
+
+    @Test
+    void unclassifiedWithoutScoreIsAccepted() {
+        // Chưa phân loại vì không tính được điểm: ai-service gửi totalScore = null
+        when(applicationRepository.updateAiCompleted(7L, null, "UNCLASSIFIED", AT)).thenReturn(1);
+
+        assertTrue(service.applyAiScore(event("COMPLETED", null, "UNCLASSIFIED")));
+        verify(applicationRepository).updateAiCompleted(7L, null, "UNCLASSIFIED", AT);
+    }
+
+    @Test
+    void unclassifiedWithScoreIsAccepted() {
+        when(applicationRepository.updateAiCompleted(7L, new BigDecimal("60.0"), "UNCLASSIFIED", AT)).thenReturn(1);
+
+        assertTrue(service.applyAiScore(event("COMPLETED", new BigDecimal("60.0"), "UNCLASSIFIED")));
+    }
+
+    @Test
+    void scoreIsRequiredForFitAndNotFit() {
+        assertThrows(BusinessException.class, () -> service.applyAiScore(event("COMPLETED", null, "FIT")));
+        assertThrows(BusinessException.class, () -> service.applyAiScore(event("COMPLETED", null, "NOT_FIT")));
+        verifyNoInteractions(applicationRepository);
+    }
+
+    @Test
+    void oldTiersAreRejected() {
+        assertThrows(BusinessException.class,
+                () -> service.applyAiScore(event("COMPLETED", new BigDecimal("75.0"), "GOOD_FIT")));
+        assertThrows(BusinessException.class,
+                () -> service.applyAiScore(event("COMPLETED", new BigDecimal("50.0"), "POTENTIAL_FIT")));
+        assertThrows(BusinessException.class, () -> service.getAll(
+                null, null, null, null, null, null, null, null, "GOOD_FIT", null, null, null));
+        verifyNoInteractions(applicationRepository);
     }
 
     @Test
@@ -78,7 +112,7 @@ class ApplicationAiScoreTest {
     @Test
     void malformedEventsAreRejectedWithoutTouchingTheDatabase() {
         assertThrows(BusinessException.class, () -> service.applyAiScore(event("DONE", null, null)));
-        assertThrows(BusinessException.class, () -> service.applyAiScore(event("COMPLETED", null, "GOOD_FIT")));
+        assertThrows(BusinessException.class, () -> service.applyAiScore(event("COMPLETED", null, null)));
         assertThrows(BusinessException.class,
                 () -> service.applyAiScore(event("COMPLETED", BigDecimal.TEN, "EXCELLENT")));
         assertThrows(BusinessException.class, () -> service.applyAiScore(
@@ -91,7 +125,7 @@ class ApplicationAiScoreTest {
         // Đúng định dạng ai-service phát (Python json.dumps, datetime.isoformat(), không có __TypeId__)
         String body = """
                 {"applicationId": 7, "jobPostingId": 5, "status": "COMPLETED", "totalScore": 75.0,
-                 "tier": "GOOD_FIT", "updatedAt": "2026-10-15T03:00:00.123456"}""";
+                 "tier": "FIT", "updatedAt": "2026-10-15T03:00:00.123456"}""";
         MessageProperties props = new MessageProperties();
         props.setContentType(MessageProperties.CONTENT_TYPE_JSON);
         props.setInferredArgumentType(AiScoringCompletedEvent.class);
@@ -99,7 +133,22 @@ class ApplicationAiScoreTest {
         Object converted = new Jackson2JsonMessageConverter()
                 .fromMessage(new Message(body.getBytes(StandardCharsets.UTF_8), props));
 
-        assertEquals(event("COMPLETED", new BigDecimal("75.0"), "GOOD_FIT"), converted);
+        assertEquals(event("COMPLETED", new BigDecimal("75.0"), "FIT"), converted);
+    }
+
+    @Test
+    void unclassifiedEventWithNullScoreDeserializes() {
+        String body = """
+                {"applicationId": 7, "jobPostingId": 5, "status": "COMPLETED", "totalScore": null,
+                 "tier": "UNCLASSIFIED", "updatedAt": "2026-10-15T03:00:00.123456"}""";
+        MessageProperties props = new MessageProperties();
+        props.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+        props.setInferredArgumentType(AiScoringCompletedEvent.class);
+
+        Object converted = new Jackson2JsonMessageConverter()
+                .fromMessage(new Message(body.getBytes(StandardCharsets.UTF_8), props));
+
+        assertEquals(event("COMPLETED", null, "UNCLASSIFIED"), converted);
     }
 
     @Test
@@ -113,6 +162,21 @@ class ApplicationAiScoreTest {
         list = new ArrayList<>(List.of(a, b, c, d));
         list.sort(ApplicationService.listOrder("aiScore,asc"));
         assertEquals(List.of(1L, 4L, 3L, 2L), ids(list));
+    }
+
+    @Test
+    void unclassifiedWithoutScoreIsSortedLast() {
+        // Hồ sơ Chưa phân loại không có điểm nằm cuối như hồ sơ chưa chấm, ở cả hai chiều
+        Application unclassified = scored(1L, null), high = scored(2L, "80.0"), low = scored(3L, "40.0");
+        unclassified.setAiTier("UNCLASSIFIED");
+
+        List<Application> list = new ArrayList<>(List.of(unclassified, high, low));
+        list.sort(ApplicationService.listOrder("aiScore,desc"));
+        assertEquals(List.of(2L, 3L, 1L), ids(list));
+
+        list = new ArrayList<>(List.of(unclassified, high, low));
+        list.sort(ApplicationService.listOrder("aiScore,asc"));
+        assertEquals(List.of(3L, 2L, 1L), ids(list));
     }
 
     @Test
@@ -138,10 +202,10 @@ class ApplicationAiScoreTest {
         when(root.get("aiTier")).thenReturn((Path) tierPath);
         when(cb.and(any(Predicate[].class))).thenReturn(mock(Predicate.class));
 
-        ApplicationSpecifications.build(5L, null, null, null, null, "GOOD_FIT", null, null, null, null, false)
+        ApplicationSpecifications.build(5L, null, null, null, null, "UNCLASSIFIED", null, null, null, null, false)
                 .toPredicate(root, mock(CriteriaQuery.class), cb);
 
-        verify(cb).equal(tierPath, "GOOD_FIT");
+        verify(cb).equal(tierPath, "UNCLASSIFIED");
     }
 
     private static AiScoringCompletedEvent event(String status, BigDecimal score, String tier) {

@@ -21,13 +21,14 @@ from app.core.llm_client import LLMManager
 from app.schemas.scoring import (
     DIMENSION_LABELS,
     TIER_LABELS,
-    LLMScoringOutput,
     ScoredDimension,
     ScoreResult,
     ScoringDimension,
     ScoringProvenance,
     Tier,
 )
+# [GIẢI THÍCH] Phần 0: LLMScoringOutput chuyển sang app/schemas/scoring_llm.py; nội dung engine viết lại ở phần 6.
+from app.schemas.scoring_llm import LLMScoringOutput
 from app.services.experience import calculate_years_of_experience
 from app.services.scoring.profile import build_scoring_profile
 from app.services.scoring.prompt import PROMPT_VERSION, JobInfo, build_scoring_prompt

@@ -233,7 +233,22 @@ def _finished_study(entry: dict, today: date) -> bool:
     return date(start.year + _STANDARD_STUDY_YEARS, start.month, 1) <= today
 
 
+# [GIẢI THÍCH] Chắc chắn ĐANG HỌC: end_date là chữ "đến nay" / "hiện tại" (_PRESENT, kiểm tra trước parse_date),
+# hoặc end_date đọc được và ở sau hôm nay. end_date trống hoặc không đọc được -> KHÔNG coi là đang học
+# (không đủ căn cứ; mục có ghi tên bằng vẫn được tính như cũ).
+def _still_studying(entry: dict, today: date) -> bool:
+    end_text = entry.get("end_date")
+    if not end_text or not end_text.strip():
+        return False
+    if " ".join(end_text.strip().lower().split()) in _PRESENT:
+        return True
+    end = parse_date(end_text, today)
+    return end is not None and end > today
+
+
 # [GIẢI THÍCH] BẬC HỌC CỦA ỨNG VIÊN dùng khi chấm: bậc cao nhất trong các mục học vấn.
+# - Mục ĐANG HỌC (đến nay / năm kết thúc ở tương lai) -> bỏ qua, kể cả khi có ghi tên bằng: chưa có bằng thì
+#   không được tính bậc (yêu cầu "Tốt nghiệp đại học" không thể Đạt nhờ một bằng đang học).
 # - Mục có tên bằng nhận ra được -> dùng bậc của bằng.
 # - Mục không có / không nhận ra tên bằng -> suy từ tên trường (quy ước ở trên), chỉ khi đã học xong.
 # Trả (bậc, ghi chú). Ghi chú "suy từ tên trường: <tên trường>" khi bậc cao nhất là bậc suy ra, để HR biết
@@ -243,6 +258,8 @@ def candidate_degree_level(education: list[dict], today: date) -> tuple[int | No
     best_note: str | None = None
     for entry in education or []:
         entry = entry or {}
+        if _still_studying(entry, today):
+            continue
         level = degree_level(entry.get("degree"))
         note = None
         if level is None and _finished_study(entry, today):

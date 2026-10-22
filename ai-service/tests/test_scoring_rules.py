@@ -195,12 +195,25 @@ def test_degree_inferred_when_started_four_years_ago_without_end():
 
 
 def test_written_degree_wins_without_note():
-    assert candidate_degree_level([_edu("Đại học Bách Khoa TP.HCM", end="Hiện tại", degree="Thạc sĩ")], TODAY) == (7, None)
+    assert candidate_degree_level([_edu("Đại học Bách Khoa TP.HCM", end="2022", degree="Thạc sĩ")], TODAY) == (7, None)
     both = [_edu("Đại học Bách Khoa TP.HCM", end="2020"), _edu("Đại học Kinh tế", end="2022", degree="Cử nhân")]
     assert candidate_degree_level(both, TODAY) == (6, None)          # cùng bậc: ưu tiên mục ghi bằng
 
 
+@pytest.mark.parametrize("entries, expected", [
+    ([_edu("Đại học Bách Khoa TP.HCM", end="Hiện tại", degree="Kỹ sư")], (None, None)),   # đang học, chưa có bằng
+    ([_edu("Đại học Kinh tế", end="2027", degree="Cử nhân")], (None, None)),             # tốt nghiệp ở tương lai
+    ([_edu("Đại học Bách Khoa", end="đến nay", degree="Thạc sĩ"),
+      _edu("Đại học Bách Khoa", end="2020", degree="Cử nhân")], (6, None)),             # thạc sĩ đang học không tính
+    ([_edu("Đại học Kinh tế", degree="Cử nhân")], (6, None)),                            # end_date trống: tính như cũ
+    ([_edu("Đại học Kinh tế", end="không rõ", degree="Cử nhân")], (6, None)),            # end_date không đọc được
+])
+def test_degree_in_progress_not_counted(entries, expected):
+    assert candidate_degree_level(entries, TODAY) == expected
+
+
 def test_highest_degree_level_unchanged():
+    assert highest_degree_level([_edu("Đại học Bách Khoa", end="Hiện tại", degree="Kỹ sư")]) == 6
     assert highest_degree_level([_edu("Đại học Bách Khoa TP.HCM", end="2020")]) is None
 
 

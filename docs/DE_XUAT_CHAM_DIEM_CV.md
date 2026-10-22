@@ -177,7 +177,7 @@ Mọi kết quả hiển thị cho HR đều kèm: điểm tổng, mức và d�
 | Lưỡng lự giữa hai mức thì chọn mức thấp hơn | So kết quả AI với đáp án của người trên tập hiệu chỉnh |
 | Yêu cầu không được nhắc trong hồ sơ đầy đủ là Không đạt | Đo tỉ lệ UNKNOWN và độ chính xác Bước 4 trên tập hiệu chỉnh |
 | Quy đổi bằng nước ngoài sang Khung trình độ quốc gia | Nêu trong phần hạn chế |
-| CV không ghi bằng nhưng đã học xong ở trường có tên Đại học / Học viện / University thì tính bậc 6; Cao đẳng / College thì bậc 5 | Đo tỉ lệ đúng trên đáp án trích xuất (phần 7) |
+| CV không ghi bằng nhưng đã học xong ở trường có tên Đại học / Học viện / University thì tính bậc 6; Cao đẳng / College thì bậc 5. Mục học vấn đang học (đến nay / năm kết thúc ở tương lai) không được tính bậc, kể cả khi có ghi tên bằng. | Đo tỉ lệ đúng trên đáp án trích xuất (phần 7) |
 | Dùng O\*NET (dữ liệu Hoa Kỳ) làm khung tham chiếu | Nêu trong phần hạn chế |
 
 ## Tài liệu tham khảo

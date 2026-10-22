@@ -35,10 +35,9 @@ from app.models import AIJob, AIScore
 from app.services.cv_extraction_store import COMPLETED as EXTRACTION_COMPLETED
 from app.services.cv_extraction_store import CVUnavailableError, get_or_extract
 from app.services.experience import today_in
+from app.services.scoring.aggregate import Thresholds
 from app.services.scoring.engine import (
     NoApplicableDimensionError,
-    ScoringOptions,
-    Thresholds,
     score_candidate,
 )
 from app.services.scoring.prompt import JobInfo
@@ -68,10 +67,10 @@ class ScoringFailure(Exception):
     """Lỗi có thông điệp dành cho HR (ghi vào ai_scores.error_message)."""
 
 
-# [GIẢI THÍCH] Đọc ngưỡng xếp loại (45 / 65) từ cấu hình (.env / config.py) mỗi lần chấm.
-def scoring_options() -> ScoringOptions:
+# [GIẢI THÍCH] Đọc ngưỡng xếp loại T và δ (khởi đầu 62,5 và 5) từ cấu hình (.env / config.py) mỗi lần chấm.
+def scoring_options() -> Thresholds:
     s = get_settings()
-    return ScoringOptions(thresholds=Thresholds(s.scoring_tier_good_min, s.scoring_tier_potential_min))
+    return Thresholds(threshold=s.scoring_threshold, uncertainty=s.scoring_uncertainty)
 
 
 # [GIẢI THÍCH] "Giành quyền chấm" một hồ sơ bằng MỘT câu SQL:

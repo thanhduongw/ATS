@@ -60,6 +60,14 @@ def test_prompt_contains_three_level_tables():
     assert "hard to transfer" in p and "one project, one client" in p and "regulations, business processes" in p
 
 
+def test_prompt_defines_unmet_and_limits_unknown():
+    """Yêu cầu không được nhắc trong hồ sơ đầy đủ là UNMET; UNKNOWN chỉ khi thiếu hẳn phần liên quan (docs Bước 4)."""
+    p = _prompt()
+    assert "A requirement that is not mentioned in a complete profile is UNMET, not UNKNOWN." in p
+    assert "AWS is UNMET" in p
+    assert "UNKNOWN = ONLY when the profile is missing the relevant sections entirely" in p
+
+
 def test_prompt_lists_every_item_to_check():
     p = _prompt()
     # Tìm thẻ của khối dữ liệu (thẻ cũng được nhắc tên trong phần hướng dẫn, nên kèm "\n" để lấy đúng khối)

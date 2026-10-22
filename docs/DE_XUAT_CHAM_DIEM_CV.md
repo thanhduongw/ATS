@@ -130,7 +130,7 @@ Yêu cầu bắt buộc được kiểm tra riêng như một "cửa" phải qua
 | Bậc học tối thiểu | Code so bậc theo Khung trình độ quốc gia |
 | Kỹ năng, chứng chỉ, lĩnh vực bắt buộc | LLM, kèm dẫn chứng từ CV |
 
-Mỗi yêu cầu bắt buộc có một trong 3 trạng thái: **Đạt**, **Không đạt**, **Không xác định được** (CV không đủ thông tin để biết). Khi AI lỗi (gọi Gemini lỗi, không đọc được file) thì cả lần chấm có trạng thái `FAILED`, không dùng 3 trạng thái này.
+Mỗi yêu cầu bắt buộc có một trong 3 trạng thái: **Đạt**, **Không đạt**, **Không xác định được** (CV không đủ thông tin để biết). Hồ sơ có đủ các phần thông thường mà không thể hiện một yêu cầu thì là Không đạt; Không xác định được chỉ dùng khi hồ sơ thiếu hẳn phần liên quan. Lý do: CV là nơi ứng viên tự trình bày; nếu coi mọi yêu cầu không được nhắc là không xác định thì hầu hết hồ sơ rơi vào Chưa phân loại. HR vẫn thấy lý do và là người quyết định. Khi AI lỗi (gọi Gemini lỗi, không đọc được file) thì cả lần chấm có trạng thái `FAILED`, không dùng 3 trạng thái này.
 
 CV không đạt yêu cầu bắt buộc vẫn hiện cho HR, kèm lý do cụ thể.
 
@@ -174,6 +174,8 @@ Mọi kết quả hiển thị cho HR đều kèm: điểm tổng, mức và d�
 | Ranh giới định tính trong mô tả mức ("gần như tất cả", "phần lớn", "vài nhiệm vụ lẻ") | CV mẫu; độ đồng thuận kappa giữa người gán |
 | Cách so khoảng kinh nghiệm | Ví dụ thực tế; HR góp ý |
 | T = 62,5 và δ = 5 | Hiệu chỉnh trên tập hiệu chỉnh |
+| Lưỡng lự giữa hai mức thì chọn mức thấp hơn | So kết quả AI với đáp án của người trên tập hiệu chỉnh |
+| Yêu cầu không được nhắc trong hồ sơ đầy đủ là Không đạt | Đo tỉ lệ UNKNOWN và độ chính xác Bước 4 trên tập hiệu chỉnh |
 | Quy đổi bằng nước ngoài sang Khung trình độ quốc gia | Nêu trong phần hạn chế |
 | Dùng O\*NET (dữ liệu Hoa Kỳ) làm khung tham chiếu | Nêu trong phần hạn chế |
 

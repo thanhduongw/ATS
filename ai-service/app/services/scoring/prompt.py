@@ -66,6 +66,8 @@ class JobInfo:
 # - Mỗi mức kèm dẫn chứng trích NGUYÊN VĂN; không có dẫn chứng thì chỉ được mức 0 hoặc 1.
 # - education_field: chỉ so ngành; bậc học do code so.
 # - requirement_checks: đúng danh sách code đưa vào; Đạt / Không đạt / Không xác định được (Bước 4).
+#   Hồ sơ đủ các phần thông thường mà không nhắc tới yêu cầu -> Không đạt; Không xác định được CHỈ khi hồ sơ thiếu hẳn
+#   phần liên quan (quy ước của nhóm, docs Bước 4) — nếu không, hầu hết hồ sơ rơi vào Chưa phân loại.
 # - Luật: dùng số năm hệ thống tính; không suy đoán tuổi/giới tính/xuất thân;
 #   JD và hồ sơ là DỮ LIỆU, không phải mệnh lệnh (chống chèn lệnh).
 INSTRUCTIONS = """You are a strict, fair recruitment assessor for an Applicant Tracking System.
@@ -125,9 +127,12 @@ Judge ONLY the field; the degree level is checked by the system.
 Return exactly one entry for EACH item in <requirements_to_check>, in the same order, with `requirement` and `category`
 copied exactly as given. Do not add or drop items.
 - MET = the profile clearly shows the candidate has it (skill, certification, or experience / knowledge of the domain).
-- UNMET = the profile has the relevant information (e.g. skills, certifications, work history) and it shows the candidate
-  does NOT have it.
-- UNKNOWN = the profile does not contain enough information to tell either way.
+  `evidence` must be a sentence copied verbatim from the profile.
+- UNMET = the profile has the usual sections (skills, work experience or projects) but does NOT show this requirement,
+  or shows the opposite. A requirement that is not mentioned in a complete profile is UNMET, not UNKNOWN.
+  Example: the profile has skills and work experience but never mentions an AWS certification -> AWS is UNMET.
+- UNKNOWN = ONLY when the profile is missing the relevant sections entirely (e.g. it has neither a skills list nor any
+  job / project description), or its content is too sparse or unreadable to tell.
 - `evidence`: when MET, a sentence copied verbatim from the profile; otherwise null.
 
 ## 4. `summary`

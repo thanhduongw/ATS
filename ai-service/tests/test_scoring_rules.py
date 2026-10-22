@@ -17,7 +17,9 @@ from app.services.scoring.rules import (
     degree_level,
     education_outcome,
     find_named_item,
+    max_degree_level,
     same_field_group,
+    studying_degree_level,
     studying_text,
     highest_degree_level,
     items_to_check,
@@ -419,3 +421,59 @@ def test_same_field_group_748(cv_field, jd_fields, same):
 def test_seniority_zero_required_evidence():
     out = seniority_outcome(1.5, 0)
     assert out.evidence == "Ứng viên: 1,5 năm; JD không yêu cầu số năm tối thiểu" and "Không có" not in out.evidence
+
+
+# ============================================================
+# Câu khẳng định trong phần tóm tắt; bậc cao nhất JD nêu; bậc đang học
+# ============================================================
+
+SUMMARY_PROFILE = {
+    "summary": "Thành thạo Spring Boot, Docker và có kiến thức cơ bản về CI/CD. Mong muốn học thêm Kubernetes; "
+               "định hướng trở thành DevOps với Terraform.\nAiming to learn Golang",
+    "skills": ["Java", "Docker"],
+}
+
+
+@pytest.mark.parametrize("requirement, expected", [
+    ("CI/CD", "Tóm tắt: Thành thạo Spring Boot, Docker và có kiến thức cơ bản về CI/CD"),
+    ("Spring Boot", "Tóm tắt: Thành thạo Spring Boot, Docker và có kiến thức cơ bản về CI/CD"),
+    ("Docker", "Kỹ năng: Java, Docker"),          # mục kỹ năng được ưu tiên hơn tóm tắt
+    ("Kubernetes", None),                          # câu mong muốn
+    ("Terraform", None),                           # câu định hướng
+    ("Golang", None),                              # "learn"
+])
+def test_find_named_item_in_summary_affirmative_only(requirement, expected):
+    assert find_named_item(requirement, SUMMARY_PROFILE) == expected
+
+
+def test_summary_split_keeps_dotted_names():
+    profile = {"summary": "Có kinh nghiệm với React.js và Node.js. Biết Java 8."}
+    assert find_named_item("Node.js", profile) == "Tóm tắt: Có kinh nghiệm với React.js và Node.js"
+
+
+@pytest.mark.parametrize("text, level", [
+    ("Tốt nghiệp Cao đẳng/Đại học", 6), ("Cao đẳng trở lên", 5), ("Thạc sĩ hoặc Đại học", 7), ("lạ", None),
+])
+def test_max_degree_level(text, level):
+    assert max_degree_level(text) == level
+
+
+@pytest.mark.parametrize("cand, req, max_req, level", [
+    (6, 5, 6, 3),          # JD "Cao đẳng/Đại học" + đại học -> đúng yêu cầu, không phải cao hơn
+    (7, 5, 6, 4),          # + thạc sĩ -> cao hơn
+    (6, 5, 5, 4),          # JD chỉ "Cao đẳng" + đại học -> cao hơn như cũ
+    (6, 5, None, 4),       # không truyền max -> dùng bậc tối thiểu như cũ
+])
+def test_education_outcome_higher_uses_max_jd_level(cand, req, max_req, level):
+    assert education_outcome(cand, req, FieldMatch.EXACT, True, None, False, max_required_level=max_req).level == level
+
+
+@pytest.mark.parametrize("entry, level", [
+    ({"degree": "Kỹ sư", "institution": "IUH"}, 6),
+    ({"degree": None, "institution": "Đại học Công nghiệp TP.HCM"}, 6),
+    ({"degree": None, "institution": "Cao đẳng FPT Polytechnic"}, 5),
+    ({"degree": None, "institution": "Trung tâm Tin học"}, None),
+    (None, None),
+])
+def test_studying_degree_level(entry, level):
+    assert studying_degree_level(entry) == level

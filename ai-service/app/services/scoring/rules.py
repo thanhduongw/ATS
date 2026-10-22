@@ -171,6 +171,14 @@ def min_degree_level(text: str | None) -> int | None:
     return min(levels) if levels else None
 
 
+# [GIẢI THÍCH] Bậc CAO NHẤT JD nêu tên — dùng để xét "bậc học cao hơn yêu cầu" (mức 4 tiêu chí Học vấn).
+# JD ghi "Cao đẳng/Đại học" thì ứng viên có bằng đại học chỉ là ĐÚNG yêu cầu, chưa phải cao hơn; bậc tối thiểu để
+# kiểm tra Đạt / Không đạt vẫn là min_degree_level.
+def max_degree_level(text: str | None) -> int | None:
+    levels = _mentioned_levels(text)
+    return max(levels) if levels else None
+
+
 # [GIẢI THÍCH] Mọi bậc được nhắc trong chuỗi. Xét từ bậc cao xuống thấp; đoạn đã khớp bị xóa trước khi xét bậc thấp hơn,
 # để "Sau đại học" chỉ tính bậc 7 (không tính thêm "đại học" bậc 6 nằm bên trong).
 def _mentioned_levels(text: str | None) -> list[int]:
@@ -290,6 +298,14 @@ def candidate_degree_level(education: list[dict], today: date) -> DegreeInfo:
 
 _EXPECTED_GRADUATION = re.compile(r"(dự kiến tốt nghiệp|expected graduation|expected to graduate)\s*[:\-]?\s*([^\n,;)]+)",
                                   re.IGNORECASE)
+
+
+# [GIẢI THÍCH] Bậc của mục ĐANG HỌC, xác định như người đã tốt nghiệp: theo tên bằng, không có thì theo tên trường.
+# Dùng cho mức tiêu chí Học vấn (đang học đúng bậc, đúng ngành -> mức 2), không dùng để tính Đạt yêu cầu bậc học.
+def studying_degree_level(entry: dict | None) -> int | None:
+    if not entry:
+        return None
+    return degree_level(entry.get("degree")) or _institution_level(entry.get("institution"))
 
 
 # [GIẢI THÍCH] Mô tả mục đang học để làm dẫn chứng: "Đang học: <bằng hoặc trường>, <bắt đầu> – <kết thúc>",
@@ -424,7 +440,32 @@ def _find_exact(needle: str, profile: dict) -> str | None:
     for label, items in candidates:
         if any(_contains_name(_normalize_name(str(item)), needle) for item in items):
             return f"{label}: {', '.join(str(i) for i in items)}"
+
+    # Cuối cùng mới tới phần tóm tắt: chỉ câu KHẲNG ĐỊNH, bỏ câu mong muốn / định hướng.
+    for sentence in _summary_sentences(profile.get("summary")):
+        if not _is_wish(sentence) and _contains_name(_normalize_name(sentence), needle):
+            return f"Tóm tắt: {sentence}"
     return None
+
+
+# [GIẢI THÍCH] Câu trong phần tóm tắt / giới thiệu: tách theo . ! ? ; và xuống dòng. Dấu chấm chỉ tách khi theo sau là
+# khoảng trắng hoặc hết chuỗi, để "React.js", "Node.js", "3.5" không bị cắt.
+_SENTENCE_SPLIT = re.compile(r"[!?;\n]+|\.(?=\s|$)")
+
+# [GIẢI THÍCH] Từ chỉ mong muốn / định hướng (viết không dấu, chữ thường): câu có các từ này không phải bằng chứng ứng viên
+# ĐÃ có kỹ năng ("Mong muốn học thêm Kubernetes"). Mục kỹ năng và câu khẳng định ở tóm tắt đều là ứng viên tự khai —
+# phân biệt khẳng định với mong muốn, không phân biệt theo mục; mức thành thạo do tiêu chí Kỹ năng chuyên môn đánh giá.
+_WISH_WORDS = re.compile(r"\b(muon|mong muon|dinh huong|muc tieu|hoc hoi|tim hieu|want|aim|goal|hope|learn|would like)\b")
+
+
+def _summary_sentences(summary: str | None) -> list[str]:
+    if not summary:
+        return []
+    return [s.strip() for s in _SENTENCE_SPLIT.split(summary) if s and s.strip()]
+
+
+def _is_wish(sentence: str) -> bool:
+    return _WISH_WORDS.search(_strip_accents(sentence).lower()) is not None
 
 
 # ============================================================
@@ -498,7 +539,9 @@ def education_outcome(
     fields_restricted: bool,
     required_certs_met: bool | None,
     preferred_cert_met: bool,
+    max_required_level: int | None = None,
 ) -> RuleOutcome:
+    """`max_required_level`: bậc CAO NHẤT JD nêu tên (max_degree_level); None = dùng required_level."""
     parts = [f"Ứng viên: {_degree_text(candidate_level)}"]
     if required_level is not None:
         parts.append(f"JD yêu cầu: {_degree_text(required_level)}")
@@ -530,7 +573,9 @@ def education_outcome(
     if required_certs_met is False:
         return RuleOutcome(2, evidence, "Đủ bậc học và ngành nhưng thiếu chứng chỉ JD ghi là bắt buộc.")
 
-    higher = required_level is not None and candidate_level is not None and candidate_level > required_level
+    # "Cao hơn yêu cầu" so với bậc CAO NHẤT JD nêu: JD "Cao đẳng/Đại học" + bằng đại học là đúng yêu cầu (mức 3).
+    top_level = max_required_level if max_required_level is not None else required_level
+    higher = top_level is not None and candidate_level is not None and candidate_level > top_level
     if higher or preferred_cert_met:
         why = "bậc học cao hơn yêu cầu" if higher else "có thêm chứng chỉ JD ghi là ưu tiên"
         return RuleOutcome(4, evidence, f"Đáp ứng yêu cầu học vấn và {why}.")

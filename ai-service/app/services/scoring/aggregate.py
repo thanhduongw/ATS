@@ -145,6 +145,7 @@ def _score_dimensions(
     degree_note: str | None = None,
     studying: str | None = None,
     profile: dict[str, Any] | None = None,
+    studying_level: int | None = None,
 ) -> list[ScoredDimension]:
     applicable = applicable_dimensions(jd)
     assessments = {}
@@ -159,7 +160,8 @@ def _score_dimensions(
             outcome = rules.seniority_outcome(years_calculated, jd.experience.min_years)
             out.append(_dimension(dim, True, outcome.level, [outcome.evidence], outcome.reason))
         elif dim == D.EDUCATION_CERTIFICATION:
-            out.append(_education_dimension(jd, llm, checks, candidate_degree_level, degree_note, studying, profile))
+            out.append(_education_dimension(jd, llm, checks, candidate_degree_level, degree_note, studying, profile,
+                                            studying_level))
         else:
             a = assessments.get(dim.value)
             if a is None:
@@ -177,6 +179,7 @@ def _education_dimension(
     degree_note: str | None = None,
     studying: str | None = None,
     profile: dict[str, Any] | None = None,
+    studying_level: int | None = None,
 ) -> ScoredDimension:
     degree_text = jd.education.degree_text if jd.education else None
     required_level = rules.min_degree_level(degree_text)
@@ -184,11 +187,18 @@ def _education_dimension(
     jd_fields = list(jd.education.fields) if jd.education else []
     field_match, field_note = _field_match(llm.education_field.match, jd_fields, profile)
 
-    # [GIẢI THÍCH] Đang học (chưa có bậc nào hoàn thành) mà JD đòi một bậc -> mức 1, cùng mức với "thấp hơn 1 bậc":
-    # chưa có văn bằng JD yêu cầu. Đây là thông tin đã đủ, không phải "không xác định được".
+    # [GIẢI THÍCH] Đang học (chưa có bậc nào hoàn thành) mà JD đòi một bậc: chưa có văn bằng JD yêu cầu — thông tin đã đủ,
+    # không phải "không xác định được". Bậc đang học xác định như người đã tốt nghiệp (tên bằng, không có thì tên trường):
+    # - đang học bậc >= bậc tối thiểu JD và đúng ngành (kể cả nâng nhờ nhóm 748) -> mức 2;
+    # - các trường hợp đang học khác -> mức 1, cùng mức với "thấp hơn 1 bậc".
     if candidate_degree_level is None and studying and required_level is not None:
         label = rules.DEGREE_LEVEL_LABELS.get(required_level, "Bậc")
         evidence = f"{studying}; JD yêu cầu: {label} (bậc {required_level})"
+        if field_note:
+            evidence += f" ({field_note})"
+        if studying_level is not None and studying_level >= required_level and field_match == FieldMatch.EXACT:
+            return _dimension(D.EDUCATION_CERTIFICATION, True, 2, [evidence],
+                              "Đang học đúng bậc và đúng ngành, chưa tốt nghiệp.")
         return _dimension(D.EDUCATION_CERTIFICATION, True, 1, [evidence], "Đang học, chưa có văn bằng JD yêu cầu.")
 
     outcome = rules.education_outcome(
@@ -198,6 +208,7 @@ def _education_dimension(
         fields_restricted=bool(jd_fields),
         required_certs_met=required_certs_met,
         preferred_cert_met=preferred_cert_met,
+        max_required_level=rules.max_degree_level(degree_text),
     )
     reason = outcome.reason
     if degree_text and required_level is None:
@@ -314,10 +325,14 @@ def build_requirements(
                 status, checked_by, evidence = check.status, ScoredBy.LLM, check.evidence
             # [GIẢI THÍCH] Công cụ / chứng chỉ CÓ TÊN: hồ sơ ghi nguyên văn thì code tính Đạt, kể cả khi AI chấm Không đạt
             # hoặc không xác định — việc này kiểm tra được bằng chữ nên kết quả lặp lại được (docs Bước 4).
-            # CHỈ nâng lên Đạt, không bao giờ hạ Đạt của AI. Không áp dụng cho lĩnh vực (cần đọc hiểu, để AI).
-            if (category in _NAMED_CATEGORIES and status != RequirementStatus.MET and profile
+            # Dẫn chứng luôn là đoạn hồ sơ có ghi tên đó ("Hồ sơ ghi: ..."), kể cả khi AI đã chấm Đạt nhưng trích một câu
+            # không chứa tên (vd câu mô tả dự án không có chữ Java). Khi đó chỉ thay dẫn chứng, KHÔNG đổi trạng thái.
+            # CHỈ nâng lên Đạt, không bao giờ hạ Đạt của AI. Không áp dụng cho lĩnh vực (cần đọc hiểu, để AI);
+            # kiến thức nền không tìm thấy tên thì giữ dẫn chứng của AI.
+            if (category in _NAMED_CATEGORIES and profile
                     and (found := rules.find_named_item(item.name, profile))):
-                logger.info("requirement '%s' %s->MET by exact match", item.name, status.value)
+                if status != RequirementStatus.MET:
+                    logger.info("requirement '%s' %s->MET by exact match", item.name, status.value)
                 status, checked_by, evidence = RequirementStatus.MET, ScoredBy.CODE_AND_LLM, f"Hồ sơ ghi: {found}"
             out.append(_requirement(item.name, category, status, checked_by, evidence))
     return out
@@ -390,13 +405,15 @@ def assemble_result(
     degree_note: str | None = None,
     profile: dict[str, Any] | None = None,
     studying: str | None = None,
+    studying_level: int | None = None,
 ) -> ScoreResult:
     """`degree_note`: ghi chú khi bậc học của ứng viên được suy từ tên trường (rules.candidate_degree_level).
     `profile`: hồ sơ chấm mù — để code kiểm tra lại công cụ / chứng chỉ có tên và nhóm ngành.
-    `studying`: mô tả mục học vấn đang học (rules.studying_text) khi ứng viên chưa có bậc nào hoàn thành."""
+    `studying`: mô tả mục học vấn đang học (rules.studying_text) khi ứng viên chưa có bậc nào hoàn thành.
+    `studying_level`: bậc của mục đang học (rules.studying_degree_level) — để chấm mức tiêu chí Học vấn."""
     checks = _checks_by_name(llm)
     dimensions = _score_dimensions(jd, llm, checks, years_calculated, candidate_degree_level, degree_note,
-                                   studying, profile)
+                                   studying, profile, studying_level)
     total = _total_score(dimensions)
     requirements = build_requirements(jd, checks, years_calculated, candidate_degree_level, degree_note, profile,
                                       studying)

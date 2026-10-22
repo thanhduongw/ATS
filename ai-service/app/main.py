@@ -37,8 +37,8 @@ async def lifespan(app: FastAPI):
     # còn trống, nên DB đã tồn tại sẽ không có các bảng thêm sau.
     try:
         from app.core.database import Base, engine
-        from app.models import AIJob, AIScore, CVExtraction
-        tables = [CVExtraction.__table__, AIJob.__table__, AIScore.__table__]
+        from app.models import AIJob, AIScore, CVExtraction, JDExtraction
+        tables = [CVExtraction.__table__, JDExtraction.__table__, AIJob.__table__, AIScore.__table__]
         async with engine.begin() as conn:
             await conn.run_sync(lambda c: Base.metadata.create_all(c, tables=tables))
     except Exception as e:

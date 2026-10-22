@@ -186,6 +186,23 @@ CREATE TABLE IF NOT EXISTS cv_extractions (
 
 CREATE INDEX IF NOT EXISTS idx_cv_extractions_resume_url ON cv_extractions (resume_url);
 
+-- 4b. JD Extractions — JD tách thành danh sách yêu cầu theo schema ExtractedJD (ai-service cũng tự tạo nếu thiếu)
+--     Một dòng cho mỗi (nội dung JD, phiên bản prompt): mọi CV của cùng một JD dùng chung; HR sửa JD thì trích xuất lại.
+CREATE TABLE IF NOT EXISTS jd_extractions (
+    id BIGSERIAL PRIMARY KEY,
+    content_hash VARCHAR(64) NOT NULL,
+    prompt_version VARCHAR(20) NOT NULL,
+    job_posting_id BIGINT,
+    status VARCHAR(20) NOT NULL,
+    model VARCHAR(100),
+    result JSONB,
+    provenance JSONB,
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_jd_extractions_content_prompt UNIQUE (content_hash, prompt_version)
+);
+
 -- 5. AI Scores — điểm phù hợp CV ↔ JD mới nhất của mỗi hồ sơ (ai-service cũng tự tạo nếu thiếu).
 --    HR không chỉnh được điểm AI nên không có cột override.
 CREATE TABLE IF NOT EXISTS ai_scores (

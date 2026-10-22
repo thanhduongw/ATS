@@ -43,8 +43,12 @@ public class ApplicationService {
 
     private static final String STAGE_TYPE_REJECTED = "REJECTED";
     private static final String STAGE_TYPE_HIRED = "HIRED";
-    // [GIẢI THÍCH] 3 giá trị xếp loại hợp lệ, dùng để kiểm tra bộ lọc aiTier và sự kiện từ ai-service.
-    private static final Set<String> AI_TIERS = Set.of("GOOD_FIT", "POTENTIAL_FIT", "NOT_FIT");
+    // [GIẢI THÍCH] 3 giá trị xếp loại hợp lệ (ai-service v2, docs/DE_XUAT_CHAM_DIEM_CV.md Bước 6):
+    // FIT = Phù hợp, NOT_FIT = Không phù hợp, UNCLASSIFIED = Chưa phân loại (để HR xem tay).
+    // Dùng để kiểm tra bộ lọc aiTier và sự kiện từ ai-service. Giá trị cũ GOOD_FIT / POTENTIAL_FIT bị từ chối.
+    private static final Set<String> AI_TIERS = Set.of("FIT", "NOT_FIT", "UNCLASSIFIED");
+    // [GIẢI THÍCH] Xếp loại duy nhất được phép không có điểm: Chưa phân loại vì không tính được điểm.
+    private static final String AI_TIER_UNCLASSIFIED = "UNCLASSIFIED";
 
     private final ApplicationRepository applicationRepository;
     private final ApplicationHistoryRepository historyRepository;
@@ -124,7 +128,8 @@ public class ApplicationService {
 
     /**
      * Thứ tự danh sách. Mặc định (null) giữ thứ tự mới nộp trước của truy vấn. Sắp theo điểm AI thì
-     * hồ sơ chưa có điểm (chưa chấm / đang chấm lần đầu / lỗi) luôn nằm cuối, cả khi tăng dần.
+     * hồ sơ chưa có điểm (chưa chấm / đang chấm lần đầu / lỗi / Chưa phân loại không tính được điểm)
+     * luôn nằm cuối, cả khi tăng dần.
      * Sắp trong bộ nhớ vì danh sách đã được tải toàn bộ để phân trang.
      */
     // [GIẢI THÍCH] Trả về cách so sánh để sắp xếp: aiScore,desc (cao -> thấp) hoặc aiScore,asc (thấp -> cao).
@@ -149,7 +154,7 @@ public class ApplicationService {
      */
     // [GIẢI THÍCH] Ghi bản sao điểm AI lên hồ sơ khi nhận sự kiện từ ai-service:
     // - PENDING / PROCESSING: chỉ đổi trạng thái, GIỮ điểm cũ (đang chấm lại vẫn hiện điểm cũ).
-    // - COMPLETED: kiểm tra có điểm + xếp loại hợp lệ rồi ghi.
+    // - COMPLETED: kiểm tra xếp loại hợp lệ; điểm bắt buộc, trừ khi Chưa phân loại (không tính được điểm) rồi ghi.
     // - FAILED: xoá điểm (ai-service cũng đã xoá).
     // Trả về false khi không có dòng nào đổi: hồ sơ không tồn tại hoặc sự kiện đến muộn (cũ hơn lần đã ghi).
     // yield = giá trị trả về của một nhánh case có nhiều dòng.
@@ -161,8 +166,12 @@ public class ApplicationService {
             case "PENDING", "PROCESSING" -> applicationRepository.updateAiStatus(
                     event.applicationId(), event.status(), event.updatedAt());
             case "COMPLETED" -> {
-                if (event.totalScore() == null || !AI_TIERS.contains(event.tier())) {
-                    throw new BusinessException("Sự kiện COMPLETED thiếu điểm hoặc xếp loại không hợp lệ");
+                // tier null phải kiểm tra trước: Set.of(...).contains(null) ném NullPointerException.
+                if (event.tier() == null || !AI_TIERS.contains(event.tier())) {
+                    throw new BusinessException("Sự kiện COMPLETED có xếp loại không hợp lệ: " + event.tier());
+                }
+                if (event.totalScore() == null && !AI_TIER_UNCLASSIFIED.equals(event.tier())) {
+                    throw new BusinessException("Sự kiện COMPLETED thiếu điểm (chỉ Chưa phân loại mới được không có điểm)");
                 }
                 yield applicationRepository.updateAiCompleted(
                         event.applicationId(), event.totalScore(), event.tier(), event.updatedAt());

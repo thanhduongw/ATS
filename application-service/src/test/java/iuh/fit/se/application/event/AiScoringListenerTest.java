@@ -19,7 +19,7 @@ import static org.mockito.Mockito.verify;
 class AiScoringListenerTest {
 
     private static final AiScoringCompletedEvent EVENT = new AiScoringCompletedEvent(
-            7L, 5L, "COMPLETED", new BigDecimal("75.0"), "GOOD_FIT", LocalDateTime.of(2026, 10, 15, 3, 0));
+            7L, 5L, "COMPLETED", new BigDecimal("75.0"), "FIT", LocalDateTime.of(2026, 10, 15, 3, 0));
 
     @Mock private ApplicationService applicationService;
 

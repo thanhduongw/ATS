@@ -39,3 +39,9 @@ export const PRIORITY_LABEL: Record<RequisitionPriority, string> = {
     HIGH: "Cao",
     URGENT: "Khẩn cấp",
 };
+
+// [GIẢI THÍCH] Dòng nhắc dưới ô chọn kỹ năng (form tin tuyển dụng và phiếu yêu cầu tuyển dụng): AI chấm điểm coi mọi kỹ năng
+// chọn ở đây là yêu cầu BẮT BUỘC; kỹ năng ưu tiên phải ghi trong phần Yêu cầu kèm chữ "Ưu tiên".
+export const SKILL_REQUIRED_HINT =
+    "Chỉ chọn kỹ năng BẮT BUỘC — AI coi mọi kỹ năng chọn ở đây là yêu cầu bắt buộc. "
+    + "Kỹ năng ưu tiên hãy ghi trong phần Yêu cầu với chữ 'Ưu tiên'.";

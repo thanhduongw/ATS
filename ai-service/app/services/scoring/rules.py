@@ -308,16 +308,23 @@ def studying_degree_level(entry: dict | None) -> int | None:
     return degree_level(entry.get("degree")) or _institution_level(entry.get("institution"))
 
 
-# [GIẢI THÍCH] Mô tả mục đang học để làm dẫn chứng: "Đang học: <bằng hoặc trường>, <bắt đầu> – <kết thúc>",
+# [GIẢI THÍCH] Mô tả mục đang học để làm dẫn chứng:
+# "Chưa tốt nghiệp: đang học <tên bằng> (bậc X) — <trường>, <bắt đầu> – <kết thúc>",
 # thêm "dự kiến tốt nghiệp ..." nếu CV có ghi (trong mốc thời gian hoặc đoạn văn gốc của mục).
-def studying_text(entry: dict | None) -> str | None:
+def studying_text(entry: dict | None, level: int | None = None) -> str | None:
+    """`level`: bậc đang học (studying_degree_level); None thì không ghi "(bậc X)"."""
     if not entry:
         return None
-    what = entry.get("degree") or entry.get("institution") or "chương trình học"
-    if entry.get("degree") and entry.get("institution"):
-        what = f"{entry['degree']} — {entry['institution']}"
+    degree, institution = entry.get("degree"), entry.get("institution")
+    level_text = f" (bậc {level})" if level is not None else ""
+    if degree:
+        what = f"{degree}{level_text}" + (f" — {institution}" if institution else "")
+    elif institution:
+        what = f"tại {institution}{level_text}"
+    else:
+        what = f"chương trình học{level_text}"
     period = " – ".join(x for x in (entry.get("start_date"), entry.get("end_date")) if x)
-    text = f"Đang học: {what}" + (f", {period}" if period else "")
+    text = f"Chưa tốt nghiệp: đang học {what}" + (f", {period}" if period else "")
     for source in (entry.get("end_date"), entry.get("source_text")):
         if source and (m := _EXPECTED_GRADUATION.search(source)):
             text += f" (dự kiến tốt nghiệp {m.group(2).strip()})"

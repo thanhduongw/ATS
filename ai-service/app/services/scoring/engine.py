@@ -74,9 +74,9 @@ async def score_candidate(
     years_claimed = extracted_cv.get("years_of_experience_claimed")
     degree = rules.candidate_degree_level(extracted_cv.get("education") or [], today)
     candidate_degree_level, degree_note = degree.level, degree.note
-    # Chưa có bậc nào hoàn thành nhưng đang học -> mô tả mục đang học (dẫn chứng "Đang học: ...").
-    studying = rules.studying_text(degree.studying_entry) if degree.level is None else None
+    # Chưa có bậc nào hoàn thành nhưng đang học -> bậc đang học và mô tả mục đang học (dẫn chứng "Chưa tốt nghiệp: ...").
     studying_level = rules.studying_degree_level(degree.studying_entry) if degree.level is None else None
+    studying = rules.studying_text(degree.studying_entry, studying_level) if degree.level is None else None
 
     # Chấm mù: bỏ thông tin cá nhân; danh sách yêu cầu Gemini phải kiểm tra do code lập.
     profile = build_scoring_profile(extracted_cv, candidate_names)

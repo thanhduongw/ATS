@@ -147,7 +147,7 @@ Mỗi yêu cầu bắt buộc có một trong 3 trạng thái: **Đạt**, **Kh�
 
 JD ghi 0 năm kinh nghiệm (vd Fresher) thì không tạo yêu cầu bắt buộc về số năm (không có gì để kiểm tra); tiêu chí Số năm vẫn chấm như thường.
 
-**Đang học mà JD đòi đã tốt nghiệp → Không đạt** (thông tin đã đủ, không phải thiếu): yêu cầu bậc học tối thiểu là Không đạt, dẫn chứng "Đang học: <bằng / trường>, <bắt đầu> – <kết thúc>" (kèm "dự kiến tốt nghiệp ..." nếu CV ghi). Chỉ khi CV không có mục học vấn nào mới là Không xác định được.
+**Đang học mà JD đòi đã tốt nghiệp → Không đạt** (thông tin đã đủ, không phải thiếu): yêu cầu "Tốt nghiệp từ <bậc tối thiểu> trở lên" là Không đạt, dẫn chứng "Chưa tốt nghiệp: đang học <tên bằng> (bậc X) — <trường>, <bắt đầu> – <kết thúc>" (kèm "dự kiến tốt nghiệp ..." nếu CV ghi). Chỉ khi CV không có mục học vấn nào mới là Không xác định được.
 
 **Lựa chọn thay thế.** JD ghi "MySQL/PostgreSQL", "Java hoặc C#" là **một** yêu cầu (ứng viên có một trong các lựa chọn là Đạt), không tách thành nhiều yêu cầu bắt buộc. Kỹ năng HR chọn trong form tin tuyển dụng là các yêu cầu bắt buộc riêng (trích xuất JD v1.1, prompt chấm v2.3).
 

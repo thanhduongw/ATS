@@ -303,7 +303,9 @@ def build_requirements(
         if degree_note and candidate_degree_level is not None:
             evidence += f" ({degree_note})"
         label = rules.DEGREE_LEVEL_LABELS.get(required_level, "Bậc")
-        out.append(_requirement(f"Bậc học tối thiểu: {label} (bậc {required_level})", RequirementCategory.EDUCATION_LEVEL,
+        # Tên yêu cầu đọc tự nhiên trong lý do xếp loại: "Không đạt yêu cầu bắt buộc: Tốt nghiệp từ Cao đẳng (bậc 5) trở lên."
+        name = f"Tốt nghiệp từ {label} (bậc {required_level}) trở lên"
+        out.append(_requirement(name, RequirementCategory.EDUCATION_LEVEL,
                                 status, ScoredBy.CODE, evidence))
 
     seen: set[str] = set()

@@ -379,14 +379,16 @@ def test_technical_skills_level_not_changed_by_override():
 # Đang học và nhóm ngành 748
 # ============================================================
 
-STUDYING_TEXT = "Đang học: Kỹ sư — IUH, 10/2022 – Hiện tại (dự kiến tốt nghiệp 2027)"
+STUDYING_TEXT = "Chưa tốt nghiệp: đang học Kỹ sư (bậc 6) — IUH, 10/2022 – Hiện tại (dự kiến tốt nghiệp 2027)"
 
 
 def test_studying_makes_education_requirement_unmet_and_level_1():
     r = assemble_result(backend_jd(years_importance=PREF), llm_output(), years_calculated=0.5, years_claimed=None,
                         candidate_degree_level=None, today=TODAY, thresholds=T, studying=STUDYING_TEXT)
     edu_req = next(q for q in r.requirements if q.category == RequirementCategory.EDUCATION_LEVEL)
-    assert edu_req.status == UNMET and edu_req.evidence.startswith("Đang học")
+    assert edu_req.status == UNMET and edu_req.evidence == STUDYING_TEXT
+    assert edu_req.requirement == "Tốt nghiệp từ Đại học (bậc 6) trở lên"
+    assert r.tier_reason == "Không đạt yêu cầu bắt buộc: Tốt nghiệp từ Đại học (bậc 6) trở lên."
     edu = dim(r, D.EDUCATION_CERTIFICATION)
     assert edu.level == 1 and edu.reason == "Đang học, chưa có văn bằng JD yêu cầu."
     assert r.tier == Tier.NOT_FIT
@@ -475,3 +477,13 @@ def test_studying_level_and_field(studying_level, cv_field, ai_match, level):
         assert edu.reason == "Đang học đúng bậc và đúng ngành, chưa tốt nghiệp."
     edu_req = next(q for q in r.requirements if q.category == RequirementCategory.EDUCATION_LEVEL)
     assert edu_req.status == UNMET                     # yêu cầu bậc học vẫn Không đạt khi đang học
+
+
+def test_education_requirement_name_and_graduated_evidence():
+    jd = backend_jd(years_importance=PREF,
+                    education=EducationRequirement(degree_text="Tốt nghiệp Cao đẳng/Đại học", importance=REQ))
+    r = assemble_result(jd, llm_output(), years_calculated=2.5, years_claimed=None, candidate_degree_level=6,
+                        today=TODAY, thresholds=T, degree_note="suy từ tên trường: Đại học Bách Khoa")
+    edu_req = next(q for q in r.requirements if q.category == RequirementCategory.EDUCATION_LEVEL)
+    assert edu_req.requirement == "Tốt nghiệp từ Cao đẳng (bậc 5) trở lên"
+    assert edu_req.evidence == "Ứng viên: Đại học (bậc 6) (suy từ tên trường: Đại học Bách Khoa)"

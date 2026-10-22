@@ -23,7 +23,7 @@ import SkillMultiSelect from "../../masterdata/components/SkillMultiSelect";
 import JobTitleQuickAddSelect from "../../masterdata/components/JobTitleQuickAddSelect";
 import type { ApiMessageResponse, JobRequisitionResponse } from "../types";
 import { COLORS, RADIUS } from "../../../app/theme";
-import { WORK_ARRANGEMENT_OPTIONS, REASON_OPTIONS, PRIORITY_OPTIONS } from "../requisitionOptions";
+import { WORK_ARRANGEMENT_OPTIONS, REASON_OPTIONS, PRIORITY_OPTIONS, SKILL_REQUIRED_HINT } from "../requisitionOptions";
 import { SectionHeader, SectionContainer } from "../../../components/ui/sectionKit";
 import { ModalTitle } from "../../../components/ui/pageKit";
 import { moneyFormatter, moneyParser } from "../../../app/money";
@@ -440,7 +440,8 @@ export default function RequisitionFormModal({
                         )}
                     />
                 </Form.Item>
-                <Form.Item label="Kỹ năng / chuyên môn">
+                {/* Kỹ năng ở phiếu được chép sang tin tuyển dụng; AI chấm điểm coi chúng là yêu cầu BẮT BUỘC. */}
+                <Form.Item label="Kỹ năng / chuyên môn" extra={SKILL_REQUIRED_HINT}>
                     <Controller
                         name="skillIds"
                         control={control}

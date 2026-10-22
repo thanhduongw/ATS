@@ -387,8 +387,15 @@ STUDYING = {"institution": "Đại học Công nghiệp TP.HCM (IUH)", "degree":
 def test_studying_entry_returned_and_described():
     info = candidate_degree_level([STUDYING], TODAY)
     assert info.level is None and info.studying_entry is STUDYING
+    assert studying_text(info.studying_entry, 6) == (
+        "Chưa tốt nghiệp: đang học Kỹ sư (bậc 6) — Đại học Công nghiệp TP.HCM (IUH), 10/2022 – Hiện tại "
+        "(dự kiến tốt nghiệp 2027)")
+    # Không xác định được bậc -> bỏ "(bậc X)"
     assert studying_text(info.studying_entry) == (
-        "Đang học: Kỹ sư — Đại học Công nghiệp TP.HCM (IUH), 10/2022 – Hiện tại (dự kiến tốt nghiệp 2027)")
+        "Chưa tốt nghiệp: đang học Kỹ sư — Đại học Công nghiệp TP.HCM (IUH), 10/2022 – Hiện tại "
+        "(dự kiến tốt nghiệp 2027)")
+    assert studying_text({"institution": "Cao đẳng FPT", "start_date": "2024", "end_date": "nay"}, 5) == (
+        "Chưa tốt nghiệp: đang học tại Cao đẳng FPT (bậc 5), 2024 – nay")
     assert candidate_degree_level([], TODAY).studying_entry is None
     assert studying_text(None) is None
 

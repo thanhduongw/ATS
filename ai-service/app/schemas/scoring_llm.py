@@ -15,7 +15,7 @@ from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.scoring import RequirementCategory, RequirementStatus
+from app.schemas.scoring import RequirementStatus
 
 
 # [GIẢI THÍCH] 3 tiêu chí LLM chấm (Bước 3). Giá trị trùng tên ScoringDimension để code ghép thẳng vào kết quả cuối.
@@ -52,26 +52,32 @@ class DimensionAssessment(BaseModel):
 # [GIẢI THÍCH] Độ phù hợp ngành học — phần LLM của tiêu chí Học vấn và chứng chỉ (Bước 3).
 # Code so bậc học; LLM chỉ xét ngành vì cần hiểu nghĩa ("Kỹ thuật phần mềm" gần "Công nghệ thông tin").
 # Code dùng giá trị này để phân biệt mức 1 / 2 / 3 của tiêu chí Học vấn.
+# EXACT gồm cả trường hợp JD không giới hạn ngành, theo mức 3 ở Bước 3: "đúng ngành (hoặc JD không giới hạn ngành)".
 class FieldMatch(str, Enum):
-    EXACT = "EXACT"          # Đúng ngành JD nêu
+    EXACT = "EXACT"          # Đúng ngành JD nêu, hoặc JD không giới hạn ngành
     RELATED = "RELATED"      # Ngành gần
     UNRELATED = "UNRELATED"  # Ngành không liên quan
-    UNKNOWN = "UNKNOWN"      # CV không ghi ngành, hoặc JD không giới hạn ngành
+    UNKNOWN = "UNKNOWN"      # CHỈ khi hồ sơ không ghi ngành học
 
 
 class EducationFieldAssessment(BaseModel):
     match: FieldMatch = Field(
         ...,
         description=(
-            "So ngành học trong hồ sơ với các ngành JD chấp nhận: EXACT = đúng ngành; RELATED = ngành gần; "
-            "UNRELATED = ngành không liên quan; UNKNOWN = hồ sơ không ghi ngành hoặc JD không giới hạn ngành"
+            "So ngành học trong hồ sơ với các ngành JD chấp nhận: EXACT = đúng ngành JD nêu, hoặc JD không giới hạn ngành; "
+            "RELATED = ngành gần; UNRELATED = ngành không liên quan; UNKNOWN = CHỈ dùng khi hồ sơ không ghi ngành học"
         ),
     )
     evidence: str | None = Field(None, description="Câu trích NGUYÊN VĂN từ hồ sơ nêu ngành học; null nếu không có")
 
 
-# [GIẢI THÍCH] Loại yêu cầu LLM được kiểm tra (bảng Bước 4); số năm và bậc học do code kiểm tra.
-_LLM_CATEGORIES = {RequirementCategory.SKILL, RequirementCategory.CERTIFICATION, RequirementCategory.DOMAIN}
+# [GIẢI THÍCH] Loại yêu cầu LLM được kiểm tra (bảng Bước 4): chỉ kỹ năng, chứng chỉ, lĩnh vực; số năm và bậc học
+# do code kiểm tra. Enum riêng để schema gửi Gemini chỉ có 3 lựa chọn, LLM không thể chấm chồng phần của code.
+# Giá trị chữ trùng RequirementCategory; khi cần, code đổi bằng RequirementCategory(check.category.value).
+class LLMRequirementCategory(str, Enum):
+    SKILL = "SKILL"
+    CERTIFICATION = "CERTIFICATION"
+    DOMAIN = "DOMAIN"
 
 
 # [GIẢI THÍCH] Kết quả LLM kiểm tra MỘT yêu cầu bắt buộc (Bước 4). Chỉ loại SKILL / CERTIFICATION / DOMAIN;
@@ -79,7 +85,7 @@ _LLM_CATEGORIES = {RequirementCategory.SKILL, RequirementCategory.CERTIFICATION,
 # UNKNOWN = hồ sơ không đủ thông tin để biết (không phải AI lỗi).
 class RequirementCheck(BaseModel):
     requirement: str = Field(..., description="Tên yêu cầu, chép GIỐNG HỆT tên trong danh sách yêu cầu cần kiểm tra")
-    category: RequirementCategory = Field(..., description="Loại yêu cầu; chỉ dùng SKILL, CERTIFICATION hoặc DOMAIN")
+    category: LLMRequirementCategory = Field(..., description="Loại yêu cầu: SKILL (kỹ năng), CERTIFICATION (chứng chỉ) hoặc DOMAIN (lĩnh vực)")
     status: RequirementStatus = Field(
         ...,
         description=(
@@ -88,14 +94,6 @@ class RequirementCheck(BaseModel):
         ),
     )
     evidence: str | None = Field(None, description="Câu trích NGUYÊN VĂN từ hồ sơ làm dẫn chứng; null nếu không có")
-
-    # [GIẢI THÍCH] Chặn LLM trả loại do code phụ trách (số năm, bậc học), để hai bên không chấm chồng một yêu cầu.
-    @field_validator("category")
-    @classmethod
-    def _only_llm_categories(cls, v: RequirementCategory) -> RequirementCategory:
-        if v not in _LLM_CATEGORIES:
-            raise ValueError(f"LLM chỉ kiểm tra SKILL, CERTIFICATION, DOMAIN; nhận được {v.value}")
-        return v
 
 
 # [GIẢI THÍCH] TOÀN BỘ những gì Gemini được phép trả về khi chấm: 3 đánh giá tiêu chí + độ phù hợp ngành học

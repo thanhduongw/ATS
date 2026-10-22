@@ -111,7 +111,10 @@ class ExtractedJD(BaseModel):
     )
     tasks: list[str] = Field(
         default_factory=list,
-        description="Các nhiệm vụ chính của vị trí, mỗi mục một câu ngắn tiếng Việt (vd 'Xây dựng API', 'Thiết kế cơ sở dữ liệu')",
+        description=(
+            "Các nhiệm vụ chính của vị trí, mỗi mục một câu ngắn, GIỮ NGÔN NGỮ GỐC của JD, không dịch "
+            "(vd 'Xây dựng API', 'Design database schemas')"
+        ),
     )
     experience: ExperienceRequirement | None = Field(
         None, description="Yêu cầu số năm kinh nghiệm và cấp bậc; null nếu JD không nêu gì về kinh nghiệm",
@@ -125,5 +128,9 @@ class ExtractedJD(BaseModel):
     )
     domains: list[RequirementItem] = Field(
         default_factory=list,
-        description="Lĩnh vực, ngành nghiệp vụ JD nêu (vd 'Ngân hàng', 'Thương mại điện tử'); rỗng nếu không có",
+        description=(
+            "Lĩnh vực, ngành nghiệp vụ JD nêu (vd 'Ngân hàng', 'Thương mại điện tử'). Chỉ ghi lĩnh vực mà JD yêu cầu "
+            "ứng viên có kinh nghiệm hoặc hiểu biết; không ghi ngành kinh doanh của chính công ty nếu JD không yêu cầu "
+            "ứng viên có kinh nghiệm ngành đó. Rỗng nếu không có"
+        ),
     )

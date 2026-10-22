@@ -16,8 +16,8 @@ from app.schemas.jd_extraction import (
     ExtractedJD,
     Importance,
 )
-from app.schemas.scoring import RequirementStatus, ScoringDimension
-from app.schemas.scoring_llm import LLMDimension, LLMScoringOutput
+from app.schemas.scoring import RequirementCategory, RequirementStatus, ScoringDimension
+from app.schemas.scoring_llm import LLMDimension, LLMRequirementCategory, LLMScoringOutput, RequirementCheck
 
 # JD mẫu Backend Java trong docs/DE_XUAT_CHAM_DIEM_CV.md (Bước 1).
 BACKEND_JAVA_JD = """
@@ -115,9 +115,17 @@ def test_llm_scoring_output_sample_parses_and_has_no_score_field():
     assert "score" not in json.dumps(LLMScoringOutput.model_json_schema()["properties"]).lower()
 
 
-def test_llm_output_rejects_code_only_category():
+def test_llm_requirement_category_is_subset_of_requirement_category():
+    assert {c.value for c in LLMRequirementCategory} == {"SKILL", "CERTIFICATION", "DOMAIN"}
+    assert all(RequirementCategory(c.value) for c in LLMRequirementCategory)
+
+
+@pytest.mark.parametrize("category", ["EXPERIENCE_YEARS", "EDUCATION_LEVEL"])
+def test_requirement_check_rejects_code_only_category(category):
+    with pytest.raises(ValidationError):
+        RequirementCheck(requirement="3 năm kinh nghiệm", category=category, status="MET")
     data = _llm_output_data()
-    data["requirement_checks"][0]["category"] = "EXPERIENCE_YEARS"
+    data["requirement_checks"][0]["category"] = category
     with pytest.raises(ValidationError):
         LLMScoringOutput.model_validate(data)
 

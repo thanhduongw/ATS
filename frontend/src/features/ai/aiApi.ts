@@ -1,10 +1,6 @@
 import axiosClient from "../../services/axiosClient";
 import type {
   CVExtractionResponse,
-  JDGenerateRequest,
-  JDGenerateResponse,
-  BenchmarkGenerateRequest,
-  BenchmarkGenerateResponse,
   ApplicationScoreResponse,
   RescorePostingResponse,
 } from "./types";
@@ -43,23 +39,6 @@ export const reExtractCv = (applicationId: number) =>
   axiosClient.post<CVExtractionResponse>("/v1/ai/cv-extractions/re-extract", null, {
     params: { applicationId },
     timeout: 120_000,
-  });
-
-/**
- * Generate JD + benchmark criteria from basic input.
- * Target response time: < 10s
- */
-export const generateJD = (input: JDGenerateRequest) =>
-  axiosClient.post<JDGenerateResponse>("/v1/ai/jd/generate", input, {
-    timeout: 30_000,
-  });
-
-/**
- * Generate benchmark criteria from existing JD text.
- */
-export const generateBenchmark = (input: BenchmarkGenerateRequest) =>
-  axiosClient.post<BenchmarkGenerateResponse>("/v1/ai/benchmark/generate", input, {
-    timeout: 30_000,
   });
 
 /** Điểm AI + nhận xét của một hồ sơ. 404 = hồ sơ chưa được chấm. */

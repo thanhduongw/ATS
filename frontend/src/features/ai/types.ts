@@ -19,8 +19,6 @@ export interface CandidateInfo {
   name: string | null;
   email: string | null;
   phone: string | null;
-  date_of_birth: string | null;
-  gender: string | null;
   location: string | null;
   linkedin_url: string | null;
   github_url: string | null;
@@ -128,99 +126,59 @@ export interface CVExtractionResponse {
 }
 
 // ============================================================
-// Phase 3: JD Generation & Benchmark
-// ============================================================
-
-export type BenchmarkCategory =
-  | "TECHNICAL"
-  | "SOFT_SKILL"
-  | "EDUCATION"
-  | "EXPERIENCE"
-  | "CERTIFICATION"
-  | "LANGUAGE"
-  | "OTHER";
-
-export interface GeneratedJD {
-  overview: string;
-  responsibilities: string[];
-  requirements: string;
-  benefits: string;
-}
-
-export interface BenchmarkCriterion {
-  name: string;
-  weight: number;
-  standardRequirement: string;
-  category: BenchmarkCategory;
-  isMustHave: boolean;
-}
-
-export interface JDGenerateRequest {
-  title: string;
-  level?: string | null;
-  skills?: string[] | null;
-  experience?: string | null;
-  notes?: string | null;
-}
-
-export interface BenchmarkGenerateRequest {
-  jobDescription: string;
-}
-
-export interface JDProvenance {
-  model_used: string;
-  prompt_version: string;
-  fallback_used: boolean;
-  input_tokens: number;
-  output_tokens: number;
-  estimated_cost_usd: number;
-  processing_time_ms: number;
-}
-
-export interface JDGenerateResponse {
-  status: string;
-  jd: GeneratedJD | null;
-  benchmarkCriteria: BenchmarkCriterion[] | null;
-  provenance: JDProvenance;
-  errorMessage?: string | null;
-}
-
-export interface BenchmarkGenerateResponse {
-  status: string;
-  criteria: BenchmarkCriterion[] | null;
-  provenance: JDProvenance;
-  errorMessage?: string | null;
-}
-
-// ============================================================
 // Chấm điểm hồ sơ (ai-service /scores) — `result` giữ nguyên tên trường snake_case của Python
 // ============================================================
 
-export type AiTier = "GOOD_FIT" | "POTENTIAL_FIT" | "NOT_FIT";
+// [GIẢI THÍCH] 3 xếp loại gợi ý (docs/DE_XUAT_CHAM_DIEM_CV.md, Bước 6): Phù hợp / Không phù hợp / Chưa phân loại.
+export type AiTier = "FIT" | "NOT_FIT" | "UNCLASSIFIED";
 export type AiScoreStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+/** Ai chấm tiêu chí / kiểm tra yêu cầu: quy tắc code, AI, hay code kết hợp AI. */
+export type ScoredBy = "CODE" | "LLM" | "CODE_AND_LLM";
+export type RequirementStatus = "MET" | "UNMET" | "UNKNOWN";
+export type RequirementCategory = "SKILL" | "CERTIFICATION" | "DOMAIN" | "EXPERIENCE_YEARS" | "EDUCATION_LEVEL";
 
+/** Một tiêu chí — khớp ScoredDimension trong ai-service/app/schemas/scoring.py. */
 export interface ScoredDimension {
   dimension: string;
   label: string;
-  /** Trọng số gốc 0–1 */
-  weight: number;
-  /** Trọng số sau khi chia lại (khía cạnh không áp dụng = 0) */
-  effective_weight: number;
+  /** false: tin tuyển dụng không nhắc tiêu chí này, không tính vào điểm */
   applicable: boolean;
-  /** Mức 0–4; null nếu không áp dụng */
+  /** Mức 0–4; null nếu không áp dụng hoặc không xác định được */
   level: number | null;
-  /** 0–100; null nếu không áp dụng */
+  /** 0–100; null nếu không tính */
   score: number | null;
+  /** Trọng số thực tế = 1 / số tiêu chí được tính (trọng số bằng nhau); 0 nếu không tính */
+  weight: number;
+  /** Có từ cách chấm v2; kết quả cũ không có */
+  scored_by?: ScoredBy;
+  evidence?: string[];
   reason: string;
 }
 
+/** Một yêu cầu bắt buộc của JD và trạng thái (Bước 4). */
+export interface RequirementResult {
+  requirement: string;
+  category: RequirementCategory;
+  status: RequirementStatus;
+  status_label: string;
+  checked_by: ScoredBy;
+  evidence: string | null;
+}
+
+/** Kết quả chấm (ai_scores.result). Các trường v2 để tùy chọn: kết quả chấm theo cách cũ vẫn đọc được. */
 export interface ScoreResult {
-  total_score: number;
+  /** null = không tính được điểm (Chưa phân loại) */
+  total_score: number | null;
   tier: AiTier;
   tier_label: string;
+  /** Lý do xếp loại (quy tắc nào của Bước 6 được áp dụng) */
+  tier_reason?: string;
   dimensions: ScoredDimension[];
-  must_have_unmet: string[];
-  /** Câu mở đầu (điểm + xếp loại) + tóm tắt của AI */
+  requirements?: RequirementResult[];
+  /** Ngưỡng T và độ rộng vùng không chắc chắn δ dùng khi xếp loại */
+  threshold?: number;
+  uncertainty?: number;
+  /** Câu mở đầu do code ghép (gợi ý + lý do) + tóm tắt của AI */
   comment: string;
   summary: string;
   years_calculated: number | null;

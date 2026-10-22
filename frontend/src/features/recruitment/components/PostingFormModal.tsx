@@ -12,7 +12,6 @@ import {
     EditOutlined,
     ClockCircleOutlined,
     InfoCircleOutlined,
-    RobotOutlined,
 } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { postingSchema, type PostingFormValues } from "../schemas/postingSchema";
@@ -31,8 +30,6 @@ import { WORK_ARRANGEMENT_OPTIONS, PRIORITY_LABEL } from "../requisitionOptions"
 import { SectionHeader, SectionContainer, InfoField } from "../../../components/ui/sectionKit";
 import { ModalTitle } from "../../../components/ui/pageKit";
 import { moneyFormatter, moneyParser, formatSalaryRange } from "../../../app/money";
-import JdGeneratorPanel from "../../ai/components/JdGeneratorPanel";
-import type { JdGeneratorResult } from "../../ai/components/JdGeneratorPanel";
 
 interface Props {
     open: boolean;
@@ -92,9 +89,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
     const [employmentTypes, setEmploymentTypes] = useState<CatalogItem[]>([]);
     const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
     const [pipelines, setPipelines] = useState<PipelineResponse[]>([]);
-    const [skills, setSkills] = useState<CatalogItem[]>([]);
     const [saving, setSaving] = useState(false);
-    const [jdDrawerOpen, setJdDrawerOpen] = useState(false);
 
     const {
         control,
@@ -119,8 +114,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
             getCatalogItems("/masterdata/employment-types"),
             getCatalogItems("/masterdata/work-locations"),
             getPipelines(),
-            getCatalogItems("/masterdata/skills"),
-        ]).then(([reqRes, deptRes, titleRes, levelRes, empRes, locRes, pipeRes, skillRes]) => {
+        ]).then(([reqRes, deptRes, titleRes, levelRes, empRes, locRes, pipeRes]) => {
             setApprovedRequisitions(reqRes.data.content.filter((r) => r.status === "APPROVED"));
             setDepartments(deptRes.data);
             setJobTitles(titleRes.data);
@@ -128,7 +122,6 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
             setEmploymentTypes(empRes.data);
             setWorkLocations(locRes.data);
             setPipelines(pipeRes.data.filter((p) => p.active));
-            setSkills(skillRes.data);
         });
     }, [open]);
 
@@ -214,24 +207,6 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
 
     const nameOf = (list: CatalogItem[], id: number | null | undefined) =>
         (list.find((i) => i.id === id)?.name as string | undefined) ?? "—";
-
-    // Resolve skill IDs to names for AI prompt
-    const watchedTitle = watch("title");
-    const watchedSkillIds = watch("skillIds");
-    const watchedExperience = watch("experienceRequired");
-    const resolvedSkillNames = (watchedSkillIds ?? []).map(
-        (id) => (skills.find((s) => s.id === id)?.name as string) ?? "",
-    ).filter(Boolean);
-    const resolvedLevel = selectedReq?.jobLevelId
-        ? nameOf(jobLevels, selectedReq.jobLevelId)
-        : undefined;
-
-    const handleApplyJD = (result: JdGeneratorResult) => {
-        setValue("description", result.description);
-        setValue("requirements", result.requirements);
-        setValue("benefits", result.benefits);
-        setValue("benchmarkCriteria", JSON.stringify(result.benchmarkCriteria));
-    };
 
     const onSubmit = async (data: PostingFormValues) => {
         setSaving(true);
@@ -541,21 +516,8 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
 
                 {/* 4. Mô tả & Kỹ năng */}
                 <SectionContainer>
-                <SectionHeader icon={<BulbOutlined />} title="Mô tả & Kỹ năng"
-                    extra={
-                        <Button
-                            type="primary"
-                            ghost
-                            size="small"
-                            icon={<RobotOutlined />}
-                            onClick={() => setJdDrawerOpen(true)}
-                            disabled={!watchedTitle}
-                            style={{ borderRadius: 6 }}
-                        >
-                            ✨ Sinh JD bằng AI
-                        </Button>
-                    }
-                />
+                {/* HR / phòng ban tự viết mô tả và yêu cầu (chức năng sinh JD bằng AI đã gỡ). */}
+                <SectionHeader icon={<BulbOutlined />} title="Mô tả & Kỹ năng" />
                     <div style={grid2}>
                     <Form.Item label="Mô tả công việc">
                         <Controller
@@ -622,18 +584,6 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     </Form.Item>
                 </SectionContainer>
             </Form>
-
-            <JdGeneratorPanel
-                open={jdDrawerOpen}
-                input={{
-                    title: watchedTitle || "",
-                    level: resolvedLevel !== "—" ? resolvedLevel : undefined,
-                    skills: resolvedSkillNames.length > 0 ? resolvedSkillNames : undefined,
-                    experience: watchedExperience || undefined,
-                }}
-                onClose={() => setJdDrawerOpen(false)}
-                onApply={handleApplyJD}
-            />
         </Modal>
     );
 }

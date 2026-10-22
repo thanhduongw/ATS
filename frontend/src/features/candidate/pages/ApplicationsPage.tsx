@@ -36,7 +36,7 @@ import { listCardStyle, listCardBodyStyle, listPagination } from "../../../compo
 import CandidateFormModal from "../components/CandidateFormModal";
 import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
 import AiScoreBadge from "../../ai/components/AiScoreBadge";
-import { AI_TIER_META, AI_TIER_OPTIONS } from "../../ai/aiScore";
+import { AI_TIER_OPTIONS, aiTierMeta } from "../../ai/aiScore";
 import { rescorePosting } from "../../ai/aiApi";
 import type { CandidateFormValues } from "../schemas/candidateSchema";
 
@@ -352,7 +352,7 @@ export default function ApplicationsPage() {
                 { header: "Người phụ trách", value: (r: ApplicationResponse) => r.assignedRecruiterName },
                 { header: "Nguồn", value: (r: ApplicationResponse) => r.recruitmentSourceName },
                 { header: "Điểm AI", value: (r: ApplicationResponse) => r.aiScore ?? "" },
-                { header: "Xếp loại AI", value: (r: ApplicationResponse) => (r.aiTier ? AI_TIER_META[r.aiTier].label : "") },
+                { header: "Xếp loại AI", value: (r: ApplicationResponse) => aiTierMeta(r.aiTier)?.label ?? "" },
                 { header: "Ngày nộp", value: (r: ApplicationResponse) => new Date(r.appliedAt).toLocaleDateString("vi-VN") },
             ],
             rows,

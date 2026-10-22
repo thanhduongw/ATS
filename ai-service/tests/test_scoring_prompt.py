@@ -45,8 +45,8 @@ def _prompt() -> str:
     return build_scoring_prompt(JD, profile, TODAY, 5.8, None, items_to_check(JD))
 
 
-def test_prompt_version_is_v2():
-    assert prompt_module.PROMPT_VERSION == "v2.0"
+def test_prompt_version_is_v2_1():
+    assert prompt_module.PROMPT_VERSION == "v2.1"
 
 
 def test_prompt_contains_three_level_tables():
@@ -66,6 +66,16 @@ def test_prompt_defines_unmet_and_limits_unknown():
     assert "A requirement that is not mentioned in a complete profile is UNMET, not UNKNOWN." in p
     assert "AWS is UNMET" in p
     assert "UNKNOWN = ONLY when the profile is missing the relevant sections entirely" in p
+
+
+def test_prompt_separates_named_tools_from_conceptual_knowledge():
+    """v2.1: kiến thức nền (OOP, cấu trúc dữ liệu...) Đạt khi hồ sơ có công việc / ngành học chắc chắn dùng đến nó."""
+    p = _prompt()
+    assert "Named tools, technologies, products, certifications (e.g. React, AWS, Docker, IELTS)" in p
+    assert "Conceptual knowledge or principles (e.g. OOP, data structures and algorithms" in p
+    assert "shows OOP" in p and "shows data structures and algorithms" in p
+    assert "Do not assume unstated skills or experience." not in p
+    assert "is not guessing" in p
 
 
 def test_prompt_lists_every_item_to_check():

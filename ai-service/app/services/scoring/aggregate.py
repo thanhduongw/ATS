@@ -216,7 +216,7 @@ def _requirement(name: str, category: RequirementCategory, status: RequirementSt
 
 # [GIẢI THÍCH] DANH SÁCH YÊU CẦU BẮT BUỘC (Bước 4 — mô hình sàng lọc nhiều vòng / multiple hurdle, Ock & Oswald, 2018):
 # chỉ các yêu cầu JD ghi là BẮT BUỘC; yêu cầu ưu tiên không phải "cửa".
-# - Số năm, bậc học: code kiểm tra (rules.check_*).
+# - Số năm, bậc học: code kiểm tra (rules.check_*). Số năm chỉ thành yêu cầu khi JD đòi > 0 năm.
 # - Kỹ năng, chứng chỉ, lĩnh vực: lấy kết quả Gemini theo tên; Gemini không trả -> Không xác định được.
 #   Kết quả Gemini có tên không thuộc JD thì bỏ qua (không để AI tự thêm yêu cầu).
 def build_requirements(
@@ -228,8 +228,10 @@ def build_requirements(
 ) -> list[RequirementResult]:
     out: list[RequirementResult] = []
 
+    # Yêu cầu số năm chỉ tạo khi JD đòi > 0 năm: JD ghi 0 năm (vd Fresher) thì không có gì để kiểm tra.
+    # Tiêu chí Số năm kinh nghiệm (Bước 3) vẫn chấm như cũ.
     exp = jd.experience
-    if exp is not None and exp.importance == Importance.REQUIRED and exp.min_years is not None:
+    if exp is not None and exp.importance == Importance.REQUIRED and exp.min_years is not None and exp.min_years > 0:
         status = rules.check_years_requirement(years_calculated, exp.min_years)
         evidence = (f"Ứng viên: {_vn(years_calculated)} năm" if years_calculated is not None
                     else "Không tính được số năm kinh nghiệm từ CV")

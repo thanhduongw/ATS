@@ -219,6 +219,17 @@ def test_gemini_extra_check_ignored():
     assert "Kubernetes" not in [q.requirement for q in r.requirements]
 
 
+@pytest.mark.parametrize("min_years, has_years_requirement", [(0, False), (2, True)])
+def test_years_requirement_only_when_jd_requires_more_than_zero(min_years, has_years_requirement):
+    jd = backend_jd(experience=ExperienceRequirement(min_years=min_years, importance=REQ))
+    r = assemble(jd, llm_output(), years=0.0)
+    years_reqs = [q for q in r.requirements if q.category == RequirementCategory.EXPERIENCE_YEARS]
+    assert bool(years_reqs) == has_years_requirement
+    assert dim(r, D.SENIORITY).applicable                 # tiêu chí Số năm vẫn chấm
+    if has_years_requirement:
+        assert years_reqs[0].requirement == "Tối thiểu 2 năm kinh nghiệm" and years_reqs[0].status == UNMET
+
+
 def test_preferred_items_not_in_requirements():
     r = assemble(backend_jd(years_importance=PREF), llm_output())
     names = [q.requirement for q in r.requirements]

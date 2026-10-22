@@ -181,7 +181,7 @@ async def test_score_candidate_end_to_end_with_fake_llm():
     assert result.total_score == 80 and result.tier == Tier.FIT
     assert result.comment.startswith("Gợi ý: Phù hợp (80/100).") and result.comment.endswith("Tóm tắt.")
     assert result.threshold == 62.5 and result.uncertainty == 5.0
-    assert prov.prompt_version == "v2.0" and prov.scoring_version == "v2.0" and prov.model == "fake-scorer"
+    assert prov.prompt_version == "v2.1" and prov.scoring_version == "v2.0" and prov.model == "fake-scorer"
     assert prov.extraction_id == 3 and prov.jd_extraction_id == 8 and prov.jd_extraction_prompt_version == "v1.0"
 
 
@@ -291,13 +291,13 @@ async def test_scores_application(factory, java):
     assert score.result["comment"].startswith("Gợi ý: Phù hợp (80/100).")
     assert score.result["tier_label"] == "Phù hợp" and len(score.result["dimensions"]) == 5
     assert {r["requirement"] for r in score.result["requirements"]} >= {"Java", "Spring Boot"}
-    assert score.provenance["jd_extraction_id"] is not None and score.provenance["prompt_version"] == "v2.0"
+    assert score.provenance["jd_extraction_id"] is not None and score.provenance["prompt_version"] == "v2.1"
     assert score.cv_extraction_id is not None and score.ai_job_id is not None
     assert java["published"] == [(1, "PROCESSING"), (1, "COMPLETED")]
     assert llm.jd_calls == 1
     async with factory() as s:
         job = await s.get(AIJob, score.ai_job_id)
-        assert job.status == "COMPLETED" and job.scoring_prompt_version == "v2.0" and job.completed_at
+        assert job.status == "COMPLETED" and job.scoring_prompt_version == "v2.1" and job.completed_at
         jd_row = (await s.execute(select(JDExtraction))).scalar_one()
         assert jd_row.job_posting_id == 5 and jd_row.status == "COMPLETED"
 

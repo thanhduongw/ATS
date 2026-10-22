@@ -16,10 +16,12 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
+from datetime import date
 
 from app.schemas.jd_extraction import ExtractedJD, Importance
 from app.schemas.scoring import RequirementCategory, RequirementStatus
 from app.schemas.scoring_llm import FieldMatch
+from app.services.experience import _PRESENT, parse_date
 
 
 # ============================================================
@@ -188,6 +190,71 @@ def highest_degree_level(education: list[dict]) -> int | None:
     levels = [degree_level((e or {}).get("degree")) for e in education or []]
     known = [lv for lv in levels if lv is not None]
     return max(known) if known else None
+
+
+# [GIẢI THÍCH] Suy bậc từ TÊN TRƯỜNG khi CV không ghi bằng (nhiều CV Việt Nam chỉ ghi "Đại học Bách Khoa TP.HCM, 2016–2020").
+# QUY ƯỚC của nhóm (docs mục "Các phần là quy ước của nhóm"): tên trường chỉ cho biết bậc tối thiểu hợp lý —
+# Đại học / Học viện / University -> bậc 6; Cao đẳng / College -> bậc 5 — và CHỈ áp dụng khi chắc là đã học xong.
+_INSTITUTION_PATTERNS: list[tuple[int, re.Pattern]] = [
+    (6, re.compile(r"dai hoc|hoc vien|\buniversity\b")),
+    (5, re.compile(r"cao dang|\bcollege\b")),
+]
+
+# [GIẢI THÍCH] Thời gian chuẩn của chương trình đại học: mục không ghi ngày kết thúc chỉ coi là đã học xong
+# khi đã bắt đầu từ 4 năm trở lên.
+_STANDARD_STUDY_YEARS = 4
+
+
+def _institution_level(institution: str | None) -> int | None:
+    if not institution or not institution.strip():
+        return None
+    normalized = _strip_accents(institution).lower()
+    for level, pattern in _INSTITUTION_PATTERNS:
+        if pattern.search(normalized):
+            return level
+    return None
+
+
+# [GIẢI THÍCH] Đã học xong chưa — chỉ khi chắc chắn:
+# - end_date là chữ "đến nay" / "hiện tại" -> đang học. Kiểm tra bằng _PRESENT TRƯỚC khi gọi parse_date,
+#   vì parse_date đổi các chữ này thành ngày hôm nay (sẽ bị hiểu nhầm là "đã xong hôm nay").
+# - end_date đọc được và không ở tương lai -> đã xong; ở tương lai -> chưa.
+# - end_date trống: đã xong nếu start_date đọc được và cách hôm nay ít nhất 4 năm; còn lại -> không chắc.
+def _finished_study(entry: dict, today: date) -> bool:
+    end_text = entry.get("end_date")
+    if end_text and end_text.strip():
+        if " ".join(end_text.strip().lower().split()) in _PRESENT:
+            return False
+        end = parse_date(end_text, today)
+        return end is not None and end <= today
+    start = parse_date(entry.get("start_date"), today)
+    if start is None:
+        return False
+    return date(start.year + _STANDARD_STUDY_YEARS, start.month, 1) <= today
+
+
+# [GIẢI THÍCH] BẬC HỌC CỦA ỨNG VIÊN dùng khi chấm: bậc cao nhất trong các mục học vấn.
+# - Mục có tên bằng nhận ra được -> dùng bậc của bằng.
+# - Mục không có / không nhận ra tên bằng -> suy từ tên trường (quy ước ở trên), chỉ khi đã học xong.
+# Trả (bậc, ghi chú). Ghi chú "suy từ tên trường: <tên trường>" khi bậc cao nhất là bậc suy ra, để HR biết
+# bậc này không do CV ghi trực tiếp. highest_degree_level giữ nguyên (chỉ đọc tên bằng).
+def candidate_degree_level(education: list[dict], today: date) -> tuple[int | None, str | None]:
+    best_level: int | None = None
+    best_note: str | None = None
+    for entry in education or []:
+        entry = entry or {}
+        level = degree_level(entry.get("degree"))
+        note = None
+        if level is None and _finished_study(entry, today):
+            level = _institution_level(entry.get("institution"))
+            if level is not None:
+                note = f"suy từ tên trường: {entry.get('institution').strip()}"
+        if level is None:
+            continue
+        # Cùng bậc thì ưu tiên mục ghi bằng trực tiếp (không ghi chú).
+        if best_level is None or level > best_level or (level == best_level and note is None):
+            best_level, best_note = level, note
+    return best_level, best_note
 
 
 def _degree_text(level: int | None) -> str:

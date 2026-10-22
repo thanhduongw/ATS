@@ -213,6 +213,15 @@ async def test_work_experience_without_dates_is_unknown():
     assert result.tier == Tier.UNCLASSIFIED                # yêu cầu 3 năm Không xác định được
 
 
+async def test_degree_inferred_from_institution_meets_required_education():
+    """CV chỉ ghi tên trường (đã học xong), JD bắt buộc "Đại học" -> yêu cầu bậc học Đạt, có ghi chú suy luận."""
+    cv = {**EXTRACTED, "education": [{"institution": "Đại học Bách Khoa TP.HCM", "start_date": "2016", "end_date": "2020"}]}
+    result, _ = await score_candidate(JD, cv, manager(ScoringLLM()), TODAY)
+    edu_req = next(r for r in result.requirements if r.category.value == "EDUCATION_LEVEL")
+    assert edu_req.status.value == "MET" and "suy từ tên trường" in edu_req.evidence
+    assert result.tier == Tier.FIT
+
+
 async def test_scoring_llm_error_propagates():
     with pytest.raises(LLMError):
         await score_candidate(JD, EXTRACTED, manager(ScoringLLM(fail=True)), TODAY)

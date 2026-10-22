@@ -245,6 +245,17 @@ def test_unrecognized_degree_text_no_requirement_and_noted():
     assert "Không nhận ra bậc học JD yêu cầu" in dim(r, D.EDUCATION_CERTIFICATION).reason
 
 
+def test_degree_note_added_to_evidence():
+    r = assemble_result(backend_jd(years_importance=PREF), llm_output(), years_calculated=2.5, years_claimed=None,
+                        candidate_degree_level=6, today=TODAY, thresholds=T,
+                        degree_note="suy từ tên trường: Đại học Bách Khoa TP.HCM")
+    edu_req = next(q for q in r.requirements if q.category == RequirementCategory.EDUCATION_LEVEL)
+    assert edu_req.status == MET and "suy từ tên trường: Đại học Bách Khoa TP.HCM" in edu_req.evidence
+    assert "suy từ tên trường" in dim(r, D.EDUCATION_CERTIFICATION).evidence[0]
+    plain = assemble(backend_jd(years_importance=PREF), llm_output())
+    assert "suy từ tên trường" not in dim(plain, D.EDUCATION_CERTIFICATION).evidence[0]
+
+
 def test_candidate_degree_unknown():
     r = assemble(backend_jd(years_importance=PREF), llm_output(), degree=None)
     assert dim(r, D.EDUCATION_CERTIFICATION).level is None

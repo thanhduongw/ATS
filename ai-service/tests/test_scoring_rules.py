@@ -1,5 +1,7 @@
 """Phần 3: quy tắc chấm bằng code (app/services/scoring/rules.py) — Python thuần, không LLM, không DB."""
 
+from datetime import date
+
 import pytest
 
 from app.schemas.jd_extraction import ExtractedJD, Importance, RequirementItem
@@ -9,6 +11,7 @@ from app.services.scoring.rules import (
     DEGREE_LEVEL_LABELS,
     ONET_EXPERIENCE_BANDS,
     CheckItem,
+    candidate_degree_level,
     check_education_requirement,
     check_years_requirement,
     degree_level,
@@ -150,6 +153,55 @@ def test_highest_degree_level():
     assert highest_degree_level([{"degree": None, "field_of_study": "Đại học CNTT"}]) is None  # chỉ dùng "degree"
     assert highest_degree_level([]) is None
     assert highest_degree_level([{"degree": "lạ"}]) is None
+
+
+# ============================================================
+# Bậc học của ứng viên — suy từ tên trường khi CV không ghi bằng (quy ước của nhóm)
+# ============================================================
+
+TODAY = date(2026, 10, 22)
+
+
+def _edu(institution, end=None, start=None, degree=None):
+    return {"institution": institution, "degree": degree, "start_date": start, "end_date": end}
+
+
+@pytest.mark.parametrize("entry, level", [
+    (_edu("Đại học Bách Khoa TP.HCM", end="2020"), 6),
+    (_edu("Học viện Công nghệ Bưu chính Viễn thông", end="2021"), 6),
+    (_edu("Ho Chi Minh City University of Technology", end="06/2019"), 6),
+    (_edu("Cao đẳng FPT Polytechnic", end="2022"), 5),
+    (_edu("FPT Polytechnic College", end="2022"), 5),
+])
+def test_degree_inferred_from_institution(entry, level):
+    got, note = candidate_degree_level([entry], TODAY)
+    assert got == level and note == f"suy từ tên trường: {entry['institution']}"
+
+
+@pytest.mark.parametrize("entry", [
+    _edu("Đại học Bách Khoa TP.HCM", end="Hiện tại"),       # đang học
+    _edu("Đại học Bách Khoa TP.HCM", end="đến nay"),
+    _edu("Đại học Bách Khoa TP.HCM", end="2027"),           # tốt nghiệp ở tương lai
+    _edu("Đại học Bách Khoa TP.HCM", start="2024"),         # chưa đủ 4 năm, không có ngày kết thúc
+    _edu("Đại học Bách Khoa TP.HCM"),                       # không có mốc thời gian nào
+    _edu("Trung tâm Tin học", end="2020"),                  # tên trường không cho biết bậc
+])
+def test_degree_not_inferred(entry):
+    assert candidate_degree_level([entry], TODAY) == (None, None)
+
+
+def test_degree_inferred_when_started_four_years_ago_without_end():
+    assert candidate_degree_level([_edu("Đại học Bách Khoa TP.HCM", start="2015")], TODAY)[0] == 6
+
+
+def test_written_degree_wins_without_note():
+    assert candidate_degree_level([_edu("Đại học Bách Khoa TP.HCM", end="Hiện tại", degree="Thạc sĩ")], TODAY) == (7, None)
+    both = [_edu("Đại học Bách Khoa TP.HCM", end="2020"), _edu("Đại học Kinh tế", end="2022", degree="Cử nhân")]
+    assert candidate_degree_level(both, TODAY) == (6, None)          # cùng bậc: ưu tiên mục ghi bằng
+
+
+def test_highest_degree_level_unchanged():
+    assert highest_degree_level([_edu("Đại học Bách Khoa TP.HCM", end="2020")]) is None
 
 
 # ============================================================

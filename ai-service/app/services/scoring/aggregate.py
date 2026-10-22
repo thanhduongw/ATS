@@ -135,6 +135,7 @@ def _score_dimensions(
     checks: dict[str, RequirementCheck],
     years_calculated: float | None,
     candidate_degree_level: int | None,
+    degree_note: str | None = None,
 ) -> list[ScoredDimension]:
     applicable = applicable_dimensions(jd)
     assessments = {}
@@ -149,7 +150,7 @@ def _score_dimensions(
             outcome = rules.seniority_outcome(years_calculated, jd.experience.min_years)
             out.append(_dimension(dim, True, outcome.level, [outcome.evidence], outcome.reason))
         elif dim == D.EDUCATION_CERTIFICATION:
-            out.append(_education_dimension(jd, llm, checks, candidate_degree_level))
+            out.append(_education_dimension(jd, llm, checks, candidate_degree_level, degree_note))
         else:
             a = assessments.get(dim.value)
             if a is None:
@@ -164,6 +165,7 @@ def _education_dimension(
     llm: LLMScoringOutput,
     checks: dict[str, RequirementCheck],
     candidate_degree_level: int | None,
+    degree_note: str | None = None,
 ) -> ScoredDimension:
     degree_text = jd.education.degree_text if jd.education else None
     required_level = rules.min_degree_level(degree_text)
@@ -179,7 +181,9 @@ def _education_dimension(
     reason = outcome.reason
     if degree_text and required_level is None:
         reason += f" Không nhận ra bậc học JD yêu cầu (\"{degree_text}\") nên không so bậc."
-    return _dimension(D.EDUCATION_CERTIFICATION, True, outcome.level, [outcome.evidence], reason)
+    # Bậc học suy từ tên trường (CV không ghi bằng) -> ghi rõ trong dẫn chứng để HR biết.
+    evidence = f"{outcome.evidence} ({degree_note})" if degree_note else outcome.evidence
+    return _dimension(D.EDUCATION_CERTIFICATION, True, outcome.level, [evidence], reason)
 
 
 # ============================================================
@@ -220,6 +224,7 @@ def build_requirements(
     checks: dict[str, RequirementCheck],
     years_calculated: float | None,
     candidate_degree_level: int | None,
+    degree_note: str | None = None,
 ) -> list[RequirementResult]:
     out: list[RequirementResult] = []
 
@@ -237,6 +242,8 @@ def build_requirements(
         status = rules.check_education_requirement(candidate_degree_level, required_level)
         evidence = (f"Ứng viên: {rules.DEGREE_LEVEL_LABELS.get(candidate_degree_level, 'Bậc')} (bậc {candidate_degree_level})"
                     if candidate_degree_level is not None else "CV không ghi rõ văn bằng")
+        if degree_note and candidate_degree_level is not None:
+            evidence += f" ({degree_note})"
         label = rules.DEGREE_LEVEL_LABELS.get(required_level, "Bậc")
         out.append(_requirement(f"Bậc học tối thiểu: {label} (bậc {required_level})", RequirementCategory.EDUCATION_LEVEL,
                                 status, ScoredBy.CODE, evidence))
@@ -325,11 +332,13 @@ def assemble_result(
     candidate_degree_level: int | None,
     today: date,
     thresholds: Thresholds,
+    degree_note: str | None = None,
 ) -> ScoreResult:
+    """`degree_note`: ghi chú khi bậc học của ứng viên được suy từ tên trường (rules.candidate_degree_level)."""
     checks = _checks_by_name(llm)
-    dimensions = _score_dimensions(jd, llm, checks, years_calculated, candidate_degree_level)
+    dimensions = _score_dimensions(jd, llm, checks, years_calculated, candidate_degree_level, degree_note)
     total = _total_score(dimensions)
-    requirements = build_requirements(jd, checks, years_calculated, candidate_degree_level)
+    requirements = build_requirements(jd, checks, years_calculated, candidate_degree_level, degree_note)
     tier, tier_reason = classify(total, requirements, thresholds)
     summary = llm.summary.strip()
     return ScoreResult(

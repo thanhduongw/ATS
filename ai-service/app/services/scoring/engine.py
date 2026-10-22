@@ -68,10 +68,11 @@ async def score_candidate(
     started = time.monotonic()
     thresholds = thresholds or Thresholds()
 
-    # Phần code: số năm (theo ngày chấm), số năm tự ghi, bậc học cao nhất (Khung trình độ quốc gia).
+    # Phần code: số năm (theo ngày chấm), số năm tự ghi, bậc học cao nhất (Khung trình độ quốc gia;
+    # CV không ghi bằng mà đã học xong thì suy từ tên trường — quy ước của nhóm, kèm ghi chú).
     years_calculated = years_of_experience(extracted_cv, today)
     years_claimed = extracted_cv.get("years_of_experience_claimed")
-    candidate_degree_level = rules.highest_degree_level(extracted_cv.get("education") or [])
+    candidate_degree_level, degree_note = rules.candidate_degree_level(extracted_cv.get("education") or [], today)
 
     # Chấm mù: bỏ thông tin cá nhân; danh sách yêu cầu Gemini phải kiểm tra do code lập.
     profile = build_scoring_profile(extracted_cv, candidate_names)
@@ -89,6 +90,7 @@ async def score_candidate(
         candidate_degree_level=candidate_degree_level,
         today=today,
         thresholds=thresholds,
+        degree_note=degree_note,
     )
     provenance = ScoringProvenance(
         model=usage.model,

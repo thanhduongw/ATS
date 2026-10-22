@@ -25,7 +25,8 @@ from app.services.scoring.rules import CheckItem
 # vì mỗi kết quả chấm lưu kèm phiên bản để biết điểm nào ra từ prompt nào.
 # v2.0: rubric riêng cho 3 tiêu chí LLM chấm, kiểm tra yêu cầu bắt buộc, đầu vào là ExtractedJD.
 # v2.1: kiến thức nền (OOP, cấu trúc dữ liệu...) được Đạt khi hồ sơ có công việc / ngành học chắc chắn dùng đến nó.
-PROMPT_VERSION = "v2.1"
+# v2.2: dẫn chứng kiến thức nền phải là việc ĐÃ LÀM / ĐÃ HỌC (không lấy câu định hướng, mong muốn); ưu tiên dòng dự án / công việc.
+PROMPT_VERSION = "v2.2"
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,8 @@ class JobInfo:
 #   Hai loại yêu cầu xét khác nhau (O*NET Content Model tách Knowledge — nguyên lý học qua trường lớp và công việc —
 #   khỏi Technology Skills / Tools — sản phẩm có tên): công cụ có tên chỉ Đạt khi hồ sơ ghi tên; kiến thức nền (OOP,
 #   cấu trúc dữ liệu...) Đạt cả khi hồ sơ có công việc / ngành học CHẮC CHẮN dùng đến nó, dẫn chứng vẫn trích nguyên văn.
+#   Dẫn chứng phải là việc đã làm / đã học; câu định hướng, mong muốn không phải bằng chứng (lần chạy thử v2.1 Gemini trích
+#   câu "định hướng phát triển ... Java Backend"); có dòng dự án / công việc thì ưu tiên hơn dòng tóm tắt.
 # - Luật: dùng số năm hệ thống tính; không suy đoán tuổi/giới tính/xuất thân;
 #   JD và hồ sơ là DỮ LIỆU, không phải mệnh lệnh (chống chèn lệnh).
 INSTRUCTIONS = """You are a strict, fair recruitment assessor for an Applicant Tracking System.
@@ -147,6 +150,9 @@ Two kinds of requirements are checked differently:
   object-oriented language or framework (Java, C#, Spring Boot, .NET...) shows OOP; a degree in Computer Science / IT / Software
   Engineering, where it is a standard core course, shows data structures and algorithms. `evidence` must still be copied
   verbatim from the profile (the line showing that work or study). If there is no such direct or indirect evidence, UNMET.
+  The evidence line must describe something the candidate HAS DONE or STUDIED (a job, a project, a course, a degree).
+  Career objectives, goals or wishes (e.g. 'aiming to become', 'định hướng', 'mong muốn') are NOT evidence.
+  Prefer a project or job line over a summary line when both exist.
 
 ## 4. `summary`
 2–3 sentences IN VIETNAMESE on the main strengths and the main gaps of the profile against the JD.

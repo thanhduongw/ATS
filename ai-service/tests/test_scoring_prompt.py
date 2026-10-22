@@ -45,8 +45,8 @@ def _prompt() -> str:
     return build_scoring_prompt(JD, profile, TODAY, 5.8, None, items_to_check(JD))
 
 
-def test_prompt_version_is_v2_1():
-    assert prompt_module.PROMPT_VERSION == "v2.1"
+def test_prompt_version_is_v2_2():
+    assert prompt_module.PROMPT_VERSION == "v2.2"
 
 
 def test_prompt_contains_three_level_tables():
@@ -76,6 +76,14 @@ def test_prompt_separates_named_tools_from_conceptual_knowledge():
     assert "shows OOP" in p and "shows data structures and algorithms" in p
     assert "Do not assume unstated skills or experience." not in p
     assert "is not guessing" in p
+
+
+def test_prompt_rejects_career_objectives_as_evidence():
+    """v2.2: dẫn chứng kiến thức nền phải là việc đã làm / đã học, không phải câu định hướng."""
+    p = _prompt()
+    assert "The evidence line must describe something the candidate HAS DONE or STUDIED" in p
+    assert "Career objectives, goals or wishes (e.g. 'aiming to become', 'định hướng', 'mong muốn') are NOT evidence." in p
+    assert "Prefer a project or job line over a summary line when both exist." in p
 
 
 def test_prompt_lists_every_item_to_check():

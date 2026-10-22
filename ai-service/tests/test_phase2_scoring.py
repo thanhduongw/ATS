@@ -38,6 +38,8 @@ def anyio_backend():
     return "asyncio"
 
 
+# date_of_birth / gender: mô phỏng dữ liệu cũ (prompt trích xuất ≤ v1.2) còn trong bảng cv_extractions —
+# hồ sơ chấm điểm vẫn phải loại ra (từ v1.3 schema không còn hai trường này).
 EXTRACTED = {
     "candidate": {
         "name": "Nguyễn Văn An", "email": "an.nguyen@gmail.com", "phone": "0912 345 678",

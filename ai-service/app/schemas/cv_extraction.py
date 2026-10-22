@@ -6,9 +6,8 @@ Design principles:
 - source_text on each sub-model — evidence traceability
 - Confidence ≠ Completeness — two distinct quality signals
 - years_of_experience: claimed (LLM) vs calculated (Python deterministic)
-- date_of_birth / gender chỉ lấy khi CV ghi rõ (để tự điền hồ sơ ứng viên). Bước CHẤM ĐIỂM
-  không bao giờ nhận các trường này (xem app/services/scoring/profile.py)
-- KHÔNG có: religion, marital_status, ethnicity, photo
+- KHÔNG có: date_of_birth, gender, religion, marital_status, ethnicity, photo
+  (bỏ ngày sinh / giới tính từ prompt v1.3 để giảm thu thập dữ liệu cá nhân — docs/KE_HOACH_TRIEN_KHAI_CHAM_DIEM_CV.md, Phần 1)
 """
 
 from __future__ import annotations
@@ -58,14 +57,6 @@ class CandidateInfo(BaseModel):
     summary: str | None = Field(
         None,
         description="Professional summary or objective as stated in the CV",
-    )
-    date_of_birth: str | None = Field(
-        None,
-        description="Date of birth in YYYY-MM-DD format if explicitly stated in the CV (e.g. '1998-05-20' or '2000-11-15'). If only year is given, format as YYYY-01-01.",
-    )
-    gender: str | None = Field(
-        None,
-        description="Gender if explicitly stated in the CV: 'MALE' (Nam), 'FEMALE' (Nữ), or 'OTHER'",
     )
 
 

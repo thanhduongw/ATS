@@ -1,5 +1,5 @@
 """
-CV Extraction Prompt — v1.1
+CV Extraction Prompt — v1.3
 
 System and user prompt templates for LLM-based CV parsing.
 
@@ -10,7 +10,10 @@ Design:
 - Evidence-based confidence: LLM must cite actual text, not generate reasons
 """
 
-PROMPT_VERSION = "v1.2"  # v1.1: gộp thành một tin nhắn (giống benchmark Kaggle — không có system prompt); v1.2: name được phép null
+# [GIẢI THÍCH] Đổi phiên bản -> CV đã lưu ở bảng cv_extractions được trích xuất lại ở lần chấm sau.
+# v1.1: gộp thành một tin nhắn (giống benchmark Kaggle — không có system prompt); v1.2: name được phép null;
+# v1.3: bỏ trích xuất ngày sinh, giới tính (giảm thu thập dữ liệu cá nhân — kế hoạch chấm điểm CV, Phần 1)
+PROMPT_VERSION = "v1.3"
 
 SYSTEM_PROMPT = """You are a professional CV/Resume Parser for an Applicant Tracking System (ATS).
 
@@ -24,10 +27,14 @@ Extract structured information from the candidate's CV text and return it as JSO
 - If a field is not present in the CV, return `null`. NEVER invent or guess data.
 - If you are uncertain about a value, mark the field confidence as LOW or MEDIUM.
 
-### 2. CANDIDATE PROFILE & DEMOGRAPHICS
-- `date_of_birth`: Extract ONLY if explicitly stated in the CV (format as YYYY-MM-DD, e.g. '1998-05-20' or '2000-11-15'). If only year is given, format as YYYY-01-01. If not stated, return `null`.
-- `gender`: Extract ONLY if explicitly stated in the CV (map to 'MALE' for Nam/Male, 'FEMALE' for Nữ/Female, or 'OTHER'). If not stated, return `null`.
-- You MUST NOT extract or infer: Religion / Tôn giáo, Marital status / Tình trạng hôn nhân, Ethnicity / Dân tộc, Photo / Physical appearance.
+### 2. CANDIDATE PROFILE & DEMOGRAPHICS — DO NOT EXTRACT
+You MUST NOT extract, infer or guess any of the following, even if the CV states them explicitly:
+- Date of birth / Ngày sinh, age / Tuổi
+- Gender / Giới tính
+- Religion / Tôn giáo
+- Marital status / Tình trạng hôn nhân
+- Ethnicity / Dân tộc
+- Photo / Physical appearance / Ảnh, ngoại hình
 
 ### 3. EVIDENCE-BASED CONFIDENCE
 For each `field_confidences` entry:

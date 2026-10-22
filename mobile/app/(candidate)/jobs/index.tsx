@@ -187,12 +187,12 @@ function JobCard({ job, matched, total, applied }: Scored & { applied: boolean }
         <Tag label={S.salaryShort(formatSalary(job.salaryMin, job.salaryMax))} />
       </View>
 
-      {matched > 0 ? (
+      {/* {matched > 0 ? (
         <View style={styles.match}>
           <Icon name="sparkle" size={SIZES.iconXs} color={COLORS.ai} />
           <Text style={styles.matchText}>{S.skillMatch(matched, total)}</Text>
         </View>
-      ) : null}
+      ) : null} */}
     </Card>
   );
 }

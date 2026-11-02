@@ -10,7 +10,6 @@ import {
 } from "@ant-design/icons";
 import type { UploadProps } from "antd";
 import type { AxiosError } from "axios";
-import dayjs from "dayjs";
 import { extractCvFromUpload } from "../aiApi";
 import type { CVExtractionResponse, CVExtractionResult, ExtractionProvenance } from "../types";
 import CvParseResultPanel from "./CvParseResultPanel";
@@ -46,11 +45,12 @@ type ModalState = "idle" | "uploading" | "success" | "error";
  * Map AI extraction result → CandidateFormValues for pre-filling the CandidateFormModal.
  * Maps:
  * - Basic info (fullName, email, phone, address, currentPosition)
- * - Demographics (dateOfBirth, gender)
+ * Không điền ngày sinh / giới tính: ai-service không còn đọc 2 trường này từ CV (giảm thu thập dữ liệu cá nhân);
+ * người dùng tự nhập trong form nếu cần.
  * - Masterdata links (educationLevelId, skillIds)
  * - Rich internalNote summary of full experience, projects, education, and skills.
  */
-export function mapToCandidateFormValues(
+function mapToCandidateFormValues(
   result: CVExtractionResult,
   availableSkills: CatalogItem[] = [],
   availableEducationLevels: CatalogItem[] = [],
@@ -157,32 +157,10 @@ export function mapToCandidateFormValues(
     noteSections.push(`\n[Tóm tắt / Mục tiêu nghề nghiệp]:\n${cv.candidate.summary}`);
   }
 
-  // Format date of birth if available:
-  let formattedDob: string | null = null;
-  if (cv.candidate.date_of_birth) {
-    const d = dayjs(cv.candidate.date_of_birth);
-    if (d.isValid()) {
-      formattedDob = d.format("YYYY-MM-DD");
-    } else {
-      formattedDob = cv.candidate.date_of_birth;
-    }
-  }
-
-  // Normalize gender:
-  let normalizedGender: string | null = null;
-  if (cv.candidate.gender) {
-    const g = cv.candidate.gender.trim().toUpperCase();
-    if (g === "MALE" || g === "NAM") normalizedGender = "MALE";
-    else if (g === "FEMALE" || g === "NỮ" || g === "NU") normalizedGender = "FEMALE";
-    else if (g === "OTHER" || g === "KHÁC") normalizedGender = "OTHER";
-  }
-
   return {
     fullName: cv.candidate.name ?? "",
     email: cv.candidate.email ?? "",
     phone: cv.candidate.phone,
-    dateOfBirth: formattedDob,
-    gender: normalizedGender,
     address: cv.candidate.location,
     currentPosition: cv.work_experience[0]?.title ?? null,
     educationLevelId: matchedEduId,

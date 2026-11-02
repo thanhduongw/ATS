@@ -419,14 +419,6 @@ export default function CandidateApplicationDetailPage() {
                 </Section>
             )}
 
-            <Section title="Mức độ phù hợp (AI)">
-                <AiScoreCard
-                    applicationId={application.id}
-                    canRescore={isHr}
-                    hasResume={!!application.resumeUrl}
-                />
-            </Section>
-
             {/* Ho ten, email, dien thoai, dia chi da nam tren the dinh danh phia tren
                 nen khong lap lai o day. */}
             <Section title="Thông tin cơ bản">
@@ -575,7 +567,17 @@ export default function CandidateApplicationDetailPage() {
     );
 
     /* ── Tab 2: Hồ sơ CV ──────────────────────────────── */
+    /* ── Tab: Hồ sơ ─────────────────────────────────── */
+    // Thẻ chấm điểm AI đặt ở đầu tab Hồ sơ, cạnh CV và kết quả AI trích xuất CV — HR đối chiếu dẫn chứng với CV ngay tại chỗ.
     const resumeTab = (
+        <>
+        <Section title="Mức độ phù hợp (AI)">
+            <AiScoreCard
+                applicationId={application.id}
+                canRescore={isHr}
+                hasResume={!!application.resumeUrl}
+            />
+        </Section>
         <Row gutter={24}>
             <Col xs={24} lg={15}>
                 <div style={{
@@ -728,6 +730,7 @@ export default function CandidateApplicationDetailPage() {
                 )}
             </Col>
         </Row>
+        </>
     );
 
     return (

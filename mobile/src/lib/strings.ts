@@ -326,7 +326,7 @@ export const STRINGS = {
     home: "Về trang việc làm",
   },
   profile: {
-    title: "Tôi",
+    title: "Tài khoản",
     cvInUse: "Đang dùng",
     privacy: "Dữ liệu & quyền riêng tư",
     deleteTitle: "Xóa hồ sơ ứng viên",

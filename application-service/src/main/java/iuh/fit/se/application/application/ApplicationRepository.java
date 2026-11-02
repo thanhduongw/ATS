@@ -48,10 +48,12 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     int updateAiStatus(@Param("id") Long id, @Param("status") String status,
                        @Param("eventAt") LocalDateTime eventAt);
 
+    // [GIẢI THÍCH] COMPLETED: ghi điểm + xếp loại. score có thể null (Chưa phân loại không tính được điểm);
+    // CAST để PostgreSQL biết kiểu của tham số khi giá trị là null (Hibernate không suy được kiểu từ null).
     @Modifying
     @Transactional
     @Query(value = """
-            UPDATE application SET ai_status = 'COMPLETED', ai_score = :score, ai_tier = :tier,
+            UPDATE application SET ai_status = 'COMPLETED', ai_score = CAST(:score AS NUMERIC(5, 1)), ai_tier = :tier,
                    ai_updated_at = :eventAt
             WHERE id = :id AND (ai_updated_at IS NULL OR ai_updated_at <= :eventAt)
             """, nativeQuery = true)

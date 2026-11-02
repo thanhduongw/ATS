@@ -45,9 +45,11 @@ class Settings(BaseSettings):
     embedding_model: str = "intfloat/multilingual-e5-large-instruct"
 
     # --- Chấm điểm ---
-    # Ngưỡng xếp loại hiệu chỉnh bằng benchmark (Gemini, tiếng Việt, tập calib: tối ưu 43,15 / 63,75 → làm tròn).
-    scoring_tier_good_min: float = 65.0
-    scoring_tier_potential_min: float = 45.0
+    # [GIẢI THÍCH] Ngưỡng xếp loại Phù hợp / Không phù hợp / Chưa phân loại (docs/DE_XUAT_CHAM_DIEM_CV.md, Bước 6):
+    # T = 62,5 (giữa mức 2 và mức 3), vùng không chắc chắn ± δ = 5 (tùy chọn từ chối phân loại — Chow, 1970).
+    # Giá trị khởi đầu là quy ước của nhóm; hiệu chỉnh lại trên tập hiệu chỉnh (không dùng tập kiểm tra).
+    scoring_threshold: float = 62.5      # SCORING_THRESHOLD
+    scoring_uncertainty: float = 5.0     # SCORING_UNCERTAINTY
     scoring_max_parallel: int = 2
 
     # --- Service URLs (Java backend) ---

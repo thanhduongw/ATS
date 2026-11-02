@@ -308,15 +308,25 @@ class TestSchemaValidation:
             ExtractedCV.model_validate({"foo": "bar"})
 
     def test_no_sensitive_fields_in_schema(self):
-        """Schema trích xuất không có trường nhạy cảm ngoài ngày sinh / giới tính.
-
-        date_of_birth và gender được giữ để tự điền hồ sơ ứng viên (chỉ khi CV ghi rõ);
-        bước chấm điểm loại chúng ra — được kiểm tra ở test của bộ lọc hồ sơ chấm điểm.
-        """
+        """Schema trích xuất không có trường nhạy cảm nào, kể cả ngày sinh / giới tính (bỏ từ prompt v1.3)."""
         fields = set(CandidateInfo.model_fields)
-        for forbidden in ("age", "religion", "marital_status", "ethnicity", "photo"):
+        for forbidden in ("date_of_birth", "gender", "age", "religion", "marital_status", "ethnicity", "photo"):
             assert forbidden not in fields
         assert "name" in fields
+
+    def test_old_data_with_demographics_is_dropped(self):
+        """Dữ liệu cũ (prompt ≤ v1.2) còn date_of_birth / gender: đọc vào vẫn được, hai trường bị bỏ."""
+        cv = ExtractedCV.model_validate(
+            {"candidate": {"name": "A", "date_of_birth": "1999-05-20", "gender": "MALE"}})
+        dumped = cv.model_dump()["candidate"]
+        assert "date_of_birth" not in dumped and "gender" not in dumped
+
+    def test_prompt_forbids_demographics(self):
+        """Prompt v1.3 cấm trích xuất / suy đoán ngày sinh, giới tính."""
+        from app.services.prompts.cv_extraction import PROMPT_VERSION, SYSTEM_PROMPT
+        assert PROMPT_VERSION == "v1.3"
+        assert "`date_of_birth`" not in SYSTEM_PROMPT and "`gender`" not in SYSTEM_PROMPT
+        assert "MUST NOT extract" in SYSTEM_PROMPT
 
 
 if __name__ == "__main__":

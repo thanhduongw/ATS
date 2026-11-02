@@ -1,4 +1,4 @@
-"""Client gọi các service Java (application, recruitment) qua mạng nội bộ."""
+"""Client gọi các service Java (application, recruitment, masterdata) qua mạng nội bộ."""
 
 from __future__ import annotations
 
@@ -55,6 +55,22 @@ async def list_applications(job_posting_id: int, headers: dict[str, str]) -> lis
     r = await _get(f"{s.application_service_url}/api/application/applications", headers,
                    {"jobPostingId": job_posting_id})
     return r.json().get("content", [])
+
+
+# [GIẢI THÍCH] Tên các kỹ năng HR chọn cho tin: tin chỉ lưu skillIds, tên nằm ở danh mục kỹ năng của masterdata-service.
+# Giữ đúng thứ tự skillIds; id không có trong danh mục thì bỏ qua.
+async def get_skill_names(skill_ids: list[int]) -> list[str]:
+    """Tên kỹ năng theo id (GET /api/masterdata/skills, danh tính SYSTEM).
+
+    Raises:
+        JavaServiceError: không gọi được masterdata-service.
+    """
+    if not skill_ids:
+        return []
+    s = get_settings()
+    r = await _get(f"{s.masterdata_service_url}/api/masterdata/skills", SYSTEM_HEADERS)
+    names = {item.get("id"): item.get("name") for item in r.json()}
+    return [names[i] for i in skill_ids if names.get(i)]
 
 
 async def get_posting(job_posting_id: int, headers: dict[str, str] | None = None) -> dict:

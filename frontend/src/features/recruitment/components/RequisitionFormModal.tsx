@@ -11,7 +11,6 @@ import {
     CalendarOutlined,
     FileTextOutlined,
     EditOutlined,
-    RobotOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
@@ -24,12 +23,10 @@ import SkillMultiSelect from "../../masterdata/components/SkillMultiSelect";
 import JobTitleQuickAddSelect from "../../masterdata/components/JobTitleQuickAddSelect";
 import type { ApiMessageResponse, JobRequisitionResponse } from "../types";
 import { COLORS, RADIUS } from "../../../app/theme";
-import { WORK_ARRANGEMENT_OPTIONS, REASON_OPTIONS, PRIORITY_OPTIONS } from "../requisitionOptions";
+import { WORK_ARRANGEMENT_OPTIONS, REASON_OPTIONS, PRIORITY_OPTIONS, SKILL_REQUIRED_HINT } from "../requisitionOptions";
 import { SectionHeader, SectionContainer } from "../../../components/ui/sectionKit";
 import { ModalTitle } from "../../../components/ui/pageKit";
 import { moneyFormatter, moneyParser } from "../../../app/money";
-import JdGeneratorPanel from "../../ai/components/JdGeneratorPanel";
-import type { JdGeneratorResult } from "../../ai/components/JdGeneratorPanel";
 
 interface RequisitionFormModalProps {
     open: boolean;
@@ -68,15 +65,12 @@ export default function RequisitionFormModal({
     const [savingDraft, setSavingDraft] = useState(false);
     const [savingSubmit, setSavingSubmit] = useState(false);
     const [negotiable, setNegotiable] = useState(false);
-    const [skills, setSkills] = useState<CatalogItem[]>([]);
-    const [jdDrawerOpen, setJdDrawerOpen] = useState(false);
 
     const {
         control,
         handleSubmit,
         reset,
         setValue,
-        watch,
         formState: { errors },
     } = useForm<RequisitionFormValues>({
         resolver: zodResolver(requisitionSchema),
@@ -91,13 +85,11 @@ export default function RequisitionFormModal({
             getCatalogItems("/masterdata/work-locations"),
             getUserDirectory("RECRUITER"),
             getUserDirectory("COMPANY_ADMIN"),
-            getCatalogItems("/masterdata/skills"),
-        ]).then(([deptRes, levelRes, empTypeRes, locationRes, recruiterRes, adminRes, skillRes]) => {
+        ]).then(([deptRes, levelRes, empTypeRes, locationRes, recruiterRes, adminRes]) => {
             setDepartments(deptRes.data);
             setJobLevels(levelRes.data);
             setEmploymentTypes(empTypeRes.data);
             setWorkLocations(locationRes.data);
-            setSkills(skillRes.data);
             const approvers = [...recruiterRes.data, ...adminRes.data];
             // Không hiển thị chọn người duyệt trên form — tự động gán cho một nhân sự HR khi tạo mới.
             if (!editingItem && approvers.length > 0) {
@@ -408,21 +400,8 @@ export default function RequisitionFormModal({
 
                 {/* 2. Yêu cầu nhân sự */}
                 <SectionContainer>
-                <SectionHeader icon={<TeamOutlined />} title="Yêu cầu nhân sự"
-                    extra={
-                        <Button
-                            type="primary"
-                            ghost
-                            size="small"
-                            icon={<RobotOutlined />}
-                            onClick={() => setJdDrawerOpen(true)}
-                            disabled={!watch("title")}
-                            style={{ borderRadius: 6 }}
-                        >
-                            ✨ Sinh JD bằng AI
-                        </Button>
-                    }
-                />
+                {/* Phòng ban tự viết mô tả và yêu cầu (chức năng sinh JD bằng AI đã gỡ). */}
+                <SectionHeader icon={<TeamOutlined />} title="Yêu cầu nhân sự" />
                 <div style={grid2}>
                 <Form.Item label="Mô tả công việc" validateStatus={errors.description ? "error" : ""} help={errors.description?.message}>
                     <Controller
@@ -461,7 +440,8 @@ export default function RequisitionFormModal({
                         )}
                     />
                 </Form.Item>
-                <Form.Item label="Kỹ năng / chuyên môn">
+                {/* Kỹ năng ở phiếu được chép sang tin tuyển dụng; AI chấm điểm coi chúng là yêu cầu BẮT BUỘC. */}
+                <Form.Item label="Kỹ năng / chuyên môn" extra={SKILL_REQUIRED_HINT}>
                     <Controller
                         name="skillIds"
                         control={control}
@@ -579,21 +559,6 @@ export default function RequisitionFormModal({
                 </Form.Item>
                 </SectionContainer>
             </Form>
-
-            <JdGeneratorPanel
-                open={jdDrawerOpen}
-                input={{
-                    title: watch("title") || "",
-                    level: watch("jobLevelId") ? (jobLevels.find((l) => l.id === watch("jobLevelId"))?.name as string) : undefined,
-                    skills: (watch("skillIds") ?? []).map((id) => (skills.find((s) => s.id === id)?.name as string) ?? "").filter(Boolean),
-                    experience: watch("experienceRequired") || undefined,
-                }}
-                onClose={() => setJdDrawerOpen(false)}
-                onApply={(result: JdGeneratorResult) => {
-                    setValue("description", result.description);
-                    setValue("requirements", result.requirements);
-                }}
-            />
         </Modal>
     );
 }

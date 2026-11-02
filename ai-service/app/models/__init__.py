@@ -113,6 +113,29 @@ class CVExtraction(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+# [GIẢI THÍCH] Kết quả tách JD thành danh sách yêu cầu (Bước 1) — một dòng cho mỗi (nội dung JD, phiên bản prompt).
+# Khóa theo mã băm NỘI DUNG JD (không theo id tin tuyển dụng): mọi CV của cùng một JD dùng chung một bản;
+# HR sửa JD -> nội dung đổi -> mã băm đổi -> tự trích xuất lại. Cùng cách làm với cv_extractions.
+class JDExtraction(Base):
+    """Kết quả trích xuất JD theo schema ExtractedJD — một dòng cho mỗi (nội dung JD, phiên bản prompt)."""
+
+    __tablename__ = "jd_extractions"
+    __table_args__ = (UniqueConstraint("content_hash", "prompt_version", name="uq_jd_extractions_content_prompt"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    content_hash = Column(String(64), nullable=False)
+    prompt_version = Column(String(20), nullable=False)
+    job_posting_id = Column(BigInteger)  # tin đầu tiên có nội dung này (chỉ để tra cứu; nội dung trùng thì dùng chung)
+    status = Column(String(20), nullable=False)
+    # COMPLETED | FAILED
+    model = Column(String(100))
+    result = Column(JSONB)          # ExtractedJD
+    provenance = Column(JSONB)      # model, prompt_version, token, chi phí, độ trễ, số lần thử lại
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class AIScore(Base):
     """Điểm phù hợp CV ↔ JD mới nhất của mỗi hồ sơ ứng tuyển (một dòng / hồ sơ).
 

@@ -24,12 +24,16 @@ def utf8_console() -> None:
         pass
 
 
+# [GIẢI THÍCH] 3 nhãn của bộ dữ liệu, đánh số 0 / 1 / 2, khớp 3 xếp loại của hệ thống:
+# No Fit = Chưa phù hợp (NOT_FIT), Potential Fit = Tiềm năng (POTENTIAL_FIT), Good Fit = Phù hợp tốt (GOOD_FIT).
 LABELS = ["No Fit", "Potential Fit", "Good Fit"]          # nhãn gốc của bộ dữ liệu, theo thứ tự 0 / 1 / 2
 LABEL_ID = {name: i for i, name in enumerate(LABELS)}
 LABELS_VI = ["Chưa phù hợp", "Tiềm năng", "Phù hợp tốt"]   # khớp 3 mức xếp loại của sản phẩm
 TIER_TO_ID = {"NOT_FIT": 0, "POTENTIAL_FIT": 1, "GOOD_FIT": 2}
 
 
+# [GIẢI THÍCH] Mã băm ngắn (16 ký tự SHA-1) của nội dung văn bản: hai văn bản giống hệt nhau có cùng mã.
+# Dùng để nhận ra CV / JD trùng và làm khoá tham chiếu giữa pairs.jsonl và texts_en.jsonl.
 def text_hash(text: str) -> str:
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
 

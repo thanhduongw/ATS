@@ -41,6 +41,7 @@ import RolesPage from "../features/admin/pages/RolesPage";
 import UserDetailPage from "../features/admin/pages/UserDetailPage";
 import CompanyPage from "../features/admin/pages/CompanyPage";
 import AcceptInvitePage from "../features/auth/pages/AcceptInvitePage";
+import MyWorkPage from "../features/home/pages/MyWorkPage";
 import JobDetailApplyPage from "../features/public/pages/JobDetailApplyPage";
 
 const INTERNAL_ROLES = ["COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER"] as const;
@@ -82,6 +83,8 @@ export default function AppRoutes() {
                 </Route>
 
                 <Route element={<RoleRoute allow={[...OPERATION_ROLES]} />}>
+                    {/* R01 / H01 "Việc của tôi" */}
+                    <Route path="/my-work" element={<MyWorkPage />} />
                     <Route path="/recruitment" element={<RecruitmentPage />} />
                     <Route path="/recruitment/requisitions" element={<RecruitmentPage />} />
                     <Route path="/recruitment/postings" element={<RecruitmentPage />} />

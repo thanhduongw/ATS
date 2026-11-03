@@ -44,7 +44,7 @@ function menuFor(role: UserRole): NavItem[] {
         // R01
         case "RECRUITER":
             return [
-                { key: "/dashboard", label: "Việc của tôi", icon: <CheckSquareOutlined /> },
+                { key: "/my-work", label: "Việc của tôi", icon: <CheckSquareOutlined /> },
                 { key: "/recruitment/requisitions", label: "Yêu cầu tuyển dụng", icon: <SolutionOutlined /> },
                 { key: "/recruitment/postings", label: "Việc làm", icon: <FileTextOutlined /> },
                 { key: "/applications", label: "Ứng viên", icon: <TeamOutlined /> },
@@ -55,7 +55,7 @@ function menuFor(role: UserRole): NavItem[] {
         // H01
         case "HIRING_MANAGER":
             return [
-                { key: "/dashboard", label: "Việc của tôi", icon: <CheckSquareOutlined /> },
+                { key: "/my-work", label: "Việc của tôi", icon: <CheckSquareOutlined /> },
                 { key: "/recruitment/requisitions", label: "Yêu cầu tuyển dụng", icon: <SolutionOutlined /> },
                 { key: "/applications", label: "Ứng viên", icon: <TeamOutlined /> },
                 { key: "/interviews", label: "Lịch phỏng vấn", icon: <CalendarOutlined /> },

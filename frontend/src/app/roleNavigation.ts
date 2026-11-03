@@ -1,5 +1,8 @@
 import type { UserRole } from "../features/auth/types";
 
 export function defaultRouteForRole(role: UserRole): string {
-    return role === "CANDIDATE" ? "/jobs" : "/dashboard";
+    if (role === "CANDIDATE") return "/jobs";
+    // R01 / H01: màn chính của Chuyên viên tuyển dụng và Đại diện phòng ban là "Việc của tôi".
+    if (role === "RECRUITER" || role === "HIRING_MANAGER") return "/my-work";
+    return "/dashboard";
 }

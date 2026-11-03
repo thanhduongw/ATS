@@ -66,6 +66,9 @@ const ROUTES: RouteNode[] = [
 
     // ── Quản trị ──────────────────────────────────────────────────────────
     { pattern: "/admin/users", label: "Người dùng", moduleKey: "/admin/users" },
+    { pattern: "/admin/users/invite", label: "Mời người dùng", parent: "/admin/users" },
+    { pattern: "/admin/users/roles", label: "Vai trò & quyền", parent: "/admin/users" },
+    { pattern: "/admin/users/:id", label: "Chi tiết người dùng", parent: "/admin/users" },
     { pattern: "/admin/company", label: "Thông tin doanh nghiệp", moduleKey: "/admin/company" },
     { pattern: "/audit-logs", label: "Nhật ký hệ thống", moduleKey: "/audit-logs" },
     { pattern: "/notifications", label: "Thông báo", moduleKey: "/notifications" },

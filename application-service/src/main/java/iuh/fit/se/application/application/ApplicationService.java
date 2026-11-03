@@ -216,6 +216,32 @@ public class ApplicationService {
         return toCandidateResponse(application);
     }
 
+    /** Tên lý do trong danh mục "Lý do từ chối" dùng khi ứng viên tự rút đơn (seed của masterdata). */
+    static final String WITHDRAW_REASON_NAME = "Ứng viên tự rút hồ sơ";
+
+    /**
+     * Ứng viên tự rút đơn (docs/UI UC06; quyết định B5, mặc định G8): đơn chuyển sang Từ chối với lý do
+     * "Ứng viên tự rút hồ sơ", không thêm trạng thái mới. Không rút được đơn đã kết thúc (Đã tuyển, Từ chối).
+     * Lịch phỏng vấn còn treo do interview-service tự huỷ khi nhận sự kiện application.status_changed.
+     */
+    @Transactional
+    public CandidateApplicationResponse withdrawMyApplication(CurrentUser actor, Long id) {
+        AuthorizationPolicy.requireCandidate(actor);
+        Application application = findById(id);
+        authorizeApplication(actor, application);
+        if (STAGE_TYPE_HIRED.equals(application.getCurrentStageType())) {
+            throw new BusinessException("Đơn đã ở giai đoạn Đã tuyển, không rút được");
+        }
+        Long reasonId = masterDataServiceClient.getRejectionReasons().stream()
+                .filter(r -> WITHDRAW_REASON_NAME.equalsIgnoreCase(r.name()))
+                .map(CatalogItemResponse::id)
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        "Danh mục lý do từ chối chưa có mục \"" + WITHDRAW_REASON_NAME + "\""));
+        applyReject(id, actor.userId(), new ApplicationRejectRequest(reasonId, "Ứng viên rút đơn"));
+        return toCandidateResponse(findById(id));
+    }
+
     private ApplicationResponse buildDetailedResponse(
             boolean includeInternalUserNames, Application application) {
         Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources());

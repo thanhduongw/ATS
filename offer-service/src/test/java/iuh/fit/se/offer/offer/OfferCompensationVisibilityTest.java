@@ -94,6 +94,7 @@ class OfferCompensationVisibilityTest {
                 "Mong sớm được làm việc cùng chị",
                 5L, "Hoàng Thu Ngân", 6L, "Hoàng Thu Ngân",
                 OfferStatus.APPROVED, null, null, null,
-                LocalDateTime.of(2026, 10, 27, 9, 0), null, null);
+                LocalDateTime.of(2026, 10, 27, 9, 0), null, null,
+                null, null, null, 0, null);
     }
 }

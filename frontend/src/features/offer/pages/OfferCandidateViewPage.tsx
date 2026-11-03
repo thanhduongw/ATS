@@ -393,6 +393,7 @@ function STATUS_LABEL_SAFE(s: string) {
         REJECTED: "Đã bị từ chối nội bộ",
         ACCEPTED: "Đã chấp nhận",
         DECLINED: "Đã từ chối",
+        EXPIRED: "Đã hết hạn",
     };
     return m[s] ?? s;
 }

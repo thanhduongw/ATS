@@ -34,12 +34,51 @@ export interface CreateUserRequest {
 
 export interface UpdateProfileRequest { fullName: string; phone?: string | null; }
 
-export interface UpdateCompanyRequest {
+/** docs/UI A08, C01 (quyết định C4, Q7). */
+export interface CompanyProfileFields {
+    address?: string | null;
+    phone?: string | null;
+    legalName?: string | null;
+    taxCode?: string | null;
+    foundedDate?: string | null;
+    website?: string | null;
+    sizeRange?: string | null;
+    recruitingEmail?: string | null;
+    brandColor?: string | null;
+    dataProtectionOfficerId?: number | null;
+    privacyPolicy?: string | null;
+    tagline?: string | null;
+    /** JSON: [{"title": "...", "description": "..."}]. */
+    benefits?: string | null;
+}
+
+export interface UpdateCompanyRequest extends CompanyProfileFields {
     name: string;
     description?: string | null;
     logoUrl?: string | null;
     bannerUrl?: string | null;
     dataRetentionMonths?: number | null;
+}
+
+/** docs/UI A04 "Mời người dùng". */
+export interface InviteUserRequest {
+    fullName: string;
+    email: string;
+    role: Exclude<UserRole, "CANDIDATE">;
+    departmentId?: number | null;
+    jobTitle?: string | null;
+    message?: string | null;
+}
+
+export interface InvitationPreviewResponse {
+    email: string;
+    fullName: string;
+    roleName: UserRole | null;
+    departmentId: number | null;
+    jobTitle: string | null;
+    invitedByName: string;
+    message: string | null;
+    expiresAt: string;
 }
 
 export interface UpdateUserStatusRequest { status: UserStatus; }
@@ -57,13 +96,14 @@ export interface UserProfileResponse {
     emailVerified: boolean;
 }
 
-export interface CompanyResponse {
+export interface CompanyResponse extends CompanyProfileFields {
     id: number;
     name: string;
     description: string | null;
     logoUrl: string | null;
     bannerUrl: string | null;
     dataRetentionMonths: number | null;
+    privacyPolicyUpdatedAt?: string | null;
 }
 
 export interface JwtPayload {
@@ -98,4 +138,6 @@ export interface UserSummaryResponse {
     role: UserRole;
     departmentId: number | null;
     status: UserStatus;
+    /** docs/UI A03 "Đăng nhập gần nhất". */
+    lastLoginAt?: string | null;
 }

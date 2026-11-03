@@ -18,6 +18,9 @@ import iuh.fit.se.interview.interview.dto.InterviewUpdateRequest;
 import iuh.fit.se.interview.interview.dto.CandidateInterviewResponse;
 import iuh.fit.se.interview.interview.dto.InterviewResponse;
 import iuh.fit.se.interview.interview.dto.InterviewerSummary;
+import iuh.fit.se.interview.scheduling.InterviewSlot;
+import iuh.fit.se.interview.scheduling.InterviewSlotRepository;
+import iuh.fit.se.interview.scheduling.InterviewSlotStatus;
 import iuh.fit.se.interview.security.AuthorizationPolicy;
 import iuh.fit.se.interview.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +45,7 @@ public class InterviewService {
 
     private final InterviewRepository interviewRepository;
     private final InterviewEvaluationRepository evaluationRepository;
+    private final InterviewSlotRepository slotRepository;
     private final ApplicationServiceClient applicationServiceClient;
     private final MasterDataServiceClient masterDataServiceClient;
     private final AuthServiceClient authServiceClient;
@@ -514,6 +518,30 @@ public class InterviewService {
         if (!assigned) {
             throw new AccessDeniedException("Bạn không được phân công buổi phỏng vấn này");
         }
+    }
+
+    /**
+     * Huỷ mọi buổi phỏng vấn chưa diễn ra và khung giờ đang chờ ứng viên chọn của một hồ sơ đã kết
+     * thúc. Gọi từ sự kiện, không có người dùng — không gọi sang service khác. Trả về số mục đã huỷ.
+     */
+    @Transactional
+    public int cancelOpenForClosedApplication(Long applicationId) {
+        int cancelled = 0;
+        for (Interview interview : interviewRepository.findByApplicationIdOrderByScheduledAtDesc(applicationId)) {
+            if (InterviewStatus.CANCELLABLE.contains(interview.getStatus())) {
+                interview.setStatus(InterviewStatus.CANCELLED);
+                interviewRepository.save(interview);
+                cancelled++;
+            }
+        }
+        for (InterviewSlot slot : slotRepository.findByApplicationIdOrderByStartTimeAsc(applicationId)) {
+            if (slot.getStatus() == InterviewSlotStatus.PROPOSED) {
+                slot.setStatus(InterviewSlotStatus.CANCELLED);
+                slotRepository.save(slot);
+                cancelled++;
+            }
+        }
+        return cancelled;
     }
 
     @Transactional

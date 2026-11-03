@@ -91,6 +91,9 @@ const OFFER_TONE: Record<OfferStatus, StatusTone> = {
 /** Duyệt offer = gửi luôn cho ứng viên, nên APPROVED với ứng viên là "Chờ phản hồi". */
 export function offerStatus(status: OfferStatus | undefined, viewer: Viewer): StatusView {
   if (!status) return UNKNOWN;
+  // EXPIRED có từ offer-service (docs/UI R25) nhưng type sinh tự động chưa cập nhật —
+  // chạy lại `npm run gen:types` khi backend chạy thì có thể bỏ nhánh này.
+  if ((status as string) === "EXPIRED") return { label: STRINGS.status.offerExpired, tone: "neutral" };
   if (viewer === "CANDIDATE") {
     if (status === "APPROVED") return { label: STRINGS.status.offerForCandidate.APPROVED, tone: "warning" };
     if (status === "DECLINED") return { label: STRINGS.status.offerForCandidate.DECLINED, tone: "neutral" };

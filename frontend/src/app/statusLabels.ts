@@ -17,13 +17,15 @@ export const POSTING_STATUS: Record<string, StatusMeta> = {
     CLOSED: { label: "Đã đóng", color: "default" },
 };
 
+/** Thư mời — nhãn theo R25, sắc độ theo DS06 ("Đã gửi chờ phản hồi" = cam, "Ứng viên nhận" = xanh lá). */
 export const OFFER_STATUS: Record<string, StatusMeta> = {
     DRAFT: { label: "Bản nháp", color: "default" },
     PENDING_APPROVAL: { label: "Chờ duyệt", color: "warning" },
-    APPROVED: { label: "Đã gửi ứng viên", color: "processing" },
+    APPROVED: { label: "Đã gửi", color: "warning" },
     REJECTED: { label: "Từ chối duyệt", color: "error" },
     ACCEPTED: { label: "Ứng viên nhận", color: "success" },
-    DECLINED: { label: "Ứng viên từ chối", color: "magenta" },
+    DECLINED: { label: "Ứng viên từ chối", color: "error" },
+    EXPIRED: { label: "Hết hạn", color: "default" },
 };
 
 /**

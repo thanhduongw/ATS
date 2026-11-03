@@ -6,6 +6,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "offer")
@@ -125,6 +126,34 @@ public class Offer {
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
+
+    /*
+     * Các cột dưới đây đã có trong DB từ migration V4/V5/V7 (ràng buộc ck_offer_sealed_matches_issued,
+     * ck_offer_response_recorded, ck_offer_expired_at_recorded). Thư mời đã gửi phải được niêm phong:
+     * sau khi niêm phong, trigger trg_offer_sealed_version_immutable chặn sửa điều khoản.
+     */
+    @Column(name = "issued_at")
+    private LocalDateTime issuedAt;
+
+    @Column(name = "sealed_at")
+    private OffsetDateTime sealedAt;
+
+    @Column(name = "candidate_responded_at")
+    private LocalDateTime candidateRespondedAt;
+
+    @Column(name = "candidate_responded_by_user_id")
+    private Long candidateRespondedByUserId;
+
+    @Column(name = "expired_at")
+    private LocalDateTime expiredAt;
+
+    /** Số lần ứng viên mở thư mời đã gửi (R43, UR17 "đã xem 1 lần lúc 11:02"). Migration V8. */
+    @Builder.Default
+    @Column(name = "candidate_view_count", nullable = false)
+    private Integer candidateViewCount = 0;
+
+    @Column(name = "candidate_last_viewed_at")
+    private LocalDateTime candidateLastViewedAt;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

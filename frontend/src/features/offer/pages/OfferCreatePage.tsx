@@ -22,7 +22,7 @@ import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 
 import { offerCreateSchema, type OfferCreateFormValues } from "../schemas/offerCreateSchema";
-import { createOffer, getOfferById, updateOffer, submitOffer } from "../offerApi";
+import { createOffer, getOfferById, updateOffer } from "../offerApi";
 import type { ApiMessageResponse } from "../types";
 import { getUserDirectory } from "../../auth/authApi";
 import type { UserDirectoryResponse } from "../../auth/types";
@@ -395,16 +395,15 @@ export default function OfferCreatePage() {
         }
     });
 
-    const onSubmitForApproval = handleSubmit(async (data) => {
+    // R24 "Lưu & xem lại": lưu bản nháp rồi mở trang chi tiết (R26) để kiểm tra và bấm "Gửi thư mời".
+    const onSaveAndReview = handleSubmit(async (data) => {
         setSaving(true);
         try {
             const offerId = await persist(data);
-            await submitOffer(offerId);
-            message.success("Đã gửi đề nghị vào luồng duyệt");
             navigate(`/offers/${offerId}`);
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Gửi duyệt thất bại");
+            message.error(axiosErr.response?.data?.message ?? "Lưu thư mời thất bại");
         } finally {
             setSaving(false);
         }
@@ -468,9 +467,9 @@ export default function OfferCreatePage() {
                             icon={<SendOutlined />}
                             loading={saving}
                             disabled={!readyToCompose}
-                            onClick={onSubmitForApproval}
+                            onClick={onSaveAndReview}
                         >
-                            Gửi duyệt
+                            Lưu & xem lại
                         </Button>
                     </>
                 }

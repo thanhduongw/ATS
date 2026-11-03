@@ -5,7 +5,8 @@ import {
 } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
-import { getMyApplications } from "../applicationApi";
+import { getMyApplications, withdrawMyApplication } from "../applicationApi";
+import { SmallDialog } from "../../../components/ui/designKit";
 import { requestOwnDataDeletion } from "../candidateApi";
 import type { CandidateApplicationResponse, ApiMessageResponse } from "../types";
 import { COLORS, RADIUS } from "../../../app/theme";
@@ -22,6 +23,27 @@ export default function MyApplicationsPage() {
     const { modal, message } = App.useApp();
     const [applications, setApplications] = useState<CandidateApplicationResponse[]>([]);
     const [loading, setLoading] = useState(true);
+    const [withdrawing, setWithdrawing] = useState<CandidateApplicationResponse | null>(null);
+    const [withdrawBusy, setWithdrawBusy] = useState(false);
+
+    const reload = () => getMyApplications().then(res => setApplications(res.data)).catch(() => undefined);
+
+    // UC06 "Rút đơn ứng tuyển": xác nhận bằng nút đỏ vì không hoàn tác được (DS06).
+    const confirmWithdraw = async () => {
+        if (!withdrawing) return;
+        setWithdrawBusy(true);
+        try {
+            await withdrawMyApplication(withdrawing.id);
+            message.success("Đã rút đơn ứng tuyển");
+            setWithdrawing(null);
+            await reload();
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Không rút được đơn, vui lòng thử lại");
+        } finally {
+            setWithdrawBusy(false);
+        }
+    };
 
     const handleRequestDeletion = () => {
         modal.confirm({
@@ -109,6 +131,11 @@ export default function MyApplicationsPage() {
                                             Xác nhận lịch họp
                                         </Button>
                                     )}
+                                    {app.currentStageType !== "HIRED" && app.currentStageType !== "REJECTED" && (
+                                        <Button danger onClick={() => setWithdrawing(app)}>
+                                            Rút đơn ứng tuyển
+                                        </Button>
+                                    )}
                                 </Space>
                             </div>
 
@@ -137,6 +164,21 @@ export default function MyApplicationsPage() {
                     ))}
                 </Space>
             )}
+
+            <SmallDialog
+                open={!!withdrawing}
+                title="Rút đơn ứng tuyển?"
+                subtitle={withdrawing?.jobTitle ?? undefined}
+                okText="Rút đơn"
+                danger
+                okLoading={withdrawBusy}
+                onCancel={() => setWithdrawing(null)}
+                onOk={confirmWithdraw}
+            >
+                <span style={{ color: COLORS.textSecondary }}>
+                    Đơn sẽ kết thúc và các buổi phỏng vấn chưa diễn ra sẽ bị huỷ. Không hoàn tác được.
+                </span>
+            </SmallDialog>
         </div>
     );
 }

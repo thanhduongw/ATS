@@ -11,7 +11,7 @@ import { saveAs } from "file-saver";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import {
-    approveOffer, deleteOffer, getOfferById, getOfferPdf, submitOffer,
+    approveOffer, deleteOffer, getOfferById, getOfferPdf, sendOffer,
 } from "../offerApi";
 import OfferRejectModal from "../components/OfferRejectModal";
 import type { ApiMessageResponse, OfferResponse } from "../types";
@@ -24,6 +24,7 @@ import { formatMoney } from "../../../app/money";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import { OFFER_STATUS, statusMeta } from "../../../app/statusLabels";
+import { InlineNotice, SmallDialog } from "../../../components/ui/designKit";
 
 const initialsOf = (name: string) =>
     (name || "?").trim().split(/\s+/).slice(-2).map((w) => w[0] ?? "").join("").toUpperCase();
@@ -50,6 +51,7 @@ export default function OfferDetailPage() {
     const [loading, setLoading] = useState(true);
     const [acting, setActing] = useState(false);
     const [rejectOpen, setRejectOpen] = useState(false);
+    const [sendOpen, setSendOpen] = useState(false);
     /** Chỉ dùng để đổi mã địa điểm thành tên; hỏng danh mục thì hiện dấu gạch. */
     const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
 
@@ -90,7 +92,8 @@ export default function OfferDetailPage() {
     const meta = statusMeta(OFFER_STATUS, offer.status);
 
     const canEdit = isHr && isOwner && offer.status === "DRAFT";
-    const canSubmit = isHr && isOwner && offer.status === "DRAFT";
+    // R26–R27: HR gửi thẳng bản nháp cho ứng viên, không qua bước duyệt (quyết định B2).
+    const canSend = isHr && offer.status === "DRAFT";
     // Duyet dong thoi la gui: tu APPROVED ung vien moi doc duoc offer.
     const canApprove = isHr && isApprover && offer.status === "PENDING_APPROVAL";
     const canDelete = isHr && (offer.status === "DRAFT" || offer.status === "REJECTED");
@@ -146,14 +149,14 @@ export default function OfferDetailPage() {
                             Chỉnh sửa
                         </Button>
                     )}
-                    {canSubmit && (
+                    {canSend && (
                         <Button
                             type="primary"
                             icon={<SendOutlined />}
                             loading={acting}
-                            onClick={() => run(() => submitOffer(offer.id), "Đã gửi đề nghị vào luồng duyệt", "Gửi duyệt thất bại")}
+                            onClick={() => setSendOpen(true)}
                         >
-                            Gửi duyệt
+                            Gửi thư mời
                         </Button>
                     )}
                     {canApprove && (
@@ -204,7 +207,46 @@ export default function OfferDetailPage() {
                 </>}
             />
 
+            {/* R27 "Gửi thư mời cho …?" — hộp thoại nhỏ, xác nhận trước hành động không sửa lại được. */}
+            <SmallDialog
+                open={sendOpen}
+                title={`Gửi thư mời cho ${offer.candidateName}?`}
+                okText="Gửi thư mời"
+                okLoading={acting}
+                onCancel={() => setSendOpen(false)}
+                onOk={() => run(
+                    async () => { await sendOffer(offer.id); setSendOpen(false); },
+                    `Đã gửi thư mời cho ${offer.candidateName}`,
+                    "Gửi thư mời thất bại",
+                )}
+            >
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 14 }}>
+                    <span>Lương {formatMoney(offer.salaryOffered)} · bắt đầu {fmtDate(offer.startDate)} · hạn phản hồi {fmtDateTime(offer.responseDeadline)}</span>
+                    {/* Thu hồi thư mời đang hoãn (B3) nên không ghi "chỉ có thể thu hồi" như HTML. */}
+                    <span style={{ color: COLORS.textSecondary }}>
+                        Ứng viên nhận thư qua email và cổng ứng viên ngay. Sau khi gửi không sửa được điều khoản.
+                    </span>
+                </div>
+            </SmallDialog>
+
             <div className="page-shell-scroll">
+            {offer.status === "APPROVED" && (
+                <div style={{ marginBottom: 12 }}>
+                    {/* R43: "Ứng viên chưa phản hồi · đã xem 1 lần lúc 11:02" */}
+                    <InlineNotice tone="warning">
+                        {offer.candidateViewCount
+                            ? `Ứng viên chưa phản hồi · đã xem ${offer.candidateViewCount} lần${offer.candidateLastViewedAt ? ` lúc ${dayjs(offer.candidateLastViewedAt).format("HH:mm, DD/MM")}` : ""}`
+                            : "Ứng viên chưa phản hồi · chưa mở thư"}
+                    </InlineNotice>
+                </div>
+            )}
+            {offer.status === "EXPIRED" && (
+                <div style={{ marginBottom: 12 }}>
+                    <InlineNotice tone="neutral">
+                        Thư mời đã hết hạn phản hồi{offer.expiredAt ? ` lúc ${dayjs(offer.expiredAt).format("HH:mm, DD/MM/YYYY")}` : ""}. Suất tuyển đã được trả lại, bạn có thể soạn thư mời mới.
+                    </InlineNotice>
+                </div>
+            )}
             {selfApproving && (
                 <Alert
                     type="info"

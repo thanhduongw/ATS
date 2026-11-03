@@ -229,6 +229,13 @@ export const STRINGS = {
     offer: "Thư mời nhận việc",
     viewOffer: "Xem thư mời",
     viewJob: "Xem tin tuyển dụng",
+    // UC06
+    withdraw: "Rút đơn ứng tuyển",
+    withdrawTitle: "Rút đơn ứng tuyển?",
+    withdrawBody: "Đơn sẽ kết thúc và các buổi phỏng vấn chưa diễn ra sẽ bị huỷ. Không hoàn tác được.",
+    withdrawConfirm: "Rút đơn",
+    withdrawDone: "Đã rút đơn ứng tuyển",
+    withdrawFailed: "Không rút được đơn",
   },
   schedule: {
     title: "Chọn giờ",
@@ -416,6 +423,7 @@ export const STRINGS = {
 
   /** Nhãn trạng thái — chỉ đọc qua `src/lib/status.ts`, đừng lấy thẳng ở màn hình. */
   status: {
+    offerExpired: "Hết hạn",
     stage: {
       // 6 giai đoạn cố định (DS06, quyết định B1): không dùng "vòng 1/2", "PV kỹ thuật"…
       APPLIED: "Ứng tuyển",

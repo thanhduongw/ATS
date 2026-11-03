@@ -2,6 +2,7 @@ package iuh.fit.se.auth.entity;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -31,6 +32,44 @@ public class Company {
     /** Số tháng lưu trữ dữ liệu ứng viên trước khi tự động ẩn danh hoá (GDPR). Null = không giới hạn. */
     @Column(name = "data_retention_months")
     private Integer dataRetentionMonths;
+
+
+    /* docs/UI A08 "Thông tin doanh nghiệp" và C01 (quyết định C4, Q7) — migration V5. */
+    @Column(name = "legal_name")
+    private String legalName;
+
+    @Column(name = "tax_code")
+    private String taxCode;
+
+    @Column(name = "founded_date")
+    private LocalDate foundedDate;
+
+    @Column(name = "website")
+    private String website;
+
+    @Column(name = "size_range")
+    private String sizeRange;
+
+    @Column(name = "recruiting_email")
+    private String recruitingEmail;
+
+    @Column(name = "brand_color")
+    private String brandColor;
+
+    @Column(name = "data_protection_officer_id")
+    private Long dataProtectionOfficerId;
+
+    @Column(name = "privacy_policy", columnDefinition = "TEXT")
+    private String privacyPolicy;
+
+    @Column(name = "privacy_policy_updated_at")
+    private LocalDateTime privacyPolicyUpdatedAt;
+
+    @Column(name = "tagline")
+    private String tagline;
+
+    @Column(name = "benefits", columnDefinition = "TEXT")
+    private String benefits;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -105,6 +144,30 @@ public class Company {
     public void setBannerUrl(String bannerUrl) { this.bannerUrl = bannerUrl; }
     public Integer getDataRetentionMonths() { return dataRetentionMonths; }
     public void setDataRetentionMonths(Integer dataRetentionMonths) { this.dataRetentionMonths = dataRetentionMonths; }
+    public String getLegalName() { return legalName; }
+    public void setLegalName(String legalName) { this.legalName = legalName; }
+    public String getTaxCode() { return taxCode; }
+    public void setTaxCode(String taxCode) { this.taxCode = taxCode; }
+    public LocalDate getFoundedDate() { return foundedDate; }
+    public void setFoundedDate(LocalDate foundedDate) { this.foundedDate = foundedDate; }
+    public String getWebsite() { return website; }
+    public void setWebsite(String website) { this.website = website; }
+    public String getSizeRange() { return sizeRange; }
+    public void setSizeRange(String sizeRange) { this.sizeRange = sizeRange; }
+    public String getRecruitingEmail() { return recruitingEmail; }
+    public void setRecruitingEmail(String recruitingEmail) { this.recruitingEmail = recruitingEmail; }
+    public String getBrandColor() { return brandColor; }
+    public void setBrandColor(String brandColor) { this.brandColor = brandColor; }
+    public Long getDataProtectionOfficerId() { return dataProtectionOfficerId; }
+    public void setDataProtectionOfficerId(Long dataProtectionOfficerId) { this.dataProtectionOfficerId = dataProtectionOfficerId; }
+    public String getPrivacyPolicy() { return privacyPolicy; }
+    public void setPrivacyPolicy(String privacyPolicy) { this.privacyPolicy = privacyPolicy; }
+    public LocalDateTime getPrivacyPolicyUpdatedAt() { return privacyPolicyUpdatedAt; }
+    public void setPrivacyPolicyUpdatedAt(LocalDateTime privacyPolicyUpdatedAt) { this.privacyPolicyUpdatedAt = privacyPolicyUpdatedAt; }
+    public String getTagline() { return tagline; }
+    public void setTagline(String tagline) { this.tagline = tagline; }
+    public String getBenefits() { return benefits; }
+    public void setBenefits(String benefits) { this.benefits = benefits; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

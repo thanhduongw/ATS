@@ -67,6 +67,15 @@ public class ApplicationController {
         return ResponseEntity.ok(service.getMyApplication(actor, id));
     }
 
+    /** Ứng viên tự rút đơn (docs/UI UC06 "Rút đơn ứng tuyển"; quyết định B5). */
+    @PatchMapping("/my/{id}/withdraw")
+    public ResponseEntity<CandidateApplicationResponse> withdrawMyApplication(
+            @PathVariable Long id) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireCandidate(actor);
+        return ResponseEntity.ok(service.withdrawMyApplication(actor, id));
+    }
+
     @GetMapping("/access-scope/candidate-ids")
     public ResponseEntity<Set<Long>> getAccessibleCandidateIds() {
         return ResponseEntity.ok(service.getAccessibleCandidateIds(CurrentUser.required()));

@@ -641,11 +641,11 @@ h6 {
 }
 
 /* ── Table Enhancements ────────────────────────────────── */
+/* DS02 "Nhãn 12/400": tiêu đề cột bảng; không viết hoa toàn bộ. */
 .ant-table-wrapper .ant-table-thead>tr>th {
-  font-weight: 600;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  font-weight: 400;
+  font-size: 12px;
+  color: #18243199;
 }
 
 /* ── Badge Animations ──────────────────────────────────── */

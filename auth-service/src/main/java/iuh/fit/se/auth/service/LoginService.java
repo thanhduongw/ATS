@@ -47,6 +47,7 @@ public class LoginService {
         requireActive(user);
         Role role = requiredRole(user);
         LoginResponse response = issueTokens(user, role.getName().name());
+        markLogin(user);
         auditEventPublisher.publishSingleCompany(user.getId(), "LOGIN", "USER", user.getId(), null);
         return response;
     }
@@ -59,6 +60,7 @@ public class LoginService {
         requireActive(user);
         Role role = requiredRole(user);
         LoginResponse response = issueTokens(user, role.getName().name());
+        markLogin(user);
         auditEventPublisher.publishSingleCompany(
                 user.getId(), "LOGIN_GOOGLE", "USER", user.getId(), null);
         return response;
@@ -111,6 +113,12 @@ public class LoginService {
                 .revoked(false)
                 .build());
         return new LoginResponse(accessToken, rawRefreshToken);
+    }
+
+    /** Ghi mốc đăng nhập (đăng nhập bằng mật khẩu / Google; không tính làm mới token). */
+    private void markLogin(AppUser user) {
+        user.setLastLoginAt(LocalDateTime.now());
+        appUserRepository.save(user);
     }
 
     private Role requiredRole(AppUser user) {

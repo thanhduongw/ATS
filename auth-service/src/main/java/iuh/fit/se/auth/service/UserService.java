@@ -166,7 +166,8 @@ public class UserService {
                 user.getEmail(),
                 role.getName().name(),
                 user.getDepartmentId(),
-                user.getStatus().name()
+                user.getStatus().name(),
+                user.getLastLoginAt()
         );
     }
 

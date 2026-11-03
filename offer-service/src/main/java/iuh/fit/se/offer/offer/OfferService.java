@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -41,7 +42,7 @@ public class OfferService {
     private static final Set<OfferStatus> NON_TERMINAL = Set.of(
             OfferStatus.DRAFT, OfferStatus.PENDING_APPROVAL, OfferStatus.APPROVED);
     private static final Set<OfferStatus> CANDIDATE_VISIBLE_STATUSES = Set.of(
-            OfferStatus.APPROVED, OfferStatus.ACCEPTED, OfferStatus.DECLINED);
+            OfferStatus.APPROVED, OfferStatus.ACCEPTED, OfferStatus.DECLINED, OfferStatus.EXPIRED);
     /**
      * Offer con chiem mot suat tuyen dung. REJECTED va DECLINED tra suat lai cho tin tuyen dung,
      * nho vay HR offer duoc cho ung vien xep sau khi nguoi duoc chon tu choi.
@@ -134,11 +135,13 @@ public class OfferService {
                 .toList();
     }
 
+    @Transactional
     public CandidateOfferResponse getMyOffer(CurrentUser actor, Long id) {
         AuthorizationPolicy.requireCandidate(actor);
         Offer offer = findById(id);
         assertCandidateOwns(actor.userId(), offer);
         requireCandidateVisible(offer);
+        recordCandidateView(offer);
         return toCandidateResponse(
                 offer,
                 buildCatalogMap(masterDataServiceClient.getContractTypes()),
@@ -275,6 +278,41 @@ public class OfferService {
         return getById(id);
     }
 
+    /**
+     * Gửi thư mời thẳng cho ứng viên, không qua bước duyệt riêng (docs/UI R26, R27; quyết định B2 =
+     * phương án 2): Bản nháp → Đã gửi trong một giao dịch. Sau khi gửi, điều khoản bị niêm phong
+     * (trigger DB chặn sửa) — muốn đổi thì phải thu hồi và soạn thư mới.
+     * Thư cũ đang ở PENDING_APPROVAL vẫn dùng submit/approve như trước.
+     */
+    @Transactional
+    public OfferResponse send(Long id, CurrentUser actor) {
+        AuthorizationPolicy.requireHr(actor);
+        Offer offer = findById(id);
+        fetchApplicationSummary(offer.getApplicationId());
+
+        if (offer.getStatus() != OfferStatus.DRAFT) {
+            throw new BusinessException("Chỉ gửi được thư mời đang ở trạng thái bản nháp");
+        }
+        if (offer.getResponseDeadline() != null && offer.getResponseDeadline().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("Hạn phản hồi đã qua, hãy chọn hạn mới trước khi gửi");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        offer.setStatus(OfferStatus.APPROVED);
+        offer.setSubmittedAt(now);
+        offer.setApprovedAt(now);
+        offer.setApproverId(actor.userId());
+        seal(offer);
+        offerRepository.save(offer);
+
+        offerEventPublisher.publishOfferApproved(
+                offer.getId(),
+                offer.getApplicationId(),
+                offer.getRequesterId(),
+                offer.getCandidateId());
+        auditEventPublisher.publish(actor.userId(), "OFFER_SENT", "OFFER", offer.getId(), null);
+        return getById(id);
+    }
+
     @Transactional
     public OfferResponse approve(Long id, CurrentUser actor) {
         Offer offer = findById(id);
@@ -285,6 +323,7 @@ public class OfferService {
         }
         offer.setStatus(OfferStatus.APPROVED);
         offer.setApprovedAt(LocalDateTime.now());
+        seal(offer);
         offerRepository.save(offer);
 
         Long candidateUserId = resolveCandidateUserId(offer.getCandidateId());
@@ -329,7 +368,10 @@ public class OfferService {
             throw new BusinessException("Offer đã hết hạn phản hồi");
         }
 
+        seal(offer); // thư gửi trước khi có niêm phong
         offer.setStatus(OfferStatus.ACCEPTED);
+        offer.setCandidateRespondedAt(LocalDateTime.now());
+        offer.setCandidateRespondedByUserId(actor.userId());
         offerRepository.save(offer);
 
         // The application stage transition is owned by application-service and is driven by this
@@ -358,8 +400,15 @@ public class OfferService {
         if (offer.getStatus() != OfferStatus.APPROVED) {
             throw new BusinessException("Chỉ ghi nhận từ chối cho Offer đã được duyệt");
         }
+        if (offer.getResponseDeadline() != null
+                && offer.getResponseDeadline().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("Offer đã hết hạn phản hồi");
+        }
 
+        seal(offer); // thư gửi trước khi có niêm phong
         offer.setStatus(OfferStatus.DECLINED);
+        offer.setCandidateRespondedAt(LocalDateTime.now());
+        offer.setCandidateRespondedByUserId(actor.userId());
         offer.setDeclineReasonId(req.declineReasonId());
         offer.setDeclineNote(req.note());
         offerRepository.save(offer);
@@ -377,6 +426,43 @@ public class OfferService {
                 offer,
                 buildCatalogMap(masterDataServiceClient.getContractTypes()),
                 buildCatalogMap(masterDataServiceClient.getRejectionReasons()));
+    }
+
+    /**
+     * Chuyển thư đã gửi quá hạn phản hồi sang EXPIRED (docs/UI R25 "Hết hạn"; quyết định B4).
+     * Hồ sơ ứng tuyển giữ nguyên ở giai đoạn Thư mời; suất tuyển được trả lại (EXPIRED không nằm
+     * trong HEADCOUNT_CONSUMING) để HR soạn thư mới nếu muốn. Trả về số thư đã chuyển.
+     */
+    @Transactional
+    public int expireOverdue(LocalDateTime now) {
+        List<Offer> due = offerRepository.findByStatusAndResponseDeadlineBeforeAndDeletedAtIsNull(
+                OfferStatus.APPROVED, now);
+        for (Offer offer : due) {
+            seal(offer);
+            offer.setStatus(OfferStatus.EXPIRED);
+            offer.setExpiredAt(now);
+            offerRepository.save(offer);
+            auditEventPublisher.publish(null, "OFFER_EXPIRED", "OFFER", offer.getId(), null);
+        }
+        return due.size();
+    }
+
+    /** Niêm phong điều khoản thư mời khi gửi (DB: ck_offer_sealed_matches_issued). Gọi lại không đổi gì. */
+    static void seal(Offer offer) {
+        if (offer.getIssuedAt() == null) {
+            offer.setIssuedAt(offer.getApprovedAt() != null ? offer.getApprovedAt() : LocalDateTime.now());
+        }
+        if (offer.getSealedAt() == null) {
+            offer.setSealedAt(OffsetDateTime.now());
+        }
+    }
+
+    /** Đếm lượt ứng viên mở thư mời đang chờ phản hồi (R43, UR17). */
+    static void recordCandidateView(Offer offer) {
+        if (offer.getStatus() != OfferStatus.APPROVED) return;
+        int count = offer.getCandidateViewCount() == null ? 0 : offer.getCandidateViewCount();
+        offer.setCandidateViewCount(count + 1);
+        offer.setCandidateLastViewedAt(LocalDateTime.now());
     }
 
     @Transactional
@@ -568,7 +654,9 @@ public class OfferService {
                 null,
                 r.candidateVisibleNote(), r.requesterId(), r.requesterName(), r.approverId(), r.approverName(),
                 r.status(), r.rejectReason(), r.declineReasonName(), r.declineNote(),
-                r.createdAt(), r.submittedAt(), r.approvedAt());
+                r.createdAt(), r.submittedAt(), r.approvedAt(),
+                r.issuedAt(), r.expiredAt(), r.candidateRespondedAt(),
+                r.candidateViewCount(), r.candidateLastViewedAt());
     }
 
     private OfferResponse toResponse(
@@ -609,7 +697,12 @@ public class OfferService {
                 o.getDeclineNote(),
                 o.getCreatedAt(),
                 o.getSubmittedAt(),
-                o.getApprovedAt()
+                o.getApprovedAt(),
+                o.getIssuedAt(),
+                o.getExpiredAt(),
+                o.getCandidateRespondedAt(),
+                o.getCandidateViewCount(),
+                o.getCandidateLastViewedAt()
         );
     }
 }

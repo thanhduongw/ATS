@@ -33,6 +33,10 @@ export const getApplicationById = (id: number) =>
 export const getMyApplications = () =>
   axiosClient.get<CandidateApplicationResponse[]>("/application/applications/my");
 
+/** Ứng viên tự rút đơn (docs/UI UC06; quyết định B5). */
+export const withdrawMyApplication = (id: number) =>
+  axiosClient.patch<CandidateApplicationResponse>(`/application/applications/my/${id}/withdraw`);
+
 export const getMyApplicationById = (id: number) =>
   axiosClient.get<CandidateApplicationResponse>(`/application/applications/my/${id}`);
 

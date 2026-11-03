@@ -35,6 +35,12 @@ import OfferCandidateViewPage from "../features/offer/pages/OfferCandidateViewPa
 import AuditLogPage from "../features/auditlog/pages/AuditLogPage";
 import NotificationsPage from "../features/notification/pages/NotificationsPage";
 import CompanyJobsPage from "../features/public/pages/CompanyJobsPage";
+import UsersPage from "../features/admin/pages/UsersPage";
+import InviteUserPage from "../features/admin/pages/InviteUserPage";
+import RolesPage from "../features/admin/pages/RolesPage";
+import UserDetailPage from "../features/admin/pages/UserDetailPage";
+import CompanyPage from "../features/admin/pages/CompanyPage";
+import AcceptInvitePage from "../features/auth/pages/AcceptInvitePage";
 import JobDetailApplyPage from "../features/public/pages/JobDetailApplyPage";
 
 const INTERNAL_ROLES = ["COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER"] as const;
@@ -61,6 +67,8 @@ export default function AppRoutes() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/oauth2/callback" element={<OAuth2CallbackPage />} />
+            {/* Nhận lời mời từ email A04 — người được mời chưa đăng nhập. */}
+            <Route path="/invite/:token" element={<AcceptInvitePage />} />
         </Route>
 
         <Route element={<ProtectedRoute />}>
@@ -104,8 +112,11 @@ export default function AppRoutes() {
                 </Route>
 
                 <Route element={<RoleRoute allow={["COMPANY_ADMIN"]} />}>
-                    <Route path="/admin/users" element={<AuthManagementPage key="users" initialTab="users" />} />
-                    <Route path="/admin/company" element={<AuthManagementPage key="company" initialTab="company" />} />
+                    <Route path="/admin/users" element={<UsersPage />} />
+                    <Route path="/admin/users/invite" element={<InviteUserPage />} />
+                    <Route path="/admin/users/roles" element={<RolesPage />} />
+                    <Route path="/admin/users/:id" element={<UserDetailPage />} />
+                    <Route path="/admin/company" element={<CompanyPage />} />
                     <Route path="/audit-logs" element={<AuditLogPage />} />
                 </Route>
 

@@ -34,6 +34,17 @@ class JwtAuthGlobalFilterTest {
     }
 
     @Test
+    void invitationPreviewAndAcceptArePublicButNothingElseUnderInvitations() {
+        // docs/UI A04: người được mời chưa có JWT.
+        assertThat(JwtAuthGlobalFilter.isInvitationPath(org.springframework.http.HttpMethod.GET, "/api/auth/invitations/abcDEF_123")).isTrue();
+        assertThat(JwtAuthGlobalFilter.isInvitationPath(org.springframework.http.HttpMethod.POST, "/api/auth/invitations/abcDEF_123/accept")).isTrue();
+        assertThat(JwtAuthGlobalFilter.isInvitationPath(org.springframework.http.HttpMethod.POST, "/api/auth/invitations/abc")).isFalse();
+        assertThat(JwtAuthGlobalFilter.isInvitationPath(org.springframework.http.HttpMethod.GET, "/api/auth/invitations/a/b")).isFalse();
+        assertThat(JwtAuthGlobalFilter.isInvitationPath(org.springframework.http.HttpMethod.POST, "/api/auth/admin/invitations")).isFalse();
+        assertThat(JwtAuthGlobalFilter.isInvitationPath(org.springframework.http.HttpMethod.GET, "/api/auth/invitations/")).isFalse();
+    }
+
+    @Test
     void rejectsProtectedRequestWithoutToken() {
         MockServerWebExchange exchange = exchangeFor("/api/candidate/candidates");
 

@@ -71,10 +71,12 @@ public class SecurityConfig {
                                 "/api/auth/logout",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
-                                "/api/auth/oauth2/exchange"
+                                "/api/auth/oauth2/exchange",
+                                "/api/auth/invitations/*/accept"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/auth/public/**",
+                                "/api/auth/invitations/*",
                                 OAUTH2_PRE_LOGIN_PATH,
                                 OAUTH2_AUTHORIZATION_BASE_URI + "/*",
                                 OAUTH2_CALLBACK_BASE_URI
@@ -83,6 +85,7 @@ public class SecurityConfig {
                                 "/api/auth/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/auth/register-company").denyAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/admin/users").hasRole("COMPANY_ADMIN")
+                        .requestMatchers("/api/auth/admin/invitations/**").hasRole("COMPANY_ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(trustedHeaderAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

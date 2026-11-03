@@ -16,4 +16,8 @@ export const applicationsApi = {
 
   myDetail: (id: number) =>
     apiClient.get<CandidateApplication>(`/application/applications/my/${id}`).then((r) => r.data),
+
+  /** UC06 "Rút đơn ứng tuyển" — đơn chuyển sang Từ chối với lý do "Ứng viên tự rút hồ sơ". */
+  withdraw: (id: number) =>
+    apiClient.patch<CandidateApplication>(`/application/applications/my/${id}/withdraw`).then((r) => r.data),
 };

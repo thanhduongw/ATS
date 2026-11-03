@@ -39,5 +39,11 @@ public record OfferResponse(
         String declineNote,
         LocalDateTime createdAt,
         LocalDateTime submittedAt,
-        LocalDateTime approvedAt
+        LocalDateTime approvedAt,
+        /* Thêm cho docs/UI R25, R43: thời điểm gửi, hết hạn, lượt ứng viên mở thư. */
+        LocalDateTime issuedAt,
+        LocalDateTime expiredAt,
+        LocalDateTime candidateRespondedAt,
+        Integer candidateViewCount,
+        LocalDateTime candidateLastViewedAt
 ) {}

@@ -22,6 +22,7 @@ const STATUS_LABEL: Record<OfferStatus, string> = {
     REJECTED: "Đã hủy",
     ACCEPTED: "Bạn đã chấp nhận",
     DECLINED: "Bạn đã từ chối",
+    EXPIRED: "Đã hết hạn",
 };
 
 const STATUS_COLOR: Record<OfferStatus, string> = {
@@ -31,6 +32,7 @@ const STATUS_COLOR: Record<OfferStatus, string> = {
     REJECTED: "default",
     ACCEPTED: "success",
     DECLINED: "error",
+    EXPIRED: "default",
 };
 
 /** Thoi gian con lai dien dat theo ngay/gio, du de ung vien biet gap hay khong. */

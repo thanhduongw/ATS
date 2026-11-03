@@ -1,305 +1,201 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Table, Button, App, Input, Select } from "antd";
-import {
-    PlusOutlined,
-    SearchOutlined,
-    SolutionOutlined,
-    ClockCircleOutlined,
-    CheckCircleOutlined,
-    ExclamationCircleOutlined,
-} from "@ant-design/icons";
-import type { AxiosError } from "axios";
-import { getRequisitions } from "../recruitmentApi";
-import { getCatalogItems } from "../../masterdata/masterdataApi";
-import type { CatalogItem } from "../../masterdata/types";
-import type { ApiMessageResponse, JobRequisitionResponse, RequisitionStatus } from "../types";
+import { App, Button, Input, Select, Table } from "antd";
+import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import type { ColumnsType } from "antd/es/table";
+import { useNavigate } from "react-router-dom";
+import { getPostings, getRequisitions } from "../recruitmentApi";
+import { getApplications } from "../../candidate/applicationApi";
+import type { JobRequisitionResponse, RequisitionStatus } from "../types";
 import { useAppSelector } from "../../../app/hooks";
-import { DEPARTMENT_ROLES } from "../../../app/roles";
-import type { UserRole } from "../../auth/types";
-import RequisitionFormModal from "./RequisitionFormModal";
-import RequisitionDetailModal from "./RequisitionDetailModal";
-import { REQUISITION_STATUS_COLOR, REQUISITION_STATUS_LABEL } from "../requisitionStatus";
+import { COLORS, type StatusTone } from "../../../app/theme";
+import { shortDate } from "../../../app/datetime";
+import ListPage, { ListFilters, StatusTabs } from "../../../components/ui/listKit";
+import { attentionRowStyle, rowArrowColumn } from "../../../components/ui/listHelpers";
+import { Avatar } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
-import EmptyState from "../../../components/ui/EmptyState";
-import StatTile from "../../../components/ui/StatTile";
-import { StatRow, FilterBar } from "../../../components/ui/pageKit";
-import { listPagination } from "../../../components/ui/listStyles";
-import { COLORS } from "../../../app/theme";
+import RequisitionFormModal from "./RequisitionFormModal";
+import { requisitionCode, useRecruitmentCatalogs } from "../useRecruitmentCatalogs";
 
-const STATUS_OPTIONS: RequisitionStatus[] = [
-    "DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "CHANGES_REQUESTED",
-];
+type Tab = RequisitionStatus | "ALL";
 
-interface Filters {
-    keyword: string;
-    status?: RequisitionStatus;
-    departmentId?: number;
-}
+/** Sắc độ DS06: Chờ duyệt cam · Yêu cầu sửa tím · Đã duyệt xanh lá · Từ chối đỏ · Bản nháp xám. */
+const TONE: Record<RequisitionStatus, StatusTone> = {
+    DRAFT: "neutral", PENDING_APPROVAL: "warning", APPROVED: "success", REJECTED: "danger", CHANGES_REQUESTED: "interview",
+};
 
-const EMPTY_FILTERS: Filters = { keyword: "" };
-
+/**
+ * R02 (Chuyên viên tuyển dụng) / H04 (Đại diện phòng ban) · MÀN CHÍNH · Yêu cầu tuyển dụng — danh sách.
+ * Tab "Đã đóng" của HTML chưa có trạng thái tương ứng ở backend nên không hiện (không vẽ tab chết).
+ */
 export default function RequisitionListPanel() {
+    const navigate = useNavigate();
     const { message } = App.useApp();
-    const currentUser = useAppSelector((state) => state.auth.user);
-    const role = currentUser?.role as UserRole | undefined;
-    const canCreateRequisition = !!role && DEPARTMENT_ROLES.includes(role);
-
-    const [requisitions, setRequisitions] = useState<JobRequisitionResponse[]>([]);
-    const [totalItems, setTotalItems] = useState(0);
-    // Toàn bộ yêu cầu (không phân trang) — chỉ để đếm số liệu, độc lập với bộ lọc của bảng
-    const [allRequisitions, setAllRequisitions] = useState<JobRequisitionResponse[]>([]);
-    const [departmentMap, setDepartmentMap] = useState<Record<number, string>>({});
-    const [jobTitleMap, setJobTitleMap] = useState<Record<number, string>>({});
-    const [jobLevelMap, setJobLevelMap] = useState<Record<number, string>>({});
-    const [skillMap, setSkillMap] = useState<Record<number, string>>({});
-    const [employmentTypeMap, setEmploymentTypeMap] = useState<Record<number, string>>({});
-    const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
-    const [departments, setDepartments] = useState<CatalogItem[]>([]);
+    const user = useAppSelector((s) => s.auth.user);
+    const isHm = user?.role === "HIRING_MANAGER";
+    const cat = useRecruitmentCatalogs();
+    const [items, setItems] = useState<JobRequisitionResponse[]>([]);
+    const [hired, setHired] = useState<Record<number, number>>({});
     const [loading, setLoading] = useState(true);
+    const [failed, setFailed] = useState(false);
+    const [tab, setTab] = useState<Tab>(isHm ? "CHANGES_REQUESTED" : "PENDING_APPROVAL");
+    const [keyword, setKeyword] = useState("");
+    const [departmentId, setDepartmentId] = useState<number | undefined>();
+    const [createOpen, setCreateOpen] = useState(false);
 
-    const [searchInput, setSearchInput] = useState("");
-    const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-
-    const [formModalOpen, setFormModalOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState<JobRequisitionResponse | null>(null);
-
-    const [detailOpen, setDetailOpen] = useState(false);
-    const [selectedItem, setSelectedItem] = useState<JobRequisitionResponse | null>(null);
-
-    // Debounce ô tìm kiếm
-    useEffect(() => {
-        const t = setTimeout(() => {
-            setFilters((f) => ({ ...f, keyword: searchInput.trim() }));
-            setPage(1);
-        }, 400);
-        return () => clearTimeout(t);
-    }, [searchInput]);
-
-    const buildMap = (items: CatalogItem[]): Record<number, string> =>
-        Object.fromEntries(items.map((i) => [i.id, i.name as string]));
-
-    const loadAll = useCallback(async () => {
+    const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [reqRes, deptRes, titleRes, levelRes, skillRes, empTypeRes, locationRes] = await Promise.all([
-                getRequisitions({
-                    status: filters.status,
-                    departmentId: filters.departmentId,
-                    keyword: filters.keyword || undefined,
-                    page: page - 1,
-                    size: pageSize,
-                }),
-                getCatalogItems("/masterdata/departments"),
-                getCatalogItems("/masterdata/job-titles"),
-                getCatalogItems("/masterdata/job-levels"),
-                getCatalogItems("/masterdata/skills"),
-                getCatalogItems("/masterdata/employment-types"),
-                getCatalogItems("/masterdata/work-locations"),
+            const [reqs, postings, apps] = await Promise.all([
+                getRequisitions({ size: 1000 }),
+                isHm ? getPostings({ size: 1000 }) : Promise.resolve(null),
+                isHm ? getApplications({ stageType: "HIRED", size: 1000 }) : Promise.resolve(null),
             ]);
-            setRequisitions(reqRes.data.content);
-            setTotalItems(reqRes.data.totalItems);
-            setDepartments(deptRes.data);
-            setDepartmentMap(buildMap(deptRes.data));
-            setJobTitleMap(buildMap(titleRes.data));
-            setJobLevelMap(buildMap(levelRes.data));
-            setSkillMap(buildMap(skillRes.data));
-            setEmploymentTypeMap(buildMap(empTypeRes.data));
-            setWorkLocationMap(buildMap(locationRes.data));
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Không tải được dữ liệu");
+            setItems(reqs.data.content);
+            if (postings && apps) {
+                // H04 cột "Đã tuyển": số hồ sơ Đã tuyển của các việc làm mở từ yêu cầu đó.
+                const reqOfPosting = new Map(postings.data.content.map((p) => [p.id, p.requisitionId]));
+                const m: Record<number, number> = {};
+                apps.data.content.forEach((a) => {
+                    const r = reqOfPosting.get(a.jobPostingId);
+                    if (r != null) m[r] = (m[r] ?? 0) + 1;
+                });
+                setHired(m);
+            }
+            setFailed(false);
+        } catch {
+            setFailed(true);
+            message.error("Không tải được danh sách yêu cầu tuyển dụng");
         } finally {
             setLoading(false);
         }
-    }, [message, filters, page, pageSize]);
+    }, [isHm, message]);
 
-    useEffect(() => {
-        loadAll();
-    }, [loadAll]);
+    useEffect(() => { void load(); }, [load]);
 
-    useEffect(() => {
-        getRequisitions({ size: 1000 }).then((r) => setAllRequisitions(r.data.content)).catch(() => setAllRequisitions([]));
-    }, []);
+    const label = (s: RequisitionStatus) => ({
+        DRAFT: "Bản nháp", PENDING_APPROVAL: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Từ chối",
+        CHANGES_REQUESTED: isHm ? "Cần sửa" : "Yêu cầu sửa",
+    })[s];
 
-    const stats = useMemo(
-        () => ({
-            total: allRequisitions.length,
-            pending: allRequisitions.filter((r) => r.status === "PENDING_APPROVAL").length,
-            approved: allRequisitions.filter((r) => r.status === "APPROVED").length,
-            changes: allRequisitions.filter((r) => r.status === "CHANGES_REQUESTED").length,
-        }),
-        [allRequisitions],
-    );
+    const filtered = useMemo(() => {
+        const k = keyword.trim().toLowerCase();
+        return items.filter((r) =>
+            (!k || r.title.toLowerCase().includes(k) || requisitionCode(r.id).toLowerCase().includes(k))
+            && (!departmentId || r.departmentId === departmentId));
+    }, [items, keyword, departmentId]);
+    const count = (s: RequisitionStatus) => filtered.filter((r) => r.status === s).length;
+    const rows = tab === "ALL" ? filtered : filtered.filter((r) => r.status === tab);
 
-    const toggleStatus = (next: RequisitionStatus) => {
-        setFilters((f) => ({ ...f, status: f.status === next ? undefined : next }));
-        setPage(1);
+    const order: RequisitionStatus[] = isHm
+        ? ["CHANGES_REQUESTED", "DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED"]
+        : ["PENDING_APPROVAL", "CHANGES_REQUESTED", "APPROVED", "REJECTED"];
+
+    const titleCol = {
+        title: "Vị trí", key: "title",
+        render: (_: unknown, r: JobRequisitionResponse) => (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontWeight: 600 }}>{r.title}</span>
+                <span style={{ fontSize: 11, color: COLORS.textSecondary }}>{requisitionCode(r.id)}</span>
+            </div>
+        ),
     };
-
-    const openCreate = () => {
-        setEditingItem(null);
-        setFormModalOpen(true);
+    const statusCol = {
+        title: "Trạng thái", key: "status",
+        render: (_: unknown, r: JobRequisitionResponse) => <StatusTag label={label(r.status)} tone={TONE[r.status]} />,
     };
-
-    const openDetail = (item: JobRequisitionResponse) => {
-        setSelectedItem(item);
-        setDetailOpen(true);
+    const sentCol = {
+        title: "Ngày gửi", key: "sent",
+        render: (_: unknown, r: JobRequisitionResponse) => (r.status === "DRAFT" ? "—" : shortDate(r.createdAt)),
     };
-
-    const openEditFromModal = (item: JobRequisitionResponse) => {
-        setDetailOpen(false);
-        setEditingItem(item);
-        setFormModalOpen(true);
-    };
-
-    const columns = [
-        { title: "Tiêu đề", dataIndex: "title", key: "title", ellipsis: true },
+    const columns: ColumnsType<JobRequisitionResponse> = isHm ? [
+        titleCol,
+        { title: "Số lượng", key: "qty", dataIndex: "quantity" },
+        statusCol,
         {
-            title: "Phòng ban",
-            dataIndex: "departmentId",
-            key: "departmentId",
-            width: 200,
-            render: (id: number) => departmentMap[id] ?? "—",
+            title: "Đã tuyển", key: "hired",
+            render: (_, r) => (r.status === "APPROVED" ? `${hired[r.id] ?? 0}/${r.quantity}` : "—"),
         },
+        sentCol,
+        rowArrowColumn,
+    ] : [
+        titleCol,
+        { title: "Phòng ban", key: "dept", render: (_, r) => cat.departmentMap[r.departmentId] ?? "—" },
+        { title: "Số lượng", key: "qty", dataIndex: "quantity" },
         {
-            title: "Chức vụ",
-            dataIndex: "jobTitleId",
-            key: "jobTitleId",
-            width: 200,
-            render: (id: number) => jobTitleMap[id] ?? "—",
+            title: "Người yêu cầu", key: "requester",
+            render: (_, r) => (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Avatar name={r.requesterName} colorKey={r.requesterId} size={24} />{r.requesterName}
+                </span>
+            ),
         },
-        { title: "Số lượng", dataIndex: "quantity", key: "quantity", width: 100 },
-        { title: "Người duyệt", dataIndex: "approverName", key: "approverName", width: 140, ellipsis: true },
-        {
-            title: "Trạng thái",
-            dataIndex: "status",
-            key: "status",
-            width: 125,
-            render: (status: RequisitionStatus) => <StatusTag color={REQUISITION_STATUS_COLOR[status]} label={REQUISITION_STATUS_LABEL[status]} />,
-        },
+        statusCol,
+        sentCol,
+        rowArrowColumn,
     ];
 
+    const myDept = isHm && user?.departmentId != null ? cat.departmentMap[Number(user.departmentId)] : undefined;
+
     return (
-        <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <StatRow>
-                <StatTile
-                    icon={<SolutionOutlined />}
-                    label="Tổng yêu cầu"
-                    value={stats.total}
-                    accent={COLORS.primary}
-                    active={!filters.status}
-                    onClick={() => { setFilters((f) => ({ ...f, status: undefined })); setPage(1); }}
+        <ListPage
+            title="Yêu cầu tuyển dụng"
+            subtitle={myDept ? `Phòng ${myDept}` : undefined}
+            actions={isHm ? <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>Tạo yêu cầu</Button> : undefined}
+            tabs={
+                <StatusTabs<Tab>
+                    active={tab}
+                    onChange={setTab}
+                    items={[
+                        ...order.map((s) => ({ key: s as Tab, label: label(s), count: count(s) })),
+                        { key: "ALL" as Tab, label: "Tất cả", count: filtered.length },
+                    ]}
                 />
-                <StatTile
-                    icon={<ClockCircleOutlined />}
-                    label="Chờ duyệt"
-                    value={stats.pending}
-                    accent="#FF7500"
-                    active={filters.status === "PENDING_APPROVAL"}
-                    onClick={() => toggleStatus("PENDING_APPROVAL")}
-                />
-                <StatTile
-                    icon={<CheckCircleOutlined />}
-                    label="Đã duyệt"
-                    value={stats.approved}
-                    accent={COLORS.success}
-                    active={filters.status === "APPROVED"}
-                    onClick={() => toggleStatus("APPROVED")}
-                />
-                <StatTile
-                    icon={<ExclamationCircleOutlined />}
-                    label="Cần chỉnh sửa"
-                    value={stats.changes}
-                    accent="#7C4DFF"
-                    active={filters.status === "CHANGES_REQUESTED"}
-                    onClick={() => toggleStatus("CHANGES_REQUESTED")}
-                />
-            </StatRow>
-
-            <FilterBar extra={canCreateRequisition && (
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                    Tạo yêu cầu tuyển dụng
-                </Button>
-            )}>
-                <Input
-                    prefix={<SearchOutlined style={{ color: "#18243166" }} />}
-                    placeholder="Tìm theo tiêu đề..."
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    style={{ width: 240 }}
-                    allowClear
-                />
-                <Select
-                    allowClear
-                    placeholder="Trạng thái"
-                    style={{ width: 180 }}
-                    value={filters.status}
-                    onChange={(v) => { setFilters((f) => ({ ...f, status: v })); setPage(1); }}
-                    options={STATUS_OPTIONS.map((s) => ({ value: s, label: REQUISITION_STATUS_LABEL[s] }))}
-                />
-                <Select
-                    allowClear
-                    showSearch
-                    optionFilterProp="label"
-                    placeholder="Phòng ban"
-                    style={{ width: 180 }}
-                    value={filters.departmentId}
-                    onChange={(v) => { setFilters((f) => ({ ...f, departmentId: v })); setPage(1); }}
-                    options={departments.map((d) => ({ value: d.id, label: String(d.name) }))}
-                />
-            </FilterBar>
-
-            <div className="page-shell-scroll">
-                <Table
-                    rowKey="id"
-                    size="small"
-                    loading={loading}
-                    columns={columns}
-                    dataSource={requisitions}
-                    onRow={(record) => ({
-                        onClick: () => openDetail(record),
-                        style: { cursor: "pointer" },
-                    })}
-                    pagination={{
-                        current: page,
-                        pageSize,
-                        total: totalItems,
-                        ...listPagination("yêu cầu"),
-                        onChange: (p, ps) => { setPage(p); setPageSize(ps); },
-                    }}
-                    locale={{
-                        emptyText: loading ? <span /> : (
-                            <EmptyState
-                                title="Chưa có yêu cầu tuyển dụng nào"
-                                description="Tạo yêu cầu đầu tiên để gửi HR duyệt và mở tin tuyển dụng."
-                            />
-                        ),
-                    }}
-                />
-            </div>
-
+            }
+            filters={
+                <ListFilters>
+                    <Input
+                        allowClear
+                        prefix={<SearchOutlined style={{ color: COLORS.textMuted }} />}
+                        placeholder="Tìm theo vị trí hoặc mã yêu cầu"
+                        value={keyword}
+                        onChange={(e) => setKeyword(e.target.value)}
+                        style={{ width: 300 }}
+                    />
+                    {!isHm && (
+                        <Select
+                            allowClear
+                            placeholder="Phòng ban"
+                            value={departmentId}
+                            onChange={setDepartmentId}
+                            style={{ width: 220 }}
+                            options={cat.departments.map((d) => ({ value: d.id, label: String(d.name) }))}
+                        />
+                    )}
+                </ListFilters>
+            }
+            footnote={failed ? undefined : `${rows.length} yêu cầu`}
+        >
+            <Table<JobRequisitionResponse>
+                rowKey="id"
+                loading={loading}
+                columns={columns}
+                dataSource={rows}
+                pagination={rows.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
+                rowClassName={() => "row-clickable"}
+                onRow={(r) => ({
+                    onClick: () => navigate(`/recruitment/requisitions/${r.id}`),
+                    // DS06: tím = cần sửa (với người tạo); cam = cần làm (HR duyệt).
+                    style: isHm && r.status === "CHANGES_REQUESTED" ? attentionRowStyle("fix")
+                        : !isHm && r.status === "PENDING_APPROVAL" ? attentionRowStyle("todo") : undefined,
+                })}
+                locale={{ emptyText: failed ? "Không tải được dữ liệu. Thử tải lại trang." : "Không có yêu cầu nào" }}
+            />
             <RequisitionFormModal
-                open={formModalOpen}
-                editingItem={editingItem}
-                onClose={() => setFormModalOpen(false)}
-                onSuccess={loadAll}
+                open={createOpen}
+                editingItem={null}
+                onClose={() => setCreateOpen(false)}
+                onSuccess={() => { setCreateOpen(false); void load(); }}
             />
-
-            <RequisitionDetailModal
-                open={detailOpen}
-                requisition={selectedItem}
-                departmentMap={departmentMap}
-                jobTitleMap={jobTitleMap}
-                jobLevelMap={jobLevelMap}
-                skillMap={skillMap}
-                employmentTypeMap={employmentTypeMap}
-                workLocationMap={workLocationMap}
-                onClose={() => setDetailOpen(false)}
-                onChanged={loadAll}
-                onEdit={openEditFromModal}
-            />
-        </div>
+        </ListPage>
     );
 }

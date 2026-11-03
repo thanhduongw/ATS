@@ -12,10 +12,12 @@ export default function RecruitmentPage() {
     const location = useLocation();
     const showPostings = location.pathname.startsWith("/recruitment/postings");
 
+    // R02/H04 dùng khung ListPage riêng; danh sách việc làm (R06) chưa chuyển nên vẫn bọc thẻ cũ.
+    if (!showPostings) return <RequisitionListPanel />;
     return (
         <div className="page-shell animate-fade-in">
             <Card style={listCardStyle} className="table-card-fill" styles={{ body: listCardBodyStyle }}>
-                {showPostings ? <PostingListPanel /> : <RequisitionListPanel />}
+                <PostingListPanel />
             </Card>
         </div>
     );

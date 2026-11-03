@@ -82,6 +82,8 @@ interface Props {
     onClose: () => void;
     onChanged: () => void;
     onEdit: (item: JobRequisitionResponse) => void;
+    /** Hiển thị như trang riêng (R03, H06, H07) thay vì modal. */
+    asPage?: boolean;
 }
 
 /* ============================================================
@@ -100,6 +102,7 @@ export default function RequisitionDetailModal({
     onClose,
     onChanged,
     onEdit,
+    asPage = false,
 }: Props) {
     const { message } = App.useApp();
 
@@ -370,15 +373,8 @@ export default function RequisitionDetailModal({
        RENDER
     ============================================================ */
 
-    return (
+    const headerNode = (
         <>
-            <Modal
-                open={open}
-                onCancel={onClose}
-                width={1100}
-                destroyOnHidden
-                centered
-                title={
                     <div
                         style={{
                             paddingRight: 8,
@@ -425,20 +421,11 @@ export default function RequisitionDetailModal({
                             Chi tiết yêu cầu tuyển dụng
                         </div>
                     </div>
-                }
-                styles={{
-                    body: {
-                        maxHeight: "72vh",
-                        overflowY: "auto",
-                        padding: "12px",
-                        background: "#1824310C",
-                    },
-                    footer: {
-                        padding: "12px",
-                        borderTop: `1px solid ${COLORS.borderLight}`,
-                    },
-                }}
-                footer={
+        </>
+    );
+
+    const actionsNode = (
+        <>
                     <div
                         style={{
                             display: "flex",
@@ -534,8 +521,11 @@ export default function RequisitionDetailModal({
                             )}
                         </Space>
                     </div>
-                }
-            >
+        </>
+    );
+
+    const bodyNode = (
+        <>
                 {/* ========================================================
                     STATUS ALERTS
                 ======================================================== */}
@@ -1171,7 +1161,45 @@ export default function RequisitionDetailModal({
                         </div>
                     </SectionContainer>
                 )}
+        </>
+    );
+
+    return (
+        <>
+            {asPage ? (
+                /* Trang riêng (docs/UI R03, H06, H07): tiêu đề + nút → nội dung; không dùng modal. */
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <div>{headerNode}</div>
+                        <div>{actionsNode}</div>
+                    </div>
+                    <div>{bodyNode}</div>
+                </div>
+            ) : (
+            <Modal
+                open={open}
+                onCancel={onClose}
+                width={1100}
+                destroyOnHidden
+                centered
+                styles={{
+                    body: {
+                        maxHeight: "72vh",
+                        overflowY: "auto",
+                        padding: "12px",
+                        background: "#1824310C",
+                    },
+                    footer: {
+                        padding: "12px",
+                        borderTop: `1px solid ${COLORS.borderLight}`,
+                    },
+                }}
+                title={headerNode}
+                footer={actionsNode}
+            >
+                {bodyNode}
             </Modal>
+            )}
 
             {/* ============================================================
                 APPROVE MODAL

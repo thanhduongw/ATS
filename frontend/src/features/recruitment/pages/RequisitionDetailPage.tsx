@@ -4,7 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getRequisitionById } from "../recruitmentApi";
 import type { JobRequisitionResponse } from "../types";
 import RequisitionDetailModal from "../components/RequisitionDetailModal";
-import RequisitionFormModal from "../components/RequisitionFormModal";
+import RequisitionHmView from "../components/RequisitionHmView";
+import { useAppSelector } from "../../../app/hooks";
 import { useRecruitmentCatalogs } from "../useRecruitmentCatalogs";
 import { InlineNotice } from "../../../components/ui/designKit";
 
@@ -16,10 +17,10 @@ export default function RequisitionDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const cat = useRecruitmentCatalogs();
+    const isHm = useAppSelector((s) => s.auth.user?.role) === "HIRING_MANAGER";
     const [item, setItem] = useState<JobRequisitionResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [failed, setFailed] = useState(false);
-    const [editing, setEditing] = useState<JobRequisitionResponse | null>(null);
 
     const load = useCallback(async () => {
         try {
@@ -44,8 +45,9 @@ export default function RequisitionDetailPage() {
         );
     }
 
+    if (isHm) return <RequisitionHmView requisition={item} cat={cat} />;
+
     return (
-        <>
             <RequisitionDetailModal
                 asPage
                 open
@@ -53,14 +55,7 @@ export default function RequisitionDetailPage() {
                 {...cat}
                 onClose={() => void load()}
                 onChanged={() => void load()}
-                onEdit={(r) => setEditing(r)}
+                onEdit={(r) => navigate(`/recruitment/requisitions/${r.id}/edit`)}
             />
-            <RequisitionFormModal
-                open={!!editing}
-                editingItem={editing}
-                onClose={() => setEditing(null)}
-                onSuccess={() => { setEditing(null); void load(); }}
-            />
-        </>
     );
 }

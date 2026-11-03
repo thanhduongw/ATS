@@ -13,7 +13,6 @@ import ListPage, { ListFilters, StatusTabs } from "../../../components/ui/listKi
 import { attentionRowStyle, rowArrowColumn } from "../../../components/ui/listHelpers";
 import { Avatar } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
-import RequisitionFormModal from "./RequisitionFormModal";
 import { requisitionCode, useRecruitmentCatalogs } from "../useRecruitmentCatalogs";
 
 type Tab = RequisitionStatus | "ALL";
@@ -40,7 +39,6 @@ export default function RequisitionListPanel() {
     const [tab, setTab] = useState<Tab>(isHm ? "CHANGES_REQUESTED" : "PENDING_APPROVAL");
     const [keyword, setKeyword] = useState("");
     const [departmentId, setDepartmentId] = useState<number | undefined>();
-    const [createOpen, setCreateOpen] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -140,7 +138,7 @@ export default function RequisitionListPanel() {
         <ListPage
             title="Yêu cầu tuyển dụng"
             subtitle={myDept ? `Phòng ${myDept}` : undefined}
-            actions={isHm ? <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>Tạo yêu cầu</Button> : undefined}
+            actions={isHm ? <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate("/recruitment/requisitions/new")}>Tạo yêu cầu</Button> : undefined}
             tabs={
                 <StatusTabs<Tab>
                     active={tab}
@@ -189,12 +187,6 @@ export default function RequisitionListPanel() {
                         : !isHm && r.status === "PENDING_APPROVAL" ? attentionRowStyle("todo") : undefined,
                 })}
                 locale={{ emptyText: failed ? "Không tải được dữ liệu. Thử tải lại trang." : "Không có yêu cầu nào" }}
-            />
-            <RequisitionFormModal
-                open={createOpen}
-                editingItem={null}
-                onClose={() => setCreateOpen(false)}
-                onSuccess={() => { setCreateOpen(false); void load(); }}
             />
         </ListPage>
     );

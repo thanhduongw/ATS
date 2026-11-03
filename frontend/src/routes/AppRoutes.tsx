@@ -44,6 +44,7 @@ import CompanyPage from "../features/admin/pages/CompanyPage";
 import AcceptInvitePage from "../features/auth/pages/AcceptInvitePage";
 import MyWorkPage from "../features/home/pages/MyWorkPage";
 import RequisitionDetailPage from "../features/recruitment/pages/RequisitionDetailPage";
+import RequisitionFormPage from "../features/recruitment/pages/RequisitionFormPage";
 import JobDetailApplyPage from "../features/public/pages/JobDetailApplyPage";
 
 const INTERNAL_ROLES = ["COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER"] as const;
@@ -99,6 +100,12 @@ export default function AppRoutes() {
                     <Route path="/evaluations" element={<EvaluationsPage />} />
                     <Route path="/interviews/:interviewId/result" element={<InterviewsPage />} />
                     <Route path="/offers" element={<OffersPage />} />
+                </Route>
+
+                {/* H05: chỉ Đại diện phòng ban tạo / sửa yêu cầu tuyển dụng. */}
+                <Route element={<RoleRoute allow={["HIRING_MANAGER"]} />}>
+                    <Route path="/recruitment/requisitions/new" element={<RequisitionFormPage />} />
+                    <Route path="/recruitment/requisitions/:id/edit" element={<RequisitionFormPage />} />
                 </Route>
 
                 {/* Tao va so sanh la thao tac cua HR; chi tiet offer thi moi role noi bo deu xem duoc. */}

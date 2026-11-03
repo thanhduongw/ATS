@@ -38,6 +38,8 @@ const ROUTES: RouteNode[] = [
     { pattern: "/recruitment", label: "Tuyển dụng", moduleKey: "/recruitment/requisitions" },
     { pattern: "/recruitment/requisitions", label: "Yêu cầu tuyển dụng", moduleKey: "/recruitment/requisitions" },
     { pattern: "/recruitment/requisitions/:id", label: "Chi tiết yêu cầu", parent: "/recruitment/requisitions" },
+    { pattern: "/recruitment/requisitions/new", label: "Tạo mới", parent: "/recruitment/requisitions" },
+    { pattern: "/recruitment/requisitions/:id/edit", label: "Sửa", parent: "/recruitment/requisitions/:id" },
     { pattern: "/recruitment/postings", label: "Việc làm", moduleKey: "/recruitment/postings" },
     { pattern: "/recruitment/postings/:id", label: "Chi tiết việc làm", parent: "/recruitment/postings" },
 

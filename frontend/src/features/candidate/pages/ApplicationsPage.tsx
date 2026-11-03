@@ -36,6 +36,8 @@ import { rowArrowColumn, useStatusCounts } from "../../../components/ui/listHelp
 import { Avatar } from "../../../components/ui/designKit";
 import { fullDate } from "../../../app/datetime";
 import CandidateFormModal from "../components/CandidateFormModal";
+import { useMyInterviewStatus } from "../useMyInterviewStatus";
+import StatusTag from "../../../components/ui/StatusTag";
 import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
 import AiScoreBadge from "../../ai/components/AiScoreBadge";
 import { AI_TIER_OPTIONS, aiTierMeta } from "../../ai/aiScore";
@@ -65,6 +67,10 @@ export default function ApplicationsPage() {
     const [searchParams] = useSearchParams();
     const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
     const isHr = !!role && HR_ROLES.includes(role);
+    const isHm = role === "HIRING_MANAGER";
+    const myId = useAppSelector((s) => (s.auth.user?.userId ? Number(s.auth.user.userId) : null));
+    const myDeptId = useAppSelector((s) => s.auth.user?.departmentId ?? null);
+    const [myDeptName, setMyDeptName] = useState<string | null>(null);
 
     const [rows, setRows] = useState<ApplicationResponse[]>([]);
     const [totalItems, setTotalItems] = useState(0);
@@ -156,6 +162,11 @@ export default function ApplicationsPage() {
         getCatalogItems("/masterdata/skills").then((r) => setSkills(r.data));
         getCatalogItems("/masterdata/education-levels").then((r) => setEducationLevels(r.data));
         getPostings({ size: 1000 }).then((r) => setPostings(r.data.content));
+        if (myDeptId != null) {
+            getCatalogItems("/masterdata/departments")
+                .then((r) => setMyDeptName(String(r.data.find((d) => d.id === myDeptId)?.name ?? "")))
+                .catch(() => undefined);
+        }
         getUserDirectory("RECRUITER").then((r) => setRecruiters(r.data));
         getCandidates({ size: 1000 })
             .then((r) => setContactById(new Map(
@@ -163,7 +174,9 @@ export default function ApplicationsPage() {
             )))
             // Thieu lien he chi lam mat hai dong phu, khong duoc chan danh sach.
             .catch(() => setContactById(new Map()));
-    }, []);
+    }, [myDeptId]);
+
+    const myInterview = useMyInterviewStatus(isHm, myId, rows.map((r) => r.id));
 
     const reportBulkResult = (result: BulkOperationResponse) => {
         const failedCount = Object.keys(result.failedIds).length;
@@ -304,6 +317,16 @@ export default function ApplicationsPage() {
             sortDirections: ["descend", "ascend"],
             render: (_, r) => <AiScoreBadge score={r.aiScore} tier={r.aiTier} status={r.aiStatus} />,
         },
+        ...(isHm ? [{
+            title: "Phỏng vấn của bạn",
+            key: "myInterview",
+            width: 220,
+            render: (_: unknown, r: ApplicationResponse) => {
+                const s = myInterview(r.id);
+                if (!s) return <span style={{ color: COLORS.textMuted }}>—</span>;
+                return s.tone ? <StatusTag tone={s.tone} label={s.text} /> : <span>{s.text}</span>;
+            },
+        }] : []),
         {
             title: "Ngày ứng tuyển",
             dataIndex: "appliedAt",
@@ -334,6 +357,7 @@ export default function ApplicationsPage() {
     return (
         <ListPage
             title="Ứng viên"
+            subtitle={isHm ? `${myDeptName ? `Phòng ${myDeptName} · ` : ""}bạn xem hồ sơ và nộp đánh giá khi được phân công phỏng vấn` : undefined}
             actions={
                 <>
                     <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>Xuất Excel</Button>

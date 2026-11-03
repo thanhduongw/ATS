@@ -181,6 +181,31 @@ export default function ApplicationEvaluationPanel({
                 <div style={{ display: "flex", justifyContent: "center", padding: 40 }}>
                     <Spin />
                 </div>
+            ) : !isHr && pendingOwnInterview ? (
+                /* H10: người phỏng vấn chưa nộp — chỉ thấy ô của mình, bài người khác ẩn đến khi nộp. */
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{
+                        display: "flex", alignItems: "center", gap: 12, padding: "14px 16px",
+                        border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.md,
+                    }}>
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+                            <span style={{ fontWeight: 600 }}>
+                                {pendingOwnInterview.interviewers.find((p) => p.interviewerId === currentUserId)?.fullName} (bạn)
+                            </span>
+                            <span style={{ fontSize: 13, color: COLORS.warning }}>Chưa nộp đánh giá</span>
+                        </div>
+                        <Button type="primary" onClick={openCreate}>Viết đánh giá</Button>
+                    </div>
+                    {(() => {
+                        const others = rows.filter((r) => r.evaluation.interviewerId !== currentUserId && r.evaluation.submittedAt).length;
+                        return others > 0 ? (
+                            <div style={{ padding: "14px 16px", borderRadius: RADIUS.md, background: COLORS.fill, fontSize: 14 }}>
+                                <b>{others} người phỏng vấn khác đã nộp đánh giá.</b>{" "}
+                                Đánh giá của họ sẽ hiện sau khi bạn nộp đánh giá của mình, để kết quả khách quan.
+                            </div>
+                        ) : null;
+                    })()}
+                </div>
             ) : rows.length === 0 ? (
                 <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}

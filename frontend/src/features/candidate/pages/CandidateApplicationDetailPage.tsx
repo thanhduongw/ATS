@@ -30,6 +30,7 @@ import ApplicationEvaluationPanel from "../components/ApplicationEvaluationPanel
 import { COLORS, FIXED_STAGES } from "../../../app/theme";
 import { OFFER_STATUS, genderLabel, interviewStatusMeta, statusMeta } from "../../../app/statusLabels";
 import StatusTag from "../../../components/ui/StatusTag";
+import { INTERVIEW_HELD } from "../../interview/types";
 import { AiScorePill, Avatar, Panel } from "../../../components/ui/designKit";
 import { aiTierMeta } from "../../ai/aiScore";
 import { fullDate } from "../../../app/datetime";
@@ -684,6 +685,21 @@ export default function CandidateApplicationDetailPage() {
                             <StageTag stageType={application.currentStageType} />
                             {stepIndex > 0 && <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{stepIndex}/{MAIN_FIXED.length}</span>}
                         </div>
+                        {!isHr && (() => {
+                            /* H09: Đại diện phòng ban chỉ xem hồ sơ và nộp đánh giá buổi mình được phân công. */
+                            const mine = interviews.find((iv) => INTERVIEW_HELD.has(iv.status)
+                                && iv.interviewers.some((p) => p.interviewerId === currentUserId && !p.evaluationSubmitted));
+                            return (
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                                    {mine && (
+                                        <Button type="primary" onClick={() => navigate(`/candidates/${application.candidateId}/applications/${application.id}/evaluate?interviewId=${mine.id}`)}>
+                                            Viết đánh giá
+                                        </Button>
+                                    )}
+                                    <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Bạn chỉ xem hồ sơ và nộp đánh giá</span>
+                                </div>
+                            );
+                        })()}
                         {isHr && !isHired && !isRejected && (
                             <Space wrap size={8} style={{ justifyContent: "flex-end" }}>
                                 {showInterviewBtn && (

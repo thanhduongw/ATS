@@ -19,6 +19,10 @@ export const updateCatalogItem = (endpoint: string, id: number, data: Record<str
 export const deleteCatalogItem = (endpoint: string, id: number) =>
     axiosClient.delete<ApiMessageResponse>(`${endpoint}/${id}`);
 
+/** Bật lại mục đã ẩn (công tắc "Đang dùng"). Tắt dùng deleteCatalogItem — backend chỉ ẩn, không xoá. */
+export const activateCatalogItem = (endpoint: string, id: number) =>
+    axiosClient.patch<ApiMessageResponse>(`${endpoint}/${id}/activate`);
+
 // ===== Email Template preview =====
 export const previewEmailTemplate = (id: number, sampleData: Record<string, string>) =>
     axiosClient.post<{ subject: string; body: string }>(

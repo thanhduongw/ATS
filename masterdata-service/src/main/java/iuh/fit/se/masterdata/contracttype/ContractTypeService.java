@@ -43,6 +43,14 @@ public class ContractTypeService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        ContractType entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy loại hợp đồng"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private ContractTypeResponse toResponse(ContractType e) {
         return new ContractTypeResponse(e.getId(), e.getName(), e.isActive());
     }

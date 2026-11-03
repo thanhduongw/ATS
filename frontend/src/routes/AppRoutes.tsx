@@ -14,6 +14,7 @@ import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
 import AuthManagementPage from "../features/auth/pages/AuthManagementPage";
 import DashboardPage from "../features/dashboard/pages/DashboardPage";
 import MasterDataPage from "../features/masterdata/pages/MasterDataPage";
+import CatalogDetailPage from "../features/masterdata/pages/CatalogDetailPage";
 import RecruitmentPage from "../features/recruitment/pages/RecruitmentPage";
 import PostingHubPage from "../features/recruitment/pages/PostingHubPage";
 import CandidateApplicationDetailPage from "../features/candidate/pages/CandidateApplicationDetailPage";
@@ -114,6 +115,7 @@ export default function AppRoutes() {
                 {/* A07: chỉ Chuyên viên tuyển dụng sửa danh mục. */}
                 <Route element={<RoleRoute allow={["RECRUITER"]} />}>
                     <Route path="/masterdata" element={<MasterDataPage />} />
+                    <Route path="/masterdata/:key" element={<CatalogDetailPage />} />
                 </Route>
 
                 <Route element={<RoleRoute allow={["COMPANY_ADMIN"]} />}>

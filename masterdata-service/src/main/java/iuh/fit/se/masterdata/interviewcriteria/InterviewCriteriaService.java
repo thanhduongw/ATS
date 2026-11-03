@@ -50,6 +50,14 @@ public class InterviewCriteriaService {
         repository.save(criteria);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        InterviewCriteria criteria = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy tiêu chí đánh giá"));
+        criteria.setActive(true);
+        repository.save(criteria);
+    }
+
     private InterviewCriteriaResponse toResponse(InterviewCriteria c) {
         return new InterviewCriteriaResponse(c.getId(), c.getName(), c.getDescription(), c.isActive());
     }

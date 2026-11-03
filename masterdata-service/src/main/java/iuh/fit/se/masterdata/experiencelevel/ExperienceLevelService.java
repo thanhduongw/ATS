@@ -53,6 +53,14 @@ public class ExperienceLevelService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        ExperienceLevel entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy mức kinh nghiệm"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private ExperienceLevelResponse toResponse(ExperienceLevel e) {
         return new ExperienceLevelResponse(e.getId(), e.getName(), e.getMinYears(), e.getMaxYears(), e.isActive());
     }

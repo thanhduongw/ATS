@@ -43,6 +43,14 @@ public class JobTitleService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        JobTitle entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy chức vụ"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private JobTitleResponse toResponse(JobTitle e) {
         return new JobTitleResponse(e.getId(), e.getName(), e.isActive());
     }

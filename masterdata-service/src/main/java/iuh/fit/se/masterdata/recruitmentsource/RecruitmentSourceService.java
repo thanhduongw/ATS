@@ -44,6 +44,14 @@ public class RecruitmentSourceService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        RecruitmentSource entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy nguồn tuyển dụng"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private RecruitmentSourceResponse toResponse(RecruitmentSource e) {
         return new RecruitmentSourceResponse(e.getId(), e.getName(), e.isActive());
     }

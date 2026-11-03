@@ -45,6 +45,14 @@ public class SkillService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        Skill entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy kỹ năng"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private SkillResponse toResponse(Skill e) {
         return new SkillResponse(e.getId(), e.getName(), e.getCategory(), e.isActive());
     }

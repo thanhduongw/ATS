@@ -44,6 +44,14 @@ public class RejectionReasonService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        RejectionReason entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy lý do từ chối"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private RejectionReasonResponse toResponse(RejectionReason e) {
         return new RejectionReasonResponse(e.getId(), e.getName(), e.isActive());
     }

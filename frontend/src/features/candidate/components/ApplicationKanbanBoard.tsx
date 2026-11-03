@@ -1,233 +1,185 @@
-import { useCallback, useEffect, useState } from "react";
-import { Typography, Tag, Empty, Spin, message, Tooltip } from "antd";
+import { useState } from "react";
+import { App } from "antd";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
-import { CalendarOutlined, UserOutlined, InboxOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
-import { getApplications } from "../candidateApi";
-import { getPostingById } from "../../recruitment/recruitmentApi";
-import { getPipelines } from "../../masterdata/masterdataApi";
+import dayjs from "dayjs";
 import type { PipelineStageResponse } from "../../masterdata/types";
 import type { ApiMessageResponse, ApplicationResponse } from "../types";
+import type { InterviewResponse } from "../../interview/types";
+import type { OfferResponse } from "../../offer/types";
 import RejectApplicationModal from "./RejectApplicationModal";
 import { useTrailNavigate } from "../../../app/useNavTrail";
-import dayjs from "dayjs";
-import { FIXED_STAGES, STAGE_COLORS, type FixedStage } from "../../../app/theme";
+import { COLORS, FIXED_STAGES, STAGE_COLORS, type FixedStage } from "../../../app/theme";
 import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
 import { advanceSteps, stepsToFixedStage } from "../stageAdvance";
+import { AiScorePill, Avatar } from "../../../components/ui/designKit";
 
-const { Text } = Typography;
-
+/**
+ * R09 · Trang việc làm — ứng viên theo giai đoạn.
+ * 5 cột chính (Ứng tuyển → Đã tuyển), dải "Kéo vào đây để từ chối" ở dưới.
+ * Mỗi cột hiện tối đa 4 thẻ, còn lại gom thành "+ N ứng viên khác" (bấm để mở hết).
+ * Chỉ được kéo sang giai đoạn kế tiếp (API chỉ cho đi tới) hoặc sang Từ chối.
+ */
 interface Props {
-    jobPostingId: number;
+    applications: ApplicationResponse[];
+    stages: PipelineStageResponse[];
+    interviews: InterviewResponse[];
+    offers: OfferResponse[];
+    canManage: boolean;
+    onChanged: () => void;
 }
 
-/* Màu cột theo 6 giai đoạn cố định (DS01): cùng màu với thẻ, thanh tiến trình, phễu. */
-function getStageColor(stage: FixedStage) {
-    const c = STAGE_COLORS[stage];
-    return { border: c.color, header: c.bg, badge: "default", avatar: c.color };
+const MAIN = FIXED_STAGES.filter((s) => s !== "REJECTED");
+const PREVIEW = 4;
+
+function cardLine(app: ApplicationResponse, stage: FixedStage, iv: InterviewResponse | undefined, offer: OfferResponse | undefined) {
+    const now = dayjs();
+    if (stage === "INTERVIEW" && iv) {
+        const at = dayjs(iv.scheduledAt);
+        const when = at.isSame(now, "day") ? `PV hôm nay ${at.format("HH:mm")}` : `PV ${at.format("DD/MM HH:mm")}`;
+        const ended = at.add(iv.durationMinutes ?? 60, "minute").isBefore(now);
+        const done = iv.interviewers.filter((p) => p.evaluationSubmitted).length;
+        const badge = ended && done < iv.interviewers.length ? `Chờ đánh giá ${done}/${iv.interviewers.length}`
+            : iv.status === "SCHEDULED" || iv.status === "HM_CONFIRMED" ? "Chờ xác nhận"
+                : iv.status === "HM_RESCHEDULE_PROPOSED" ? "Đề xuất đổi giờ" : null;
+        return { text: when, badge };
+    }
+    if (stage === "INTERVIEW") return { text: "Chưa có lịch phỏng vấn", badge: "Cần lên lịch" };
+    if (stage === "OFFER") {
+        if (!offer) return { text: "Chưa soạn thư mời", badge: null };
+        const label = offer.status === "DRAFT" ? "Thư mời nháp" : offer.status === "APPROVED" ? "Đã gửi thư mời"
+            : offer.status === "ACCEPTED" ? "Ứng viên đã nhận" : "Thư mời";
+        return { text: label, badge: offer.status === "DRAFT" ? "Chưa gửi" : null };
+    }
+    const days = now.diff(dayjs(app.appliedAt), "day");
+    return {
+        text: `Ứng tuyển ${dayjs(app.appliedAt).format("DD/MM")}`,
+        badge: stage === "APPLIED" && days >= 2 ? `${days} ngày chưa xem` : stage === "SCREENING" && days >= 2 ? `${days} ngày` : null,
+    };
 }
 
-/* Get initials from name */
-function getInitials(name: string) {
-    const parts = name.split(" ").filter(Boolean);
-    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    return name.substring(0, 2).toUpperCase();
-}
-
-export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
+export default function ApplicationKanbanBoard({ applications, stages, interviews, offers, canManage, onChanged }: Props) {
+    const { message } = App.useApp();
     const openApplication = useTrailNavigate();
-    const [stages, setStages] = useState<PipelineStageResponse[]>([]);
-    const [applications, setApplications] = useState<ApplicationResponse[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [draggingOver, setDraggingOver] = useState<string | null>(null);
+    const [expanded, setExpanded] = useState<Set<FixedStage>>(new Set());
+    const [over, setOver] = useState<string | null>(null);
+    const [rejectId, setRejectId] = useState<number | null>(null);
 
-    const [rejectModalOpen, setRejectModalOpen] = useState(false);
-    const [pendingRejectId, setPendingRejectId] = useState<number | null>(null);
+    const latestInterview = new Map<number, InterviewResponse>();
+    interviews.filter((iv) => iv.status !== "CANCELLED").forEach((iv) => {
+        const cur = latestInterview.get(iv.applicationId);
+        if (!cur || dayjs(iv.scheduledAt).isAfter(cur.scheduledAt)) latestInterview.set(iv.applicationId, iv);
+    });
+    const latestOffer = new Map<number, OfferResponse>();
+    offers.forEach((o) => {
+        const cur = latestOffer.get(o.applicationId);
+        if (!cur || o.id > cur.id) latestOffer.set(o.applicationId, o);
+    });
 
-    const loadBoard = useCallback(async () => {
-        setLoading(true);
-        try {
-            const postingRes = await getPostingById(jobPostingId);
-            const pipelineListRes = await getPipelines();
-            const pipeline = pipelineListRes.data.find((p) => p.id === postingRes.data.pipelineId);
-            setStages(pipeline ? [...pipeline.stages].sort((a, b) => a.stageOrder - b.stageOrder) : []);
-            const appsRes = await getApplications({ jobPostingId });
-            setApplications(appsRes.data.content);
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Không tải được dữ liệu");
-        } finally {
-            setLoading(false);
-        }
-    }, [jobPostingId]);
-
-    useEffect(() => { loadBoard(); }, [loadBoard]);
+    const byStage = (s: FixedStage) => applications
+        .filter((a) => toFixedStage(a.currentStageType) === s)
+        .sort((a, b) => (b.aiScore ?? -1) - (a.aiScore ?? -1));
+    const rejectedCount = byStage("REJECTED").length;
 
     const handleDragEnd = async (result: DropResult) => {
-        setDraggingOver(null);
+        setOver(null);
         if (!result.destination) return;
-        const applicationId = Number(result.draggableId);
+        const id = Number(result.draggableId);
         const source = result.source.droppableId as FixedStage;
         const dest = result.destination.droppableId as FixedStage;
         if (source === dest) return;
-
-        if (dest === "REJECTED") {
-            setPendingRejectId(applicationId);
-            setRejectModalOpen(true);
-            return;
-        }
-        const app = applications.find((a) => a.id === applicationId);
-        // Cột là 6 giai đoạn cố định; tin cũ có quy trình 9 bước thì có thể phải đi nhiều bước.
+        if (dest === "REJECTED") { setRejectId(id); return; }
+        const app = applications.find((a) => a.id === id);
         const steps = app ? stepsToFixedStage(stages, app.currentStageId, dest) : null;
         if (!steps) {
-            message.warning("Chỉ được chuyển sang giai đoạn kế tiếp hoặc kéo sang cột Từ chối");
+            message.warning("Chỉ chuyển được sang giai đoạn kế tiếp, hoặc kéo xuống dải Từ chối");
             return;
         }
         try {
-            await advanceSteps(applicationId, steps);
-            message.success("Đã chuyển giai đoạn ✓");
-            loadBoard();
+            await advanceSteps(id, steps);
+            message.success(`Đã chuyển ${app?.candidateName} sang ${FIXED_STAGE_LABEL[dest]}`);
+            onChanged();
         } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Chuyển giai đoạn thất bại");
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Chuyển giai đoạn thất bại");
         }
     };
 
-    // 6 cột cố định theo thứ tự DS06, chỉ hiện nhóm có trong quy trình của tin.
-    const groups = FIXED_STAGES.filter((g) => stages.some((s) => toFixedStage(s.stageType) === g));
-
-    if (loading) return (
-        <div style={{ display: "flex", justifyContent: "center", padding: 60 }}>
-            <Spin size="large" />
-        </div>
-    );
-
-    if (stages.length === 0) return (
-        <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="Không tải được quy trình tuyển dụng cho tin này"
-        />
-    );
-
     return (
         <>
-            <DragDropContext
-                onDragEnd={handleDragEnd}
-                onDragUpdate={(update) => setDraggingOver(update.destination?.droppableId || null)}
-            >
-                <div className="kanban-wrapper">
-                    {groups.map((stage) => {
-                        const cardsInStage = applications.filter((a) => toFixedStage(a.currentStageType) === stage);
-                        const colors = getStageColor(stage);
-                        const isOver = draggingOver === stage;
-
+            <DragDropContext onDragEnd={handleDragEnd} onDragUpdate={(u) => setOver(u.destination?.droppableId ?? null)}>
+                <div style={{ display: "grid", gridTemplateColumns: `repeat(${MAIN.length}, minmax(200px, 1fr))`, gap: 12, overflowX: "auto" }}>
+                    {MAIN.map((stage) => {
+                        const cards = byStage(stage);
+                        const open = expanded.has(stage);
+                        const shown = open ? cards : cards.slice(0, PREVIEW);
                         return (
-                            <div key={stage} className="kanban-column">
-                                {/* Column Header */}
-                                <div
-                                    className="kanban-column-header"
-                                    style={{
-                                        borderBottomColor: colors.border,
-                                        background: colors.header,
-                                    }}
-                                >
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <div style={{
-                                            width: 10, height: 10, borderRadius: "50%",
-                                            background: colors.border, flexShrink: 0,
-                                        }} />
-                                        <Text strong style={{ fontSize: 14, color: "#182431" }}>{FIXED_STAGE_LABEL[stage]}</Text>
-                                    </div>
-                                    <Tag
-                                        color={colors.badge}
-                                        style={{ borderRadius: 12, fontWeight: 600, minWidth: 24, textAlign: "center" }}
-                                    >
-                                        {cardsInStage.length}
-                                    </Tag>
+                            <div key={stage} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 4px" }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: 4, background: STAGE_COLORS[stage].color }} />
+                                    <span style={{ fontWeight: 600, fontSize: 14 }}>{FIXED_STAGE_LABEL[stage]}</span>
+                                    <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{cards.length}</span>
                                 </div>
-
-                                {/* Droppable area */}
-                                <Droppable droppableId={stage}>
+                                <Droppable droppableId={stage} isDropDisabled={!canManage}>
                                     {(provided) => (
                                         <div
                                             ref={provided.innerRef}
                                             {...provided.droppableProps}
-                                            className={`kanban-column-body${isOver ? " is-dragging-over" : ""}`}
+                                            style={{
+                                                display: "flex", flexDirection: "column", gap: 8, minHeight: 120, padding: 6, borderRadius: 16,
+                                                background: over === stage ? STAGE_COLORS[stage].bg : COLORS.fill,
+                                            }}
                                         >
-                                            {cardsInStage.length === 0 ? (
-                                                <div className="kanban-empty">
-                                                    <InboxOutlined style={{ fontSize: 28, color: "#18243166", marginBottom: 8 }} />
-                                                    <span style={{ fontSize: 12 }}>Chưa có ứng viên</span>
-                                                </div>
-                                            ) : (
-                                                cardsInStage.map((app, index) => (
-                                                    <Draggable key={app.id} draggableId={String(app.id)} index={index}>
-                                                        {(dragProvided, snapshot) => (
+                                            {cards.length === 0 && (
+                                                <span style={{ fontSize: 12, color: COLORS.textMuted, padding: "10px 8px" }}>Chưa có</span>
+                                            )}
+                                            {shown.map((app, index) => {
+                                                const line = cardLine(app, stage, latestInterview.get(app.id), latestOffer.get(app.id));
+                                                return (
+                                                    <Draggable key={app.id} draggableId={String(app.id)} index={index} isDragDisabled={!canManage}>
+                                                        {(dp, snap) => (
                                                             <div
-                                                                ref={dragProvided.innerRef}
-                                                                {...dragProvided.draggableProps}
-                                                                {...dragProvided.dragHandleProps}
-                                                                className="kanban-card"
+                                                                ref={dp.innerRef}
+                                                                {...dp.draggableProps}
+                                                                {...dp.dragHandleProps}
+                                                                onClick={() => openApplication(`/candidates/${app.candidateId}/applications/${app.id}`)}
                                                                 style={{
-                                                                    borderLeftColor: colors.border,
-                                                                    opacity: snapshot.isDragging ? 0.9 : 1,
-                                                                    boxShadow: snapshot.isDragging ? "0 8px 24px rgba(0,0,0,0.15)" : undefined,
-                                                                    ...dragProvided.draggableProps.style,
-                                                                }}
-                                                                onClick={() => {
-                                                                    openApplication(`/candidates/${app.candidateId}/applications/${app.id}`);
+                                                                    display: "flex", gap: 8, alignItems: "flex-start", padding: 10, borderRadius: 12,
+                                                                    background: COLORS.cardBg, cursor: "pointer",
+                                                                    boxShadow: snap.isDragging ? "0 8px 24px rgba(0,0,0,0.15)" : undefined,
+                                                                    ...dp.draggableProps.style,
                                                                 }}
                                                             >
-                                                                {/* Card Header: avatar + name */}
-                                                                <div className="kanban-card-header">
-                                                                    <div
-                                                                        className="kanban-card-avatar"
-                                                                        style={{ background: colors.avatar }}
-                                                                    >
-                                                                        {getInitials(app.candidateName)}
-                                                                    </div>
-                                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                                        <div className="kanban-card-name truncate">
-                                                                            {app.candidateName}
-                                                                        </div>
-                                                                        <div className="kanban-card-meta">
-                                                                            <UserOutlined style={{ fontSize: 10 }} />
-                                                                            <span className="truncate">{app.recruitmentSourceName}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Card Footer */}
-                                                                <div style={{
-                                                                    display: "flex", justifyContent: "space-between",
-                                                                    alignItems: "center", marginTop: 8, paddingTop: 8,
-                                                                    borderTop: "1px solid #1824311A",
-                                                                }}>
-                                                                    <Tooltip title="Ngày ứng tuyển">
-                                                                        <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#18243166" }}>
-                                                                            <CalendarOutlined />
-                                                                            {dayjs(app.appliedAt).format("DD/MM")}
-                                                                        </span>
-                                                                    </Tooltip>
-                                                                    {app.assignedRecruiterName && (
-                                                                        <Tooltip title={`Phụ trách: ${app.assignedRecruiterName}`}>
-                                                                            <div style={{
-                                                                                width: 22, height: 22, borderRadius: 6,
-                                                                                background: "#1824311A",
-                                                                                display: "flex", alignItems: "center", justifyContent: "center",
-                                                                                fontSize: 10, fontWeight: 600, color: "#18243199",
-                                                                            }}>
-                                                                                {getInitials(app.assignedRecruiterName)}
-                                                                            </div>
-                                                                        </Tooltip>
+                                                                <Avatar name={app.candidateName} colorKey={app.candidateId} size={28} />
+                                                                <div style={{ display: "flex", flexDirection: "column", gap: 3, flexGrow: 1, minWidth: 0 }}>
+                                                                    <span style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                                        {app.candidateName}
+                                                                    </span>
+                                                                    <span style={{ fontSize: 11, color: COLORS.textSecondary }}>{line.text}</span>
+                                                                    {line.badge && (
+                                                                        <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.warning }}>{line.badge}</span>
                                                                     )}
                                                                 </div>
+                                                                {app.aiScore != null && <AiScorePill score={Math.round(app.aiScore)} size="sm" />}
                                                             </div>
                                                         )}
                                                     </Draggable>
-                                                ))
-                                            )}
+                                                );
+                                            })}
                                             {provided.placeholder}
+                                            {cards.length > PREVIEW && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setExpanded((s) => {
+                                                        const n = new Set(s);
+                                                        if (n.has(stage)) n.delete(stage); else n.add(stage);
+                                                        return n;
+                                                    })}
+                                                    style={{ all: "unset", cursor: "pointer", fontSize: 12, color: COLORS.primary, padding: "4px 8px" }}
+                                                >
+                                                    {open ? "Thu gọn" : `+ ${cards.length - PREVIEW} ứng viên khác`}
+                                                </button>
+                                            )}
                                         </div>
                                     )}
                                 </Droppable>
@@ -235,13 +187,32 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
                         );
                     })}
                 </div>
+                {canManage && (
+                    <Droppable droppableId="REJECTED">
+                        {(provided) => (
+                            <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                style={{
+                                    marginTop: 12, padding: "14px 16px", borderRadius: 16, textAlign: "center", fontSize: 13,
+                                    border: `1px dashed ${over === "REJECTED" ? COLORS.error : COLORS.border}`,
+                                    background: over === "REJECTED" ? STAGE_COLORS.REJECTED.bg : "transparent",
+                                    color: COLORS.textSecondary,
+                                }}
+                            >
+                                Kéo vào đây để từ chối · {rejectedCount} đã từ chối
+                                <div style={{ display: "none" }}>{provided.placeholder}</div>
+                            </div>
+                        )}
+                    </Droppable>
+                )}
             </DragDropContext>
 
             <RejectApplicationModal
-                open={rejectModalOpen}
-                applicationId={pendingRejectId}
-                onClose={() => { setRejectModalOpen(false); setPendingRejectId(null); }}
-                onSuccess={() => { setRejectModalOpen(false); setPendingRejectId(null); loadBoard(); }}
+                open={rejectId != null}
+                applicationId={rejectId}
+                onClose={() => setRejectId(null)}
+                onSuccess={() => { setRejectId(null); onChanged(); }}
             />
         </>
     );

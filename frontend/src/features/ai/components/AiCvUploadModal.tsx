@@ -343,7 +343,7 @@ export default function AiCvUploadModal({
           maxHeight: "72vh",
           overflowY: "auto",
           padding: 16,
-          background: "#FAFBFC",
+          background: "#1824310C",
         },
       }}
     >
@@ -397,7 +397,7 @@ export default function AiCvUploadModal({
               width: 72,
               height: 72,
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)",
+              background: "linear-gradient(135deg, #7C4DFF 0%, #3F56EA 100%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",

@@ -49,7 +49,7 @@ export default function WorkExperienceTimeline({ items }: Props) {
                 width: 10,
                 height: 10,
                 borderRadius: "50%",
-                background: exp.is_current ? COLORS.primary : "#D1D5DB",
+                background: exp.is_current ? COLORS.primary : "#18243166",
                 border: exp.is_current ? `2px solid ${COLORS.primaryLight}` : "none",
               }}
             />

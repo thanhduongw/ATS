@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type Key } from "react";
-import { Table, Button, Select, Modal, Form, Input, App, DatePicker, Card, Avatar, Tooltip, Tag } from "antd";
+import { Table, Button, Select, Modal, Form, Input, App, DatePicker, Card, Avatar, Tooltip } from "antd";
 import type { ColumnsType, SortOrder } from "antd/es/table/interface";
 import { useSearchParams } from "react-router-dom";
 import { getCandidates } from "../candidateApi";
@@ -17,12 +17,14 @@ import { getPostings } from "../../recruitment/recruitmentApi";
 import { getUserDirectory } from "../../auth/authApi";
 import type { ApplicationResponse, ApiMessageResponse, BulkOperationResponse } from "../types";
 import type { JobPostingResponse } from "../../recruitment/types";
-import type { CatalogItem, StageType } from "../../masterdata/types";
+import type { CatalogItem } from "../../masterdata/types";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import { useTableScrollY } from "../../../app/useTableScrollY";
 import type { UserRole, UserDirectoryResponse } from "../../auth/types";
-import { STAGE_TYPE_LABEL, stageTypeTagColor } from "../../../app/statusLabels";
+import { FIXED_STAGE_LABEL, fixedStageLabel, stageTypeFilterOf, toFixedStage } from "../../../app/stages";
+import { FIXED_STAGES } from "../../../app/theme";
+import StageTag from "../../../components/ui/StageTag";
 import { exportToExcel } from "../../../app/exportExcel";
 import {
     DownloadOutlined, FolderOpenOutlined, UserAddOutlined, CalendarOutlined,
@@ -42,20 +44,10 @@ import type { CandidateFormValues } from "../schemas/candidateSchema";
 
 const { RangePicker } = DatePicker;
 
-const STAGE_TYPE_OPTIONS: StageType[] = [
-    "APPLIED",
-    "CV_SCREENING",
-    "HR_SCREENING",
-    "TECHNICAL_INTERVIEW",
-    "HR_INTERVIEW",
-    "FINAL_INTERVIEW",
-    "OFFER",
-    "HIRED",
-    "REJECTED",
-    "CUSTOM",
-];
+/** Bộ lọc giai đoạn theo 6 nhóm cố định (DS06) — giá trị là danh sách stageType gửi lên API. */
+const STAGE_FILTER_OPTIONS = FIXED_STAGES.map((g) => ({ value: stageTypeFilterOf(g), label: FIXED_STAGE_LABEL[g] }));
+const SCREENING_FILTER = stageTypeFilterOf("SCREENING");
 
-const INTERVIEW_STAGE_TYPES = ["TECHNICAL_INTERVIEW", "HR_INTERVIEW", "FINAL_INTERVIEW"];
 
 function getInitials(name: string) {
     const parts = (name || "").split(" ").filter(Boolean);
@@ -265,8 +257,8 @@ export default function ApplicationsPage() {
         const now = new Date();
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         const newApplications = allApplications.filter((a) => new Date(a.appliedAt) >= sevenDaysAgo).length;
-        const cvScreening = allApplications.filter((a) => a.currentStageType === "CV_SCREENING").length;
-        const interviews = allApplications.filter((a) => INTERVIEW_STAGE_TYPES.includes(a.currentStageType)).length;
+        const cvScreening = allApplications.filter((a) => toFixedStage(a.currentStageType) === "SCREENING").length;
+        const interviews = allApplications.filter((a) => toFixedStage(a.currentStageType) === "INTERVIEW").length;
         const hiredThisMonth = allApplications.filter((a) => {
             if (!a.hiredAt) return false;
             const d = new Date(a.hiredAt);
@@ -335,9 +327,7 @@ export default function ApplicationsPage() {
             key: "stage",
             width: 200,
             render: (_, r) => (
-                <Tag color={stageTypeTagColor(r.currentStageType)} style={{ margin: 0 }}>
-                    {r.currentStageName}
-                </Tag>
+                <StageTag stageType={r.currentStageType} />
             ),
         },
     ];
@@ -348,7 +338,7 @@ export default function ApplicationsPage() {
             [
                 { header: "Ứng viên", value: (r: ApplicationResponse) => r.candidateName },
                 { header: "Vị trí ứng tuyển", value: (r: ApplicationResponse) => r.jobTitle || `Job #${r.jobPostingId}` },
-                { header: "Giai đoạn", value: (r: ApplicationResponse) => r.currentStageName },
+                { header: "Giai đoạn", value: (r: ApplicationResponse) => fixedStageLabel(r.currentStageType) },
                 { header: "Người phụ trách", value: (r: ApplicationResponse) => r.assignedRecruiterName },
                 { header: "Nguồn", value: (r: ApplicationResponse) => r.recruitmentSourceName },
                 { header: "Điểm AI", value: (r: ApplicationResponse) => r.aiScore ?? "" },
@@ -376,7 +366,7 @@ export default function ApplicationsPage() {
                     label="Đơn mới"
                     hint="7 ngày qua"
                     value={kpiStats.newApplications}
-                    accent="#3B82F6"
+                    accent="#0A59F7"
                     active={!!dateRange}
                     onClick={() => {
                         setDateRange([dayjs().subtract(7, "day"), dayjs()]);
@@ -385,13 +375,13 @@ export default function ApplicationsPage() {
                 />
                 <StatTile
                     icon={<FileTextOutlined />}
-                    label="Sàng lọc CV"
+                    label="Sàng lọc"
                     hint="chờ duyệt"
                     value={kpiStats.cvScreening}
-                    accent="#F59E0B"
-                    active={stageType === "CV_SCREENING"}
+                    accent="#FF7500"
+                    active={stageType === SCREENING_FILTER}
                     onClick={() => {
-                        setStageType(stageType === "CV_SCREENING" ? undefined : "CV_SCREENING");
+                        setStageType(stageType === SCREENING_FILTER ? undefined : SCREENING_FILTER);
                         setPage(1);
                     }}
                 />
@@ -400,7 +390,7 @@ export default function ApplicationsPage() {
                     label="Phỏng vấn"
                     hint="đang diễn ra"
                     value={kpiStats.interviews}
-                    accent="#8B5CF6"
+                    accent="#7C4DFF"
                 />
                 <StatTile
                     icon={<TrophyOutlined />}
@@ -477,7 +467,7 @@ export default function ApplicationsPage() {
                     style={{ width: 180 }}
                     value={stageType}
                     onChange={(v) => { setStageType(v); setPage(1); }}
-                    options={STAGE_TYPE_OPTIONS.map((t) => ({ value: t, label: STAGE_TYPE_LABEL[t] ?? t }))}
+                    options={STAGE_FILTER_OPTIONS}
                 />
                 <Select
                     allowClear
@@ -505,8 +495,8 @@ export default function ApplicationsPage() {
                     <div
                         style={{
                             display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-                            padding: "10px 16px", marginBottom: 12, background: "#EFF6FF",
-                            border: "1px solid #BFDBFE", borderRadius: 8, flexShrink: 0,
+                            padding: "10px 16px", marginBottom: 12, background: "#0A59F719",
+                            border: "1px solid #0A59F733", borderRadius: 8, flexShrink: 0,
                         }}
                     >
                         <span>Đã chọn {selectedRowKeys.length} hồ sơ</span>

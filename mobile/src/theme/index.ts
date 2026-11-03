@@ -1,5 +1,5 @@
 /** Điểm vào DUY NHẤT của token. Luôn import từ "@/theme", không import thẳng file con. */
-export { COLORS, STATUS_TONES, type StatusTone } from "./colors";
+export { COLORS, STATUS_TONES, AI_GRADIENT_STOPS, type StatusTone } from "./colors";
 export { SPACING } from "./spacing";
 export { RADIUS } from "./radius";
 export { SHADOWS } from "./shadows";

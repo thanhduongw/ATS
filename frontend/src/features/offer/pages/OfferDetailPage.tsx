@@ -316,8 +316,8 @@ export default function OfferDetailPage() {
                     {isHr && offer.note && (
                         <Card size="small" title="Ghi chú nội bộ" style={{ borderRadius: 12 }}>
                             <div style={{
-                                background: "#F9FAFB", borderRadius: 8, padding: "12px 14px",
-                                fontSize: 14, color: "#374151", whiteSpace: "pre-wrap",
+                                background: "#1824310C", borderRadius: 8, padding: "12px 14px",
+                                fontSize: 14, color: "#18243199", whiteSpace: "pre-wrap",
                             }}>
                                 {offer.note}
                             </div>
@@ -364,8 +364,8 @@ function NoteBlock({ label, value }: { label: string; value: string }) {
         <div style={{ marginTop: 16 }}>
             <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 }}>{label}</div>
             <div style={{
-                background: "#F9FAFB", borderRadius: 8, padding: "12px 14px",
-                fontSize: 14, color: "#374151", whiteSpace: "pre-wrap",
+                background: "#1824310C", borderRadius: 8, padding: "12px 14px",
+                fontSize: 14, color: "#18243199", whiteSpace: "pre-wrap",
             }}>
                 {value}
             </div>

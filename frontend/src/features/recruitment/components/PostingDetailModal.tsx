@@ -85,7 +85,7 @@ export default function PostingDetailModal({
                     maxHeight: "72vh",
                     overflowY: "auto",
                     padding: "12px",
-                    background: "#FAFBFC",
+                    background: "#1824310C",
                 },
                 footer: {
                     padding: "12px",

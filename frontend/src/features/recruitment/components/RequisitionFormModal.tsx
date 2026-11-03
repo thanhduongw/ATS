@@ -221,7 +221,7 @@ export default function RequisitionFormModal({
                     maxHeight: "72vh",
                     overflowY: "auto",
                     padding: 12,
-                    background: "#FAFBFC",
+                    background: "#1824310C",
                 },
                 footer: { padding: 12, borderTop: `1px solid ${COLORS.borderLight}` },
             }}

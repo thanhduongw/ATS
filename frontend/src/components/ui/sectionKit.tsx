@@ -152,7 +152,7 @@ export function TextBlock({ label, value }: { label: string; value: React.ReactN
                 border: `1px solid ${COLORS.borderLight}`,
                 borderRadius: RADIUS.md,
                 padding: "4px 8px",
-                background: "#FAFBFC",
+                background: "#1824310C",
                 height: "100%",
             }}
         >

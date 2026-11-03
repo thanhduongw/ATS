@@ -176,7 +176,7 @@ export default function CandidateFormModal({ open, editingItem, initialValues, i
       centered
       destroyOnHidden
       styles={{
-        body: { maxHeight: "72vh", overflowY: "auto", padding: 12, background: "#FAFBFC" },
+        body: { maxHeight: "72vh", overflowY: "auto", padding: 12, background: "#1824310C" },
         footer: { padding: 12, borderTop: `1px solid ${COLORS.borderLight}` },
       }}
     >
@@ -265,7 +265,7 @@ export default function CandidateFormModal({ open, editingItem, initialValues, i
                 <a href={editingItem.cvFileUrl} target="_blank" rel="noopener noreferrer">
                   <FileTextOutlined /> Xem CV hiện tại
                 </a>
-                <span style={{ color: "#9CA3AF", fontSize: 12, marginLeft: 8 }}>(tải file mới để thay thế)</span>
+                <span style={{ color: "#18243166", fontSize: 12, marginLeft: 8 }}>(tải file mới để thay thế)</span>
               </div>
             )}
             <Upload.Dragger

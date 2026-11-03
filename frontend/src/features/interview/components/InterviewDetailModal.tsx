@@ -526,7 +526,7 @@ export default function InterviewDetailModal({ open, interview, onClose, onChang
         </div>
       }
       styles={{
-        body: { maxHeight: "78vh", overflowY: "auto", padding: 12, background: "#FAFBFC" },
+        body: { maxHeight: "78vh", overflowY: "auto", padding: 12, background: "#1824310C" },
         footer: { padding: 12, borderTop: `1px solid ${COLORS.borderLight}` },
       }}
       footer={
@@ -689,7 +689,7 @@ export default function InterviewDetailModal({ open, interview, onClose, onChang
                   padding: "10px 12px",
                   border: `1px solid ${COLORS.borderLight}`,
                   borderRadius: RADIUS.md,
-                  background: "#FAFBFC",
+                  background: "#1824310C",
                 }}
               >
                 <span

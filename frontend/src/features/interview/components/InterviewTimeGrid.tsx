@@ -140,7 +140,7 @@ export default function InterviewTimeGrid({
         <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
             <style>{`
                 .itg-slot { transition: background 0.12s ease; }
-                .itg-slot:hover { background: rgba(14,122,95,0.06); cursor: pointer; }
+                .itg-slot:hover { background: rgba(10, 89, 247,0.06); cursor: pointer; }
                 .itg-slot:hover::after {
                     content: "+";
                     position: absolute; left: 6px; top: 50%; transform: translateY(-50%);

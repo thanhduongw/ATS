@@ -238,7 +238,7 @@ export default function OffersList() {
                     icon={<ClockCircleOutlined />}
                     label="Chờ duyệt"
                     value={counts.pending}
-                    accent="#F59E0B"
+                    accent="#FF7500"
                     active={filterStatus === "PENDING_APPROVAL"}
                     onClick={() => toggleStatus("PENDING_APPROVAL")}
                 />
@@ -246,7 +246,7 @@ export default function OffersList() {
                     icon={<SendOutlined />}
                     label="Đã duyệt và gửi"
                     value={counts.approved}
-                    accent="#3B82F6"
+                    accent="#0A59F7"
                     active={filterStatus === "APPROVED"}
                     onClick={() => toggleStatus("APPROVED")}
                 />
@@ -292,7 +292,7 @@ export default function OffersList() {
                 }
             >
                 <Input
-                    prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
+                    prefix={<SearchOutlined style={{ color: "#18243166" }} />}
                     placeholder="Tìm theo tên ứng viên..."
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}

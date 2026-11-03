@@ -31,6 +31,7 @@ import { COLORS } from "../../../app/theme";
 import { useTableScrollY } from "../../../app/useTableScrollY";
 import PageHeader from "../../../components/ui/PageHeader";
 import { useTrailNavigate } from "../../../app/useNavTrail";
+import StageTag from "../../../components/ui/StageTag";
 
 const RESULT_META: Record<string, { label: string; color: string }> = {
     HIRED: { label: "Đã tuyển", color: "success" },
@@ -227,7 +228,7 @@ export default function PostingHubPage() {
             title: "Giai đoạn hiện tại",
             key: "stage",
             width: 200,
-            render: (_, r) => <Tag color="blue">{r.currentStageName}</Tag>,
+            render: (_, r) => <StageTag stageType={r.currentStageType} />,
         },
         {
             title: "Trạng thái gần nhất",
@@ -278,9 +279,9 @@ export default function PostingHubPage() {
             />
 
             <StatRow>
-                <StatTile icon={<TeamOutlined />} label="Tổng ứng viên" value={stats?.totalApplications ?? applications.length} accent="#3B82F6" />
-                <StatTile icon={<CalendarOutlined />} label="Đang phỏng vấn" value={stats?.interviewingCount ?? 0} accent="#F59E0B" />
-                <StatTile icon={<DollarOutlined />} label="Đã gửi đề nghị" value={stats?.offerCount ?? 0} accent="#8B5CF6" />
+                <StatTile icon={<TeamOutlined />} label="Tổng ứng viên" value={stats?.totalApplications ?? applications.length} accent="#0A59F7" />
+                <StatTile icon={<CalendarOutlined />} label="Đang phỏng vấn" value={stats?.interviewingCount ?? 0} accent="#FF7500" />
+                <StatTile icon={<DollarOutlined />} label="Đã gửi đề nghị" value={stats?.offerCount ?? 0} accent="#7C4DFF" />
                 <StatTile icon={<TrophyOutlined />} label="Đã tuyển" value={stats?.hiredCount ?? 0} accent={COLORS.success} />
             </StatRow>
 

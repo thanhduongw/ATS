@@ -1,9 +1,8 @@
 import { Card, Tabs, Grid } from "antd";
 import type { TabsProps } from "antd";
-import { ApartmentOutlined, FormOutlined } from "@ant-design/icons";
+import { FormOutlined } from "@ant-design/icons";
 import CatalogPanel from "../components/CatalogPanel";
 import EmailTemplatePanel from "../components/EmailTemplatePanel";
-import PipelinePanel from "../components/PipelinePanel";
 import CustomFieldDefinitionPanel from "../components/CustomFieldDefinitionPanel";
 import { catalogConfigs } from "../catalogConfigs";
 import { COLORS, RADIUS } from "../../../app/theme";
@@ -23,15 +22,8 @@ export default function MasterDataPage() {
                 ? <EmailTemplatePanel config={config} />
                 : <CatalogPanel config={config} />,
         })),
-        {
-            key: "pipelines",
-            label: (
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <ApartmentOutlined />Quy trình tuyển dụng
-                </span>
-            ),
-            children: <PipelinePanel />,
-        },
+        // Quy trình tuyển dụng (pipeline) không còn hiện ở Danh mục: thiết kế dùng 6 giai đoạn cố định
+        // cho mọi vị trí (DS06, R41, quyết định B1). PipelinePanel vẫn giữ trong code.
         {
             key: "customFields",
             label: (

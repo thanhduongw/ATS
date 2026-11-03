@@ -90,7 +90,7 @@ export default function MyEvaluationsList() {
                     const due = evaluationDueAt(interview.scheduledAt);
                     const overdue = due.isBefore(dayjs());
                     return (
-                      <div style={{ fontSize: 12, color: overdue ? "#B91C1C" : "#B45309", marginTop: 2 }}>
+                      <div style={{ fontSize: 12, color: overdue ? "#FA2A2D" : "#FF7500", marginTop: 2 }}>
                         {overdue
                           ? `Quá hạn nộp ${due.fromNow(true)}`
                           : `Hạn nộp ${due.format("HH:mm DD/MM")}`}

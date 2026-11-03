@@ -56,8 +56,8 @@ const spanAll: React.CSSProperties = { gridColumn: "1 / -1" };
 
 const PRIORITY_STYLE: Record<RequisitionPriority, { color: string; bg: string }> = {
     NORMAL: { color: COLORS.textSecondary, bg: COLORS.borderLight },
-    HIGH: { color: COLORS.warning, bg: "#FEF3C7" },
-    URGENT: { color: COLORS.error, bg: "#FEE2E2" },
+    HIGH: { color: COLORS.warning, bg: "#FF75001F" },
+    URGENT: { color: COLORS.error, bg: "#FA2A2D17" },
 };
 
 function PriorityBadge({ priority }: { priority: RequisitionPriority | null }) {
@@ -125,6 +125,13 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
         });
     }, [open]);
 
+    // Tin mới luôn dùng quy trình mặc định; tin đang sửa giữ quy trình cũ.
+    useEffect(() => {
+        if (editingItem || pipelines.length === 0) return;
+        const fallback = pipelines.find((p) => p.isDefault) ?? pipelines[0];
+        setValue("pipelineId", fallback.id, { shouldValidate: false });
+    }, [editingItem, pipelines, setValue]);
+
     useEffect(() => {
         if (editingItem) {
             reset({
@@ -151,7 +158,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                 workLocationId: undefined,
                 workArrangement: undefined,
                 experienceRequired: "",
-                pipelineId: undefined,
+                pipelineId: (pipelines.find((p) => p.isDefault) ?? pipelines[0])?.id,
                 salaryMin: undefined,
                 salaryMax: undefined,
                 description: "",
@@ -248,7 +255,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                     maxHeight: "72vh",
                     overflowY: "auto",
                     padding: 12,
-                    background: "#FAFBFC",
+                    background: "#1824310C",
                 },
                 footer: { padding: 12, borderTop: `1px solid ${COLORS.borderLight}` },
             }}
@@ -327,7 +334,7 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                             style={{
                                 padding: 12,
                                 borderRadius: RADIUS.md,
-                                background: "linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)",
+                                background: "linear-gradient(135deg, #00CB8724 0%, #00CB8724 100%)",
                                 border: `1px solid ${COLORS.border}`,
                                 marginBottom: 12,
                             }}
@@ -449,23 +456,14 @@ export default function PostingFormModal({ open, editingItem, onClose, onSuccess
                         </Form.Item>
                     </div>
 
+                    {/* R07: "Giai đoạn tuyển dụng · Cố định cho mọi vị trí" — không cho chọn quy trình;
+                        tin mới tự dùng quy trình mặc định (quyết định B1). */}
                     <Form.Item
-                        label="Quy trình tuyển dụng"
+                        label="Giai đoạn tuyển dụng"
                         validateStatus={errors.pipelineId ? "error" : ""}
                         help={errors.pipelineId?.message}
                     >
-                        <Controller
-                            name="pipelineId"
-                            control={control}
-                            render={({ field }) => (
-                                <Select
-                                    {...field}
-                                    disabled={!!editingItem?.pipelineLocked}
-                                    options={pipelines.map((p) => ({ value: p.id, label: p.name }))}
-                                    placeholder="Chọn quy trình tuyển dụng"
-                                />
-                            )}
-                        />
+                        <span style={{ color: COLORS.textSecondary }}>Cố định cho mọi vị trí</span>
                     </Form.Item>
                 </SectionContainer>
 

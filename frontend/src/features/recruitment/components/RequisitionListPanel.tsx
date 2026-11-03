@@ -196,7 +196,7 @@ export default function RequisitionListPanel() {
                     icon={<ClockCircleOutlined />}
                     label="Chờ duyệt"
                     value={stats.pending}
-                    accent="#F59E0B"
+                    accent="#FF7500"
                     active={filters.status === "PENDING_APPROVAL"}
                     onClick={() => toggleStatus("PENDING_APPROVAL")}
                 />
@@ -212,7 +212,7 @@ export default function RequisitionListPanel() {
                     icon={<ExclamationCircleOutlined />}
                     label="Cần chỉnh sửa"
                     value={stats.changes}
-                    accent="#8B5CF6"
+                    accent="#7C4DFF"
                     active={filters.status === "CHANGES_REQUESTED"}
                     onClick={() => toggleStatus("CHANGES_REQUESTED")}
                 />
@@ -224,7 +224,7 @@ export default function RequisitionListPanel() {
                 </Button>
             )}>
                 <Input
-                    prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
+                    prefix={<SearchOutlined style={{ color: "#18243166" }} />}
                     placeholder="Tìm theo tiêu đề..."
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Tag, Timeline, Typography, Spin, Button, Space, App } from "antd";
+import { Card, Timeline, Typography, Spin, Button, Space, App } from "antd";
 import {
     ScheduleOutlined, FileTextOutlined, DeleteOutlined
 } from "@ant-design/icons";
@@ -9,10 +9,10 @@ import { getMyApplications } from "../applicationApi";
 import { requestOwnDataDeletion } from "../candidateApi";
 import type { CandidateApplicationResponse, ApiMessageResponse } from "../types";
 import { COLORS, RADIUS } from "../../../app/theme";
-import { stageTypeTagColor } from "../../../app/statusLabels";
 import EmptyState from "../../../components/ui/EmptyState";
 import { useAppDispatch } from "../../../app/hooks";
 import { logout } from "../../auth/authSlice";
+import StageTag from "../../../components/ui/StageTag";
 
 const { Title, Text } = Typography;
 
@@ -82,9 +82,7 @@ export default function MyApplicationsPage() {
                         <Card key={app.id} hoverable style={{ borderRadius: RADIUS.lg, border: `1px solid ${COLORS.borderLight}` }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
                                 <div style={{ minWidth: 0 }}>
-                                    <Tag color={stageTypeTagColor(app.currentStageType)} style={{ margin: 0 }}>
-                                        {app.currentStageName}
-                                    </Tag>
+                                    <StageTag stageType={app.currentStageType} />
                                     <Title level={4} style={{ marginTop: 8, marginBottom: 4 }}>
                                         {app.jobTitle ?? `Hồ sơ #${app.id}`}
                                     </Title>

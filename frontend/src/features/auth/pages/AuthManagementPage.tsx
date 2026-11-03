@@ -25,7 +25,7 @@ const INTERNAL_ROLES: Array<{ label: string; value: CreateUserRequest["role"] }>
     { label: "Hiring Manager", value: "HIRING_MANAGER" },
 ];
 
-interface Props { initialTab?: "profile" | "users"; }
+interface Props { initialTab?: "profile" | "users" | "company"; }
 
 export default function AuthManagementPage({ initialTab = "profile" }: Props) {
     const { message } = App.useApp();

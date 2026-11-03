@@ -4,14 +4,14 @@ import { Tag, Space } from "antd";
  * Deterministic color palette — same skill always gets the same color.
  */
 const SKILL_PALETTE = [
-  "#0E7A5F",
-  "#3B82F6",
-  "#8B5CF6",
-  "#F59E0B",
-  "#EF4444",
-  "#10B981",
-  "#EC4899",
-  "#6366F1",
+  "#0A59F7",
+  "#0A59F7",
+  "#7C4DFF",
+  "#FF7500",
+  "#FA2A2D",
+  "#00A06B",
+  "#E40078",
+  "#3F56EA",
 ];
 
 const getSkillColor = (skill: string): string => {
@@ -29,7 +29,7 @@ interface Props {
 }
 
 export default function SkillTagsDisplay({ skills, maxVisible }: Props) {
-  if (!skills.length) return <span style={{ color: "#9CA3AF" }}>—</span>;
+  if (!skills.length) return <span style={{ color: "#18243166" }}>—</span>;
 
   const visible = maxVisible ? skills.slice(0, maxVisible) : skills;
   const remaining = maxVisible ? skills.length - maxVisible : 0;
@@ -50,9 +50,9 @@ export default function SkillTagsDisplay({ skills, maxVisible }: Props) {
           style={{
             borderRadius: 6,
             margin: 0,
-            background: "#F3F4F6",
-            color: "#6B7280",
-            border: "1px dashed #D1D5DB",
+            background: "#1824311A",
+            color: "#18243199",
+            border: "1px dashed #18243166",
           }}
         >
           +{remaining} khác

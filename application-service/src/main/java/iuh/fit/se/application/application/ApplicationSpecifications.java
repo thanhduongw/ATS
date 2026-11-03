@@ -59,7 +59,14 @@ public final class ApplicationSpecifications {
                 predicates.add(cb.equal(root.get("recruitmentSourceId"), recruitmentSourceId));
             }
             if (stageType != null && !stageType.isBlank()) {
-                predicates.add(cb.equal(root.get("currentStageType"), stageType));
+                // Nhận một loại hoặc danh sách ngăn cách bằng dấu phẩy, để giao diện lọc theo
+                // 6 giai đoạn cố định (vd. "Sàng lọc" = CV_SCREENING,HR_SCREENING).
+                List<String> types = parseStageTypes(stageType);
+                if (types.size() == 1) {
+                    predicates.add(cb.equal(root.get("currentStageType"), types.get(0)));
+                } else if (!types.isEmpty()) {
+                    predicates.add(root.get("currentStageType").in(types));
+                }
             }
             if (aiTier != null && !aiTier.isBlank()) {
                 predicates.add(cb.equal(root.get("aiTier"), aiTier));
@@ -73,5 +80,15 @@ public final class ApplicationSpecifications {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    /** Tách tham số stageType ("A" hoặc "A,B,C") thành danh sách, bỏ khoảng trắng và phần tử rỗng. */
+    static List<String> parseStageTypes(String stageType) {
+        List<String> types = new ArrayList<>();
+        for (String part : stageType.split(",")) {
+            String s = part.trim();
+            if (!s.isEmpty() && !types.contains(s)) types.add(s);
+        }
+        return types;
     }
 }

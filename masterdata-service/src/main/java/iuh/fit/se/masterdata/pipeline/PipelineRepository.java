@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface PipelineRepository extends JpaRepository<RecruitmentPipeline, Long> {
     List<RecruitmentPipeline> findAllByOrderByNameAsc();
+
+    Optional<RecruitmentPipeline> findFirstByNameIgnoreCase(String name);
 }

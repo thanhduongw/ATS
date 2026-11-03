@@ -161,8 +161,8 @@ export default function NotificationBell() {
                     justifyContent: "space-between",
                     alignItems: "center",
                     padding: "12px 16px",
-                    borderBottom: "1px solid #f0f0f0",
-                    background: "#FAFAFA",
+                    borderBottom: "1px solid #1824311A",
+                    background: "#1824310C",
                 }}
             >
                 <Space>
@@ -202,7 +202,7 @@ export default function NotificationBell() {
                                 margin: 0,
                                 background: item.read ? "#fff" : "#F0F7FF",
                                 cursor: "pointer",
-                                borderBottom: "1px solid #F3F4F6",
+                                borderBottom: "1px solid #1824311A",
                             }}
                             onClick={() => handleClickItem(item)}
                         >
@@ -224,7 +224,7 @@ export default function NotificationBell() {
                                             width: 8,
                                             height: 8,
                                             borderRadius: "50%",
-                                            background: COLORS.primary || "#3B82F6",
+                                            background: COLORS.primary || "#0A59F7",
                                             flexShrink: 0,
                                             marginTop: 6,
                                         }}
@@ -242,7 +242,7 @@ export default function NotificationBell() {
                             <div
                                 style={{
                                     fontSize: 12,
-                                    color: "#4B5563",
+                                    color: "#18243199",
                                     lineHeight: 1.4,
                                 }}
                             >
@@ -260,10 +260,10 @@ export default function NotificationBell() {
 
             <div
                 style={{
-                    borderTop: "1px solid #f0f0f0",
+                    borderTop: "1px solid #1824311A",
                     padding: "8px 16px",
                     textAlign: "center",
-                    background: "#FAFAFA",
+                    background: "#1824310C",
                 }}
             >
                 <Button type="link" onClick={handleViewAll} style={{ padding: 0 }}>
@@ -289,7 +289,7 @@ export default function NotificationBell() {
                     style={{
                         fontSize: 18,
                         cursor: "pointer",
-                        color: "rgba(255,255,255,0.9)",
+                        color: COLORS.textPrimary,
                     }}
                 />
             </Badge>

@@ -60,7 +60,7 @@ export default function WorkQueueCard() {
                         icon: <FileSearchOutlined />,
                         label: "CV mới cần xem",
                         count: newCv.data.totalItems,
-                        accent: "#3B82F6",
+                        accent: "#0A59F7",
                         to: "/applications?stageType=APPLIED",
                     },
                     {
@@ -68,7 +68,7 @@ export default function WorkQueueCard() {
                         icon: <FormOutlined />,
                         label: "Buổi phỏng vấn chờ đánh giá",
                         count: waitingEvaluation,
-                        accent: "#F59E0B",
+                        accent: "#FF7500",
                         to: "/evaluations",
                     },
                     {
@@ -76,7 +76,7 @@ export default function WorkQueueCard() {
                         icon: <SolutionOutlined />,
                         label: "Ứng viên đang ở vòng Đề nghị",
                         count: atOffer.data.totalItems,
-                        accent: "#8B5CF6",
+                        accent: "#7C4DFF",
                         to: "/applications?stageType=OFFER",
                     },
                     {
@@ -110,7 +110,7 @@ export default function WorkQueueCard() {
                     icon: <FormOutlined />,
                     label: "Đánh giá tôi cần nộp",
                     count: pendingMine,
-                    accent: "#F59E0B",
+                    accent: "#FF7500",
                     to: "/evaluations",
                 },
                 {
@@ -118,7 +118,7 @@ export default function WorkQueueCard() {
                     icon: <CalendarOutlined />,
                     label: "Buổi phỏng vấn sắp tới",
                     count: upcoming,
-                    accent: "#3B82F6",
+                    accent: "#0A59F7",
                     to: "/interviews",
                 },
             ]);

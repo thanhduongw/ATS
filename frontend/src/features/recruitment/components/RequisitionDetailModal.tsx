@@ -431,7 +431,7 @@ export default function RequisitionDetailModal({
                         maxHeight: "72vh",
                         overflowY: "auto",
                         padding: "12px",
-                        background: "#FAFBFC",
+                        background: "#1824310C",
                     },
                     footer: {
                         padding: "12px",
@@ -786,7 +786,7 @@ export default function RequisitionDetailModal({
                                 border: `1px solid ${COLORS.borderLight}`,
                                 borderRadius: RADIUS.md,
                                 padding: "12px",
-                                background: "#FAFBFC",
+                                background: "#1824310C",
                             }}
                         >
                             <div
@@ -913,8 +913,8 @@ export default function RequisitionDetailModal({
                                 padding: "12px",
                                 background:
                                     hasApprovedSalary
-                                        ? "#F0FDF4"
-                                        : "#FAFBFC",
+                                        ? "#00CB8724"
+                                        : "#1824310C",
                             }}
                         >
                             <div
@@ -1272,7 +1272,7 @@ export default function RequisitionDetailModal({
                     <Space>
                         <ExclamationCircleOutlined
                             style={{
-                                color: "#D97706",
+                                color: "#FF7500",
                             }}
                         />
 

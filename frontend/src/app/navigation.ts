@@ -35,19 +35,19 @@ const ROUTES: RouteNode[] = [
     // ── Tuyển dụng ────────────────────────────────────────────────────────
     { pattern: "/recruitment", label: "Tuyển dụng", moduleKey: "/recruitment/requisitions" },
     { pattern: "/recruitment/requisitions", label: "Yêu cầu tuyển dụng", moduleKey: "/recruitment/requisitions" },
-    { pattern: "/recruitment/postings", label: "Tin tuyển dụng", moduleKey: "/recruitment/postings" },
-    { pattern: "/recruitment/postings/:id", label: "Chi tiết tin tuyển dụng", parent: "/recruitment/postings" },
+    { pattern: "/recruitment/postings", label: "Việc làm", moduleKey: "/recruitment/postings" },
+    { pattern: "/recruitment/postings/:id", label: "Chi tiết việc làm", parent: "/recruitment/postings" },
 
     // ── Hồ sơ ứng viên ────────────────────────────────────────────────────
-    { pattern: "/applications", label: "Hồ sơ ứng viên", moduleKey: "/applications" },
+    { pattern: "/applications", label: "Ứng viên", moduleKey: "/applications" },
     {
         pattern: "/candidates/:candidateId/applications/:applicationId",
-        label: "Chi tiết hồ sơ",
+        label: "Hồ sơ ứng viên",
         parent: "/applications",
     },
     {
         pattern: "/candidates/:candidateId/applications/:applicationId/evaluate",
-        label: "Phiếu đánh giá",
+        label: "Đánh giá phỏng vấn",
         parent: "/candidates/:candidateId/applications/:applicationId",
     },
 
@@ -58,14 +58,15 @@ const ROUTES: RouteNode[] = [
     { pattern: "/evaluations", label: "Đánh giá phỏng vấn", parent: "/interviews" },
 
     // ── Đề nghị nhận việc ─────────────────────────────────────────────────
-    { pattern: "/offers", label: "Đề nghị nhận việc", moduleKey: "/offers" },
+    { pattern: "/offers", label: "Thư mời", moduleKey: "/offers" },
     { pattern: "/offers/compare", label: "So sánh ứng viên", parent: "/offers" },
-    { pattern: "/offers/create", label: "Tạo đề nghị", parent: "/offers" },
-    { pattern: "/offers/:id", label: "Chi tiết đề nghị", parent: "/offers" },
+    { pattern: "/offers/create", label: "Soạn thư mời", parent: "/offers" },
+    { pattern: "/offers/:id", label: "Chi tiết thư mời", parent: "/offers" },
     { pattern: "/offers/:id/edit", label: "Chỉnh sửa", parent: "/offers/:id" },
 
     // ── Quản trị ──────────────────────────────────────────────────────────
     { pattern: "/admin/users", label: "Người dùng", moduleKey: "/admin/users" },
+    { pattern: "/admin/company", label: "Thông tin doanh nghiệp", moduleKey: "/admin/company" },
     { pattern: "/audit-logs", label: "Nhật ký hệ thống", moduleKey: "/audit-logs" },
     { pattern: "/notifications", label: "Thông báo", moduleKey: "/notifications" },
     { pattern: "/settings", label: "Cài đặt tài khoản", moduleKey: "/settings" },
@@ -73,7 +74,7 @@ const ROUTES: RouteNode[] = [
     // ── Khu vực ứng viên ──────────────────────────────────────────────────
     { pattern: "/my-profile", label: "Hồ sơ của tôi", moduleKey: "/my-profile" },
     { pattern: "/jobs", label: "Việc làm", moduleKey: "/jobs" },
-    { pattern: "/my-applications", label: "Đơn ứng tuyển của tôi", moduleKey: "/my-applications" },
+    { pattern: "/my-applications", label: "Đơn ứng tuyển", moduleKey: "/my-applications" },
     { pattern: "/my-interviews", label: "Lịch phỏng vấn", moduleKey: "/my-interviews" },
     { pattern: "/my-offers", label: "Thư mời nhận việc", moduleKey: "/my-offers" },
     { pattern: "/my-offers/:id", label: "Chi tiết thư mời", parent: "/my-offers" },

@@ -313,29 +313,47 @@ public class DefaultDataSeeder {
         }
     }
 
-    private void seedDefaultPipeline() {
-        if (pipelineRepository.count() > 0) {
-            return;
-        }
+    /** Tên quy trình 6 bước — một bước cho mỗi giai đoạn cố định của giao diện (docs/UI DS06). */
+    public static final String SIX_STAGE_PIPELINE_NAME = "Quy trình 6 giai đoạn";
 
+    /**
+     * Quy trình mặc định cho tin MỚI là quy trình 6 bước (quyết định Q8 = b,
+     * docs/learning/03-ke-hoach-trien-khai-ui.md mục 9): Ứng tuyển · Sàng lọc · Phỏng vấn ·
+     * Thư mời · Đã tuyển · Từ chối. Tin cũ vẫn giữ quy trình đang gắn (thường là 9 bước), không đổi.
+     * Chạy lại nhiều lần an toàn: chỉ tạo khi chưa có, rồi đảm bảo đây là quy trình mặc định DUY NHẤT.
+     */
+    private void seedDefaultPipeline() {
+        RecruitmentPipeline sixStage = pipelineRepository.findFirstByNameIgnoreCase(SIX_STAGE_PIPELINE_NAME)
+                .orElseGet(() -> pipelineRepository.save(buildSixStagePipeline()));
+        for (RecruitmentPipeline p : pipelineRepository.findAll()) {
+            boolean shouldBeDefault = p.getId().equals(sixStage.getId());
+            if (p.isDefault() != shouldBeDefault) {
+                p.setDefault(shouldBeDefault);
+                pipelineRepository.save(p);
+            }
+        }
+    }
+
+    /**
+     * Bước Sàng lọc dùng CV_SCREENING: interview-service chỉ cho lên lịch khi hồ sơ đã VƯỢT QUA
+     * bước CV_SCREENING (InterviewService.create), nên chuyển sang "Phỏng vấn" là lên lịch được ngay
+     * (khớp R34 "Mở lịch phỏng vấn ngay sau khi chuyển"). Mỗi lần "chuyển tiếp" = sang giai đoạn kế.
+     */
+    static RecruitmentPipeline buildSixStagePipeline() {
         RecruitmentPipeline pipeline = RecruitmentPipeline.builder()
-                .name("Quy trình tuyển dụng mặc định")
+                .name(SIX_STAGE_PIPELINE_NAME)
                 .isDefault(true)
                 .active(true)
                 .build();
 
         Object[][] stages = {
                 {"Ứng tuyển", StageType.APPLIED, 1},
-                {"Sàng lọc CV", StageType.CV_SCREENING, 2},
-                {"Sàng lọc HR", StageType.HR_SCREENING, 3},
-                {"Phỏng vấn kỹ thuật", StageType.TECHNICAL_INTERVIEW, 4},
-                {"Phỏng vấn HR", StageType.HR_INTERVIEW, 5},
-                {"Phỏng vấn vòng cuối", StageType.FINAL_INTERVIEW, 6},
-                {"Đề nghị nhận việc", StageType.OFFER, 7},
-                {"Đã tuyển dụng", StageType.HIRED, 8},
-                {"Từ chối", StageType.REJECTED, 9},
+                {"Sàng lọc", StageType.CV_SCREENING, 2},
+                {"Phỏng vấn", StageType.TECHNICAL_INTERVIEW, 3},
+                {"Thư mời", StageType.OFFER, 4},
+                {"Đã tuyển", StageType.HIRED, 5},
+                {"Từ chối", StageType.REJECTED, 6},
         };
-
         for (Object[] s : stages) {
             pipeline.getStages().add(PipelineStage.builder()
                     .pipeline(pipeline)
@@ -344,7 +362,6 @@ public class DefaultDataSeeder {
                     .stageOrder((Integer) s[2])
                     .build());
         }
-
-        pipelineRepository.save(pipeline);
+        return pipeline;
     }
 }

@@ -333,7 +333,7 @@ export default function PostingListPanel() {
             render: (_: unknown, record: JobPostingResponse) => (
                 <div style={{ lineHeight: 1.4 }}>
                     <div style={{ fontSize: 12 }}>{employmentTypeMap[record.employmentTypeId] ?? "—"}</div>
-                    <div style={{ fontSize: 12, color: "#9CA3AF" }}>{workLocationMap[record.workLocationId] ?? "—"}</div>
+                    <div style={{ fontSize: 12, color: "#18243166" }}>{workLocationMap[record.workLocationId] ?? "—"}</div>
                 </div>
             ),
         },
@@ -414,7 +414,7 @@ export default function PostingListPanel() {
                     label="Chờ đăng"
                     hint="đã duyệt"
                     value={stats.approved}
-                    accent="#3B82F6"
+                    accent="#0A59F7"
                     active={filters.status === "APPROVED"}
                     onClick={() => toggleStatus("APPROVED")}
                 />
@@ -422,7 +422,7 @@ export default function PostingListPanel() {
                     icon={<TeamOutlined />}
                     label="Tổng ứng viên"
                     value={stats.applications}
-                    accent="#8B5CF6"
+                    accent="#7C4DFF"
                 />
             </StatRow>
 
@@ -432,7 +432,7 @@ export default function PostingListPanel() {
                     </Button>
                 )}>
                 <Input
-                    prefix={<SearchOutlined style={{ color: "#9CA3AF" }} />}
+                    prefix={<SearchOutlined style={{ color: "#18243166" }} />}
                     placeholder="Tìm theo tiêu đề..."
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}

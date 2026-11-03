@@ -8,9 +8,9 @@ export interface ScoreChecklistItem {
 }
 
 const DOT_COLOR: Record<ScoreChecklistItem["status"], string> = {
-    done: "#22C55E",
-    warning: "#F59E0B",
-    missing: "#DC2626",
+    done: "#00A06B",
+    warning: "#FF7500",
+    missing: "#FA2A2D",
 };
 
 interface ScoreChecklistPanelProps {

@@ -1,7 +1,10 @@
-import { Tag, Tooltip } from "antd";
+import { Tooltip } from "antd";
 import { LoadingOutlined } from "@ant-design/icons";
 import type { AiScoreStatus, AiTier } from "../types";
 import { aiTierMeta, isAiScoring } from "../aiScore";
+import { COLORS } from "../../../app/theme";
+import StatusTag from "../../../components/ui/StatusTag";
+import { AiScorePill } from "../../../components/ui/designKit";
 
 interface Props {
     score: number | null;
@@ -17,29 +20,30 @@ interface Props {
 // 3. FAILED -> "Chấm lỗi".   4. Chưa chấm lần nào -> "—".
 export default function AiScoreBadge({ score, tier, status }: Props) {
     const meta = aiTierMeta(tier);
+    const scoring = isAiScoring(status);
     if (meta) {
         return (
-            <Tooltip title={isAiScoring(status) ? "AI đang chấm lại hồ sơ này" : undefined}>
-                <Tag color={meta.color} style={{ margin: 0, fontWeight: 600 }}>
-                    {isAiScoring(status) && <LoadingOutlined style={{ marginRight: 4 }} />}
-                    {score != null ? `${score} · ${meta.label}` : meta.label}
-                </Tag>
+            <Tooltip title={scoring ? "AI đang chấm lại hồ sơ này" : undefined}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    {score != null
+                        ? <AiScorePill score={score} suffix={` ${meta.label.toLowerCase()}`} />
+                        : <StatusTag color={meta.color} label={meta.label} />}
+                    {scoring && <LoadingOutlined style={{ color: COLORS.textMuted }} />}
+                </span>
             </Tooltip>
         );
     }
-    if (isAiScoring(status)) {
+    if (scoring) {
         return (
-            <Tag icon={<LoadingOutlined />} color="processing" style={{ margin: 0 }}>
-                {status === "PENDING" ? "Chờ chấm" : "Đang chấm"}
-            </Tag>
+            <StatusTag tone="brand" label={status === "PENDING" ? "Chờ chấm" : "Đang chấm"} />
         );
     }
     if (status === "FAILED") {
         return (
             <Tooltip title="Mở hồ sơ để xem lỗi và chấm lại">
-                <Tag style={{ margin: 0 }}>Chấm lỗi</Tag>
+                <span><StatusTag tone="neutral" label="Chấm lỗi" /></span>
             </Tooltip>
         );
     }
-    return <span style={{ color: "#9CA3AF" }}>—</span>;
+    return <span style={{ color: COLORS.textMuted }}>—</span>;
 }

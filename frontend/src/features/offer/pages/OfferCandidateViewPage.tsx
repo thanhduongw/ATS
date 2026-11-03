@@ -212,7 +212,7 @@ export default function OfferCandidateViewPage() {
                         <Row gutter={[16, 16]}>
                             <Col span={12}>
                                 <Text type="secondary">Mức lương</Text>
-                                <div style={{ fontSize: 22, fontWeight: 700, color: "#16a34a" }}>
+                                <div style={{ fontSize: 22, fontWeight: 700, color: "#00A06B" }}>
                                     {formatMoney(offer.salaryOffered)}
                                 </div>
                             </Col>
@@ -339,7 +339,7 @@ export default function OfferCandidateViewPage() {
                 open={declineOpen}
                 title={
                     <>
-                        <CloseCircleFilled style={{ color: "#EF4444", marginRight: 8 }} />
+                        <CloseCircleFilled style={{ color: "#FA2A2D", marginRight: 8 }} />
                         Từ chối Offer
                     </>
                 }
@@ -422,8 +422,8 @@ function AlertCountdown({
                 marginBottom: 20,
                 padding: "12px 16px",
                 borderRadius: 10,
-                background: expired ? "#FEF2F2" : "#EFF6FF",
-                border: `1px solid ${expired ? "#FECACA" : "#BFDBFE"}`,
+                background: expired ? "#FA2A2D17" : "#0A59F719",
+                border: `1px solid ${expired ? "#FA2A2D33" : "#0A59F733"}`,
                 textAlign: "center",
             }}
         >

@@ -10,7 +10,7 @@ export interface SessionDisplay {
     accent: string;
 }
 
-const SESSION_ACCENTS = ["#2563EB", "#7C3AED", "#DB2777", "#0891B2", "#4F46E5", "#0F766E"];
+const SESSION_ACCENTS = ["#0A59F7", "#7C4DFF", "#E40078", "#0891B2", "#3F56EA", "#0F766E"];
 
 /** Màu ổn định theo mã lô để cùng một lô luôn hiện cùng một màu giữa các lần tải. */
 export function sessionAccent(sessionId: number): string {

@@ -39,6 +39,14 @@ import JobDetailApplyPage from "../features/public/pages/JobDetailApplyPage";
 
 const INTERNAL_ROLES = ["COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER"] as const;
 
+/**
+ * Vai trò vận hành tuyển dụng (ứng viên, phỏng vấn, thư mời…).
+ * Theo thiết kế docs/UI (A07, DS06) Quản trị doanh nghiệp chỉ xem số liệu tổng hợp, không mở hồ sơ ứng viên.
+ * NỢ KỸ THUẬT (quyết định C1 = phương án 2): mới chặn ở giao diện; backend vẫn cho COMPANY_ADMIN đọc
+ * các API này (application-service/.../security/AuthorizationPolicy.java:22-40).
+ */
+const OPERATION_ROLES = ["RECRUITER", "HIRING_MANAGER"] as const;
+
 export default function AppRoutes() {
     return <Routes>
         <Route path="/careers" element={<PublicLayout />}>
@@ -63,6 +71,9 @@ export default function AppRoutes() {
 
                 <Route element={<RoleRoute allow={[...INTERNAL_ROLES]} />}>
                     <Route path="/dashboard" element={<DashboardPage />} />
+                </Route>
+
+                <Route element={<RoleRoute allow={[...OPERATION_ROLES]} />}>
                     <Route path="/recruitment" element={<RecruitmentPage />} />
                     <Route path="/recruitment/requisitions" element={<RecruitmentPage />} />
                     <Route path="/recruitment/postings" element={<RecruitmentPage />} />
@@ -77,22 +88,24 @@ export default function AppRoutes() {
                 </Route>
 
                 {/* Tao va so sanh la thao tac cua HR; chi tiet offer thi moi role noi bo deu xem duoc. */}
-                <Route element={<RoleRoute allow={["COMPANY_ADMIN", "RECRUITER"]} />}>
+                <Route element={<RoleRoute allow={["RECRUITER"]} />}>
                     <Route path="/offers/compare" element={<CandidateComparisonPage />} />
                     <Route path="/offers/create" element={<OfferCreatePage />} />
                     <Route path="/offers/:id/edit" element={<OfferCreatePage />} />
                 </Route>
 
-                <Route element={<RoleRoute allow={[...INTERNAL_ROLES]} />}>
+                <Route element={<RoleRoute allow={[...OPERATION_ROLES]} />}>
                     <Route path="/offers/:id" element={<OfferDetailPage />} />
                 </Route>
 
-                <Route element={<RoleRoute allow={["COMPANY_ADMIN", "RECRUITER"]} />}>
+                {/* A07: chỉ Chuyên viên tuyển dụng sửa danh mục. */}
+                <Route element={<RoleRoute allow={["RECRUITER"]} />}>
                     <Route path="/masterdata" element={<MasterDataPage />} />
                 </Route>
 
                 <Route element={<RoleRoute allow={["COMPANY_ADMIN"]} />}>
-                    <Route path="/admin/users" element={<AuthManagementPage initialTab="users" />} />
+                    <Route path="/admin/users" element={<AuthManagementPage key="users" initialTab="users" />} />
+                    <Route path="/admin/company" element={<AuthManagementPage key="company" initialTab="company" />} />
                     <Route path="/audit-logs" element={<AuditLogPage />} />
                 </Route>
 

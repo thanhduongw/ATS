@@ -23,6 +23,7 @@ import { COLORS, RADIUS } from "../../../app/theme";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import EmptyState from "../../../components/ui/EmptyState";
 import "./EvaluationFormPage.css";
+import { fixedStageLabel } from "../../../app/stages";
 
 const { Text } = Typography;
 
@@ -152,7 +153,7 @@ export default function EvaluationFormPage() {
 
     const roundName = interview
         ? roundAt(interview.createdAt, sortedHistory)
-        : application?.currentStageName ?? UNKNOWN_ROUND;
+        : (application ? fixedStageLabel(application.currentStageType) : UNKNOWN_ROUND);
 
     const onSubmit = async (data: EvaluationSubmitFormValues) => {
         try {
@@ -235,7 +236,7 @@ export default function EvaluationFormPage() {
                                         key={field.id}
                                         className="evaluation-criterion-row"
                                         style={{
-                                            background: index % 2 === 1 ? "#FAFBFC" : "#fff",
+                                            background: index % 2 === 1 ? "#1824310C" : "#fff",
                                             borderBottom: index < fields.length - 1 ? `1px solid ${COLORS.borderLight}` : undefined,
                                         }}
                                     >
@@ -384,8 +385,8 @@ export default function EvaluationFormPage() {
                         <div
                             className="evaluation-lock-notice"
                             style={{
-                                background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: RADIUS.md,
-                                padding: "10px 12px", fontSize: 12.5, color: "#92400E",
+                                background: "#FF75001F", border: "1px solid #FF750033", borderRadius: RADIUS.md,
+                                padding: "10px 12px", fontSize: 12.5, color: "#FF7500",
                                 display: "flex", alignItems: "flex-start", gap: 8,
                             }}
                         >

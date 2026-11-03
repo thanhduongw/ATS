@@ -3,8 +3,10 @@
  * chạm tối thiểu — đã chốt, đừng hạ lại.
  */
 export const SIZES = {
-  /** Nút chính, nút phụ, ô nhập một dòng. */
+  /** Nút phụ, ô nhập một dòng. */
   control: 44,
+  /** Nút chính ở đáy màn (DS02: 46–50; quyết định X6 chọn 48). */
+  primaryAction: 48,
   /** Nút tròn chỉ có icon (quay lại, thông báo). */
   iconButton: 40,
   /** Phần nội dung thanh tab dưới (chưa tính đáy an toàn) — canvas 56. */

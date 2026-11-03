@@ -94,7 +94,7 @@ public class OfferService {
         if (page == null && size == null) {
             List<Offer> all = offerRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
             return PageResponse.unpaged(all.stream()
-                    .map(o -> toResponse(o, userNameMap, contractTypeMap, reasonMap))
+                    .map(o -> forViewer(toResponse(o, userNameMap, contractTypeMap, reasonMap), role))
                     .toList());
         }
 
@@ -103,7 +103,7 @@ public class OfferService {
                 size != null ? size : 20,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
         var result = offerRepository.findAll(spec, pageable)
-                .map(offer -> toResponse(offer, userNameMap, contractTypeMap, reasonMap));
+                .map(offer -> forViewer(toResponse(offer, userNameMap, contractTypeMap, reasonMap), role));
         return PageResponse.of(result);
     }
 
@@ -113,9 +113,10 @@ public class OfferService {
         Map<Long, String> userNameMap =
                 AuthorizationPolicy.roleOf(actor) == AuthorizationPolicy.Role.CANDIDATE
                         ? Map.of() : buildUserNameMap();
-        return toResponse(offer, userNameMap,
+        return forViewer(toResponse(offer, userNameMap,
                 buildCatalogMap(masterDataServiceClient.getContractTypes()),
-                buildCatalogMap(masterDataServiceClient.getRejectionReasons()));
+                buildCatalogMap(masterDataServiceClient.getRejectionReasons())),
+                AuthorizationPolicy.roleOf(actor));
     }
 
     public List<CandidateOfferResponse> getMyOffers(CurrentUser actor) {
@@ -147,6 +148,10 @@ public class OfferService {
     public byte[] generateOfferPdf(CurrentUser actor, Long id) {
         Offer offer = findById(id);
         assertCanView(offer, actor);
+        // Thư mời PDF có lương: Đại diện phòng ban không được tải (DS06 "Quyền hiển thị").
+        if (AuthorizationPolicy.roleOf(actor) == AuthorizationPolicy.Role.HIRING_MANAGER) {
+            throw new AccessDeniedException("Đại diện phòng ban không xem được thư mời có lương");
+        }
 
         String companyName = authServiceClient.getCompany().name();
         Map<Long, String> contractTypeMap = buildCatalogMap(masterDataServiceClient.getContractTypes());
@@ -542,6 +547,28 @@ public class OfferService {
     private Offer findById(Long id) {
         return offerRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy Offer"));
+    }
+
+    /**
+     * Ẩn thông tin lương với Đại diện phòng ban — thiết kế docs/UI (DS06 "Quyền hiển thị"):
+     * "Đại diện phòng ban không thấy lương trong thư mời". Ẩn lương gộp, phụ cấp, thưởng hiệu suất
+     * và ghi chú nội bộ (thường ghi mức lương thương lượng, xem R24/R26).
+     */
+    static OfferResponse forViewer(OfferResponse r, AuthorizationPolicy.Role role) {
+        if (role != AuthorizationPolicy.Role.HIRING_MANAGER) return r;
+        return new OfferResponse(
+                r.id(), r.applicationId(), r.candidateName(), r.candidateEmail(), r.candidatePhone(),
+                r.jobTitle(),
+                null,
+                r.contractTypeId(), r.contractTypeName(), r.startDate(), r.probationMonths(),
+                r.reportingManager(), r.workLocationId(), r.currency(), r.payFrequency(),
+                null,
+                r.annualLeaveDays(), r.responseDeadline(), r.benefits(),
+                null,
+                null,
+                r.candidateVisibleNote(), r.requesterId(), r.requesterName(), r.approverId(), r.approverName(),
+                r.status(), r.rejectReason(), r.declineReasonName(), r.declineNote(),
+                r.createdAt(), r.submittedAt(), r.approvedAt());
     }
 
     private OfferResponse toResponse(

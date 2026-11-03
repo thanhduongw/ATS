@@ -12,7 +12,7 @@ import {
 } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import {
-    getApplicationById, advanceApplicationStage, getApplicationHistory, getApplicationComments,
+    getApplicationById, getApplicationHistory, getApplicationComments,
 } from "../applicationApi";
 import { getCandidateById } from "../candidateApi";
 import { getPostingById } from "../../recruitment/recruitmentApi";
@@ -29,7 +29,7 @@ import { INTERVIEW_CANCELLABLE, type InterviewResponse } from "../../interview/t
 import ApplicationEvaluationPanel from "../components/ApplicationEvaluationPanel";
 import { COLORS, SHADOWS } from "../../../app/theme";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
-import { stageTypeTagColor, genderLabel, interviewStatusMeta } from "../../../app/statusLabels";
+import { genderLabel, interviewStatusMeta } from "../../../app/statusLabels";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
@@ -37,6 +37,9 @@ import CvParseResultPanel from "../../ai/components/CvParseResultPanel";
 import AiScoreCard from "../../ai/components/AiScoreCard";
 import type { CVExtractionResult, ExtractionProvenance, CVExtractionResponse } from "../../ai/types";
 import { getCvExtraction, reExtractCv } from "../../ai/aiApi";
+import StageTag from "../../../components/ui/StageTag";
+import { advanceSteps, planNextFixedStage } from "../stageAdvance";
+import { FIXED_STAGE_LABEL } from "../../../app/stages";
 
 interface ActivityItem {
     kind: "history" | "comment";
@@ -98,7 +101,7 @@ function ProcessTimeline({ stages, currentStageId, rejected, stageDates }: {
             {stages.map((stage, index) => {
                 const isPast = !rejected && currentIndex >= 0 && index < currentIndex;
                 const isActive = !rejected && index === currentIndex;
-                const dotBg = rejected ? "#FEE2E2" : isActive ? COLORS.accentWarm : isPast ? COLORS.primary : "#E5E7EB";
+                const dotBg = rejected ? "#FA2A2D17" : isActive ? COLORS.accentWarm : isPast ? COLORS.primary : "#1824311A";
                 const dotColor = rejected ? COLORS.error : isActive || isPast ? "#fff" : COLORS.textMuted;
                 return (
                     <div
@@ -109,7 +112,7 @@ function ProcessTimeline({ stages, currentStageId, rejected, stageDates }: {
                             <span
                                 style={{
                                     position: "absolute", top: 17, left: "50%", width: "100%", height: 3, zIndex: 0,
-                                    background: isPast ? COLORS.primary : "#E5E7EB",
+                                    background: isPast ? COLORS.primary : "#1824311A",
                                 }}
                             />
                         )}
@@ -292,8 +295,12 @@ export default function CandidateApplicationDetailPage() {
         if (!application) return;
         setActionLoading(true);
         try {
-            await advanceApplicationStage(application.id, { note: "Chuyển vòng tiếp theo" });
-            message.success("Đã chuyển vòng tiếp theo, ứng viên sẽ được thông báo qua email");
+            // Sang giai đoạn cố định kế tiếp (DS06). Quy trình 6 bước: 1 lần; quy trình cũ 9 bước: có thể nhiều lần.
+            const plan = planNextFixedStage(stages, application.currentStageId);
+            await advanceSteps(application.id, plan?.steps ?? 1, "Chuyển giai đoạn tiếp theo");
+            message.success(plan
+                ? `Đã chuyển sang ${FIXED_STAGE_LABEL[plan.target]}, ứng viên sẽ được thông báo qua email`
+                : "Đã chuyển giai đoạn, ứng viên sẽ được thông báo qua email");
             loadAll();
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
@@ -489,7 +496,7 @@ export default function CandidateApplicationDetailPage() {
                         return (
                             <div key={iv.id} style={{
                                 display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16,
-                                padding: "14px 16px", borderRadius: 10, border: `1px solid ${COLORS.borderLight}`, background: "#F9FAFB",
+                                padding: "14px 16px", borderRadius: 10, border: `1px solid ${COLORS.borderLight}`, background: "#1824310C",
                             }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
@@ -582,10 +589,10 @@ export default function CandidateApplicationDetailPage() {
             <Col xs={24} lg={15}>
                 <div style={{
                     border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, overflow: "hidden",
-                    background: "#F8FAFC", minHeight: 620, display: "flex", flexDirection: "column",
+                    background: "#1824310C", minHeight: 620, display: "flex", flexDirection: "column",
                 }}>
                     <div style={{
-                        background: "#F1F5F9", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`,
+                        background: "#1824311A", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`,
                         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
                         fontSize: 13, fontWeight: 500,
                     }}>
@@ -625,7 +632,7 @@ export default function CandidateApplicationDetailPage() {
                 {/* ── AI Loading state ── */}
                 {aiLoading && (
                     <div style={{
-                        background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 12, padding: "24px 20px",
+                        background: "#7C4DFF1A", border: "1px solid #7C4DFF33", borderRadius: 12, padding: "24px 20px",
                     }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
                             <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI</Tag>
@@ -634,7 +641,7 @@ export default function CandidateApplicationDetailPage() {
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "20px 0" }}>
                             <div style={{
                                 width: 64, height: 64, borderRadius: "50%",
-                                background: "linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)",
+                                background: "linear-gradient(135deg, #7C4DFF 0%, #3F56EA 100%)",
                                 display: "flex", alignItems: "center", justifyContent: "center",
                                 animation: "pulse 1.5s ease-in-out infinite",
                             }}>
@@ -662,7 +669,7 @@ export default function CandidateApplicationDetailPage() {
                 {/* ── AI Error state ── */}
                 {!aiLoading && aiError && (
                     <div style={{
-                        background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 12, padding: "18px 20px",
+                        background: "#FA2A2D17", border: "1px solid #FA2A2D33", borderRadius: 12, padding: "18px 20px",
                     }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                             <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI</Tag>
@@ -706,7 +713,7 @@ export default function CandidateApplicationDetailPage() {
                 {/* ── No CV uploaded & no extraction in progress ── */}
                 {!aiLoading && !aiError && !aiResult && !application.resumeUrl && (
                     <div style={{
-                        background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 12, padding: "18px 20px",
+                        background: "#7C4DFF1A", border: "1px solid #7C4DFF33", borderRadius: 12, padding: "18px 20px",
                     }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                             <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI</Tag>
@@ -714,10 +721,10 @@ export default function CandidateApplicationDetailPage() {
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                             <div style={{
-                                width: 52, height: 52, borderRadius: "50%", background: "#EDE9FE", flexShrink: 0,
+                                width: 52, height: 52, borderRadius: "50%", background: "#7C4DFF1A", flexShrink: 0,
                                 display: "flex", alignItems: "center", justifyContent: "center",
                             }}>
-                                <FileUnknownOutlined style={{ fontSize: 22, color: "#8B5CF6" }} />
+                                <FileUnknownOutlined style={{ fontSize: 22, color: "#7C4DFF" }} />
                             </div>
                             <div style={{ fontSize: 13.5, color: COLORS.textSecondary, lineHeight: 1.55 }}>
                                 <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: 2 }}>
@@ -772,12 +779,7 @@ export default function CandidateApplicationDetailPage() {
                     {/* Trang thai luon bam phai cung hang voi ten; nhom nut xuong hang rieng ben duoi
                         de khong bi day lech khi ten hoac tieu de tin tuyen dung dai. */}
                     <div style={{ marginLeft: "auto", flexShrink: 0 }}>
-                        <Tag
-                            color={stageTypeTagColor(application.currentStageType)}
-                            style={{ margin: 0, borderRadius: 20, padding: "5px 14px", fontSize: 13, fontWeight: 500 }}
-                        >
-                            {application.currentStageName}
-                        </Tag>
+                        <StageTag stageType={application.currentStageType} />
                     </div>
                 </div>
 

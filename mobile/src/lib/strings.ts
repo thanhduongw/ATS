@@ -417,16 +417,17 @@ export const STRINGS = {
   /** Nhãn trạng thái — chỉ đọc qua `src/lib/status.ts`, đừng lấy thẳng ở màn hình. */
   status: {
     stage: {
+      // 6 giai đoạn cố định (DS06, quyết định B1): không dùng "vòng 1/2", "PV kỹ thuật"…
       APPLIED: "Ứng tuyển",
-      CV_SCREENING: "Sàng lọc CV",
-      HR_SCREENING: "Sàng lọc HR",
-      TECHNICAL_INTERVIEW: "PV kỹ thuật",
-      HR_INTERVIEW: "PV HR",
-      FINAL_INTERVIEW: "PV vòng cuối",
-      OFFER: "Đề nghị nhận việc",
-      HIRED: "Đã tuyển dụng",
+      CV_SCREENING: "Sàng lọc",
+      HR_SCREENING: "Sàng lọc",
+      TECHNICAL_INTERVIEW: "Phỏng vấn",
+      HR_INTERVIEW: "Phỏng vấn",
+      FINAL_INTERVIEW: "Phỏng vấn",
+      OFFER: "Thư mời",
+      HIRED: "Đã tuyển",
       REJECTED: "Từ chối",
-      CUSTOM: "Vòng khác",
+      CUSTOM: "Sàng lọc",
     },
     interview: {
       SCHEDULED: "Chờ HM xác nhận",

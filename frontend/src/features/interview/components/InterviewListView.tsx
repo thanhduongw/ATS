@@ -199,7 +199,7 @@ export default function InterviewListView({
                                     <span
                                         style={{
                                             width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-                                            background: person.evaluationSubmitted ? COLORS.success : "#D1D5DB",
+                                            background: person.evaluationSubmitted ? COLORS.success : "#18243166",
                                         }}
                                     />
                                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

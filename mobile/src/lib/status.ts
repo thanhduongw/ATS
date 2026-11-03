@@ -25,27 +25,29 @@ type Viewer = "CANDIDATE" | "STAFF";
 
 const UNKNOWN: StatusView = { label: STRINGS.status.unknown, tone: "neutral" };
 
+/** DS06 "Màu trạng thái": Ứng tuyển xám · Sàng lọc xanh lá · Phỏng vấn tím · Thư mời cam · Đã tuyển xanh dương · Từ chối đỏ. */
 const STAGE_TONE: Record<keyof typeof STRINGS.status.stage, StatusTone> = {
   APPLIED: "neutral",
-  CV_SCREENING: "brand",
-  HR_SCREENING: "brand",
+  CV_SCREENING: "success",
+  HR_SCREENING: "success",
   TECHNICAL_INTERVIEW: "interview",
   HR_INTERVIEW: "interview",
   FINAL_INTERVIEW: "interview",
   OFFER: "warning",
-  HIRED: "success",
+  HIRED: "brand",
   REJECTED: "danger",
-  CUSTOM: "neutral",
+  CUSTOM: "success",
 };
 
 /**
- * Vòng hiện tại của đơn. `currentStageType` backend sinh là `string` nên nhận string.
- * Vòng CUSTOM (công ty tự đặt) thì hiện đúng tên vòng backend trả về.
+ * Giai đoạn hiện tại của đơn, quy về 6 giai đoạn cố định. `currentStageType` backend sinh là
+ * `string` nên nhận string.
  */
 export function stageStatus(stageType?: string, stageName?: string): StatusView {
   if (stageType && stageType in STAGE_TONE) {
     const key = stageType as keyof typeof STAGE_TONE;
-    const label = key === "CUSTOM" && stageName ? stageName : STRINGS.status.stage[key];
+    // Luôn hiện 1 trong 6 giai đoạn cố định, kể cả vòng CUSTOM (xếp vào Sàng lọc).
+    const label = STRINGS.status.stage[key];
     return { label, tone: STAGE_TONE[key] };
   }
   return stageName ? { label: stageName, tone: "neutral" } : UNKNOWN;

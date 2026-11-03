@@ -3,7 +3,7 @@ import { Typography, Tag, Empty, Spin, message, Tooltip } from "antd";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { CalendarOutlined, UserOutlined, InboxOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
-import { getApplications, advanceApplicationStage } from "../candidateApi";
+import { getApplications } from "../candidateApi";
 import { getPostingById } from "../../recruitment/recruitmentApi";
 import { getPipelines } from "../../masterdata/masterdataApi";
 import type { PipelineStageResponse } from "../../masterdata/types";
@@ -11,6 +11,9 @@ import type { ApiMessageResponse, ApplicationResponse } from "../types";
 import RejectApplicationModal from "./RejectApplicationModal";
 import { useTrailNavigate } from "../../../app/useNavTrail";
 import dayjs from "dayjs";
+import { FIXED_STAGES, STAGE_COLORS, type FixedStage } from "../../../app/theme";
+import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
+import { advanceSteps, stepsToFixedStage } from "../stageAdvance";
 
 const { Text } = Typography;
 
@@ -18,20 +21,10 @@ interface Props {
     jobPostingId: number;
 }
 
-/* Stage type → accent color */
-const STAGE_COLORS: Record<string, { border: string; header: string; badge: string; avatar: string }> = {
-    APPLICATION: { border: "#3B82F6", header: "#EFF6FF", badge: "blue", avatar: "#3B82F6" },
-    SCREENING: { border: "#8B5CF6", header: "#F5F3FF", badge: "purple", avatar: "#8B5CF6" },
-    INTERVIEW: { border: "#F59E0B", header: "#FFFBEB", badge: "gold", avatar: "#F59E0B" },
-    OFFER: { border: "#10B981", header: "#ECFDF5", badge: "success", avatar: "#10B981" },
-    HIRED: { border: "#22C55E", header: "#F0FDF4", badge: "success", avatar: "#22C55E" },
-    REJECTED: { border: "#EF4444", header: "#FEF2F2", badge: "error", avatar: "#EF4444" },
-};
-
-const DEFAULT_STAGE_COLOR = { border: "#6B7280", header: "#F9FAFB", badge: "default", avatar: "#6B7280" };
-
-function getStageColor(stageType: string) {
-    return STAGE_COLORS[stageType] || DEFAULT_STAGE_COLOR;
+/* Màu cột theo 6 giai đoạn cố định (DS01): cùng màu với thẻ, thanh tiến trình, phễu. */
+function getStageColor(stage: FixedStage) {
+    const c = STAGE_COLORS[stage];
+    return { border: c.color, header: c.bg, badge: "default", avatar: c.color };
 }
 
 /* Get initials from name */
@@ -74,25 +67,24 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
         setDraggingOver(null);
         if (!result.destination) return;
         const applicationId = Number(result.draggableId);
-        const sourceStageId = Number(result.source.droppableId);
-        const destStageId = Number(result.destination.droppableId);
-        if (sourceStageId === destStageId) return;
+        const source = result.source.droppableId as FixedStage;
+        const dest = result.destination.droppableId as FixedStage;
+        if (source === dest) return;
 
-        const sourceStage = stages.find((s) => s.id === sourceStageId);
-        const destStage = stages.find((s) => s.id === destStageId);
-        if (!sourceStage || !destStage) return;
-
-        if (destStage.stageType === "REJECTED") {
+        if (dest === "REJECTED") {
             setPendingRejectId(applicationId);
             setRejectModalOpen(true);
             return;
         }
-        if (destStage.stageOrder !== sourceStage.stageOrder + 1) {
+        const app = applications.find((a) => a.id === applicationId);
+        // Cột là 6 giai đoạn cố định; tin cũ có quy trình 9 bước thì có thể phải đi nhiều bước.
+        const steps = app ? stepsToFixedStage(stages, app.currentStageId, dest) : null;
+        if (!steps) {
             message.warning("Chỉ được chuyển sang giai đoạn kế tiếp hoặc kéo sang cột Từ chối");
             return;
         }
         try {
-            await advanceApplicationStage(applicationId, {});
+            await advanceSteps(applicationId, steps);
             message.success("Đã chuyển giai đoạn ✓");
             loadBoard();
         } catch (err) {
@@ -100,6 +92,9 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
             message.error(axiosErr.response?.data?.message ?? "Chuyển giai đoạn thất bại");
         }
     };
+
+    // 6 cột cố định theo thứ tự DS06, chỉ hiện nhóm có trong quy trình của tin.
+    const groups = FIXED_STAGES.filter((g) => stages.some((s) => toFixedStage(s.stageType) === g));
 
     if (loading) return (
         <div style={{ display: "flex", justifyContent: "center", padding: 60 }}>
@@ -121,13 +116,13 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
                 onDragUpdate={(update) => setDraggingOver(update.destination?.droppableId || null)}
             >
                 <div className="kanban-wrapper">
-                    {stages.map((stage) => {
-                        const cardsInStage = applications.filter((a) => a.currentStageId === stage.id);
-                        const colors = getStageColor(stage.stageType);
-                        const isOver = draggingOver === String(stage.id);
+                    {groups.map((stage) => {
+                        const cardsInStage = applications.filter((a) => toFixedStage(a.currentStageType) === stage);
+                        const colors = getStageColor(stage);
+                        const isOver = draggingOver === stage;
 
                         return (
-                            <div key={stage.id} className="kanban-column">
+                            <div key={stage} className="kanban-column">
                                 {/* Column Header */}
                                 <div
                                     className="kanban-column-header"
@@ -141,7 +136,7 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
                                             width: 10, height: 10, borderRadius: "50%",
                                             background: colors.border, flexShrink: 0,
                                         }} />
-                                        <Text strong style={{ fontSize: 14, color: "#111827" }}>{stage.name}</Text>
+                                        <Text strong style={{ fontSize: 14, color: "#182431" }}>{FIXED_STAGE_LABEL[stage]}</Text>
                                     </div>
                                     <Tag
                                         color={colors.badge}
@@ -152,7 +147,7 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
                                 </div>
 
                                 {/* Droppable area */}
-                                <Droppable droppableId={String(stage.id)}>
+                                <Droppable droppableId={stage}>
                                     {(provided) => (
                                         <div
                                             ref={provided.innerRef}
@@ -161,7 +156,7 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
                                         >
                                             {cardsInStage.length === 0 ? (
                                                 <div className="kanban-empty">
-                                                    <InboxOutlined style={{ fontSize: 28, color: "#D1D5DB", marginBottom: 8 }} />
+                                                    <InboxOutlined style={{ fontSize: 28, color: "#18243166", marginBottom: 8 }} />
                                                     <span style={{ fontSize: 12 }}>Chưa có ứng viên</span>
                                                 </div>
                                             ) : (
@@ -206,10 +201,10 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
                                                                 <div style={{
                                                                     display: "flex", justifyContent: "space-between",
                                                                     alignItems: "center", marginTop: 8, paddingTop: 8,
-                                                                    borderTop: "1px solid #F3F4F6",
+                                                                    borderTop: "1px solid #1824311A",
                                                                 }}>
                                                                     <Tooltip title="Ngày ứng tuyển">
-                                                                        <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#9CA3AF" }}>
+                                                                        <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#18243166" }}>
                                                                             <CalendarOutlined />
                                                                             {dayjs(app.appliedAt).format("DD/MM")}
                                                                         </span>
@@ -218,9 +213,9 @@ export default function ApplicationKanbanBoard({ jobPostingId }: Props) {
                                                                         <Tooltip title={`Phụ trách: ${app.assignedRecruiterName}`}>
                                                                             <div style={{
                                                                                 width: 22, height: 22, borderRadius: 6,
-                                                                                background: "#E5E7EB",
+                                                                                background: "#1824311A",
                                                                                 display: "flex", alignItems: "center", justifyContent: "center",
-                                                                                fontSize: 10, fontWeight: 600, color: "#6B7280",
+                                                                                fontSize: 10, fontWeight: 600, color: "#18243199",
                                                                             }}>
                                                                                 {getInitials(app.assignedRecruiterName)}
                                                                             </div>

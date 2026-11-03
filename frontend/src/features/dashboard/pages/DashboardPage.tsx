@@ -45,7 +45,7 @@ import { useNavigate } from "react-router-dom";
 const { RangePicker } = DatePicker;
 const { Text } = Typography;
 
-const FUNNEL_COLORS = ["#0E7A5F", "#3B82F6", "#8B5CF6", "#F59E0B", "#EF4444", "#10B981"];
+const FUNNEL_COLORS = ["#0A59F7", "#0A59F7", "#7C4DFF", "#FF7500", "#FA2A2D", "#00A06B"];
 
 
 interface QuickActionProps {
@@ -67,7 +67,7 @@ function QuickAction({ icon, label, color, onClick }: QuickActionProps) {
                 padding: "20px 12px",
                 borderRadius: 12,
                 cursor: "pointer",
-                border: "1px solid #E5E7EB",
+                border: "1px solid #1824311A",
                 background: "#fff",
                 transition: "all 0.2s ease",
             }}
@@ -79,7 +79,7 @@ function QuickAction({ icon, label, color, onClick }: QuickActionProps) {
                     "0 8px 20px rgba(0,0,0,0.08)";
             }}
             onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "#E5E7EB";
+                (e.currentTarget as HTMLDivElement).style.borderColor = "#1824311A";
                 (e.currentTarget as HTMLDivElement).style.background = "#fff";
                 (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
                 (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
@@ -116,12 +116,12 @@ function QuickAction({ icon, label, color, onClick }: QuickActionProps) {
 }
 
 const PIE_COLORS = [
-    "#0E7A5F",
-    "#3B82F6",
-    "#F59E0B",
-    "#8B5CF6",
-    "#EF4444",
-    "#10B981",
+    "#0A59F7",
+    "#0A59F7",
+    "#FF7500",
+    "#7C4DFF",
+    "#FA2A2D",
+    "#00A06B",
 ];
 
 export default function DashboardPage() {
@@ -251,13 +251,13 @@ export default function DashboardPage() {
                     icon={<SolutionOutlined />}
                     label="Yêu cầu tuyển dụng"
                     value={summary?.activeRequisitionsCount ?? 0}
-                    accent="#8B5CF6"
+                    accent="#7C4DFF"
                 />
                 <StatTile
                     icon={<TeamOutlined />}
                     label="Tổng ứng viên"
                     value={summary?.totalCandidates ?? 0}
-                    accent="#3B82F6"
+                    accent="#0A59F7"
                 />
                 <StatTile
                     icon={<TrophyOutlined />}
@@ -327,7 +327,7 @@ export default function DashboardPage() {
                         label="Thời gian tuyển trung bình (Time-to-Hire)"
                         value={summary.avgTimeToHireDays}
                         suffix="ngày"
-                        accent="#F59E0B"
+                        accent="#FF7500"
                     />
                 </StatRow>
             )}
@@ -502,7 +502,7 @@ export default function DashboardPage() {
                                 <span>{s.stageName}</span>
                                 <span style={{ color: COLORS.textSecondary }}>{s.reachedCount} ({s.percentOfTotal}%)</span>
                             </div>
-                            <div style={{ background: "#F3F4F6", borderRadius: 6, height: 10 }}>
+                            <div style={{ background: "#1824311A", borderRadius: 6, height: 10 }}>
                                 <div
                                     style={{
                                         width: `${s.percentOfTotal}%`,
@@ -534,22 +534,22 @@ export default function DashboardPage() {
                                 data={barChartData}
                                 margin={{ top: 4, right: 8, left: -16, bottom: 40 }}
                             >
-                                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#1824311A" />
                                 <XAxis
                                     dataKey="stage"
                                     angle={-20}
                                     textAnchor="end"
                                     interval={0}
-                                    tick={{ fontSize: 11, fill: "#6B7280" }}
+                                    tick={{ fontSize: 11, fill: "#18243199" }}
                                 />
                                 <YAxis
                                     allowDecimals={false}
-                                    tick={{ fontSize: 11, fill: "#6B7280" }}
+                                    tick={{ fontSize: 11, fill: "#18243199" }}
                                 />
                                 <RechartTooltip
                                     contentStyle={{
                                         borderRadius: 8,
-                                        border: "1px solid #E5E7EB",
+                                        border: "1px solid #1824311A",
                                         boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
                                     }}
                                 />
@@ -596,7 +596,7 @@ export default function DashboardPage() {
                                         ))}
                                     </Pie>
                                     <RechartTooltip
-                                        contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB" }}
+                                        contentStyle={{ borderRadius: 8, border: "1px solid #1824311A" }}
                                     />
                                     <Legend
                                         iconSize={10}
@@ -644,14 +644,14 @@ export default function DashboardPage() {
                                         <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                                <XAxis dataKey="week" tick={{ fontSize: 12, fill: "#6B7280" }} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#1824311A" />
+                                <XAxis dataKey="week" tick={{ fontSize: 12, fill: "#18243199" }} />
                                 <YAxis
                                     allowDecimals={false}
-                                    tick={{ fontSize: 12, fill: "#6B7280" }}
+                                    tick={{ fontSize: 12, fill: "#18243199" }}
                                 />
                                 <RechartTooltip
-                                    contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB" }}
+                                    contentStyle={{ borderRadius: 8, border: "1px solid #1824311A" }}
                                 />
                                 <Area
                                     type="monotone"
@@ -681,7 +681,7 @@ export default function DashboardPage() {
                                 <QuickAction
                                     icon={<AppstoreOutlined />}
                                     label="Hồ sơ ứng tuyển"
-                                    color="#3B82F6"
+                                    color="#0A59F7"
                                     onClick={() => navigate("/applications")}
                                 />
                             </Col>
@@ -689,7 +689,7 @@ export default function DashboardPage() {
                                 <QuickAction
                                     icon={<CalendarOutlined />}
                                     label="Lịch Phỏng vấn"
-                                    color="#8B5CF6"
+                                    color="#7C4DFF"
                                     onClick={() => navigate("/interviews")}
                                 />
                             </Col>
@@ -697,7 +697,7 @@ export default function DashboardPage() {
                                 <QuickAction
                                     icon={<FileTextOutlined />}
                                     label="Quản lý đề nghị nhận việc"
-                                    color="#F59E0B"
+                                    color="#FF7500"
                                     onClick={() => navigate("/offers")}
                                 />
                             </Col>

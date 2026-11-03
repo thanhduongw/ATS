@@ -1,7 +1,7 @@
 /**
- * Bảng màu lấy từ canvas thiết kế mobile (HarmonyOS redesign, trang "Mobile" M01–M20,
- * artboard `Main` liệt kê bảng màu). Mobile CỐ Ý khác web từ đợt thiết kế này — web giữ
- * nguyên Ant Design, không đồng bộ ngược.
+ * Bảng màu theo `docs/UI` — DS01 "Màu sắc" (Interactive UI Prototype.html) và DS05
+ * "Component mobile". Web và mobile dùng CHUNG một bảng màu (quyết định A1, A2, X2 trong
+ * docs/learning/02 và 03); web ở `frontend/src/app/theme.ts`.
  *
  * Canvas viết nhiều màu dạng trong suốt (`#182431` + alpha). Ở đây giữ đúng dạng 8 chữ số
  * `#RRGGBBAA` cho nền/viền (để nằm đúng trên cả nền xám lẫn nền trắng), còn MÀU CHỮ thì
@@ -11,11 +11,17 @@
  */
 export const COLORS = {
   /* Thương hiệu */
-  primary: "#0E7A5F",
-  /** Màu nhấn/đè của canvas (`a:hover`). Dùng cho chữ trên nền tonal — 6.6:1. */
-  primaryDark: "#0A5C47",
-  /** Nền nhạt của màu chính: ô icon, ô ngày, hộp đếm ngược (canvas `#0e7a5f19`). */
-  primarySoft: "#0E7A5F19",
+  primary: "#0A59F7",
+  /** DS01 "Thương hiệu · nhấn" `#0848c7`. Dùng cho chữ trên nền tonal — 7.0:1. */
+  primaryDark: "#0848C7",
+  /** DS01 "Thương hiệu · nền 10%": ô icon, ô ngày, hộp đếm ngược, mục đang chọn. */
+  primarySoft: "#0A59F719",
+  /** DS01 "Thương hiệu · nền 6%": dòng thông báo chưa đọc, dòng được chọn. */
+  primaryFaint: "#0A59F70F",
+  /** DS01 "Xanh đậm": nền màn chào M01. */
+  navy: "#061A44",
+  /** DS01 "Xanh đậm 2": điểm đầu dải màu thư mời, ảnh bìa. */
+  navy2: "#0B2F78",
 
   /* Bề mặt */
   /** Nền trang — canvas `background-secondary`. */
@@ -53,27 +59,36 @@ export const COLORS = {
   errorText: "#B91C1C",
   /** Canvas `alert`. */
   warning: "#FF7500",
-  /** Canvas `connected`. */
-  success: "#00CB87",
-  /** Xanh lá đậm hơn cho icon trên nền nhạt (canvas M14). */
+  /** DS01 "Thành công". */
+  success: "#00A06B",
+  /** Giữ tên cũ — cùng màu với success. */
   successDeep: "#00A06B",
   /** Xanh dương của các gợi ý "thông minh" (icon lấp lánh ở dòng khớp kỹ năng, canvas N26). Chỉ dùng cho icon. */
   ai: "#2A7DFF",
-  /** Tím của vòng phỏng vấn (canvas `Main` → "Phỏng vấn"). */
-  interview: "#8A2BE2",
+  /** DS01 "Tím": phỏng vấn, đề xuất đổi giờ, cần sửa. */
+  interview: "#7C4DFF",
 } as const;
 
 /**
- * Sắc độ của `<StatusChip>` — lấy đúng 6 kiểu chip ở artboard `Main` ("Trạng thái hồ sơ").
- * `bg` là nền nhạt, `dot` là chấm tròn, `text` là màu chữ.
+ * Sắc độ của `<StatusChip>` — DS06 "Màu trạng thái": nền nhạt + chấm + chữ cùng màu.
+ * Ứng tuyển/Bản nháp xám · Sàng lọc/Đã duyệt xanh lá · Phỏng vấn/Yêu cầu sửa tím ·
+ * Thư mời/Chờ duyệt cam · Đã tuyển xanh dương · Từ chối đỏ.
  */
 export const STATUS_TONES = {
-  neutral: { bg: COLORS.fill, dot: COLORS.textMuted, text: COLORS.textSecondary },
-  brand: { bg: "#0E7A5F14", dot: COLORS.primary, text: COLORS.primary },
-  interview: { bg: "#8A2BE214", dot: COLORS.interview, text: COLORS.textPrimary },
-  warning: { bg: "#FF75001A", dot: COLORS.warning, text: COLORS.textPrimary },
-  success: { bg: "#00CB871F", dot: COLORS.success, text: COLORS.textPrimary },
-  danger: { bg: "#FA2A2D14", dot: COLORS.error, text: COLORS.textPrimary },
+  neutral: { bg: COLORS.fill, dot: COLORS.textSecondary, text: COLORS.textSecondary },
+  brand: { bg: "#0A59F719", dot: COLORS.primary, text: COLORS.primary },
+  interview: { bg: "#7C4DFF1A", dot: COLORS.interview, text: COLORS.interview },
+  warning: { bg: "#FF75001F", dot: COLORS.warning, text: COLORS.warning },
+  success: { bg: "#00CB8724", dot: COLORS.success, text: COLORS.success },
+  danger: { bg: "#FA2A2D17", dot: COLORS.error, text: COLORS.error },
 } as const;
+
+/** Dải màu AI (DS01) — CHỈ cho điểm AI, nhãn AI. Vẽ bằng react-native-svg (quyết định X5). */
+export const AI_GRADIENT_STOPS = [
+  { offset: 0, color: "#42CBF7" },
+  { offset: 0.4, color: "#2A7DFF" },
+  { offset: 0.75, color: "#A479FF" },
+  { offset: 1, color: "#FF678C" },
+] as const;
 
 export type StatusTone = keyof typeof STATUS_TONES;

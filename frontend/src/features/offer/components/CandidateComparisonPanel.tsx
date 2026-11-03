@@ -24,6 +24,7 @@ import { formatMoney } from "../../../app/money";
 import { OFFER_STATUS, statusMeta } from "../../../app/statusLabels";
 import EmptyState from "../../../components/ui/EmptyState";
 import { useTableScrollY } from "../../../app/useTableScrollY";
+import { fixedStageLabel } from "../../../app/stages";
 
 const RECOMMENDATION_LABEL: Record<RecommendationType, string> = {
     STRONG_YES: "Rất khuyến nghị nhận",
@@ -389,8 +390,8 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                             fontSize: 13,
                             padding: "6px 12px",
                             borderRadius: 8,
-                            background: headcountExhausted ? "#FEF2F2" : "#F0FDF4",
-                            border: `1px solid ${headcountExhausted ? "#FECACA" : "#BBF7D0"}`,
+                            background: headcountExhausted ? "#FA2A2D17" : "#00CB8724",
+                            border: `1px solid ${headcountExhausted ? "#FA2A2D33" : "#00A06B33"}`,
                             color: COLORS.textSecondary,
                         }}>
                             Suất tuyển: <b>{acceptedOfferCount} / {headcount}</b> đã tuyển
@@ -506,7 +507,7 @@ function ComparisonColumns({
                             <th key={r.application.id} style={{ ...cellStyle, minWidth: 220, textAlign: "left" }}>
                                 <div style={{ fontWeight: 700, fontSize: 14 }}>{r.application.candidateName}</div>
                                 <div style={{ fontSize: 12, color: COLORS.textMuted }}>
-                                    {r.application.currentStageName}
+                                    {fixedStageLabel(r.application.currentStageType)}
                                 </div>
                             </th>
                         ))}

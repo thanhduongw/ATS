@@ -322,7 +322,7 @@ export default function InterviewCalendar() {
           icon={<ScheduleOutlined />}
           label="Trong tuần này"
           value={stats.week}
-          accent="#3B82F6"
+          accent="#0A59F7"
           onClick={() => {
             setQuickFilter(null);
             setAnchorDate(dayjs());
@@ -357,7 +357,7 @@ export default function InterviewCalendar() {
           icon={<FileDoneOutlined />}
           label="Chưa có đánh giá"
           value={stats.needEvaluation}
-          accent="#8B5CF6"
+          accent="#7C4DFF"
           active={quickFilter === "needEvaluation"}
           onClick={() => {
             const next = quickFilter === "needEvaluation" ? null : "needEvaluation";

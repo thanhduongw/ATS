@@ -77,7 +77,7 @@ export default function NotificationsPage() {
                                 background: item.read ? undefined : "#F0F7FF",
                                 padding: "12px 16px",
                                 cursor: "pointer",
-                                borderBottom: "1px solid #F3F4F6",
+                                borderBottom: "1px solid #1824311A",
                             }}
                             onClick={async () => {
                                 if (!item.read) await markAsRead(item.id);

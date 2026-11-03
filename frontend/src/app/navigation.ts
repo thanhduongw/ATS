@@ -78,6 +78,8 @@ const ROUTES: RouteNode[] = [
     { pattern: "/audit-logs", label: "Nhật ký hệ thống", moduleKey: "/audit-logs" },
     { pattern: "/notifications", label: "Thông báo", moduleKey: "/notifications" },
     { pattern: "/settings", label: "Cài đặt tài khoản", moduleKey: "/settings" },
+    { pattern: "/results", label: "Kết quả tuyển dụng", moduleKey: "/results" },
+    { pattern: "/results/:id", label: "Kết quả một vị trí", parent: "/results" },
 
     // ── Khu vực ứng viên ──────────────────────────────────────────────────
     { pattern: "/my-profile", label: "Hồ sơ của tôi", moduleKey: "/my-profile" },

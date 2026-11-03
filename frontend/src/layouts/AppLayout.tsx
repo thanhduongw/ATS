@@ -59,7 +59,7 @@ function menuFor(role: UserRole): NavItem[] {
                 { key: "/recruitment/requisitions", label: "Yêu cầu tuyển dụng", icon: <SolutionOutlined /> },
                 { key: "/applications", label: "Ứng viên", icon: <TeamOutlined /> },
                 { key: "/interviews", label: "Lịch phỏng vấn", icon: <CalendarOutlined /> },
-                { key: "/offers", label: "Kết quả tuyển dụng", icon: <BarChartOutlined /> },
+                { key: "/results", label: "Kết quả tuyển dụng", icon: <BarChartOutlined /> },
             ];
         // A01 + C6 (mục riêng "Nhật ký hệ thống")
         case "COMPANY_ADMIN":

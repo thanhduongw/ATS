@@ -4,8 +4,9 @@ import {
     LeftOutlined, PlusOutlined, RightOutlined, SearchOutlined, SwapOutlined, ThunderboltOutlined, UserOutlined,
 } from "@ant-design/icons";
 import dayjs, { type Dayjs } from "dayjs";
-import { useSearchParams } from "react-router-dom";
-import { getInterviews } from "../interviewApi";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import type { AxiosError } from "axios";
+import { confirmInterviewByHm, getInterviews } from "../interviewApi";
 import { getUserDirectory } from "../../auth/authApi";
 import type { UserDirectoryResponse } from "../../auth/types";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
@@ -43,6 +44,8 @@ const TABS: { key: Tab; label: string }[] = [
     { key: "CANCELLED", label: "Đã huỷ" },
 ];
 const WEEKDAY = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+const WEEKDAY_SHORT = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+const HM_COLS = "110px 1.3fr 1.2fr 120px 1.6fr";
 
 const endOf = (iv: InterviewResponse) => dayjs(iv.scheduledAt).add(iv.durationMinutes ?? 60, "minute");
 
@@ -56,6 +59,56 @@ function tabOf(iv: InterviewResponse, now: Dayjs): Tab {
     if (iv.status === "HM_RESCHEDULE_PROPOSED") return "ACTION";
     if (iv.status === "SCHEDULED" && dayjs(iv.scheduledAt).diff(now, "hour") <= 48) return "ACTION";
     return "UPCOMING";
+}
+
+/**
+ * H11 · Đại diện phòng ban: chỉ các buổi mình được phân công, 4 tab.
+ *  - Cần xử lý: đã diễn ra mà mình chưa nộp đánh giá, hoặc lịch chưa được mình xác nhận
+ *  - Đã xong: đã diễn ra / hoàn tất / ứng viên vắng
+ *  - Sắp tới: phần còn lại (buổi đã huỷ chỉ nằm trong "Tất cả")
+ */
+type HmTab = "ACTION" | "UPCOMING" | "DONE" | "ALL";
+const HM_TABS: { key: HmTab; label: string }[] = [
+    { key: "ACTION", label: "Cần xử lý" }, { key: "UPCOMING", label: "Sắp tới" },
+    { key: "DONE", label: "Đã xong" }, { key: "ALL", label: "Tất cả" },
+];
+type HmKind = "EVAL" | "CONFIRM" | "UPCOMING" | "DONE" | "CANCELLED";
+
+function hmKindOf(iv: InterviewResponse, me: number | null, now: Dayjs): HmKind {
+    if (iv.status === "CANCELLED") return "CANCELLED";
+    if (iv.status === "COMPLETED" || iv.status === "NO_SHOW") return "DONE";
+    const mine = iv.interviewers.find((p) => p.interviewerId === me);
+    if (endOf(iv).isBefore(now)) return mine && !mine.evaluationSubmitted && INTERVIEW_HELD.has(iv.status) ? "EVAL" : "DONE";
+    if (iv.status === "SCHEDULED" && !iv.hmConfirmed) return "CONFIRM";
+    return "UPCOMING";
+}
+const HM_KIND_TAB: Record<HmKind, HmTab | null> = { EVAL: "ACTION", CONFIRM: "ACTION", UPCOMING: "UPCOMING", DONE: "DONE", CANCELLED: null };
+const HM_KIND_GROUP: Record<HmKind, string> = {
+    EVAL: "Cần đánh giá", CONFIRM: "Cần xác nhận", UPCOMING: "Sắp tới", DONE: "Đã xong", CANCELLED: "Đã huỷ",
+};
+
+function hmStatusText(iv: InterviewResponse, kind: HmKind, me: number | null): { label: string; tone: StatusTone } {
+    const done = iv.interviewers.filter((p) => p.evaluationSubmitted).length;
+    switch (kind) {
+        case "CANCELLED": return { label: "Đã huỷ", tone: "neutral" };
+        case "EVAL": return { label: `${done}/${iv.interviewers.length} đã nộp · còn bạn`, tone: "warning" };
+        case "CONFIRM": return { label: "Chờ bạn xác nhận", tone: "warning" };
+        case "DONE":
+            if (iv.status === "NO_SHOW") return { label: "Ứng viên vắng", tone: "danger" };
+            return iv.interviewers.find((p) => p.interviewerId === me)?.evaluationSubmitted
+                ? { label: "Bạn đã nộp đánh giá", tone: "success" } : { label: "Đã xong", tone: "success" };
+        default:
+            if (iv.status === "HM_RESCHEDULE_PROPOSED") {
+                return {
+                    label: iv.proposedScheduledAt
+                        ? `Bạn đề xuất đổi sang ${dayjs(iv.proposedScheduledAt).format("HH:mm DD/MM")}`
+                        : "Bạn đã đề xuất đổi giờ",
+                    tone: "interview",
+                };
+            }
+            return iv.status === "HM_CONFIRMED"
+                ? { label: "Chờ ứng viên xác nhận", tone: "neutral" } : { label: "Đã xác nhận", tone: "success" };
+    }
 }
 
 /** Chữ trạng thái như HTML: "Chờ đánh giá 1/2", "Đã xác nhận", "Đề xuất đổi giờ"… */
@@ -80,8 +133,12 @@ function statusText(iv: InterviewResponse, tab: Tab): { label: string; tone: Sta
 export default function InterviewSchedulePage() {
     const { message } = App.useApp();
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
     const role = useAppSelector((s) => s.auth.user?.role);
     const isHr = !!role && HR_ROLES.includes(role);
+    const myId = useAppSelector((s) => (s.auth.user?.userId ? Number(s.auth.user.userId) : null));
+    const [hmTab, setHmTab] = useState<HmTab | null>(null);
+    const [confirming, setConfirming] = useState<number | null>(null);
 
     const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
     const [loading, setLoading] = useState(true);
@@ -144,10 +201,11 @@ export default function InterviewSchedulePage() {
     const filtered = useMemo(() => {
         const k = keyword.trim().toLowerCase();
         return interviews.filter((iv) =>
-            (!k || iv.candidateName.toLowerCase().includes(k))
+            (isHr || iv.interviewers.some((p) => p.interviewerId === myId))
+            && (!k || iv.candidateName.toLowerCase().includes(k))
             && (interviewerId == null || iv.interviewers.some((p) => p.interviewerId === interviewerId))
             && (postingId == null || iv.jobPostingId === postingId));
-    }, [interviews, keyword, interviewerId, postingId]);
+    }, [interviews, keyword, interviewerId, postingId, isHr, myId]);
 
     const tabbed = useMemo(() => filtered.map((iv) => ({ iv, tab: tabOf(iv, now) })),
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,6 +213,14 @@ export default function InterviewSchedulePage() {
     const counts = TABS.reduce((m, t) => ({ ...m, [t.key]: tabbed.filter((x) => x.tab === t.key).length }), {} as Record<Tab, number>);
     // Mặc định: còn việc cần xử lý thì mở tab đó, không thì "Sắp tới".
     const activeTab: Tab = tab ?? (counts.ACTION > 0 ? "ACTION" : "UPCOMING");
+
+    const hmRows = useMemo(() => filtered.map((iv) => ({ iv, kind: hmKindOf(iv, myId, now) })),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [filtered, myId]);
+    const hmCounts = HM_TABS.reduce((m, t) => ({
+        ...m, [t.key]: t.key === "ALL" ? hmRows.length : hmRows.filter((x) => HM_KIND_TAB[x.kind] === t.key).length,
+    }), {} as Record<HmTab, number>);
+    const activeHmTab: HmTab = hmTab ?? (hmCounts.ACTION > 0 ? "ACTION" : "UPCOMING");
     const rows = tabbed.filter((x) => x.tab === activeTab)
         .sort((a, b) => {
             const d = dayjs(a.iv.scheduledAt).valueOf() - dayjs(b.iv.scheduledAt).valueOf();
@@ -175,6 +241,49 @@ export default function InterviewSchedulePage() {
         }
         g.items.push(r);
     });
+
+    // Đại diện phòng ban: tab Cần xử lý nhóm theo loại việc, các tab khác nhóm theo ngày.
+    const hmGroups: { key: string; label: string; items: { iv: InterviewResponse; kind: HmKind }[] }[] = [];
+    if (!isHr) {
+        const newestFirst = activeHmTab === "DONE" || activeHmTab === "ALL";
+        const shown = hmRows.filter((x) => activeHmTab === "ALL" || HM_KIND_TAB[x.kind] === activeHmTab)
+            .sort((a, b) => {
+                const d = dayjs(a.iv.scheduledAt).valueOf() - dayjs(b.iv.scheduledAt).valueOf();
+                return newestFirst ? -d : d;
+            });
+        if (activeHmTab === "ACTION") {
+            (["EVAL", "CONFIRM"] as HmKind[]).forEach((k) => {
+                const items = shown.filter((x) => x.kind === k);
+                if (items.length) hmGroups.push({ key: k, label: `${HM_KIND_GROUP[k]} · ${items.length}`, items });
+            });
+        } else {
+            shown.forEach((x) => {
+                const d = dayjs(x.iv.scheduledAt);
+                const key = d.format("YYYY-MM-DD");
+                let g = hmGroups.find((y) => y.key === key);
+                if (!g) {
+                    const base = `${WEEKDAY[d.day()]} ${d.format(d.isSame(now, "year") ? "DD/MM" : "DD/MM/YYYY")}`;
+                    g = { key, label: d.isSame(now, "day") ? `Hôm nay · ${base}` : base, items: [] };
+                    hmGroups.push(g);
+                }
+                g.items.push(x);
+            });
+        }
+    }
+
+    const confirm = async (iv: InterviewResponse) => {
+        setConfirming(iv.id);
+        try {
+            await confirmInterviewByHm(iv.id);
+            message.success(`Đã xác nhận buổi phỏng vấn ${iv.candidateName}`);
+            void load();
+        } catch (err) {
+            const e = err as AxiosError<{ message?: string }>;
+            message.error(e.response?.data?.message ?? "Xác nhận thất bại");
+        } finally {
+            setConfirming(null);
+        }
+    };
 
     const sessionDisplayById = useMemo(() => {
         const sizes = new Map<number, number>();
@@ -200,6 +309,7 @@ export default function InterviewSchedulePage() {
     return (
         <ListPage
             title="Lịch phỏng vấn"
+            subtitle={isHr ? undefined : "Các buổi bạn được phân công phỏng vấn"}
             actions={isHr ? (
                 <Dropdown menu={{
                     items: createMenu,
@@ -208,7 +318,13 @@ export default function InterviewSchedulePage() {
                     <Button type="primary" icon={<PlusOutlined />}>Lên lịch</Button>
                 </Dropdown>
             ) : undefined}
-            tabs={view === "list" ? (
+            tabs={view === "list" && !isHr ? (
+                <StatusTabs<HmTab>
+                    active={activeHmTab}
+                    onChange={setHmTab}
+                    items={HM_TABS.map((t) => ({ key: t.key, label: t.label, count: hmCounts[t.key] }))}
+                />
+            ) : view === "list" ? (
                 <StatusTabs<Tab>
                     active={activeTab}
                     onChange={setTab}
@@ -276,6 +392,85 @@ export default function InterviewSchedulePage() {
                             onSelectEmptySlot={isHr ? (start) => setQuickCreate({ open: true, start }) : undefined}
                         />
                     </div>
+                </div>
+            ) : !isHr ? (
+                <div style={{ background: COLORS.cardBg, borderRadius: 20, padding: "8px 20px 16px" }}>
+                    <div style={{
+                        display: "grid", gridTemplateColumns: HM_COLS, gap: 12, padding: "10px 0",
+                        fontSize: 12, color: COLORS.textSecondary, borderBottom: `0.5px solid ${COLORS.border}`,
+                    }}>
+                        <span>Thời gian</span><span>Ứng viên</span><span>Phỏng vấn cùng</span><span>Hình thức</span><span>Trạng thái</span>
+                    </div>
+                    {loading ? (
+                        <div style={{ padding: 40, textAlign: "center" }}><Spin /></div>
+                    ) : hmGroups.length === 0 ? (
+                        <div style={{ padding: "28px 0", textAlign: "center", color: COLORS.textSecondary }}>Không có buổi phỏng vấn nào</div>
+                    ) : hmGroups.map((g) => (
+                        <div key={g.key}>
+                            <div style={{ fontSize: 13, fontWeight: 600, padding: "14px 0 6px" }}>{g.label}</div>
+                            {g.items.map(({ iv, kind }) => {
+                                const st = hmStatusText(iv, kind, myId);
+                                const at = dayjs(iv.scheduledAt);
+                                const others = iv.interviewers.filter((p) => p.interviewerId !== myId);
+                                const postingTitle = postings.find((p) => p.id === iv.jobPostingId)?.title;
+                                return (
+                                    <div
+                                        key={iv.id}
+                                        onClick={() => setSelected(iv)}
+                                        className="row-clickable"
+                                        style={{
+                                            cursor: "pointer", display: "grid", gridTemplateColumns: HM_COLS, gap: 12, alignItems: "center",
+                                            padding: "10px 0", borderTop: `0.5px solid ${COLORS.border}`, opacity: kind === "CANCELLED" ? 0.6 : 1,
+                                        }}
+                                    >
+                                        <span style={{ display: "flex", flexDirection: "column" }}>
+                                            <span style={{ fontWeight: 700, fontSize: 14 }}>
+                                                {at.isSame(now, "day") ? "Hôm nay" : `${WEEKDAY_SHORT[at.day()]} ${at.format("DD/MM")}`} {at.format("HH:mm")}
+                                            </span>
+                                            <span style={{ fontSize: 11, color: COLORS.textSecondary }}>{iv.durationMinutes} phút</span>
+                                        </span>
+                                        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                            <Avatar name={iv.candidateName} colorKey={iv.candidateId} size={28} />
+                                            <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                                                <span style={{ fontWeight: 600, fontSize: 14 }}>{iv.candidateName}</span>
+                                                <span style={{ fontSize: 12, color: COLORS.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                    {postingTitle ?? ""}
+                                                </span>
+                                            </span>
+                                        </span>
+                                        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                            {others.length > 0 ? (
+                                                <>
+                                                    <AvatarGroup people={others.map((p) => ({ name: p.fullName, key: p.interviewerId }))} />
+                                                    <span style={{ fontSize: 12, color: COLORS.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                        {others.map((p) => p.fullName).join(", ")}
+                                                    </span>
+                                                </>
+                                            ) : <span style={{ fontSize: 12, color: COLORS.textMuted }}>Chỉ mình bạn</span>}
+                                        </span>
+                                        <span style={{ fontSize: 13 }}>
+                                            {iv.format === "ONLINE" ? "Trực tuyến" : (iv.workLocationId ? workLocationMap[iv.workLocationId] : null) ?? "Tại văn phòng"}
+                                        </span>
+                                        <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
+                                            <StatusTag label={st.label} tone={st.tone} />
+                                            {kind === "EVAL" && iv.candidateId != null && (
+                                                <Button size="small" type="primary"
+                                                    onClick={() => navigate(`/candidates/${iv.candidateId}/applications/${iv.applicationId}/evaluate?interviewId=${iv.id}`)}>
+                                                    Viết đánh giá
+                                                </Button>
+                                            )}
+                                            {kind === "CONFIRM" && (
+                                                <>
+                                                    <Button size="small" type="primary" loading={confirming === iv.id} onClick={() => void confirm(iv)}>Xác nhận</Button>
+                                                    <Button size="small" onClick={() => setSelected(iv)}>Đề xuất giờ khác</Button>
+                                                </>
+                                            )}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ))}
                 </div>
             ) : (
                 <div style={{ background: COLORS.cardBg, borderRadius: 20, padding: "8px 20px 16px" }}>

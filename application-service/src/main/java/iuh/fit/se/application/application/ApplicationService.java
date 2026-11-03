@@ -65,7 +65,7 @@ public class ApplicationService {
             Long jobPostingId, Long candidateId,
             Long assignedRecruiterId, Long recruitmentSourceId, String stageType,
             LocalDate appliedFrom, LocalDate appliedTo,
-            String aiTier, String sort,
+            String aiTier, String keyword, String sort,
             Integer page, Integer size) {
 
         // [GIẢI THÍCH] Bộ lọc xếp loại không hợp lệ -> BusinessException -> HTTP 400.
@@ -94,6 +94,8 @@ public class ApplicationService {
                 appliedFrom != null ? appliedFrom.atStartOfDay() : null,
                 appliedTo != null ? appliedTo.atTime(LocalTime.MAX) : null,
                 scopeDepartmentId, null, restrictToScope);
+        Specification<Application> keywordSpec = ApplicationSpecifications.keyword(keyword);
+        if (keywordSpec != null) spec = spec.and(keywordSpec);
 
         Map<Long, String> sourceMap = buildMap(masterDataServiceClient.getRecruitmentSources());
         Map<Long, String> reasonMap = buildMap(masterDataServiceClient.getRejectionReasons());

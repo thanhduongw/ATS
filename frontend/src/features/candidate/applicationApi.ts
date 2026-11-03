@@ -21,6 +21,8 @@ export const getApplications = (params?: {
   appliedFrom?: string;
   appliedTo?: string;
   aiTier?: string;
+  /** R16: tìm theo tên hoặc email ứng viên */
+  keyword?: string;
   /** appliedAt,desc (mặc định) | aiScore,desc | aiScore,asc — hồ sơ chưa có điểm luôn ở cuối */
   sort?: string;
   page?: number;

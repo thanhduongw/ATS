@@ -41,3 +41,11 @@ export function shortDate(value: string | null | undefined, now: Date = new Date
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     return d.getFullYear() === now.getFullYear() ? `${dd}/${mm}` : `${dd}/${mm}/${d.getFullYear()}`;
 }
+
+/** Ngày đầy đủ "dd/MM/yyyy" (cột "Ngày ứng tuyển" của R16). */
+export function fullDate(value: string | null | undefined): string {
+    if (!value) return "—";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "—";
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}

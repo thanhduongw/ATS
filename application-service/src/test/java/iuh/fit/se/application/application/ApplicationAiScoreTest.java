@@ -83,7 +83,7 @@ class ApplicationAiScoreTest {
         assertThrows(BusinessException.class,
                 () -> service.applyAiScore(event("COMPLETED", new BigDecimal("50.0"), "POTENTIAL_FIT")));
         assertThrows(BusinessException.class, () -> service.getAll(
-                null, null, null, null, null, null, null, null, "GOOD_FIT", null, null, null));
+                null, null, null, null, null, null, null, null, "GOOD_FIT", null, null, null, null));
         verifyNoInteractions(applicationRepository);
     }
 
@@ -189,7 +189,7 @@ class ApplicationAiScoreTest {
     @Test
     void invalidTierFilterIsRejected() {
         assertThrows(BusinessException.class, () -> service.getAll(
-                null, null, null, null, null, null, null, null, "EXCELLENT", null, null, null));
+                null, null, null, null, null, null, null, null, "EXCELLENT", null, null, null, null));
     }
 
     @Test

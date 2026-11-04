@@ -1,3 +1,4 @@
+import SessionExpiredDialog from "../components/SessionExpiredDialog";
 import { App as AntApp, ConfigProvider } from "antd";
 import viVN from "antd/locale/vi_VN";
 import enUS from "antd/locale/en_US";
@@ -9,7 +10,7 @@ export function ThemedApp() {
     const { lang } = useI18n();
     return (
         <ConfigProvider theme={atsTheme} locale={lang === "vi" ? viVN : enUS}>
-            <AntApp><AppRoutes /></AntApp>
+            <AntApp><AppRoutes /><SessionExpiredDialog /></AntApp>
         </ConfigProvider>
     );
 }

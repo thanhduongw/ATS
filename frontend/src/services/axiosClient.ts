@@ -26,6 +26,20 @@ const redirectToLogin = () => {
     }
 };
 
+/**
+ * C34 · Phiên đăng nhập hết hạn: nếu có hộp "Đăng nhập lại" đang gắn (SessionExpiredDialog), KHÔNG đăng xuất
+ * và không chuyển trang — để biểu mẫu đang nhập còn nguyên; đăng nhập lại xong người dùng bấm gửi tiếp.
+ * Không có hộp thoại (vd. đang ở trang khách) thì quay về cách cũ: đăng xuất và sang /login.
+ */
+type SessionExpiredHandler = () => void;
+let sessionExpiredHandler: SessionExpiredHandler | null = null;
+export const setSessionExpiredHandler = (h: SessionExpiredHandler | null) => { sessionExpiredHandler = h; };
+
+const onSessionExpired = () => {
+    if (sessionExpiredHandler && store.getState().auth.user) sessionExpiredHandler();
+    else redirectToLogin();
+};
+
 const isExpiredOrExpiringSoon = (token: string): boolean => {
     try {
         const { email, exp, role, sub } = jwtDecode<JwtPayload>(token);
@@ -57,7 +71,7 @@ const refreshAccessToken = async (): Promise<string> => {
             return res.data.accessToken;
         })
         .catch((error) => {
-            redirectToLogin();
+            onSessionExpired();
             throw error;
         })
         .finally(() => {

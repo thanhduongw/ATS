@@ -41,5 +41,8 @@ public record InterviewResponse(
         LocalDateTime createdAt,
         /** R21: ai đề xuất đổi giờ (null nếu không có đề xuất) và lúc ứng viên xác nhận. */
         Long proposedBy,
-        LocalDateTime candidateConfirmedAt
+        LocalDateTime candidateConfirmedAt,
+        /** Ứng viên xin dời lịch (status = CANDIDATE_DECLINED): lý do và lúc gửi. */
+        String candidateDeclineReason,
+        LocalDateTime candidateDeclinedAt
 ) {}

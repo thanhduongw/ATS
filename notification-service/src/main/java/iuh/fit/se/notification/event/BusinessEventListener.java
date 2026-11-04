@@ -259,6 +259,42 @@ public class BusinessEventListener {
         }
     }
 
+    // ===== 5b. Ứng viên xin dời lịch =====
+    @RabbitListener(queues = BusinessEventConfig.INTERVIEW_CANDIDATE_DECLINED_QUEUE)
+    public void onInterviewCandidateDeclined(InterviewCandidateDeclinedEvent event) {
+        log.info("Nhận event interview.candidate-declined, interviewId={}", event.interviewId());
+
+        java.util.Set<Long> recipients = new java.util.LinkedHashSet<>();
+        if (event.interviewerIds() != null) {
+            recipients.addAll(event.interviewerIds());
+        }
+        if (event.assignedRecruiterId() != null) {
+            recipients.add(event.assignedRecruiterId());
+        } else {
+            // Đơn chưa giao người phụ trách → báo mọi Chuyên viên tuyển dụng để có người đặt lại lịch.
+            try {
+                List<UserSummaryResponse> recruiters = authServiceClient.getUsers("RECRUITER");
+                if (recruiters != null) {
+                    recruiters.forEach(u -> recipients.add(u.id()));
+                }
+            } catch (Exception e) {
+                log.warn("Không lấy được danh sách RECRUITER: {}", e.getMessage());
+            }
+        }
+
+        String body = nullSafe(event.candidateName()) + " xin dời buổi phỏng vấn lúc "
+                + formatVi(event.scheduledAt()) + ". Lý do: " + nullSafe(event.reason()) + ". Hãy đặt lại giờ mới.";
+        for (Long userId : recipients) {
+            notificationService.createAndPush(
+                    userId,
+                    NotificationType.INTERVIEW_CANDIDATE_DECLINED,
+                    "Ứng viên xin dời lịch phỏng vấn",
+                    body,
+                    "INTERVIEW",
+                    event.interviewId());
+        }
+    }
+
     // ===== 6a. Nhắc phỏng vấn =====
     @RabbitListener(queues = DelayQueueConfig.INTERVIEW_REMINDER_PROCESS_QUEUE)
     public void onInterviewReminderDue(InterviewReminderPayload payload) {

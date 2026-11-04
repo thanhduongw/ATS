@@ -31,6 +31,13 @@ public class InterviewEventPublisher {
                 new InterviewHmConfirmedEvent(interviewId, applicationId, scheduledAt, candidateName)));
     }
 
+    public void publishInterviewCandidateDeclined(InterviewCandidateDeclinedEvent event) {
+        publishAfterCommit(() -> rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ATS_EXCHANGE,
+                RabbitMQConfig.INTERVIEW_CANDIDATE_DECLINED_ROUTING_KEY,
+                event));
+    }
+
     public void publishInterviewConfirmed(
             Long interviewId, Long applicationId, LocalDateTime scheduledAt, String candidateName) {
         publishAfterCommit(() -> rabbitTemplate.convertAndSend(

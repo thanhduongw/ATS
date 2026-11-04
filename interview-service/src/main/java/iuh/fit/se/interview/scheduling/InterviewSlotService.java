@@ -325,7 +325,9 @@ public class InterviewSlotService {
                 interviewerSummaries,
                 interview.getCreatedAt(),
                 interview.getProposedBy(),
-                interview.getCandidateConfirmedAt()
+                interview.getCandidateConfirmedAt(),
+                interview.getCandidateDeclineReason(),
+                interview.getCandidateDeclinedAt()
         );
     }
 }

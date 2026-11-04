@@ -45,6 +45,14 @@ public class WorkLocationService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        WorkLocation entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy địa điểm làm việc"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private WorkLocationResponse toResponse(WorkLocation e) {
         return new WorkLocationResponse(e.getId(), e.getName(), e.getAddress(), e.isActive());
     }

@@ -45,4 +45,12 @@ public class RejectionReasonController {
         service.softDelete(id);
         return ResponseEntity.ok(Map.of("message", "Xóa thành công"));
     }
+
+    /** Bật lại mục đã ẩn (công tắc "Đang dùng" ở màn Danh mục). */
+    @PatchMapping("/{id}/activate")
+    public ResponseEntity<Map<String, String>> activate(@PathVariable Long id) {
+        AuthorizationPolicy.requireHr(CurrentUser.required());
+        service.activate(id);
+        return ResponseEntity.ok(Map.of("message", "Đã bật lại"));
+    }
 }

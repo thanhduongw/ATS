@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +64,9 @@ public class InterviewSlotService {
                         .departmentConfirmed(false)
                         .candidateConfirmed(false)
                         .matched(false)
+                        .interviewerIds(joinIds(req.interviewerIds()))
+                        .note(req.note())
+                        .responseDeadline(req.responseDeadline())
                         .build())
                 .toList();
 
@@ -133,6 +137,9 @@ public class InterviewSlotService {
         }
 
         if (AccessGuard.isCandidate(role)) {
+            if (req.available() && slot.getResponseDeadline() != null && slot.getResponseDeadline().isBefore(LocalDateTime.now())) {
+                throw new BusinessException("Đã hết hạn chọn giờ. Liên hệ người phụ trách để được gửi lịch mới.");
+            }
             slot.setCandidateConfirmed(req.available());
         } else if (AccessGuard.isDepartment(role)) {
             slot.setDepartmentConfirmed(req.available());
@@ -172,9 +179,15 @@ public class InterviewSlotService {
         int durationMinutes = duration > 0 ? (int) duration : 60;
 
         List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers("HIRING_MANAGER");
-        List<Long> interviewerIds = interviewerPool != null && !interviewerPool.isEmpty()
-                ? List.of(interviewerPool.get(0).id())
-                : List.of();
+        // Nguoi phong van mac dinh: Dai dien phong ban dang hoat dong CUNG phong voi ho so
+        // (truoc day lay nguoi dau tien cua ca cong ty). Khong co ai cung phong thi de trong de HR gan sau.
+        List<Long> chosen = splitIds(slot.getInterviewerIds());
+        List<Long> interviewerIds = !chosen.isEmpty() ? chosen : interviewerPool == null ? List.of() : interviewerPool.stream()
+                .filter(u -> application.departmentId() != null && application.departmentId().equals(u.departmentId()))
+                .filter(u -> u.status() == null || "ACTIVE".equals(u.status()))
+                .map(UserSummaryResponse::id)
+                .limit(1)
+                .toList();
 
         Interview interview = Interview.builder()
                 .applicationId(slot.getApplicationId())
@@ -189,11 +202,14 @@ public class InterviewSlotService {
                 .workLocationId(slot.getWorkLocationId())
                 .meetingLink(slot.getMeetingLink())
                 .status(InterviewStatus.SCHEDULED)
-                .note("Tạo tự động từ khung giờ xếp lịch 3 bên #" + slot.getId())
+                .note(slot.getNote() != null && !slot.getNote().isBlank()
+                        ? slot.getNote() : "Tạo tự động từ khung giờ xếp lịch 3 bên #" + slot.getId())
                 .build();
 
-        if (interviewerPool != null) {
-            Map<Long, String> nameMap = interviewerPool.stream()
+        // Tên người phỏng vấn: người HR chọn có thể là HR hoặc đại diện phòng ban → tra trong toàn bộ người dùng.
+        List<UserSummaryResponse> nameSource = chosen.isEmpty() ? interviewerPool : authServiceClient.getUsers(null);
+        if (nameSource != null) {
+            Map<Long, String> nameMap = nameSource.stream()
                     .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
 
             interviewerIds.forEach(id -> interview.getInterviewers().add(
@@ -210,6 +226,8 @@ public class InterviewSlotService {
         interviewerIds.forEach(id -> evaluationRepository.save(
                 InterviewEvaluation.builder()
                         .interview(savedInterview)
+                        // Cột application_id NOT NULL — thiếu dòng này thì chốt khung giờ báo lỗi 500.
+                        .applicationId(savedInterview.getApplicationId())
                         .interviewerId(id)
                         .build()
         ));
@@ -246,6 +264,18 @@ public class InterviewSlotService {
         }
     }
 
+    private static String joinIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return null;
+        return ids.stream().filter(java.util.Objects::nonNull).distinct().map(String::valueOf)
+                .collect(Collectors.joining(","));
+    }
+
+    private static List<Long> splitIds(String raw) {
+        if (raw == null || raw.isBlank()) return List.of();
+        return java.util.Arrays.stream(raw.split(",")).map(String::trim).filter(x -> !x.isEmpty())
+                .map(Long::valueOf).toList();
+    }
+
     private InterviewSlotResponse toResponse(InterviewSlot slot) {
         return new InterviewSlotResponse(
                 slot.getId(),
@@ -259,7 +289,10 @@ public class InterviewSlotService {
                 slot.getStatus(),
                 slot.isDepartmentConfirmed(),
                 slot.isCandidateConfirmed(),
-                slot.isMatched()
+                slot.isMatched(),
+                splitIds(slot.getInterviewerIds()),
+                slot.getNote(),
+                slot.getResponseDeadline()
         );
     }
 
@@ -290,7 +323,9 @@ public class InterviewSlotService {
                 interview.getProposedScheduledAt(),
                 interview.getProposalNote(),
                 interviewerSummaries,
-                interview.getCreatedAt()
+                interview.getCreatedAt(),
+                interview.getProposedBy(),
+                interview.getCandidateConfirmedAt()
         );
     }
 }

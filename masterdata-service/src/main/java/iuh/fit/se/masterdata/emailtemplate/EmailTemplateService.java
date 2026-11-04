@@ -65,6 +65,14 @@ public class EmailTemplateService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        EmailTemplate entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy mẫu email"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private EmailTemplateResponse toResponse(EmailTemplate e) {
         return new EmailTemplateResponse(e.getId(), e.getCode(), e.getSubject(), e.getBody(), e.isActive());
     }

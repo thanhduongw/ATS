@@ -1,108 +1,127 @@
 import { useCallback, useEffect, useState } from "react";
-import { Card, Button, Tag, Typography, Empty, Space, Spin } from "antd";
+import { Button, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
-import {
-    getNotifications,
-    markAsRead,
-    markAllAsRead,
-} from "../notificationApi";
+import { getNotifications, markAllAsRead, markAsRead } from "../notificationApi";
 import type { NotificationResponse } from "../types";
-import {
-    NOTIFICATION_TYPE_LABEL,
-    resolveNotificationPath,
-} from "../notificationRoutes";
+import { resolveNotificationPath } from "../notificationRoutes";
 import { useAppSelector } from "../../../app/hooks";
 import type { UserRole } from "../../auth/types";
+import { COLORS } from "../../../app/theme";
+import { relativeTime } from "../../../app/datetime";
+import ListPage, { StatusTabs } from "../../../components/ui/listKit";
+import EmptyState from "../../../components/ui/EmptyState";
 
-const { Text, Title } = Typography;
+/**
+ * C19 · Thông báo (dùng chung mọi vai trò): tab Tất cả · Chưa đọc, "Đánh dấu tất cả đã đọc",
+ * mỗi dòng có nút hành động dẫn thẳng tới việc cần làm (Xem thư mời, Xem lịch…).
+ */
+type Tab = "ALL" | "UNREAD";
+
+/** Nhãn nút hành động theo loại đối tượng của thông báo. */
+function actionLabel(n: NotificationResponse, role?: UserRole): string | null {
+    const t = (n.resourceType ?? n.type ?? "").toUpperCase();
+    const candidate = role === "CANDIDATE";
+    if (t.includes("OFFER")) return "Xem thư mời";
+    if (t.includes("INTERVIEW")) return candidate ? "Xem lịch" : "Xem lịch phỏng vấn";
+    if (t.includes("APPLICATION")) return candidate ? "Xem đơn" : "Xem hồ sơ";
+    if (t.includes("REQUISITION")) return "Xem yêu cầu";
+    return null;
+}
 
 export default function NotificationsPage() {
     const navigate = useNavigate();
     const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
     const [items, setItems] = useState<NotificationResponse[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [failed, setFailed] = useState(false);
+    const [tab, setTab] = useState<Tab>("ALL");
 
     const load = useCallback(async () => {
-        setLoading(true);
         try {
             const res = await getNotifications();
             setItems(res.data ?? []);
+            setFailed(false);
+        } catch {
+            setFailed(true);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    useEffect(() => {
-        load();
-    }, [load]);
+    useEffect(() => { void load(); }, [load]);
+
+    const open = async (n: NotificationResponse) => {
+        if (!n.read) await markAsRead(n.id).catch(() => undefined);
+        const path = resolveNotificationPath(n, role);
+        if (path && path !== "/notifications") navigate(path);
+        else void load();
+    };
+
+    const unread = items.filter((n) => !n.read).length;
+    const rows = tab === "UNREAD" ? items.filter((n) => !n.read) : items;
 
     return (
-        <div className="page-shell">
-            <div
-                className="page-shell-fixed"
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: 16,
-                }}
-            >
-                <Title level={4} style={{ margin: 0 }}>
-                    Tất cả thông báo
-                </Title>
-                <Button
-                    onClick={async () => {
-                        await markAllAsRead();
-                        load();
-                    }}
-                >
+        <ListPage
+            title="Thông báo"
+            actions={unread > 0 ? (
+                <Button onClick={async () => { await markAllAsRead().catch(() => undefined); void load(); }}>
                     Đánh dấu tất cả đã đọc
                 </Button>
-            </div>
-            <Card
-                style={{ flex: 1, minHeight: 0 }}
-                styles={{ body: { height: "100%", overflowY: "auto" } }}
-            >
-                {loading ? (
-                    <div style={{ padding: 40, textAlign: "center" }}>
-                        <Spin />
-                    </div>
-                ) : items.length === 0 ? (
-                    <Empty description="Chưa có thông báo" />
-                ) : (
-                    <div>
-                        {items.map((item) => (
+            ) : undefined}
+            tabs={
+                <StatusTabs<Tab>
+                    active={tab}
+                    onChange={setTab}
+                    items={[
+                        { key: "ALL", label: "Tất cả" },
+                        { key: "UNREAD", label: "Chưa đọc", count: failed ? undefined : unread },
+                    ]}
+                />
+            }
+        >
+            {loading ? (
+                <div style={{ padding: 40, textAlign: "center" }}><Spin /></div>
+            ) : failed ? (
+                <EmptyState title="Không tải được thông báo" description="Kiểm tra kết nối mạng rồi thử lại."
+                    action={<Button type="primary" onClick={() => { setLoading(true); void load(); }}>Thử lại</Button>} />
+            ) : rows.length === 0 ? (
+                <EmptyState title={tab === "UNREAD" ? "Bạn đã đọc hết thông báo" : "Chưa có thông báo"} />
+            ) : (
+                <div style={{ padding: "4px 20px" }}>
+                    {rows.map((n, i) => {
+                        const label = actionLabel(n, role);
+                        return (
                             <div
-                                key={item.id}
-                            style={{
-                                background: item.read ? undefined : "#F0F7FF",
-                                padding: "12px 16px",
-                                cursor: "pointer",
-                                borderBottom: "1px solid #F3F4F6",
-                            }}
-                            onClick={async () => {
-                                if (!item.read) await markAsRead(item.id);
-                                const path = resolveNotificationPath(item, role);
-                                if (path) navigate(path);
-                                else load();
-                            }}
-                        >
-                                <Space>
-                                    <Text strong={!item.read}>
-                                        {item.title}
-                                    </Text>
-                                    <Tag>
-                                        {NOTIFICATION_TYPE_LABEL[item.type] ?? item.type}
-                                    </Tag>
-                                </Space>
-                                <div>{item.message}</div>
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                    {new Date(item.createdAt).toLocaleString("vi-VN")}
-                                </Text>
+                                key={n.id}
+                                className="row-clickable"
+                                onClick={() => void open(n)}
+                                style={{
+                                    display: "flex", alignItems: "center", gap: 12, padding: "14px 0", cursor: "pointer",
+                                    borderTop: i ? `0.5px solid ${COLORS.border}` : undefined,
+                                }}
+                            >
+                                <span style={{
+                                    width: 8, height: 8, borderRadius: 4, flexShrink: 0,
+                                    background: n.read ? "transparent" : COLORS.primary,
+                                }} />
+                                <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+                                    <span style={{ fontWeight: n.read ? 500 : 700 }}>{n.title}</span>
+                                    <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{n.message}</span>
+                                </div>
+                                {label && (
+                                    <Button size="small" type={n.read ? "default" : "primary"}
+                                        onClick={(e) => { e.stopPropagation(); void open(n); }}>
+                                        {label}
+                                    </Button>
+                                )}
+                                <span style={{ width: 90, textAlign: "right", fontSize: 12, color: COLORS.textMuted, flexShrink: 0 }}>
+                                    {relativeTime(n.createdAt)}
+                                </span>
                             </div>
-                        ))}
-                    </div>
-                )}
-            </Card>
-        </div>
+                        );
+                    })}
+                </div>
+            )}
+        </ListPage>
     );
 }

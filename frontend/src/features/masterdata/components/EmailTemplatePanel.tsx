@@ -301,7 +301,7 @@ export default function EmailTemplatePanel({ config }: Props) {
                 </Form>
 
                 {previewResult && (
-                    <div style={{ marginTop: 16, padding: 16, background: "#F9FAFB", borderRadius: 8, border: "1px solid #E5E7EB" }}>
+                    <div style={{ marginTop: 16, padding: 16, background: "#1824310C", borderRadius: 8, border: "1px solid #1824311A" }}>
                         <Text strong>Tiêu đề: </Text>
                         <div style={{ marginBottom: 12 }}>{previewResult.subject}</div>
                         <Text strong>Nội dung:</Text>

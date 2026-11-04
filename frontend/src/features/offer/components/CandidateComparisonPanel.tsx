@@ -24,6 +24,7 @@ import { formatMoney } from "../../../app/money";
 import { OFFER_STATUS, statusMeta } from "../../../app/statusLabels";
 import EmptyState from "../../../components/ui/EmptyState";
 import { useTableScrollY } from "../../../app/useTableScrollY";
+import { fixedStageLabel } from "../../../app/stages";
 
 const RECOMMENDATION_LABEL: Record<RecommendationType, string> = {
     STRONG_YES: "Rất khuyến nghị nhận",
@@ -96,9 +97,11 @@ interface Props {
     jobPostingId: number;
     /** Ẩn tiêu đề khi panel nằm trong một card đã có tiêu đề riêng. */
     showHeader?: boolean;
+    /** R42: ứng viên đã chọn sẵn trên bảng giai đoạn — mở là thấy so sánh chi tiết luôn. */
+    initialSelectedIds?: number[];
 }
 
-export default function CandidateComparisonPanel({ jobPostingId, showHeader = true }: Props) {
+export default function CandidateComparisonPanel({ jobPostingId, showHeader = true, initialSelectedIds }: Props) {
     const navigate = useNavigate();
     const { message, modal } = App.useApp();
 
@@ -109,12 +112,14 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
     const [acceptedOfferCount, setAcceptedOfferCount] = useState(0);
     const [pendingOfferCount, setPendingOfferCount] = useState(0);
     const [stages, setStages] = useState<PipelineStageResponse[]>([]);
-    const [selectedIds, setSelectedIds] = useState<number[]>([]);
-    const [detailOpen, setDetailOpen] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<number[]>(initialSelectedIds?.slice(0, MAX_COMPARE) ?? []);
+    const [detailOpen, setDetailOpen] = useState((initialSelectedIds?.length ?? 0) >= 2);
     const { wrapRef, scrollY } = useTableScrollY([loading, rows.length]);
 
 
+    const pinnedKey = (initialSelectedIds ?? []).join(",");
     const load = useCallback(async () => {
+        const pinned = new Set(pinnedKey ? pinnedKey.split(",").map(Number) : []);
         setLoading(true);
         try {
             const postingRes = await getPostingById(jobPostingId);
@@ -168,8 +173,9 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                     offerByApplication.get(application.id) ?? null,
                     profileById.get(application.candidateId) ?? null,
                 ))
-                // Quy tắc so sánh: phải có tối thiểu một đánh giá đã nộp.
-                .filter((row) => row.readable.length > 0 || hasSubmitted(row.evaluations));
+                // Quy tắc so sánh: phải có tối thiểu một đánh giá đã nộp — trừ hồ sơ người dùng đã chọn
+                // trên bảng giai đoạn (R42): so sánh sớm theo điểm AI, kinh nghiệm, kỹ năng.
+                .filter((row) => pinned.has(row.application.id) || row.readable.length > 0 || hasSubmitted(row.evaluations));
 
             built.sort(compareRows);
             setRows(built);
@@ -179,7 +185,7 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
         } finally {
             setLoading(false);
         }
-    }, [jobPostingId, message]);
+    }, [jobPostingId, message, pinnedKey]);
 
     useEffect(() => {
         load();
@@ -324,6 +330,10 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                 </Button>
             );
         }
+        // Hồ sơ được chọn sớm (R42) chưa phỏng vấn / chưa có đánh giá thì chưa thể gửi đề nghị.
+        if (!hasSubmitted(row.evaluations) && row.readable.length === 0) {
+            return <span style={{ fontSize: 12, color: COLORS.textMuted }}>Chưa phỏng vấn</span>;
+        }
         if (!offerStage) {
             return (
                 <Tooltip title="Quy trình tuyển dụng của tin này không có vòng Đề nghị nhận việc">
@@ -389,8 +399,8 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                             fontSize: 13,
                             padding: "6px 12px",
                             borderRadius: 8,
-                            background: headcountExhausted ? "#FEF2F2" : "#F0FDF4",
-                            border: `1px solid ${headcountExhausted ? "#FECACA" : "#BBF7D0"}`,
+                            background: headcountExhausted ? "#FA2A2D17" : "#00CB8724",
+                            border: `1px solid ${headcountExhausted ? "#FA2A2D33" : "#00A06B33"}`,
                             color: COLORS.textSecondary,
                         }}>
                             Suất tuyển: <b>{acceptedOfferCount} / {headcount}</b> đã tuyển
@@ -506,7 +516,7 @@ function ComparisonColumns({
                             <th key={r.application.id} style={{ ...cellStyle, minWidth: 220, textAlign: "left" }}>
                                 <div style={{ fontWeight: 700, fontSize: 14 }}>{r.application.candidateName}</div>
                                 <div style={{ fontSize: 12, color: COLORS.textMuted }}>
-                                    {r.application.currentStageName}
+                                    {fixedStageLabel(r.application.currentStageType)}
                                 </div>
                             </th>
                         ))}

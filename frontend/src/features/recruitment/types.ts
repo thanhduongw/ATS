@@ -116,6 +116,9 @@ export interface JobPostingResponse {
     /** Chỉ populate ở luồng public (career portal); null ở luồng nội bộ HR. */
     employmentTypeName?: string | null;
     workLocationName?: string | null;
+    applicationDeadline?: string | null;
+    urgent?: boolean;
+    showSalary?: boolean;
     departmentId?: number | null;
     departmentName?: string | null;
 }
@@ -145,6 +148,10 @@ export interface JobPostingCreateRequest {
     benefits?: string | null;
     skillIds?: number[];
     benchmarkCriteria?: string | null;
+    /** R07: hạn nộp hồ sơ (YYYY-MM-DD), nhãn Tuyển gấp, hiện mức lương trên trang công khai. */
+    applicationDeadline?: string | null;
+    urgent?: boolean;
+    showSalary?: boolean;
 }
 
 export type JobPostingUpdateRequest = Omit<JobPostingCreateRequest, "requisitionId">;

@@ -95,7 +95,7 @@ export default function InterviewsPage() {
               <Card size="small" style={{ textAlign: "center", color: "#999" }}>Chưa có đánh giá nào</Card>
             ) : (
               evals.map((e, idx) => (
-                <Card key={idx} size="small" style={{ background: "#fafafa", border: "1px solid #f0f0f0" }}>
+                <Card key={idx} size="small" style={{ background: "#1824310C", border: "1px solid #1824311A" }}>
                   <Flex justify="space-between" align="center">
                     <div style={{ fontWeight: 600 }}>{e.interviewerName}</div>
                     {e.submittedAt == null ? (
@@ -152,7 +152,7 @@ export default function InterviewsPage() {
                 <div style={{ textAlign: "center", color: "#999", padding: 20 }}>—</div>
               ) : (
                 proposals.map((p) => (
-                  <Card key={p.id} size="small" style={{ background: "#fafafa" }}>
+                  <Card key={p.id} size="small" style={{ background: "#1824310C" }}>
                     <Flex justify="space-between" align="start" gap="middle">
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 600 }}>{p.proposedByName}</div>

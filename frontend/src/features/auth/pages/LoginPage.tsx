@@ -13,13 +13,17 @@ import { setCredentials } from "../authSlice";
 import { loginSchema, type LoginFormValues } from "../schemas/loginSchema";
 import type { ApiMessageResponse, JwtPayload } from "../types";
 import { OAUTH2_PRE_LOGIN_URL } from "../../../config";
+import AuthShell from "../components/AuthShell";
 
 export default function LoginPage() {
     const { message } = App.useApp();
     const navigate = useNavigate();
     const location = useLocation();
     const dispatch = useAppDispatch();
-    const state = (location.state ?? {}) as { email?: string };
+    const state = (location.state ?? {}) as { email?: string; jobTitle?: string };
+    // C04: quay lại trang đang xem (vd. biểu mẫu ứng tuyển) sau khi đăng nhập. Chỉ nhận đường dẫn nội bộ.
+    const redirectParam = new URLSearchParams(location.search).get("redirect");
+    const redirect = redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//") ? redirectParam : null;
     const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
         defaultValues: { email: state.email ?? "", password: "" },
@@ -39,7 +43,7 @@ export default function LoginPage() {
             const claims = jwtDecode<JwtPayload>(response.data.accessToken);
             dispatch(setCredentials(response.data));
             message.success("Đăng nhập thành công");
-            navigate(defaultRouteForRole(claims.role), { replace: true });
+            navigate(redirect && claims.role === "CANDIDATE" ? redirect : defaultRouteForRole(claims.role), { replace: true });
         } catch (error) {
             const apiError = error as AxiosError<ApiMessageResponse>;
             message.error(apiError.response?.data?.message ?? "Đăng nhập thất bại");
@@ -47,23 +51,16 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="auth-page">
-            <div className="auth-hero">
-                <div className="auth-hero-content">
-                    <div className="auth-hero-logo">ATS</div>
-                    <h1 className="auth-hero-title">Hệ thống tuyển dụng của doanh nghiệp</h1>
-                    <p className="auth-hero-subtitle">
-                        Nhân viên nội bộ sử dụng tài khoản do quản trị viên cấp. Ứng viên có thể đăng ký
-                        để nộp hồ sơ và theo dõi tiến độ tuyển dụng.
-                    </p>
+        <AuthShell
+            tagline="Chào mừng quay lại"
+            title="Đăng nhập"
+            subtitle="Dùng email và mật khẩu của bạn."
+            banner={state.jobTitle ? (
+                <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(10, 89, 247, 0.08)", fontSize: 13 }}>
+                    Ứng tuyển: <b>{state.jobTitle}</b>
                 </div>
-            </div>
-            <div className="auth-form-side">
-                <div className="auth-form-container">
-                    <div className="auth-form-header">
-                        <h2>Đăng nhập</h2>
-                        <p>Sử dụng email và mật khẩu của bạn.</p>
-                    </div>
+            ) : undefined}
+        >
                     <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
                         <Form.Item label="Email" validateStatus={errors.email ? "error" : ""} help={errors.email?.message}>
                             <Controller name="email" control={control} render={({ field }) => (
@@ -85,13 +82,11 @@ export default function LoginPage() {
                         window.location.href = OAUTH2_PRE_LOGIN_URL;
                     }}>Đăng nhập bằng Google</Button>
                     <div className="auth-form-footer">
-                        Bạn là ứng viên? <Button type="link" onClick={() => navigate("/register")}>Tạo tài khoản</Button>
+                        Chưa có tài khoản? <Button type="link" style={{ padding: 0 }} onClick={() => navigate(`/register${location.search}`)}>Đăng ký ứng viên</Button>
                     </div>
                     <div className="auth-form-footer">
                         <Button type="link" onClick={() => navigate("/careers")}>Xem việc làm đang tuyển</Button>
                     </div>
-                </div>
-            </div>
-        </div>
+        </AuthShell>
     );
 }

@@ -1,5 +1,6 @@
 import type { StatusTone } from "@/theme";
 import type {
+  EvaluationResponse,
   InterviewResponse,
   JobPostingResponse,
   OfferResponse,
@@ -25,27 +26,29 @@ type Viewer = "CANDIDATE" | "STAFF";
 
 const UNKNOWN: StatusView = { label: STRINGS.status.unknown, tone: "neutral" };
 
+/** DS06 "Màu trạng thái": Ứng tuyển xám · Sàng lọc xanh lá · Phỏng vấn tím · Thư mời cam · Đã tuyển xanh dương · Từ chối đỏ. */
 const STAGE_TONE: Record<keyof typeof STRINGS.status.stage, StatusTone> = {
   APPLIED: "neutral",
-  CV_SCREENING: "brand",
-  HR_SCREENING: "brand",
+  CV_SCREENING: "success",
+  HR_SCREENING: "success",
   TECHNICAL_INTERVIEW: "interview",
   HR_INTERVIEW: "interview",
   FINAL_INTERVIEW: "interview",
   OFFER: "warning",
-  HIRED: "success",
+  HIRED: "brand",
   REJECTED: "danger",
-  CUSTOM: "neutral",
+  CUSTOM: "success",
 };
 
 /**
- * Vòng hiện tại của đơn. `currentStageType` backend sinh là `string` nên nhận string.
- * Vòng CUSTOM (công ty tự đặt) thì hiện đúng tên vòng backend trả về.
+ * Giai đoạn hiện tại của đơn, quy về 6 giai đoạn cố định. `currentStageType` backend sinh là
+ * `string` nên nhận string.
  */
 export function stageStatus(stageType?: string, stageName?: string): StatusView {
   if (stageType && stageType in STAGE_TONE) {
     const key = stageType as keyof typeof STAGE_TONE;
-    const label = key === "CUSTOM" && stageName ? stageName : STRINGS.status.stage[key];
+    // Luôn hiện 1 trong 6 giai đoạn cố định, kể cả vòng CUSTOM (xếp vào Sàng lọc).
+    const label = STRINGS.status.stage[key];
     return { label, tone: STAGE_TONE[key] };
   }
   return stageName ? { label: stageName, tone: "neutral" } : UNKNOWN;
@@ -84,11 +87,13 @@ const OFFER_TONE: Record<OfferStatus, StatusTone> = {
   REJECTED: "danger",
   ACCEPTED: "success",
   DECLINED: "danger",
+  EXPIRED: "neutral",
 };
 
 /** Duyệt offer = gửi luôn cho ứng viên, nên APPROVED với ứng viên là "Chờ phản hồi". */
 export function offerStatus(status: OfferStatus | undefined, viewer: Viewer): StatusView {
   if (!status) return UNKNOWN;
+  if (status === "EXPIRED") return { label: STRINGS.status.offerExpired, tone: "neutral" };
   if (viewer === "CANDIDATE") {
     if (status === "APPROVED") return { label: STRINGS.status.offerForCandidate.APPROVED, tone: "warning" };
     if (status === "DECLINED") return { label: STRINGS.status.offerForCandidate.DECLINED, tone: "neutral" };
@@ -154,4 +159,17 @@ export function applicationPhase(stageType?: string): ApplicationPhase {
     default:
       return { step: 1, rejected: false, hired: false, ended: false };
   }
+}
+
+type Recommendation = NonNullable<EvaluationResponse["overallRecommendation"]>;
+const RECOMMENDATION_TONE: Record<Recommendation, StatusTone> = {
+  STRONG_YES: "success",
+  YES: "success",
+  NO: "danger",
+  STRONG_NO: "danger",
+};
+
+/** Kết luận của phiếu đánh giá phỏng vấn (UR04, UH08). */
+export function recommendationStatus(rec?: Recommendation): StatusView {
+  return rec ? { label: STRINGS.status.recommendation[rec], tone: RECOMMENDATION_TONE[rec] } : UNKNOWN;
 }

@@ -43,9 +43,9 @@ const COMPLETENESS_PERCENT: Record<CompletenessLevel, number> = {
 };
 
 const COMPLETENESS_COLOR: Record<CompletenessLevel, string> = {
-  COMPLETE: "#10B981",
-  PARTIAL: "#F59E0B",
-  MINIMAL: "#EF4444",
+  COMPLETE: "#00A06B",
+  PARTIAL: "#FF7500",
+  MINIMAL: "#FA2A2D",
 };
 
 const COMPLETENESS_LABEL: Record<CompletenessLevel, string> = {
@@ -124,7 +124,7 @@ export default function CvParseResultPanel({ result, provenance }: Props) {
 
         {/* Summary */}
         {candidate.summary && (
-          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#F8FAFC", border: `1px solid ${COLORS.borderLight}` }}>
+          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#1824310C", border: `1px solid ${COLORS.borderLight}` }}>
             <Text style={{ fontSize: 13, color: COLORS.textSecondary, lineHeight: 1.6 }}>
               {candidate.summary}
             </Text>
@@ -190,7 +190,7 @@ export default function CvParseResultPanel({ result, provenance }: Props) {
                 style={{
                   padding: "10px 14px",
                   borderRadius: 8,
-                  background: "#F8FAFC",
+                  background: "#1824310C",
                   border: `1px solid ${COLORS.borderLight}`,
                 }}
               >
@@ -366,7 +366,7 @@ export default function CvParseResultPanel({ result, provenance }: Props) {
                       justifyContent: "space-between",
                       padding: "6px 10px",
                       borderRadius: 6,
-                      background: "#FAFBFC",
+                      background: "#1824310C",
                     }}
                   >
                     <span style={{ fontSize: 13 }}>{fc.field_name}</span>

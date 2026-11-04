@@ -36,6 +36,7 @@ import {
     rejectRequisition,
     requestRequisitionChanges,
     submitRequisition,
+    getPostings,
 } from "../recruitmentApi";
 
 import type {
@@ -49,6 +50,7 @@ import {
 } from "../requisitionStatus";
 
 import { useAppSelector } from "../../../app/hooks";
+import { useNavigate } from "react-router-dom";
 import { DEPARTMENT_ROLES, HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 
@@ -82,6 +84,8 @@ interface Props {
     onClose: () => void;
     onChanged: () => void;
     onEdit: (item: JobRequisitionResponse) => void;
+    /** Hiển thị như trang riêng (R03, H06, H07) thay vì modal. */
+    asPage?: boolean;
 }
 
 /* ============================================================
@@ -100,9 +104,20 @@ export default function RequisitionDetailModal({
     onClose,
     onChanged,
     onEdit,
+    asPage = false,
 }: Props) {
     const { message } = App.useApp();
 
+    const navigate = useNavigate();
+    // Việc làm đã tạo từ yêu cầu này (để nút R07 dẫn tới tin có sẵn thay vì tạo trùng).
+    const [linkedPostingId, setLinkedPostingId] = useState<number | null>(null);
+    useEffect(() => {
+        const reqId = requisition?.id;
+        if (!reqId || requisition?.status !== "APPROVED") return;
+        getPostings({ size: 1000 })
+            .then((r) => setLinkedPostingId(r.data.content.find((p) => p.requisitionId === reqId)?.id ?? null))
+            .catch(() => setLinkedPostingId(null));
+    }, [requisition?.id, requisition?.status]);
     const currentUser = useAppSelector(
         (state) => state.auth.user,
     );
@@ -370,15 +385,8 @@ export default function RequisitionDetailModal({
        RENDER
     ============================================================ */
 
-    return (
+    const headerNode = (
         <>
-            <Modal
-                open={open}
-                onCancel={onClose}
-                width={1100}
-                destroyOnHidden
-                centered
-                title={
                     <div
                         style={{
                             paddingRight: 8,
@@ -425,20 +433,11 @@ export default function RequisitionDetailModal({
                             Chi tiết yêu cầu tuyển dụng
                         </div>
                     </div>
-                }
-                styles={{
-                    body: {
-                        maxHeight: "72vh",
-                        overflowY: "auto",
-                        padding: "12px",
-                        background: "#FAFBFC",
-                    },
-                    footer: {
-                        padding: "12px",
-                        borderTop: `1px solid ${COLORS.borderLight}`,
-                    },
-                }}
-                footer={
+        </>
+    );
+
+    const actionsNode = (
+        <>
                     <div
                         style={{
                             display: "flex",
@@ -534,8 +533,11 @@ export default function RequisitionDetailModal({
                             )}
                         </Space>
                     </div>
-                }
-            >
+        </>
+    );
+
+    const bodyNode = (
+        <>
                 {/* ========================================================
                     STATUS ALERTS
                 ======================================================== */}
@@ -589,6 +591,20 @@ export default function RequisitionDetailModal({
                             }}
                         />
                     )}
+
+                {/* Yêu cầu đã duyệt → Chuyên viên tuyển dụng tạo việc làm ngay từ đây (R07). */}
+                {requisition.status === "APPROVED" && role === "RECRUITER" && (
+                    <Alert
+                        type="info"
+                        showIcon
+                        title={linkedPostingId ? "Đã có việc làm từ yêu cầu này" : "Tạo việc làm từ yêu cầu này"}
+                        description={linkedPostingId ? undefined : "Nội dung, lương duyệt và địa điểm sẽ được điền sẵn."}
+                        action={linkedPostingId
+                            ? <Button onClick={() => navigate(`/recruitment/postings/${linkedPostingId}`)}>Xem việc làm</Button>
+                            : <Button type="primary" onClick={() => navigate(`/recruitment/postings/new?requisitionId=${requisition.id}`)}>Tạo việc làm</Button>}
+                        style={{ marginBottom: 12, borderRadius: RADIUS.md }}
+                    />
+                )}
 
                 {/* ========================================================
                     POSITION INFORMATION
@@ -786,7 +802,7 @@ export default function RequisitionDetailModal({
                                 border: `1px solid ${COLORS.borderLight}`,
                                 borderRadius: RADIUS.md,
                                 padding: "12px",
-                                background: "#FAFBFC",
+                                background: "#1824310C",
                             }}
                         >
                             <div
@@ -913,8 +929,8 @@ export default function RequisitionDetailModal({
                                 padding: "12px",
                                 background:
                                     hasApprovedSalary
-                                        ? "#F0FDF4"
-                                        : "#FAFBFC",
+                                        ? "#00CB8724"
+                                        : "#1824310C",
                             }}
                         >
                             <div
@@ -1171,7 +1187,45 @@ export default function RequisitionDetailModal({
                         </div>
                     </SectionContainer>
                 )}
+        </>
+    );
+
+    return (
+        <>
+            {asPage ? (
+                /* Trang riêng (docs/UI R03, H06, H07): tiêu đề + nút → nội dung; không dùng modal. */
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <div>{headerNode}</div>
+                        <div>{actionsNode}</div>
+                    </div>
+                    <div>{bodyNode}</div>
+                </div>
+            ) : (
+            <Modal
+                open={open}
+                onCancel={onClose}
+                width={1100}
+                destroyOnHidden
+                centered
+                styles={{
+                    body: {
+                        maxHeight: "72vh",
+                        overflowY: "auto",
+                        padding: "12px",
+                        background: "#1824310C",
+                    },
+                    footer: {
+                        padding: "12px",
+                        borderTop: `1px solid ${COLORS.borderLight}`,
+                    },
+                }}
+                title={headerNode}
+                footer={actionsNode}
+            >
+                {bodyNode}
             </Modal>
+            )}
 
             {/* ============================================================
                 APPROVE MODAL
@@ -1272,7 +1326,7 @@ export default function RequisitionDetailModal({
                     <Space>
                         <ExclamationCircleOutlined
                             style={{
-                                color: "#D97706",
+                                color: "#FF7500",
                             }}
                         />
 

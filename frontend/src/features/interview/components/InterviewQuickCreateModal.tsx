@@ -390,7 +390,7 @@ export default function InterviewQuickCreateModal({
                     {format === "ONLINE" ? (
                         <Form.Item label="Đường dẫn họp" required>
                             <Input
-                                prefix={<VideoCameraOutlined style={{ color: "#9CA3AF" }} />}
+                                prefix={<VideoCameraOutlined style={{ color: "#18243166" }} />}
                                 placeholder="https://meet.google.com/..."
                                 value={meetingLink}
                                 onChange={(e) => setMeetingLink(e.target.value)}

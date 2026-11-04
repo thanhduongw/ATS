@@ -45,6 +45,14 @@ public class RecruitmentStatusService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        RecruitmentStatus entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy trạng thái tuyển dụng"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private RecruitmentStatusResponse toResponse(RecruitmentStatus e) {
         return new RecruitmentStatusResponse(e.getId(), e.getName(), e.getOrderNo(), e.isActive());
     }

@@ -27,6 +27,14 @@ export interface PublicJobPosting {
     closedAt: string | null;
     employmentTypeName: string | null;
     workLocationName: string | null;
+    headcount?: number | null;
+    workArrangement?: "ONSITE" | "HYBRID" | "REMOTE" | null;
+    experienceRequired?: string | null;
+    departmentId?: number | null;
+    departmentName?: string | null;
+    applicationDeadline?: string | null;
+    urgent?: boolean;
+    showSalary?: boolean;
 }
 
 /** Response sau khi nộp public apply */

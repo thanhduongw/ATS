@@ -158,7 +158,7 @@ function HrEvaluationTracking() {
                         <div>{at.format("HH:mm DD/MM/YYYY")}</div>
                         <div
                             className="cell-stack-sub"
-                            style={r.missing.length > 0 ? { color: overdue ? "#B91C1C" : "#B45309" } : undefined}
+                            style={r.missing.length > 0 ? { color: overdue ? "#FA2A2D" : "#FF7500" } : undefined}
                         >
                             {r.missing.length === 0
                                 ? ""

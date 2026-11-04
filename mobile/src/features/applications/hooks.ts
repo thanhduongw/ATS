@@ -26,6 +26,18 @@ export const useApply = () => {
   });
 };
 
+/** Rút đơn: làm mới danh sách, chi tiết và lịch phỏng vấn (backend huỷ buổi còn treo). */
+export const useWithdrawApplication = (id: number) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => applicationsApi.withdraw(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: applicationKeys.all });
+      void qc.invalidateQueries({ queryKey: ["interviews"] });
+    },
+  });
+};
+
 /** jobPostingId → id đơn đã nộp. Dùng để gắn nhãn "Đã nộp" ở danh sách và chi tiết tin. */
 export function useAppliedJobs() {
   const q = useMyApplications();

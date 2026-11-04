@@ -6,7 +6,7 @@ type Variant = "primary" | "tonal" | "danger" | "text";
 
 const VARIANT: Record<Variant, { bg: string; fg: string }> = {
   primary: { bg: COLORS.primary, fg: COLORS.textOnPrimary },
-  // Canvas để chữ #0E7A5F trên nền 10% — chỉ 4.4:1. Dùng primaryDark cho đạt 4.5:1.
+  // DS03 "Nút phụ": chữ xanh trên nền xám nhạt; dùng primaryDark cho đủ tương phản.
   tonal: { bg: COLORS.fillStrong, fg: COLORS.primaryDark },
   // Canvas để chữ #FA2A2D trên nền 10% — 3.2:1. Dùng errorText.
   danger: { bg: COLORS.fillStrong, fg: COLORS.errorText },
@@ -40,7 +40,8 @@ export function PillButton({
 }) {
   const v = VARIANT[variant];
   const inactive = disabled || loading;
-  const height = size === "md" ? SIZES.control : SIZES.chip;
+  // Nút chính cao 48 (DS02 46–50, quyết định X6); nút phụ và ô nhập giữ 44.
+  const height = size === "md" ? (variant === "primary" ? SIZES.primaryAction : SIZES.control) : SIZES.chip;
   const slop = (SIZES.control - height) / 2;
 
   return (

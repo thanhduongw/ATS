@@ -31,6 +31,23 @@ public class CompanyService {
         company.setLogoUrl(req.logoUrl());
         company.setBannerUrl(req.bannerUrl());
         company.setDataRetentionMonths(req.dataRetentionMonths());
+        company.setAddress(req.address());
+        company.setPhone(req.phone());
+        company.setLegalName(req.legalName());
+        company.setTaxCode(req.taxCode());
+        company.setFoundedDate(req.foundedDate());
+        company.setWebsite(req.website());
+        company.setSizeRange(req.sizeRange());
+        company.setRecruitingEmail(req.recruitingEmail());
+        company.setBrandColor(req.brandColor());
+        company.setDataProtectionOfficerId(req.dataProtectionOfficerId());
+        // A08 "Cập nhật 01/07/2026": chỉ đổi mốc khi nội dung chính sách thật sự đổi.
+        if (!java.util.Objects.equals(company.getPrivacyPolicy(), req.privacyPolicy())) {
+            company.setPrivacyPolicy(req.privacyPolicy());
+            company.setPrivacyPolicyUpdatedAt(java.time.LocalDateTime.now());
+        }
+        company.setTagline(req.tagline());
+        company.setBenefits(req.benefits());
         return toResponse(companyRepository.save(company));
     }
 
@@ -42,6 +59,11 @@ public class CompanyService {
     private CompanyResponse toResponse(Company company) {
         return new CompanyResponse(
                 company.getId(), company.getName(), company.getDescription(), company.getLogoUrl(),
-                company.getBannerUrl(), company.getDataRetentionMonths());
+                company.getBannerUrl(), company.getDataRetentionMonths(),
+                company.getAddress(), company.getPhone(), company.getLegalName(), company.getTaxCode(),
+                company.getFoundedDate(), company.getWebsite(), company.getSizeRange(),
+                company.getRecruitingEmail(), company.getBrandColor(), company.getDataProtectionOfficerId(),
+                company.getPrivacyPolicy(), company.getPrivacyPolicyUpdatedAt(),
+                company.getTagline(), company.getBenefits());
     }
 }

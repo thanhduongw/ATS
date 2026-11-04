@@ -57,6 +57,18 @@ public class InterviewSlot {
     @Builder.Default
     private boolean matched = false;
 
+    /** Người phỏng vấn HR chọn khi gửi khung giờ, dạng "4,7" (R18). Trống → mặc định đại diện phòng ban. */
+    @Column(name = "interviewer_ids")
+    private String interviewerIds;
+
+    /** Ghi chú cho ứng viên (R18), chuyển sang buổi phỏng vấn khi HR chốt. */
+    @Column(columnDefinition = "TEXT")
+    private String note;
+
+    /** Hạn ứng viên chọn giờ (R18, C13, C25). */
+    @Column(name = "response_deadline")
+    private LocalDateTime responseDeadline;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

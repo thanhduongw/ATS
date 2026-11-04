@@ -81,6 +81,9 @@ export interface InterviewResponse {
   interviewers: InterviewerSummary[];
   /** Moc tao buoi phong van — doi chieu voi lich su chuyen vong de suy ra vong phong van. */
   createdAt?: string | null;
+  /** R21: người phỏng vấn đã đề xuất đổi giờ. */
+  proposedBy?: number | null;
+  candidateConfirmedAt?: string | null;
 }
 
 export interface InterviewCreateRequest {
@@ -210,4 +213,36 @@ export interface CandidateInterviewResponse {
   status: InterviewStatus;
   candidateConfirmed: boolean;
   interviewerNames: string[];
+}
+
+export type InterviewSlotStatus = "PROPOSED" | "SELECTED" | "CANCELLED";
+
+export interface InterviewSlotResponse {
+  id: number;
+  applicationId: number;
+  candidateName: string | null;
+  startTime: string;
+  endTime: string;
+  format: InterviewFormat;
+  workLocationId: number | null;
+  meetingLink: string | null;
+  status: InterviewSlotStatus;
+  departmentConfirmed: boolean;
+  candidateConfirmed: boolean;
+  matched: boolean;
+  interviewerIds?: number[];
+  note?: string | null;
+  /** Hạn ứng viên chọn giờ (R18, C13, C25). */
+  responseDeadline?: string | null;
+}
+
+export interface SlotBatchCreateRequest {
+  applicationId: number;
+  format: InterviewFormat;
+  workLocationId?: number | null;
+  meetingLink?: string | null;
+  slots: { startTime: string; endTime: string }[];
+  interviewerIds?: number[];
+  note?: string | null;
+  responseDeadline?: string | null;
 }

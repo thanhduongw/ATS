@@ -48,6 +48,7 @@ import { isSchedulable } from "../scheduleEligibility";
 import { findInterviewerConflicts, describeConflict } from "../conflicts";
 import { toLocalDateTimeString } from "../../../app/datetime";
 import { COLORS, RADIUS } from "../../../app/theme";
+import StageTag from "../../../components/ui/StageTag";
 
 interface Props {
     open: boolean;
@@ -312,7 +313,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                                     padding: "10px 14px",
                                     border: `1px solid ${COLORS.borderLight}`,
                                     borderRadius: RADIUS.md,
-                                    background: "#FAFBFC",
+                                    background: "#1824310C",
                                 }}
                             >
                                 <Space>
@@ -426,7 +427,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                                             >
                                                 {a.candidateName}
                                             </Checkbox>
-                                            <Tag style={{ margin: 0 }}>{a.currentStageName}</Tag>
+                                            <StageTag stageType={a.currentStageType} />
                                         </div>
                                     ))}
                                 </div>
@@ -472,7 +473,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                         {format === "ONLINE" ? (
                             <Form.Item label="Đường dẫn họp trực tuyến" required>
                                 <Input
-                                    prefix={<VideoCameraOutlined style={{ color: "#9CA3AF" }} />}
+                                    prefix={<VideoCameraOutlined style={{ color: "#18243166" }} />}
                                     placeholder="https://meet.google.com/..."
                                     value={meetingLink}
                                     onChange={(e) => setMeetingLink(e.target.value)}

@@ -140,6 +140,19 @@ public class InterviewController {
     }
 
     /** Ghi nhận ứng viên đã xác nhận nhưng không đến. */
+    /** R21: HR từ chối giờ người phỏng vấn đề xuất — giữ giờ cũ. */
+    @PatchMapping("/{id}/reject-proposal")
+    public ResponseEntity<InterviewResponse> rejectProposal(@PathVariable Long id) {
+        return ResponseEntity.ok(service.rejectHmProposal(CurrentUser.required(), id));
+    }
+
+    /** R21: HR đặt lại danh sách người phỏng vấn (thêm / bỏ người chưa nộp đánh giá). */
+    @PatchMapping("/{id}/interviewers")
+    public ResponseEntity<InterviewResponse> updateInterviewers(
+            @PathVariable Long id, @RequestBody java.util.Map<String, java.util.List<Long>> body) {
+        return ResponseEntity.ok(service.updateInterviewers(CurrentUser.required(), id, body.get("interviewerIds")));
+    }
+
     @PatchMapping("/{id}/no-show")
     public ResponseEntity<InterviewResponse> markNoShow(
             @PathVariable Long id) {

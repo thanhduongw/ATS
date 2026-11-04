@@ -38,5 +38,22 @@ public record JobPostingResponse(
         String employmentTypeName,
         String workLocationName,
         Long departmentId,
-        String departmentName
-) {}
+        String departmentName,
+        java.time.LocalDate applicationDeadline,
+        boolean urgent,
+        boolean showSalary
+) {
+    /**
+     * Ban cho nguoi ngoai (trang tuyen dung cong khai, ung vien): bo tieu chi cham CV cua AI
+     * (benchmarkCriteria), pipeline va thong tin duyet noi bo.
+     */
+    public JobPostingResponse forPublic() {
+        return new JobPostingResponse(id, requisitionId, headcount, title, employmentTypeId, workLocationId,
+                workArrangement, experienceRequired, null,
+                showSalary ? salaryMin : null, showSalary ? salaryMax : null, // tắt "Hiện mức lương" → ẩn hẳn khỏi API công khai
+                description, requirements, benefits,
+                skillIds, null, status, false, null, null, null, null, null, publishedAt, closedAt,
+                employmentTypeName, workLocationName, departmentId, departmentName,
+                applicationDeadline, urgent, showSalary);
+    }
+}

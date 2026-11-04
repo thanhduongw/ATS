@@ -12,6 +12,8 @@ import type {
     UserProfileResponse,
     UpdateProfileRequest,
     CompanyResponse,
+    InviteUserRequest,
+    InvitationPreviewResponse,
     UpdateCompanyRequest,
     UserDirectoryResponse,
     UserSummaryResponse,
@@ -61,6 +63,20 @@ export const getCompany = () =>
 
 export const updateCompany = (data: UpdateCompanyRequest) =>
     axiosClient.put<CompanyResponse>("/auth/company", data);
+
+/** A04: Quản trị doanh nghiệp mời người dùng qua email (liên kết hiệu lực 7 ngày). */
+export const inviteUser = (data: InviteUserRequest) =>
+    axiosClient.post<ApiMessageResponse>("/auth/admin/invitations", data);
+
+export const resendInvitation = (userId: number) =>
+    axiosClient.post<ApiMessageResponse>(`/auth/admin/invitations/${userId}/resend`);
+
+/** Công khai: xem lời mời trước khi đặt mật khẩu. */
+export const getInvitation = (token: string) =>
+    axiosClient.get<InvitationPreviewResponse>(`/auth/invitations/${encodeURIComponent(token)}`);
+
+export const acceptInvitation = (token: string, password: string) =>
+    axiosClient.post<ApiMessageResponse>(`/auth/invitations/${encodeURIComponent(token)}/accept`, { password });
 
 /** Full directory incl. candidates, email and status. COMPANY_ADMIN only on the backend. */
 export const getUsers = (role?: string) =>

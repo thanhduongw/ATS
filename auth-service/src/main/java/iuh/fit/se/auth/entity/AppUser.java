@@ -44,6 +44,10 @@ public class AppUser {
     @Column(name = "email_verified", nullable = false, columnDefinition = "boolean default false")
     private boolean emailVerified;
 
+    /** Lần đăng nhập gần nhất (docs/UI A03 cột "Đăng nhập gần nhất"). Migration V7. */
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
+
     public AppUser() {}
 
     public AppUser(Long id, String email, String passwordHash, String fullName, String phone,
@@ -130,6 +134,8 @@ public class AppUser {
     public Long getDepartmentId() { return departmentId; }
     public void setDepartmentId(Long departmentId) { this.departmentId = departmentId; }
     public UserStatus getStatus() { return status; }
+    public LocalDateTime getLastLoginAt() { return lastLoginAt; }
+    public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
     public void setStatus(UserStatus status) { this.status = status; }
     public boolean isEmailVerified() { return emailVerified; }
     public void setEmailVerified(boolean emailVerified) { this.emailVerified = emailVerified; }

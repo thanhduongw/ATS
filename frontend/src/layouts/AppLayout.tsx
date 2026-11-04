@@ -1,55 +1,182 @@
-import { useEffect, useMemo, useState } from "react";
-import { Avatar, Button, Dropdown, Layout, Menu, Space, Typography } from "antd";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Dropdown, Layout } from "antd";
 import {
-    AppstoreOutlined, AuditOutlined, BellOutlined, CalendarOutlined, DashboardOutlined,
-    DatabaseOutlined, FileSearchOutlined, FileTextOutlined, LogoutOutlined, MenuFoldOutlined,
-    MenuUnfoldOutlined, SettingOutlined, SolutionOutlined, TeamOutlined,
-    UserAddOutlined, UserOutlined,
+    AppstoreOutlined,
+    HomeOutlined, AuditOutlined, BankOutlined, CalendarOutlined, CheckSquareOutlined,
+    DashboardOutlined, DatabaseOutlined, FileDoneOutlined, FileTextOutlined, GlobalOutlined,
+    LogoutOutlined, PlusOutlined, SafetyOutlined, SettingOutlined, SolutionOutlined,
+    TeamOutlined, UserOutlined, BellOutlined, BarChartOutlined, RightOutlined,
 } from "@ant-design/icons";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import type { MenuProps } from "antd";
+import { Outlet, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { logout, setUserProfile } from "../features/auth/authSlice";
 import { getMyProfile, logoutRequest } from "../features/auth/authApi";
 import NotificationBell from "../features/notification/components/NotificationBell";
+import { getPublicCompany } from "../features/public/publicApi";
+import { getOpenPostings, getPostings, getRequisitions } from "../features/recruitment/recruitmentApi";
+import { getApplications } from "../features/candidate/applicationApi";
+import { getOffers } from "../features/offer/offerApi";
 import { ROLE_LABELS } from "../app/roles";
-import { COLORS, GRADIENTS } from "../app/theme";
+import { COLORS, LAYOUT, STAGE_COLORS } from "../app/theme";
 import { useActiveModuleKey } from "../app/useNavTrail";
+import { Avatar } from "../components/ui/designKit";
+import type { UserRole } from "../features/auth/types";
 
-const { Header, Sider, Content } = Layout;
-const { Text } = Typography;
-type MenuItem = Required<MenuProps>["items"][number];
+const { Content } = Layout;
 
-const item = (key: string, label: string, icon: React.ReactNode): MenuItem => ({ key, label, icon });
+/* ============================================================
+   Khung ứng dụng nội bộ — DS04 "Khung ứng dụng nội bộ", R01, H01, A01, C20.
+   Thanh bên 232px và thanh trên 60px dùng CÙNG nền trang #f1f3f5 (không có thanh màu riêng).
+   Theo quyết định A6: không có ô tìm kiếm Ctrl K (Q1: bỏ hẳn ô tìm kiếm ở thanh trên).
+   Theo quyết định C1: Quản trị doanh nghiệp không có mục vận hành tuyển dụng.
+============================================================ */
 
-/** Muc cha co muc con — dung cho nhung doi tuong co tu hai man hinh tro len. */
-const group = (key: string, label: string, icon: React.ReactNode, children: MenuItem[]): MenuItem =>
-    ({ key, label, icon, children });
+interface NavItem {
+    key: string;
+    label: string;
+    icon: ReactNode;
+    /** Số trên mục: đỏ = cần xử lý, xám = số lượng. */
+    badge?: { count: number; tone: "alert" | "muted" };
+}
 
-/** Tieu de nhom, khong bam duoc — chi de tach hai che do lam viec cua admin. */
-const section = (key: string, label: string, children: MenuItem[]): MenuItem =>
-    ({ key, label, type: "group", children });
+/** Menu theo vai trò — đúng thứ tự và chữ trong HTML. */
+function menuFor(role: UserRole): NavItem[] {
+    switch (role) {
+        // R01
+        case "RECRUITER":
+            return [
+                { key: "/my-work", label: "Việc của tôi", icon: <CheckSquareOutlined /> },
+                { key: "/recruitment/requisitions", label: "Yêu cầu tuyển dụng", icon: <SolutionOutlined /> },
+                { key: "/recruitment/postings", label: "Việc làm", icon: <FileTextOutlined /> },
+                { key: "/applications", label: "Ứng viên", icon: <TeamOutlined /> },
+                { key: "/interviews", label: "Lịch phỏng vấn", icon: <CalendarOutlined /> },
+                { key: "/offers", label: "Thư mời", icon: <FileDoneOutlined /> },
+                { key: "/masterdata", label: "Danh mục", icon: <DatabaseOutlined /> },
+            ];
+        // H01
+        case "HIRING_MANAGER":
+            return [
+                { key: "/my-work", label: "Việc của tôi", icon: <CheckSquareOutlined /> },
+                { key: "/recruitment/requisitions", label: "Yêu cầu tuyển dụng", icon: <SolutionOutlined /> },
+                { key: "/applications", label: "Ứng viên", icon: <TeamOutlined /> },
+                { key: "/interviews", label: "Lịch phỏng vấn", icon: <CalendarOutlined /> },
+                { key: "/results", label: "Kết quả tuyển dụng", icon: <BarChartOutlined /> },
+            ];
+        // A01 + C6 (mục riêng "Nhật ký hệ thống")
+        case "COMPANY_ADMIN":
+            return [
+                { key: "/dashboard", label: "Tổng quan", icon: <DashboardOutlined /> },
+                { key: "/admin/users", label: "Người dùng", icon: <UserOutlined /> },
+                { key: "/admin/company", label: "Thông tin doanh nghiệp", icon: <BankOutlined /> },
+                { key: "/careers", label: "Trang tuyển dụng", icon: <GlobalOutlined /> },
+                { key: "/audit-logs", label: "Nhật ký hệ thống", icon: <AuditOutlined /> },
+            ];
+        // C20 — cổng ứng viên
+        default:
+            return [
+                { key: "/my-home", label: "Tổng quan", icon: <HomeOutlined /> },
+                { key: "/careers", label: "Việc làm", icon: <AppstoreOutlined /> },
+                { key: "/my-applications", label: "Đơn ứng tuyển", icon: <FileTextOutlined /> },
+                { key: "/my-interviews", label: "Lịch phỏng vấn", icon: <CalendarOutlined /> },
+                { key: "/my-offers", label: "Thư mời nhận việc", icon: <FileDoneOutlined /> },
+                { key: "/notifications", label: "Thông báo", icon: <BellOutlined /> },
+                { key: "/my-profile", label: "Hồ sơ của tôi", icon: <UserOutlined /> },
+                { key: "/settings", label: "Quyền riêng tư", icon: <SafetyOutlined /> },
+            ];
+    }
+}
 
-/** Gom moi key ke ca muc con, de biet muc nao dang duoc chon. */
-function collectKeys(items: MenuItem[]): string[] {
-    const keys: string[] = [];
-    items.forEach((entry) => {
-        if (!entry || !("key" in entry) || entry.key == null) return;
-        const node = entry as { key: React.Key; children?: MenuItem[]; type?: string };
-        if (node.type !== "group") keys.push(String(node.key));
-        if (node.children) keys.push(...collectKeys(node.children));
-    });
-    return keys;
+/** Số trên menu của Chuyên viên tuyển dụng (R01): yêu cầu chờ duyệt (đỏ), việc làm đang tuyển (xám), thư mời nháp (đỏ). */
+function useRecruiterBadges(enabled: boolean) {
+    const [badges, setBadges] = useState<Record<string, NavItem["badge"]>>({});
+    useEffect(() => {
+        if (!enabled) return;
+        let alive = true;
+        Promise.allSettled([
+            getRequisitions({ status: "PENDING_APPROVAL", page: 0, size: 1 }),
+            getPostings({ status: "OPEN", page: 0, size: 1 }),
+            getOffers({ status: "DRAFT", page: 0, size: 1 }),
+        ]).then(([req, post, offer]) => {
+            if (!alive) return;
+            const next: Record<string, NavItem["badge"]> = {};
+            if (req.status === "fulfilled" && req.value.data.totalItems > 0)
+                next["/recruitment/requisitions"] = { count: req.value.data.totalItems, tone: "alert" };
+            if (post.status === "fulfilled" && post.value.data.totalItems > 0)
+                next["/recruitment/postings"] = { count: post.value.data.totalItems, tone: "muted" };
+            if (offer.status === "fulfilled" && offer.value.data.totalItems > 0)
+                next["/offers"] = { count: offer.value.data.totalItems, tone: "alert" };
+            setBadges(next);
+        });
+        return () => { alive = false; };
+    }, [enabled]);
+    return badges;
+}
+
+/** "Việc làm ghim" (R01): việc làm đang tuyển kèm số ứng viên, tối đa 3. */
+function usePinnedPostings(enabled: boolean) {
+    const [items, setItems] = useState<{ id: number; title: string; count?: number }[]>([]);
+    useEffect(() => {
+        if (!enabled) return;
+        let alive = true;
+        getOpenPostings()
+            .then(async (res) => {
+                const top = (res.data ?? []).slice(0, 3);
+                const counts = await Promise.allSettled(
+                    top.map((p) => getApplications({ jobPostingId: p.id, page: 0, size: 1 })),
+                );
+                if (!alive) return;
+                setItems(top.map((p, i) => {
+                    const c = counts[i];
+                    return { id: p.id, title: p.title, count: c.status === "fulfilled" ? c.value.data.totalItems : undefined };
+                }));
+            })
+            .catch(() => undefined);
+        return () => { alive = false; };
+    }, [enabled]);
+    return items;
+}
+
+const PIN_COLORS = [COLORS.primary, COLORS.interview, STAGE_COLORS.SCREENING.color];
+
+function SideNavItem({ item, active, onClick }: { item: NavItem; active: boolean; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-current={active ? "page" : undefined}
+            style={{
+                display: "flex", alignItems: "center", gap: 10, height: 36, padding: "0 12px", width: "100%",
+                border: 0, borderRadius: 12, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+                background: active ? COLORS.primarySoft : "transparent",
+                color: active ? COLORS.primary : COLORS.textPrimary,
+                fontSize: 14, fontWeight: active ? 600 : 400,
+            }}
+        >
+            <span style={{ fontSize: 18, display: "inline-flex" }}>{item.icon}</span>
+            <span style={{ flexGrow: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</span>
+            {item.badge && (
+                <span
+                    style={{
+                        minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9, fontSize: 11, fontWeight: 700,
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        background: item.badge.tone === "alert" ? COLORS.error : COLORS.fill,
+                        color: item.badge.tone === "alert" ? "#FFFFFF" : COLORS.textSecondary,
+                    }}
+                >
+                    {item.badge.count}
+                </span>
+            )}
+        </button>
+    );
 }
 
 export default function AppLayout() {
     const navigate = useNavigate();
-    const location = useLocation();
     const dispatch = useAppDispatch();
     const user = useAppSelector((state) => state.auth.user);
     const refreshToken = useAppSelector((state) => state.auth.refreshToken);
-    const [collapsed, setCollapsed] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
+    const [companyName, setCompanyName] = useState<string | null>(null);
 
     useEffect(() => {
         if (user && !user.fullName) {
@@ -57,105 +184,22 @@ export default function AppLayout() {
         }
     }, [dispatch, user]);
 
-    const menuItems = useMemo<MenuItem[]>(() => {
-        if (!user) return [];
-        const dashboard = item("/dashboard", "Tổng quan", <DashboardOutlined />);
-        const masterdata = item("/masterdata", "Danh mục", <DatabaseOutlined />);
-        const applications = item("/applications", "Hồ sơ ứng viên", <TeamOutlined />);
-        const interviews = item("/interviews", "Lịch phỏng vấn", <CalendarOutlined />);
-        const notifications = item("/notifications", "Thông báo", <BellOutlined />);
-        const settings = item("/settings", "Cài đặt tài khoản", <SettingOutlined />);
+    // Tên công ty lấy từ API, không viết cứng (mục 0.1 của kế hoạch).
+    useEffect(() => {
+        getPublicCompany().then((res) => setCompanyName(res.data?.name ?? null)).catch(() => undefined);
+    }, []);
 
-        const recruitmentGroup = group("grp-recruitment", "Tuyển dụng", <SolutionOutlined />, [
-            item("/recruitment/requisitions", "Yêu cầu tuyển dụng", <SolutionOutlined />),
-            item("/recruitment/postings", "Tin tuyển dụng", <FileSearchOutlined />),
-        ]);
+    const isRecruiter = user?.role === "RECRUITER";
+    const badges = useRecruiterBadges(isRecruiter);
+    const pinned = usePinnedPostings(isRecruiter);
 
-        const offers = item("/offers", "Đề nghị nhận việc", <FileTextOutlined />);
-
-        if (user.role === "COMPANY_ADMIN") return [
-            dashboard,
-            section("ops", "Vận hành tuyển dụng", [
-                recruitmentGroup, applications, interviews, offers,
-            ]),
-            section("admin", "Quản trị hệ thống", [
-                item("/admin/users", "Người dùng", <UserAddOutlined />),
-                masterdata,
-                item("/audit-logs", "Nhật ký hệ thống", <AuditOutlined />),
-            ]),
-            notifications,
-            settings,
-        ];
-
-        if (user.role === "RECRUITER") return [
-            dashboard, masterdata, recruitmentGroup, applications, interviews,
-            offers, notifications, settings,
-        ];
-
-        // Manager chi tao yeu cau, phong van va theo doi ket qua — khong tham gia buoc offer.
-        if (user.role === "HIRING_MANAGER") return [
-            dashboard,
-            recruitmentGroup,
-            item("/applications", "Ứng viên phòng ban", <TeamOutlined />),
-            interviews,
-            item("/offers", "Kết quả tuyển dụng", <FileTextOutlined />),
-            notifications,
-            settings,
-        ];
-
-        return [
-            item("/my-profile", "Hồ sơ của tôi", <UserOutlined />),
-            item("/jobs", "Việc làm", <SolutionOutlined />),
-            item("/my-applications", "Đơn ứng tuyển của tôi", <AppstoreOutlined />),
-            item("/my-interviews", "Lịch phỏng vấn", <CalendarOutlined />),
-            item("/my-offers", "Thư mời nhận việc", <FileTextOutlined />),
-            notifications,
-            settings,
-        ];
-    }, [user]);
-
-    /**
-     * Module dang lam viec do cay route quyet dinh, khong doan theo tien to URL nua.
-     * Nho vay /candidates/:id/applications/:id van sang muc "Ho so ung vien",
-     * va man hinh mo tu noi khac thi sang dung muc cua noi da di ra.
-     */
-    const moduleKey = useActiveModuleKey();
-    const allKeys = useMemo(() => collectKeys(menuItems), [menuItems]);
-    const selectedKey = moduleKey && allKeys.includes(moduleKey) ? moduleKey : undefined;
-    // Nhom chua muc dang chon luon duoc mo; nguoi dung van mo them nhom khac duoc.
-    const activeGroupKeys = useMemo(
-        () => menuItems
-            .flatMap((entry) => {
-                const node = entry as { key?: React.Key; children?: MenuItem[]; type?: string } | null;
-                if (!node) return [];
-                return node.type === "group" ? (node.children ?? []) : [entry];
-            })
-            .filter((entry): entry is MenuItem => !!entry)
-            .filter((entry) => {
-                const node = entry as { key?: React.Key; children?: MenuItem[] };
-                return !!node.children?.length
-                    && collectKeys(node.children).some((k) => selectedKey === k);
-            })
-            .map((entry) => String((entry as { key: React.Key }).key)),
-        [menuItems, selectedKey],
+    const items = useMemo<NavItem[]>(
+        () => (user ? menuFor(user.role).map((it) => ({ ...it, badge: badges[it.key] ?? it.badge })) : []),
+        [user, badges],
     );
-    /**
-     * Ghi kem duong dan luc nguoi dung tu mo nhom. Sang trang khac thi ban ghi nay het
-     * hieu luc, nen cac nhom tu thu lai va chi con nhom chua muc dang xem la mo.
-     */
-    const [manualOpen, setManualOpen] = useState<{ path: string; keys: string[] } | null>(null);
-    const openKeys = manualOpen?.path === location.pathname
-        ? manualOpen.keys
-        : activeGroupKeys;
 
-    // Mot luc chi mo mot nhom: mo nhom moi thi nhom cu dong lai.
-    const handleOpenChange = (keys: string[]) => {
-        const justOpened = keys.find((key) => !openKeys.includes(key));
-        setManualOpen({ path: location.pathname, keys: justOpened ? [justOpened] : [] });
-    };
-
-    const initials = (user?.fullName || user?.email || "U")
-        .split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+    const moduleKey = useActiveModuleKey();
+    const selectedKey = moduleKey && items.some((it) => it.key === moduleKey) ? moduleKey : undefined;
 
     const handleLogout = async () => {
         if (loggingOut) return;
@@ -168,61 +212,154 @@ export default function AppLayout() {
         }
     };
 
-    return <Layout style={{ height: "100vh", overflow: "hidden" }}>
-        <Sider
-            collapsible
-            collapsed={collapsed}
-            trigger={null}
-            theme="light"
-            width={240}
-            collapsedWidth={64}
-            style={{ borderRight: "1px solid #E5E7EB", height: "100%", overflowY: "auto" }}
-        >
-            <div className={`sidebar-logo${collapsed ? " sidebar-logo--collapsed" : ""}`}>
-                <div className="sidebar-logo-icon">A</div>
-                {!collapsed && <span className="sidebar-logo-text">ATS</span>}
+    // R30 "Danh sách tạo mới" — chỉ Chuyên viên tuyển dụng.
+    const createMenu = [
+        { key: "/recruitment/postings", title: "Việc làm", hint: "Từ yêu cầu tuyển dụng đã duyệt", icon: <FileTextOutlined /> },
+        { key: "/applications", title: "Ứng viên", hint: "Thêm thủ công vào việc làm", icon: <TeamOutlined /> },
+        { key: "/interviews", title: "Lịch phỏng vấn", hint: "Gửi khung giờ", icon: <CalendarOutlined /> },
+        { key: "/offers/compare", title: "Thư mời", hint: "Từ màn so sánh", icon: <FileDoneOutlined /> },
+    ];
+
+    const circleBtn = {
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 34, height: 34, borderRadius: 17, background: COLORS.cardBg, cursor: "pointer",
+    } as const;
+
+    return (
+        <Layout style={{ height: "100vh", overflow: "hidden", background: COLORS.body, flexDirection: "row" }}>
+            <aside
+                style={{
+                    width: LAYOUT.siderWidth, flexShrink: 0, height: "100%", overflowY: "auto", background: COLORS.siderBg,
+                    padding: "14px 10px", display: "flex", flexDirection: "column", gap: 4,
+                }}
+            >
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 6px 14px" }}>
+                    <span
+                        style={{
+                            display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32,
+                            borderRadius: 10, background: COLORS.primary, color: "#FFFFFF", fontWeight: 800, flexShrink: 0,
+                        }}
+                    >
+                        {(companyName ?? "A").charAt(0).toUpperCase()}
+                    </span>
+                    <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.textPrimary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {companyName ?? "ATS"}
+                        </span>
+                        <span style={{ fontSize: 11, color: COLORS.textSecondary }}>Tuyển dụng</span>
+                    </div>
+                </div>
+
+                <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    {items.map((it) => (
+                        <SideNavItem key={it.key} item={it} active={selectedKey === it.key} onClick={() => navigate(it.key)} />
+                    ))}
+                </nav>
+
+                {isRecruiter && pinned.length > 0 && (
+                    <>
+                        <div style={{ fontSize: 12, color: COLORS.textSecondary, padding: "0 12px", marginTop: 8 }}>Việc làm ghim</div>
+                        {pinned.map((p, i) => (
+                            <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => navigate(`/recruitment/postings/${p.id}`)}
+                                style={{
+                                    display: "flex", alignItems: "center", gap: 10, height: 32, padding: "0 12px", width: "100%",
+                                    border: 0, borderRadius: 12, background: "transparent", cursor: "pointer", fontFamily: "inherit",
+                                    fontSize: 13, color: COLORS.textPrimary, textAlign: "left",
+                                }}
+                            >
+                                <span style={{ width: 8, height: 8, borderRadius: 4, background: PIN_COLORS[i % PIN_COLORS.length], flexShrink: 0 }} />
+                                <span style={{ flexGrow: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</span>
+                                {p.count != null && <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{p.count}</span>}
+                            </button>
+                        ))}
+                    </>
+                )}
+
+                {user?.role !== "CANDIDATE" && (
+                    <div style={{ marginTop: "auto" }}>
+                        <SideNavItem
+                            item={{ key: "/settings", label: "Cài đặt", icon: <SettingOutlined /> }}
+                            active={moduleKey === "/settings"}
+                            onClick={() => navigate("/settings")}
+                        />
+                    </div>
+                )}
+            </aside>
+
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", minHeight: 0 }}>
+                <header
+                    style={{
+                        display: "flex", alignItems: "center", gap: 12, height: LAYOUT.headerHeight, flexShrink: 0,
+                        padding: "0 24px 0 4px", background: COLORS.header,
+                    }}
+                >
+                    <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+                        {isRecruiter && (
+                            <Dropdown
+                                trigger={["click"]}
+                                menu={{
+                                    items: createMenu.map((m) => ({
+                                        key: m.key,
+                                        icon: m.icon,
+                                        label: (
+                                            <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 260 }}>
+                                                <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+                                                    <span style={{ fontWeight: 600 }}>{m.title}</span>
+                                                    <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{m.hint}</span>
+                                                </div>
+                                                <RightOutlined style={{ fontSize: 11, color: COLORS.textMuted }} />
+                                            </div>
+                                        ),
+                                    })),
+                                    onClick: ({ key }) => navigate(key),
+                                }}
+                            >
+                                <button
+                                    type="button"
+                                    style={{
+                                        display: "inline-flex", alignItems: "center", gap: 6, height: 34, padding: "0 17px",
+                                        border: 0, borderRadius: 17, background: COLORS.primary, color: "#FFFFFF",
+                                        fontFamily: "inherit", fontSize: 14, fontWeight: 500, cursor: "pointer",
+                                    }}
+                                >
+                                    <PlusOutlined />Tạo mới
+                                </button>
+                            </Dropdown>
+                        )}
+                        <span style={circleBtn}><NotificationBell /></span>
+                        <Dropdown
+                            trigger={["click"]}
+                            menu={{
+                                items: [
+                                    {
+                                        key: "who",
+                                        disabled: true,
+                                        label: (
+                                            <div style={{ display: "flex", flexDirection: "column", color: COLORS.textPrimary }}>
+                                                <span style={{ fontWeight: 600 }}>{user?.fullName || user?.email}</span>
+                                                {user && <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{ROLE_LABELS[user.role].vi}</span>}
+                                            </div>
+                                        ),
+                                    },
+                                    { type: "divider" },
+                                    { key: "settings", icon: <SettingOutlined />, label: "Cài đặt", onClick: () => navigate("/settings") },
+                                    { key: "logout", icon: <LogoutOutlined />, label: loggingOut ? "Đang đăng xuất…" : "Đăng xuất", danger: true, disabled: loggingOut, onClick: handleLogout },
+                                ],
+                            }}
+                        >
+                            <span style={{ cursor: "pointer", display: "inline-flex" }} aria-label="Tài khoản">
+                                <Avatar name={user?.fullName || user?.email} colorKey={user?.userId ?? user?.email} size={34} />
+                            </span>
+                        </Dropdown>
+                    </div>
+                </header>
+                <Content style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: "4px 24px 32px 4px", background: COLORS.body }}>
+                    <Outlet />
+                </Content>
             </div>
-            <Menu
-                mode="inline"
-                selectedKeys={selectedKey ? [selectedKey] : []}
-                openKeys={openKeys}
-                onOpenChange={(keys) => handleOpenChange(keys as string[])}
-                items={menuItems}
-                onClick={({ key }) => navigate(key)}
-                style={{ borderInlineEnd: 0 }}
-            />
-        </Sider>
-        <Layout style={{ minWidth: 0, minHeight: 0, overflow: "hidden" }}>
-            <Header className="app-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: GRADIENTS.header }}>
-                <Button
-                    type="text"
-                    aria-label={collapsed ? "Mở menu" : "Thu gọn menu"}
-                    icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-                    onClick={() => setCollapsed((value) => !value)}
-                    style={{ color: "#fff" }}
-                />
-                <Space size={16}>
-                    <NotificationBell />
-                    <Dropdown menu={{
-                        items: [
-                            { key: "settings", icon: <SettingOutlined />, label: "Cài đặt", onClick: () => navigate("/settings") },
-                            { type: "divider" },
-                            { key: "logout", icon: <LogoutOutlined />, label: loggingOut ? "Đang xuất..." : "Đăng xuất", danger: true, disabled: loggingOut, onClick: handleLogout },
-                        ]
-                    }}>
-                        <Space style={{ cursor: "pointer" }}>
-                            <Avatar style={{ background: COLORS.primary }}>{initials}</Avatar>
-                            {!collapsed && <div style={{ lineHeight: 1.2 }}>
-                                <Text strong style={{ color: "#fff", display: "block" }}>{user?.fullName || user?.email}</Text>
-                                {user && <Text style={{ color: "rgba(255,255,255,.72)", fontSize: 12 }}>{ROLE_LABELS[user.role].vi}</Text>}
-                            </div>}
-                        </Space>
-                    </Dropdown>
-                </Space>
-            </Header>
-            <Content style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: 20, background: COLORS.body }}>
-                <Outlet />
-            </Content>
         </Layout>
-    </Layout>;
+    );
 }

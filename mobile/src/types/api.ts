@@ -60,6 +60,40 @@ export type PageJobPosting       = RecruitmentC["schemas"]["PageResponseJobPosti
 export type PageApplication      = ApplicationC["schemas"]["PageResponseApplicationResponse"];
 export type PageOffer            = OfferC["schemas"]["PageResponseOfferResponse"];
 
+// --- Khu nhân viên: Chuyên viên tuyển dụng (UR) và Đại diện phòng ban (UH) — T2.9, T2.10 ---
+export type PageRequisition      = RecruitmentC["schemas"]["PageResponseJobRequisitionResponse"];
+export type ApplicationHistory   = ApplicationC["schemas"]["ApplicationHistoryResponse"];
+export type ApplicationRejectRequest = ApplicationC["schemas"]["ApplicationRejectRequest"];
+export type InterviewerSummary   = InterviewC["schemas"]["InterviewerSummary"];
+export type EvaluationSubmitRequest = InterviewC["schemas"]["EvaluationSubmitRequest"];
+export type EvaluationDraftRequest = InterviewC["schemas"]["EvaluationDraftRequest"];
+export type InterviewHmRejectRequest = InterviewC["schemas"]["InterviewHmRejectRequest"];
+export type PipelineStage        = MasterDataC["schemas"]["PipelineStageResponse"];
+export type UserProfile          = AuthC["schemas"]["UserProfileResponse"];
+
+/**
+ * Điểm AI chi tiết — `GET /v1/ai/scores/{applicationId}` của ai-service (FastAPI).
+ * NGOẠI LỆ của quy tắc 1: endpoint này trả `dict` không khai báo schema nên openapi không sinh
+ * được type. Chỉ khai đúng những trường màn UR03/UH03 dùng, đối chiếu
+ * `ai-service/app/schemas/scoring.py` (ScoredDimension, RequirementResult, ScoreResult).
+ * Điểm tổng + xếp loại ở danh sách thì lấy từ `ApplicationResponse.aiScore/aiTier` (có type sinh).
+ */
+export type AiTier = "FIT" | "UNCLASSIFIED" | "NOT_FIT";
+export type AiScoreDetail = {
+  applicationId: number;
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | string;
+  totalScore: number | null;
+  tier: AiTier | null;
+  scoredAt: string | null;
+  result: {
+    tier_label: string;
+    comment: string;
+    summary: string;
+    dimensions: { dimension: string; label: string; applicable: boolean; level: number | null; reason: string }[];
+    requirements?: { requirement: string; status: string; status_label: string }[];
+  } | null;
+};
+
 // --- Role + JWT: đã đối chiếu source, KHÔNG đoán lại ---
 /**
  * Đúng 4 giá trị của `auth-service/.../enums/RoleName.java`.

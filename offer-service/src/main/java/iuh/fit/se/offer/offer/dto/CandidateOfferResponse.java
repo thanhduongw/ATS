@@ -17,6 +17,13 @@ public record CandidateOfferResponse(
         String contractTypeName,
         LocalDate startDate,
         Integer probationMonths,
+        /** Dieu khoan ung vien duoc xem (docs/UI C16): bao cao cho, noi lam viec, tien te, ky tra luong, thuong, nghi phep. */
+        String reportingManager,
+        Long workLocationId,
+        String currency,
+        String payFrequency,
+        String performanceBonus,
+        Integer annualLeaveDays,
         LocalDateTime responseDeadline,
         String benefits,
         BigDecimal allowance,

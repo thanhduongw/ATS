@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState, type Key } from "react";
-import { Table, Button, Select, Modal, Form, Input, App, DatePicker, Card, Avatar, Tooltip, Tag } from "antd";
+import { departmentLabel } from "../../overview/useCompanyOverview";
+import { Table, Button, Select, Modal, Form, Input, App, Tooltip } from "antd";
 import type { ColumnsType, SortOrder } from "antd/es/table/interface";
 import { useSearchParams } from "react-router-dom";
 import { getCandidates } from "../candidateApi";
 import { useTrailNavigate } from "../../../app/useNavTrail";
 import type { AxiosError } from "axios";
-import dayjs, { type Dayjs } from "dayjs";
 import {
     getApplications,
     bulkAdvanceApplicationStage,
@@ -17,53 +17,50 @@ import { getPostings } from "../../recruitment/recruitmentApi";
 import { getUserDirectory } from "../../auth/authApi";
 import type { ApplicationResponse, ApiMessageResponse, BulkOperationResponse } from "../types";
 import type { JobPostingResponse } from "../../recruitment/types";
-import type { CatalogItem, StageType } from "../../masterdata/types";
+import type { CatalogItem } from "../../masterdata/types";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
-import { useTableScrollY } from "../../../app/useTableScrollY";
 import type { UserRole, UserDirectoryResponse } from "../../auth/types";
-import { STAGE_TYPE_LABEL, stageTypeTagColor } from "../../../app/statusLabels";
+import { FIXED_STAGE_LABEL, fixedStageLabel, stageTypeFilterOf } from "../../../app/stages";
+import { FIXED_STAGES } from "../../../app/theme";
+import StageTag from "../../../components/ui/StageTag";
 import { exportToExcel } from "../../../app/exportExcel";
 import {
-    DownloadOutlined, FolderOpenOutlined, UserAddOutlined, CalendarOutlined,
-    TrophyOutlined, FileTextOutlined, CloseOutlined, PlusOutlined, RobotOutlined,
+    DownloadOutlined, UserAddOutlined, CloseOutlined, PlusOutlined, RobotOutlined, SearchOutlined,
 } from "@ant-design/icons";
-import { COLORS, GRADIENTS } from "../../../app/theme";
+import { COLORS, type FixedStage } from "../../../app/theme";
 import EmptyState from "../../../components/ui/EmptyState";
-import StatTile from "../../../components/ui/StatTile";
-import { StatRow, FilterBar, ModalTitle } from "../../../components/ui/pageKit";
-import { listCardStyle, listCardBodyStyle, listPagination } from "../../../components/ui/listStyles";
+import { ModalTitle } from "../../../components/ui/pageKit";
+import { listPagination } from "../../../components/ui/listStyles";
+import ListPage, { ListFilters, StatusTabs } from "../../../components/ui/listKit";
+import { rowArrowColumn, useStatusCounts } from "../../../components/ui/listHelpers";
+import { Avatar } from "../../../components/ui/designKit";
+import { fullDate } from "../../../app/datetime";
 import CandidateFormModal from "../components/CandidateFormModal";
+import { useMyInterviewStatus } from "../useMyInterviewStatus";
+import StatusTag from "../../../components/ui/StatusTag";
 import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
 import AiScoreBadge from "../../ai/components/AiScoreBadge";
 import { AI_TIER_OPTIONS, aiTierMeta } from "../../ai/aiScore";
 import { rescorePosting } from "../../ai/aiApi";
 import type { CandidateFormValues } from "../schemas/candidateSchema";
 
-const { RangePicker } = DatePicker;
+/** Bộ lọc giai đoạn theo 6 nhóm cố định (DS06) — giá trị là danh sách stageType gửi lên API. */
+const STAGE_FILTER_OPTIONS = FIXED_STAGES.map((g) => ({ value: stageTypeFilterOf(g), label: FIXED_STAGE_LABEL[g] }));
 
-const STAGE_TYPE_OPTIONS: StageType[] = [
-    "APPLIED",
-    "CV_SCREENING",
-    "HR_SCREENING",
-    "TECHNICAL_INTERVIEW",
-    "HR_INTERVIEW",
-    "FINAL_INTERVIEW",
-    "OFFER",
-    "HIRED",
-    "REJECTED",
-    "CUSTOM",
-];
+/** R16: 4 tab. "Đang trong quy trình" = mọi giai đoạn trừ Đã tuyển và Từ chối. */
+type Tab = "ACTIVE" | "HIRED" | "REJECTED" | "ALL";
+const ACTIVE_STAGES: FixedStage[] = FIXED_STAGES.filter((s) => s !== "HIRED" && s !== "REJECTED");
+const TAB_STAGE_FILTER: Record<Tab, string | undefined> = {
+    ACTIVE: ACTIVE_STAGES.map(stageTypeFilterOf).join(","),
+    HIRED: stageTypeFilterOf("HIRED"),
+    REJECTED: stageTypeFilterOf("REJECTED"),
+    ALL: undefined,
+};
+const TAB_KEYS: Tab[] = ["ACTIVE", "HIRED", "REJECTED", "ALL"];
+const TAB_LABEL: Record<Tab, string> = { ACTIVE: "Đang trong quy trình", HIRED: "Đã tuyển", REJECTED: "Từ chối", ALL: "Tất cả" };
 
-const INTERVIEW_STAGE_TYPES = ["TECHNICAL_INTERVIEW", "HR_INTERVIEW", "FINAL_INTERVIEW"];
 
-function getInitials(name: string) {
-    const parts = (name || "").split(" ").filter(Boolean);
-    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    return (name || "?").substring(0, 2).toUpperCase();
-}
-
-const AVATAR_COLORS = [GRADIENTS.stat1, GRADIENTS.stat2, GRADIENTS.stat3, GRADIENTS.stat4];
 
 export default function ApplicationsPage() {
     const { message, modal } = App.useApp();
@@ -71,21 +68,25 @@ export default function ApplicationsPage() {
     const [searchParams] = useSearchParams();
     const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
     const isHr = !!role && HR_ROLES.includes(role);
+    const isHm = role === "HIRING_MANAGER";
+    const myId = useAppSelector((s) => (s.auth.user?.userId ? Number(s.auth.user.userId) : null));
+    const myDeptId = useAppSelector((s) => s.auth.user?.departmentId ?? null);
+    const [myDeptName, setMyDeptName] = useState<string | null>(null);
 
     const [rows, setRows] = useState<ApplicationResponse[]>([]);
     const [totalItems, setTotalItems] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    // Toàn bộ hồ sơ (không phân trang) — chỉ dùng để tính KPI, độc lập với bảng đang lọc/phân trang
-    const [allApplications, setAllApplications] = useState<ApplicationResponse[]>([]);
-
-    // Bộ lọc
-    const [departmentId, setDepartmentId] = useState<number | undefined>();
-    const [jobPostingId, setJobPostingId] = useState<number | undefined>();
+    // Bộ lọc (R16): tab trạng thái, tìm kiếm, Việc làm, Giai đoạn, Điểm AI
+    const [tab, setTab] = useState<Tab>("ACTIVE");
+    const [searchInput, setSearchInput] = useState("");
+    const [keyword, setKeyword] = useState("");
+    const [jobPostingId, setJobPostingId] = useState<number | undefined>(
+        () => (searchParams.get("jobPostingId") ? Number(searchParams.get("jobPostingId")) : undefined),
+    );
     const [stageType, setStageType] = useState<string | undefined>(
         () => searchParams.get("stageType") ?? undefined,
     );
-    const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
     const [aiTier, setAiTier] = useState<string | undefined>();
     /** Sắp xếp phía server theo điểm AI; undefined = mới nộp trước. */
     const [aiScoreOrder, setAiScoreOrder] = useState<SortOrder>(null);
@@ -97,7 +98,6 @@ export default function ApplicationsPage() {
 
     // Nguồn dữ liệu cho các dropdown lọc
     const [postings, setPostings] = useState<JobPostingResponse[]>([]);
-    const [departments, setDepartments] = useState<CatalogItem[]>([]);
     /** candidateId -> email/phone, vì ApplicationResponse không mang sẵn thông tin liên hệ. */
     const [contactById, setContactById] = useState<Map<number, { email: string; phone: string }>>(new Map());
     const [recruiters, setRecruiters] = useState<UserDirectoryResponse[]>([]);
@@ -120,16 +120,22 @@ export default function ApplicationsPage() {
     const [aiPrefill, setAiPrefill] = useState<Partial<CandidateFormValues> | null>(null);
     const [aiPrefillFile, setAiPrefillFile] = useState<File | null>(null);
 
-    const { wrapRef, scrollY } = useTableScrollY([loading, rows.length]);
+    // Debounce ô tìm kiếm
+    useEffect(() => {
+        const h = setTimeout(() => { setKeyword(searchInput.trim()); setPage(1); }, 400);
+        return () => clearTimeout(h);
+    }, [searchInput]);
+
+    /** Giai đoạn chọn ở bộ lọc thắng tab; không chọn thì lấy theo tab. */
+    const effectiveStage = stageType ?? TAB_STAGE_FILTER[tab];
 
     const load = useCallback(async () => {
         setLoading(true);
         try {
             const res = await getApplications({
                 jobPostingId,
-                stageType,
-                appliedFrom: dateRange ? dateRange[0].format("YYYY-MM-DD") : undefined,
-                appliedTo: dateRange ? dateRange[1].format("YYYY-MM-DD") : undefined,
+                stageType: effectiveStage,
+                keyword: keyword || undefined,
                 aiTier,
                 sort: aiScoreOrder ? `aiScore,${aiScoreOrder === "ascend" ? "asc" : "desc"}` : undefined,
                 page: page - 1,
@@ -143,25 +149,35 @@ export default function ApplicationsPage() {
         } finally {
             setLoading(false);
         }
-    }, [jobPostingId, stageType, dateRange, aiTier, aiScoreOrder, page, pageSize, message]);
+    }, [jobPostingId, effectiveStage, keyword, aiTier, aiScoreOrder, page, pageSize, message]);
+
+    // Số trên tab = totalItems của API với cùng bộ lọc (trừ giai đoạn).
+    const tabCounts = useStatusCounts<Tab>(TAB_KEYS, (k) => getApplications({
+        jobPostingId, keyword: keyword || undefined, aiTier, stageType: TAB_STAGE_FILTER[k], size: 1,
+    }).then((r) => r.data.totalItems), [jobPostingId, keyword, aiTier, rows]);
 
     useEffect(() => { load(); }, [load]);
 
     useEffect(() => {
         getCatalogItems("/masterdata/rejection-reasons").then((r) => setReasons(r.data));
-        getCatalogItems("/masterdata/departments").then((r) => setDepartments(r.data));
         getCatalogItems("/masterdata/skills").then((r) => setSkills(r.data));
         getCatalogItems("/masterdata/education-levels").then((r) => setEducationLevels(r.data));
         getPostings({ size: 1000 }).then((r) => setPostings(r.data.content));
+        if (myDeptId != null) {
+            getCatalogItems("/masterdata/departments")
+                .then((r) => setMyDeptName(String(r.data.find((d) => d.id === myDeptId)?.name ?? "")))
+                .catch(() => undefined);
+        }
         getUserDirectory("RECRUITER").then((r) => setRecruiters(r.data));
-        getApplications().then((r) => setAllApplications(r.data.content));
         getCandidates({ size: 1000 })
             .then((r) => setContactById(new Map(
                 r.data.content.map((c) => [c.id, { email: c.email ?? "", phone: c.phone ?? "" }]),
             )))
             // Thieu lien he chi lam mat hai dong phu, khong duoc chan danh sach.
             .catch(() => setContactById(new Map()));
-    }, []);
+    }, [myDeptId]);
+
+    const myInterview = useMyInterviewStatus(isHm, myId, rows.map((r) => r.id));
 
     const reportBulkResult = (result: BulkOperationResponse) => {
         const failedCount = Object.keys(result.failedIds).length;
@@ -249,55 +265,30 @@ export default function ApplicationsPage() {
         });
     };
 
-    const hasActiveFilters = !!(departmentId || jobPostingId || stageType || dateRange || aiTier);
+    const hasActiveFilters = !!(jobPostingId || stageType || aiTier || keyword);
 
     const handleResetFilters = () => {
-        setDepartmentId(undefined);
         setJobPostingId(undefined);
         setStageType(undefined);
-        setDateRange(null);
         setAiTier(undefined);
+        setSearchInput("");
+        setKeyword("");
         setPage(1);
     };
-
-    // ── KPI (dựa trên toàn bộ hồ sơ, không phụ thuộc bộ lọc/phân trang của bảng) ──
-    const kpiStats = (() => {
-        const now = new Date();
-        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const newApplications = allApplications.filter((a) => new Date(a.appliedAt) >= sevenDaysAgo).length;
-        const cvScreening = allApplications.filter((a) => a.currentStageType === "CV_SCREENING").length;
-        const interviews = allApplications.filter((a) => INTERVIEW_STAGE_TYPES.includes(a.currentStageType)).length;
-        const hiredThisMonth = allApplications.filter((a) => {
-            if (!a.hiredAt) return false;
-            const d = new Date(a.hiredAt);
-            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-        }).length;
-        return { total: allApplications.length, newApplications, cvScreening, interviews, hiredThisMonth };
-    })();
 
     const columns: ColumnsType<ApplicationResponse> = [
         {
             title: "Ứng viên",
             key: "candidateName",
-            width: 350,
-            render: (_, r, index) => {
+            width: 320,
+            render: (_, r) => {
                 const contact = contactById.get(r.candidateId);
                 const line = [contact?.email, contact?.phone].filter(Boolean).join(" · ");
                 return (
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <Avatar
-                            size={32}
-                            style={{
-                                background: AVATAR_COLORS[index % AVATAR_COLORS.length],
-                                color: "#fff", fontWeight: 600, fontSize: 12, flexShrink: 0,
-                            }}
-                        >
-                            {getInitials(r.candidateName)}
-                        </Avatar>
+                        <Avatar name={r.candidateName} colorKey={r.candidateId} size={32} />
                         <div className="cell-stack">
-                            <div style={{ fontWeight: 500, color: COLORS.textPrimary }}>
-                                {r.candidateName}
-                            </div>
+                            <div style={{ fontWeight: 600, color: COLORS.textPrimary }}>{r.candidateName}</div>
                             <Tooltip title={line || undefined}>
                                 <div className="cell-stack-sub">{line}</div>
                             </Tooltip>
@@ -307,10 +298,16 @@ export default function ApplicationsPage() {
             },
         },
         {
-            title: "Vị trí ứng tuyển",
+            title: "Việc làm",
             key: "jobTitle",
             ellipsis: true,
             render: (_, r) => <span style={{ fontWeight: 500 }}>{r.jobTitle || `Job #${r.jobPostingId}`}</span>,
+        },
+        {
+            title: "Giai đoạn",
+            key: "stage",
+            width: 160,
+            render: (_, r) => <StageTag stageType={r.currentStageType} />,
         },
         {
             title: "Điểm AI",
@@ -321,25 +318,24 @@ export default function ApplicationsPage() {
             sortDirections: ["descend", "ascend"],
             render: (_, r) => <AiScoreBadge score={r.aiScore} tier={r.aiTier} status={r.aiStatus} />,
         },
+        ...(isHm ? [{
+            title: "Phỏng vấn của bạn",
+            key: "myInterview",
+            width: 220,
+            render: (_: unknown, r: ApplicationResponse) => {
+                const s = myInterview(r.id);
+                if (!s) return <span style={{ color: COLORS.textMuted }}>—</span>;
+                return s.tone ? <StatusTag tone={s.tone} label={s.text} /> : <span>{s.text}</span>;
+            },
+        }] : []),
         {
-            title: "Ngày nộp",
+            title: "Ngày ứng tuyển",
             dataIndex: "appliedAt",
             key: "appliedAt",
-            width: 160,
-            render: (v: string) => (
-                <span style={{ fontSize: 13 }}>{new Date(v).toLocaleDateString("vi-VN")}</span>
-            ),
+            width: 140,
+            render: (v: string) => fullDate(v),
         },
-        {
-            title: "Giai đoạn",
-            key: "stage",
-            width: 200,
-            render: (_, r) => (
-                <Tag color={stageTypeTagColor(r.currentStageType)} style={{ margin: 0 }}>
-                    {r.currentStageName}
-                </Tag>
-            ),
-        },
+        rowArrowColumn,
     ];
 
     const handleExportExcel = () => {
@@ -348,7 +344,7 @@ export default function ApplicationsPage() {
             [
                 { header: "Ứng viên", value: (r: ApplicationResponse) => r.candidateName },
                 { header: "Vị trí ứng tuyển", value: (r: ApplicationResponse) => r.jobTitle || `Job #${r.jobPostingId}` },
-                { header: "Giai đoạn", value: (r: ApplicationResponse) => r.currentStageName },
+                { header: "Giai đoạn", value: (r: ApplicationResponse) => fixedStageLabel(r.currentStageType) },
                 { header: "Người phụ trách", value: (r: ApplicationResponse) => r.assignedRecruiterName },
                 { header: "Nguồn", value: (r: ApplicationResponse) => r.recruitmentSourceName },
                 { header: "Điểm AI", value: (r: ApplicationResponse) => r.aiScore ?? "" },
@@ -360,217 +356,125 @@ export default function ApplicationsPage() {
     };
 
     return (
-        <div className="page-shell animate-fade-in">
-            {/* ── Thống kê nhanh ─────────────────────────── */}
-            <StatRow>
-                <StatTile
-                    icon={<FolderOpenOutlined />}
-                    label="Tổng hồ sơ"
-                    value={kpiStats.total}
-                    accent={COLORS.primary}
-                    active={!hasActiveFilters}
-                    onClick={handleResetFilters}
-                />
-                <StatTile
-                    icon={<UserAddOutlined />}
-                    label="Đơn mới"
-                    hint="7 ngày qua"
-                    value={kpiStats.newApplications}
-                    accent="#3B82F6"
-                    active={!!dateRange}
-                    onClick={() => {
-                        setDateRange([dayjs().subtract(7, "day"), dayjs()]);
-                        setPage(1);
-                    }}
-                />
-                <StatTile
-                    icon={<FileTextOutlined />}
-                    label="Sàng lọc CV"
-                    hint="chờ duyệt"
-                    value={kpiStats.cvScreening}
-                    accent="#F59E0B"
-                    active={stageType === "CV_SCREENING"}
-                    onClick={() => {
-                        setStageType(stageType === "CV_SCREENING" ? undefined : "CV_SCREENING");
-                        setPage(1);
-                    }}
-                />
-                <StatTile
-                    icon={<CalendarOutlined />}
-                    label="Phỏng vấn"
-                    hint="đang diễn ra"
-                    value={kpiStats.interviews}
-                    accent="#8B5CF6"
-                />
-                <StatTile
-                    icon={<TrophyOutlined />}
-                    label="Đã tuyển"
-                    hint="trong tháng"
-                    value={kpiStats.hiredThisMonth}
-                    accent={COLORS.success}
-                    active={stageType === "HIRED"}
-                    onClick={() => {
-                        setStageType(stageType === "HIRED" ? undefined : "HIRED");
-                        setPage(1);
-                    }}
-                />
-            </StatRow>
-
-            {/* ── Bộ lọc ─────────────────────────────────── */}
-            <FilterBar
-                extra={
-                    <>
-                        <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>
-                            Xuất Excel
-                        </Button>
-                        {isHr && jobPostingId != null && (
-                            <Tooltip title="Chấm các hồ sơ chưa có điểm hoặc chấm lỗi của tin đang lọc">
-                                <Button icon={<RobotOutlined />} loading={rescoringPosting} onClick={handleRescorePosting}>
-                                    AI chấm hồ sơ của tin
-                                </Button>
-                            </Tooltip>
-                        )}
-                        {isHr && (
-                            <Button icon={<RobotOutlined />} onClick={() => setAiUploadOpen(true)}>
-                                AI đọc CV
+        <ListPage
+            title="Ứng viên"
+            subtitle={isHm ? `${myDeptName ? `${departmentLabel(myDeptName)} · ` : ""}bạn xem hồ sơ và nộp đánh giá khi được phân công phỏng vấn` : undefined}
+            actions={
+                <>
+                    <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>Xuất Excel</Button>
+                    {isHr && jobPostingId != null && (
+                        <Tooltip title="Chấm các hồ sơ chưa có điểm hoặc chấm lỗi của việc làm đang lọc">
+                            <Button icon={<RobotOutlined />} loading={rescoringPosting} onClick={handleRescorePosting}>
+                                AI chấm hồ sơ của việc làm
                             </Button>
-                        )}
-                        {isHr && (
-                            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCandidateFormOpen(true)}>
-                                Thêm ứng viên
-                            </Button>
-                        )}
-                    </>
-                }
-            >
-                <Select
-                    allowClear
-                    showSearch
-                    optionFilterProp="label"
-                    placeholder="Phòng ban"
-                    style={{ width: 200 }}
-                    value={departmentId}
-                    onChange={(v) => {
-                        setDepartmentId(v);
-                        setJobPostingId(undefined);
-                        setPage(1);
-                    }}
-                    options={departments.map((d) => ({ value: d.id, label: String(d.name) }))}
-                />
-                <Select
-                    allowClear
-                    showSearch
-                    optionFilterProp="label"
-                    placeholder={departmentId == null ? "Chọn phòng ban trước" : "Vị trí tuyển dụng"}
-                    style={{ width: 240 }}
-                    disabled={departmentId == null}
-                    value={jobPostingId}
-                    onChange={(v) => { setJobPostingId(v); setPage(1); }}
-                    notFoundContent="Phòng ban này chưa có tin tuyển dụng"
-                    options={postings
-                        .filter((p) => p.departmentId === departmentId)
-                        .map((p) => ({ value: p.id, label: p.title }))}
-                />
-                <Select
-                    allowClear
-                    placeholder="Giai đoạn"
-                    style={{ width: 180 }}
-                    value={stageType}
-                    onChange={(v) => { setStageType(v); setPage(1); }}
-                    options={STAGE_TYPE_OPTIONS.map((t) => ({ value: t, label: STAGE_TYPE_LABEL[t] ?? t }))}
-                />
-                <Select
-                    allowClear
-                    placeholder="Xếp loại AI"
-                    style={{ width: 160 }}
-                    value={aiTier}
-                    onChange={(v) => { setAiTier(v); setPage(1); }}
-                    options={AI_TIER_OPTIONS}
-                />
-                <RangePicker
-                    placeholder={["Nộp từ ngày", "Đến ngày"]}
-                    format="DD/MM/YYYY"
-                    value={dateRange}
-                    onChange={(v) => { setDateRange(v as [Dayjs, Dayjs] | null); setPage(1); }}
-                />
-                {hasActiveFilters && <Button onClick={handleResetFilters}>Xóa bộ lọc</Button>}
-            </FilterBar>
-
-            <Card
-                className="table-card-fill"
-                style={listCardStyle}
-                styles={{ body: listCardBodyStyle }}
-            >
-                {isHr && selectedRowKeys.length > 0 && (
-                    <div
-                        style={{
-                            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-                            padding: "10px 16px", marginBottom: 12, background: "#EFF6FF",
-                            border: "1px solid #BFDBFE", borderRadius: 8, flexShrink: 0,
-                        }}
-                    >
-                        <span>Đã chọn {selectedRowKeys.length} hồ sơ</span>
-                        <Button size="small" type="primary" onClick={handleBulkAdvance}>
-                            Chuyển vòng hàng loạt
+                        </Tooltip>
+                    )}
+                    {isHr && <Button icon={<RobotOutlined />} onClick={() => setAiUploadOpen(true)}>AI đọc CV</Button>}
+                    {isHr && (
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCandidateFormOpen(true)}>
+                            Thêm ứng viên
                         </Button>
-                        <Button size="small" danger onClick={() => setBulkRejectOpen(true)}>
-                            Reject hàng loạt
-                        </Button>
-                        <Button size="small" onClick={() => setBulkAssignOpen(true)}>
-                            Gán người phụ trách hàng loạt
-                        </Button>
-                        <Button size="small" type="text" onClick={() => setSelectedRowKeys([])}>
-                            Bỏ chọn
-                        </Button>
-                    </div>
-                )}
-
-                <div ref={wrapRef} className="table-scroll-wrap">
-                    <Table
-                        rowKey="id"
-                        size="small"
-                        loading={loading}
-                        columns={columns}
-                        dataSource={rows}
-                        sticky
-                        scroll={{ y: scrollY }}
-                        onChange={(_, __, sorter, extra) => {
-                            if (extra.action !== "sort") return;
-                            const order = Array.isArray(sorter) ? null : sorter.order ?? null;
-                            setAiScoreOrder(order);
-                            setPage(1);
-                        }}
-                        onRow={(record) => ({
-                            onClick: (event) => {
-                                // Bam o chon hang loat thi chi tick, khong mo chi tiet.
-                                if ((event.target as HTMLElement).closest(".ant-table-selection-column")) return;
-                                openApplication(`/candidates/${record.candidateId}/applications/${record.id}`);
-                            },
-                            style: { cursor: "pointer" },
-                        })}
-                        rowSelection={isHr ? {
-                            selectedRowKeys,
-                            onChange: setSelectedRowKeys,
-                        } : undefined}
-                        pagination={{
-                            current: page,
-                            pageSize,
-                            total: totalItems,
-                            ...listPagination("hồ sơ"),
-                            onChange: (p, ps) => { setPage(p); setPageSize(ps); },
-                        }}
-                        locale={{
-                            emptyText: loading ? <span /> : (
-                                <EmptyState
-                                    title="Chưa có hồ sơ ứng tuyển nào"
-                                    description="Hồ sơ phù hợp với bộ lọc hiện tại sẽ hiển thị ở đây."
-                                />
-                            ),
-                        }}
-                        rowHoverable
+                    )}
+                </>
+            }
+            tabs={
+                <StatusTabs<Tab>
+                    active={tab}
+                    onChange={(k) => { setTab(k); setStageType(undefined); setPage(1); }}
+                    items={TAB_KEYS.map((k) => ({ key: k, label: TAB_LABEL[k], count: tabCounts[k] }))}
+                />
+            }
+            filters={
+                <ListFilters extra={hasActiveFilters ? <Button type="link" onClick={handleResetFilters}>Xoá bộ lọc</Button> : undefined}>
+                    <Input
+                        allowClear
+                        prefix={<SearchOutlined style={{ color: COLORS.textMuted }} />}
+                        placeholder="Tìm theo tên hoặc email"
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        style={{ width: 280 }}
                     />
+                    <Select
+                        allowClear
+                        showSearch
+                        optionFilterProp="label"
+                        placeholder="Việc làm"
+                        style={{ width: 240 }}
+                        value={jobPostingId}
+                        onChange={(v) => { setJobPostingId(v); setPage(1); }}
+                        options={postings.map((p) => ({ value: p.id, label: p.title }))}
+                    />
+                    <Select
+                        allowClear
+                        placeholder="Giai đoạn"
+                        style={{ width: 170 }}
+                        value={stageType}
+                        onChange={(v) => { setStageType(v); setPage(1); }}
+                        options={STAGE_FILTER_OPTIONS}
+                    />
+                    <Select
+                        allowClear
+                        placeholder="Điểm AI"
+                        style={{ width: 160 }}
+                        value={aiTier}
+                        onChange={(v) => { setAiTier(v); setPage(1); }}
+                        options={AI_TIER_OPTIONS}
+                    />
+                </ListFilters>
+            }
+            footnote={`${totalItems} ứng viên · ${aiScoreOrder ? "theo điểm AI" : "cập nhật gần nhất trước"}`}
+        >
+            {isHr && selectedRowKeys.length > 0 && (
+                <div
+                    style={{
+                        display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                        padding: "10px 16px", marginBottom: 12, background: COLORS.primarySoft, borderRadius: 12,
+                    }}
+                >
+                    <span>Đã chọn {selectedRowKeys.length} hồ sơ</span>
+                    <Button size="small" type="primary" onClick={handleBulkAdvance}>Chuyển giai đoạn kế tiếp</Button>
+                    <Button size="small" danger onClick={() => setBulkRejectOpen(true)}>Từ chối</Button>
+                    <Button size="small" onClick={() => setBulkAssignOpen(true)}>Gán người phụ trách</Button>
+                    <Button size="small" type="text" onClick={() => setSelectedRowKeys([])}>Bỏ chọn</Button>
                 </div>
-            </Card>
+            )}
+
+            <Table
+                rowKey="id"
+                loading={loading}
+                columns={columns}
+                dataSource={rows}
+                onChange={(_, __, sorter, extra) => {
+                    if (extra.action !== "sort") return;
+                    const order = Array.isArray(sorter) ? null : sorter.order ?? null;
+                    setAiScoreOrder(order);
+                    setPage(1);
+                }}
+                rowClassName={() => "row-clickable"}
+                onRow={(record) => ({
+                    onClick: (event) => {
+                        // Bấm ô chọn hàng loạt thì chỉ tick, không mở chi tiết.
+                        if ((event.target as HTMLElement).closest(".ant-table-selection-column")) return;
+                        openApplication(`/candidates/${record.candidateId}/applications/${record.id}`);
+                    },
+                })}
+                rowSelection={isHr ? { selectedRowKeys, onChange: setSelectedRowKeys } : undefined}
+                pagination={{
+                    current: page,
+                    pageSize,
+                    total: totalItems,
+                    ...listPagination("ứng viên"),
+                    onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                }}
+                locale={{
+                    emptyText: loading ? <span /> : (
+                        <EmptyState
+                            title="Không có ứng viên nào"
+                            description="Ứng viên khớp với tab và bộ lọc hiện tại sẽ hiện ở đây."
+                        />
+                    ),
+                }}
+            />
 
             <Modal
                 title={
@@ -658,6 +562,6 @@ export default function ApplicationsPage() {
                     setCandidateFormOpen(true);
                 }}
             />
-        </div>
+        </ListPage>
     );
 }

@@ -57,6 +57,14 @@ public class DepartmentService {
         repository.save(dept);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        Department dept = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy phòng ban"));
+        dept.setActive(true);
+        repository.save(dept);
+    }
+
     private DepartmentResponse toResponse(Department d) {
         return new DepartmentResponse(d.getId(), d.getName(), d.getDescription(), d.isActive());
     }

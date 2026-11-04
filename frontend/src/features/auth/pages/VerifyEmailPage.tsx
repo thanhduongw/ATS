@@ -1,59 +1,76 @@
-import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { App, Button, Card, Form, Input, Space } from "antd";
-import { MailOutlined, SafetyOutlined } from "@ant-design/icons";
+import { useEffect, useState } from "react";
+import { App, Button, Form, Input } from "antd";
 import type { AxiosError } from "axios";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { resendOtp, verifyEmail } from "../authApi";
-import { verifySchema, type VerifyFormValues } from "../schemas/verifySchema";
 import type { ApiMessageResponse } from "../types";
+import AuthShell from "../components/AuthShell";
+import { COLORS } from "../../../app/theme";
+
+/**
+ * C06 · Xác minh email: 6 ô mã, "Gửi lại sau 0:42" (đếm ngược 60 giây), "Đổi email khác".
+ * Email lấy từ bước đăng ký; vào thẳng trang này mà không có email thì về đăng ký.
+ */
+const RESEND_SECONDS = 60;
 
 export default function VerifyEmailPage() {
     const { message } = App.useApp();
     const navigate = useNavigate();
-    const state = (useLocation().state ?? {}) as { email?: string };
-    const [resending, setResending] = useState(false);
-    const { control, handleSubmit, getValues, formState: { errors, isSubmitting } } = useForm<VerifyFormValues>({
-        resolver: zodResolver(verifySchema), defaultValues: { email: state.email ?? "", otpCode: "" },
-    });
+    const location = useLocation();
+    const email = ((location.state ?? {}) as { email?: string }).email ?? "";
+    const [code, setCode] = useState("");
+    const [error, setError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [wait, setWait] = useState(RESEND_SECONDS);
 
-    const onSubmit = async (data: VerifyFormValues) => {
+    useEffect(() => {
+        if (wait <= 0) return;
+        const t = setTimeout(() => setWait((w) => w - 1), 1000);
+        return () => clearTimeout(t);
+    }, [wait]);
+
+    if (!email) return <Navigate to={`/register${location.search}`} replace />;
+
+    const submit = async () => {
+        if (!/^\d{6}$/.test(code)) { setError("Nhập đủ 6 chữ số"); return; }
+        setSubmitting(true);
         try {
-            await verifyEmail(data);
-            message.success("Email đã được xác thực");
-            navigate("/login", { state: { email: data.email }, replace: true });
-        } catch (error) {
-            const apiError = error as AxiosError<ApiMessageResponse>;
-            message.error(apiError.response?.data?.message ?? "Xác thực thất bại");
+            await verifyEmail({ email, otpCode: code });
+            message.success("Đã xác minh email. Mời bạn đăng nhập.");
+            navigate(`/login${location.search}`, { state: { email }, replace: true });
+        } catch (err) {
+            // Backend trả câu không dấu ("OTP khong hop le…") → hiện câu của giao diện cho lỗi 4xx.
+            const status = (err as AxiosError<ApiMessageResponse>).response?.status ?? 0;
+            setError(status >= 400 && status < 500 ? "Mã không đúng hoặc đã hết hạn" : "Không xác minh được, vui lòng thử lại");
+        } finally { setSubmitting(false); }
+    };
+
+    const resend = async () => {
+        try {
+            await resendOtp({ email });
+            message.success("Đã gửi mã mới");
+            setWait(RESEND_SECONDS);
+        } catch (err) {
+            message.error((err as AxiosError<ApiMessageResponse>).response?.data?.message ?? "Không gửi lại được mã");
         }
     };
 
-    const handleResend = async () => {
-        const email = getValues("email");
-        if (!email) return;
-        setResending(true);
-        try { await resendOtp({ email }); message.success("Nếu tài khoản đang chờ xác thực, OTP mới sẽ được gửi"); }
-        catch (error) { message.error((error as AxiosError<ApiMessageResponse>).response?.data?.message ?? "Không thể gửi OTP"); }
-        finally { setResending(false); }
-    };
-
     return (
-        <div className="auth-center-page"><Card className="auth-center-card">
-            <div className="auth-card-logo"><SafetyOutlined /></div>
-            <div className="auth-form-header"><h2>Xác thực email</h2><p>Nhập mã OTP 6 chữ số đã gửi đến email của bạn.</p></div>
-            <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
-                <Form.Item label="Email" validateStatus={errors.email ? "error" : ""} help={errors.email?.message}>
-                    <Controller name="email" control={control} render={({ field }) => <Input {...field} size="large" prefix={<MailOutlined />} />} />
+        <AuthShell tagline="Sắp xong rồi" title="Xác minh email" subtitle={<>Mã 6 số đã gửi tới <b>{email}</b></>}>
+            <Form layout="vertical" onFinish={submit}>
+                <Form.Item validateStatus={error ? "error" : ""} help={error}>
+                    <Input.OTP length={6} size="large" value={code} formatter={(v) => v.replace(/\D/g, "")}
+                        onChange={(v) => { setCode(v); setError(null); }} />
                 </Form.Item>
-                <Form.Item label="Mã OTP" validateStatus={errors.otpCode ? "error" : ""} help={errors.otpCode?.message}>
-                    <Controller name="otpCode" control={control} render={({ field }) => <Input {...field} size="large" maxLength={6} inputMode="numeric" />} />
-                </Form.Item>
-                <Space orientation="vertical" style={{ width: "100%" }}>
-                    <Button type="primary" htmlType="submit" block size="large" loading={isSubmitting}>Xác thực</Button>
-                    <Button block onClick={handleResend} loading={resending}>Gửi lại OTP</Button>
-                </Space>
+                <Button type="primary" htmlType="submit" block size="large" loading={submitting} disabled={code.length !== 6}>Xác minh</Button>
             </Form>
-        </Card></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: COLORS.textSecondary }}>
+                <span>
+                    Chưa nhận được mã?{" "}
+                    {wait > 0 ? `Gửi lại sau 0:${String(wait).padStart(2, "0")}` : <a onClick={resend}>Gửi lại</a>}
+                </span>
+                <a onClick={() => navigate(`/register${location.search}`)}>Đổi email khác</a>
+            </div>
+        </AuthShell>
     );
 }

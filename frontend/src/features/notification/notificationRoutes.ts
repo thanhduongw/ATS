@@ -25,7 +25,7 @@ export function resolveNotificationPath(
         case "APPLICATION":
             if (isCandidate) {
                 return id != null
-                    ? `/my-applications?highlightId=${id}`
+                    ? `/my-applications/${id}`
                     : "/my-applications";
             }
             return id != null
@@ -44,7 +44,7 @@ export function resolveNotificationPath(
 
         case "OFFER":
             if (isCandidate) {
-                return id != null ? `/offers/candidate/${id}` : "/offers";
+                return id != null ? `/my-offers/${id}` : "/my-offers";
             }
             if (isHr || isDept) {
                 return id != null ? `/offers?highlightId=${id}` : "/offers";
@@ -54,7 +54,7 @@ export function resolveNotificationPath(
         default: {
             const t = String(n.type ?? "");
             if (t.includes("OFFER")) {
-                if (isCandidate && id != null) return `/offers/candidate/${id}`;
+                if (isCandidate) return id != null ? `/my-offers/${id}` : "/my-offers";
                 if (isHr || isDept) {
                     return id != null ? `/offers?highlightId=${id}` : "/offers";
                 }

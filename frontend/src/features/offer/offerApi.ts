@@ -30,6 +30,10 @@ export const createOffer = (data: OfferCreateRequest) =>
 export const updateOffer = (id: number, data: OfferUpdateRequest) =>
   axiosClient.put<OfferResponse>(`/offer/offers/${id}`, data);
 
+/** Gửi thư mời thẳng cho ứng viên (Bản nháp → Đã gửi) — docs/UI R27, quyết định B2. */
+export const sendOffer = (id: number) =>
+  axiosClient.patch<OfferResponse>(`/offer/offers/${id}/send`);
+
 export const submitOffer = (id: number) =>
   axiosClient.patch<OfferResponse>(`/offer/offers/${id}/submit`);
 

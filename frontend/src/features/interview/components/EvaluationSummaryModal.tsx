@@ -255,8 +255,8 @@ export default function EvaluationSummaryModal({ open, interview, onClose }: Pro
                     {/* Lương đề xuất — chỉ HR (hoặc API đã trả salary cho chính interviewer) */}
                     <div
                       style={{
-                        background: isHr ? "#F0FDF4" : COLORS.borderLight,
-                        border: `1px solid ${isHr ? "#BBF7D0" : COLORS.border}`,
+                        background: isHr ? "#00CB8724" : COLORS.borderLight,
+                        border: `1px solid ${isHr ? "#00A06B33" : COLORS.border}`,
                         borderRadius: 8,
                         padding: "10px 14px",
                       }}

@@ -52,6 +52,22 @@ export interface paths {
         patch: operations["submit"];
         trace?: never;
     };
+    "/api/offer/offers/{id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["send"];
+        trace?: never;
+    };
     "/api/offer/offers/{id}/reject": {
         parameters: {
             query?: never;
@@ -231,7 +247,7 @@ export interface components {
             approverId?: number;
             approverName?: string;
             /** @enum {string} */
-            status?: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "ACCEPTED" | "DECLINED";
+            status?: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "ACCEPTED" | "DECLINED" | "EXPIRED";
             rejectReason?: string;
             declineReasonName?: string;
             declineNote?: string;
@@ -241,6 +257,16 @@ export interface components {
             submittedAt?: string;
             /** Format: date-time */
             approvedAt?: string;
+            /** Format: date-time */
+            issuedAt?: string;
+            /** Format: date-time */
+            expiredAt?: string;
+            /** Format: date-time */
+            candidateRespondedAt?: string;
+            /** Format: int32 */
+            candidateViewCount?: number;
+            /** Format: date-time */
+            candidateLastViewedAt?: string;
         };
         OfferCreateRequest: {
             /** Format: int64 */
@@ -292,13 +318,21 @@ export interface components {
             startDate?: string;
             /** Format: int32 */
             probationMonths?: number;
+            reportingManager?: string;
+            /** Format: int64 */
+            workLocationId?: number;
+            currency?: string;
+            payFrequency?: string;
+            performanceBonus?: string;
+            /** Format: int32 */
+            annualLeaveDays?: number;
             /** Format: date-time */
             responseDeadline?: string;
             benefits?: string;
             allowance?: number;
             candidateVisibleNote?: string;
             /** @enum {string} */
-            status?: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "ACCEPTED" | "DECLINED";
+            status?: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "ACCEPTED" | "DECLINED" | "EXPIRED";
             declineReasonName?: string;
             declineNote?: string;
             /** Format: date-time */
@@ -401,7 +435,7 @@ export interface operations {
             query?: {
                 applicationId?: number;
                 jobPostingId?: number;
-                status?: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "ACCEPTED" | "DECLINED";
+                status?: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "ACCEPTED" | "DECLINED" | "EXPIRED";
                 createdFrom?: string;
                 createdTo?: string;
                 page?: number;
@@ -449,6 +483,28 @@ export interface operations {
         };
     };
     submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OfferResponse"];
+                };
+            };
+        };
+    };
+    send: {
         parameters: {
             query?: never;
             header?: never;

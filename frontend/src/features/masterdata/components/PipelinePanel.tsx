@@ -294,7 +294,7 @@ export default function PipelinePanel() {
                                                             gap: 12,
                                                             padding: "10px 12px",
                                                             marginBottom: 8,
-                                                            background: "#FAFBFC",
+                                                            background: "#1824310C",
                                                             border: `1px solid ${COLORS.borderLight}`,
                                                             borderRadius: RADIUS.md,
                                                             ...dragProvided.draggableProps.style,

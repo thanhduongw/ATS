@@ -1,147 +1,94 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { App, Button, Card, Empty, Space, Spin, Tag, Typography } from "antd";
-import { ClockCircleOutlined, FileTextOutlined } from "@ant-design/icons";
+import { Button, Spin } from "antd";
 import dayjs from "dayjs";
-import type { AxiosError } from "axios";
-import { getMyOffers } from "../offerCandidateApi";
-import type { ApiMessageResponse, CandidateOfferResponse, OfferStatus } from "../types";
+import { useNavigate } from "react-router-dom";
+import type { CandidateOfferResponse } from "../types";
+import { COLORS, type StatusTone } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
-import { COLORS } from "../../../app/theme";
-import { useTrailNavigate } from "../../../app/useNavTrail";
-
-const { Text, Title } = Typography;
+import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
+import StatusTag from "../../../components/ui/StatusTag";
+import EmptyState from "../../../components/ui/EmptyState";
+import { awaitingReply, useCandidatePortal } from "../../candidate/useCandidatePortal";
 
 /**
- * Nhan theo goc nhin ung vien, khong dung tu noi bo. Ung vien khong can biet offer
- * dang o buoc duyet nao ben trong cong ty — voi ho chi co "chua gui" va "cho phan hoi".
+ * C15 · Thư mời nhận việc (ứng viên): thư đang chờ phản hồi là thẻ lớn ở trên (hạn, ngày bắt đầu, lương đề xuất),
+ * các thư đã phản hồi / hết hạn là dòng gọn bên dưới.
  */
-const STATUS_LABEL: Record<OfferStatus, string> = {
-    DRAFT: "Chưa gửi",
-    PENDING_APPROVAL: "Chưa gửi",
-    APPROVED: "Đang chờ bạn phản hồi",
-    REJECTED: "Đã hủy",
-    ACCEPTED: "Bạn đã chấp nhận",
-    DECLINED: "Bạn đã từ chối",
+const CLOSED_VIEW: Record<string, { label: string; tone: StatusTone }> = {
+    ACCEPTED: { label: "Đã nhận việc", tone: "success" },
+    DECLINED: { label: "Đã từ chối", tone: "neutral" },
+    EXPIRED: { label: "Đã hết hạn", tone: "warning" },
+    APPROVED: { label: "Đã hết hạn", tone: "warning" },
 };
-
-const STATUS_COLOR: Record<OfferStatus, string> = {
-    DRAFT: "default",
-    PENDING_APPROVAL: "default",
-    APPROVED: "processing",
-    REJECTED: "default",
-    ACCEPTED: "success",
-    DECLINED: "error",
-};
-
-/** Thoi gian con lai dien dat theo ngay/gio, du de ung vien biet gap hay khong. */
-function timeLeftLabel(deadline: string) {
-    const diffMinutes = dayjs(deadline).diff(dayjs(), "minute");
-    if (diffMinutes <= 0) return null;
-    const days = Math.floor(diffMinutes / (60 * 24));
-    const hours = Math.floor((diffMinutes % (60 * 24)) / 60);
-    if (days > 0) return `Còn ${days} ngày ${hours} giờ`;
-    if (hours > 0) return `Còn ${hours} giờ`;
-    return `Còn ${diffMinutes} phút`;
-}
+const PAY_SUFFIX: Record<string, string> = { MONTHLY: "/tháng", YEARLY: "/năm" };
 
 export default function CandidateOffersPage() {
-    const openOffer = useTrailNavigate();
-    const { message } = App.useApp();
-    const [items, setItems] = useState<CandidateOfferResponse[]>([]);
-    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+    const { loading, failed, offers, applications, reload } = useCandidatePortal();
 
-    const load = useCallback(async () => {
-        try {
-            const response = await getMyOffers();
-            setItems(response.data);
-        } catch (error) {
-            const apiError = error as AxiosError<ApiMessageResponse>;
-            message.error(apiError.response?.data?.message ?? "Không tải được thư mời nhận việc");
-        } finally {
-            setLoading(false);
-        }
-    }, [message]);
+    if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
 
-    useEffect(() => {
-        load();
-    }, [load]);
-
-    // Offer cần phản hồi luôn nằm trên cùng — đây là việc duy nhất ứng viên phải làm ở đây.
-    const sorted = useMemo(() => {
-        const needsResponse = (o: CandidateOfferResponse) => o.status === "APPROVED";
-        return [...items].sort((a, b) => {
-            if (needsResponse(a) !== needsResponse(b)) return needsResponse(a) ? -1 : 1;
-            return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf();
-        });
-    }, [items]);
-
-    if (loading) {
-        return <div style={{ padding: 80, textAlign: "center" }}><Spin size="large" /></div>;
-    }
+    const visible = offers.filter((o) => ["APPROVED", "ACCEPTED", "DECLINED", "EXPIRED"].includes(o.status));
+    const pending = visible.filter(awaitingReply)
+        .sort((a, b) => dayjs(a.responseDeadline ?? "2999-01-01").valueOf() - dayjs(b.responseDeadline ?? "2999-01-01").valueOf());
+    const others = visible.filter((o) => !awaitingReply(o)).sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf());
+    const deptOf = (o: CandidateOfferResponse) => applications.find((a) => a.id === o.applicationId)?.departmentName;
 
     return (
-        <div className="page-container animate-fade-in" style={{ maxWidth: 900, margin: "0 auto" }}>
-            <Title level={2}>Thư mời nhận việc</Title>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 900 }}>
+            <ScreenTitle title="Thư mời nhận việc" />
+            {failed && (
+                <InlineNotice tone="danger" action={<Button onClick={reload}>Thử lại</Button>}>
+                    Không tải được dữ liệu. Kiểm tra kết nối mạng rồi thử lại.
+                </InlineNotice>
+            )}
+            {!failed && visible.length === 0 && (
+                <Panel><EmptyState title="Bạn chưa nhận được thư mời nhận việc nào" /></Panel>
+            )}
 
-            {sorted.length === 0 ? (
-                <Empty description="Bạn chưa nhận được thư mời nhận việc nào" />
-            ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    {sorted.map((offer) => {
-                        const pending = offer.status === "APPROVED";
-                        const expired = offer.responseDeadline
-                            && dayjs(offer.responseDeadline).isBefore(dayjs());
-                        const countdown = pending && offer.responseDeadline && !expired
-                            ? timeLeftLabel(offer.responseDeadline)
-                            : null;
+            {pending.map((o) => (
+                <Panel key={o.id} style={{ boxShadow: `inset 0 0 0 1.5px ${COLORS.primary}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: 240, display: "flex", flexDirection: "column", gap: 6 }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <StatusTag label="Chờ bạn phản hồi" tone="brand" />
+                                {o.responseDeadline && (
+                                    <span style={{ fontSize: 12, color: COLORS.warning, fontWeight: 600 }}>
+                                        Hạn {dayjs(o.responseDeadline).format("DD/MM")}
+                                    </span>
+                                )}
+                            </span>
+                            <span style={{ fontSize: 18, fontWeight: 700 }}>{o.jobTitle ?? "Thư mời nhận việc"}</span>
+                            <span style={{ fontSize: 13, color: COLORS.textSecondary }}>Bắt đầu {dayjs(o.startDate).format("DD/MM/YYYY")}</span>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Lương đề xuất</span>
+                            <span style={{ fontSize: 18, fontWeight: 700 }}>
+                                {formatMoney(o.salaryOffered)}{PAY_SUFFIX[o.payFrequency ?? "MONTHLY"] ?? ""}
+                            </span>
+                            <Button type="primary" onClick={() => navigate(`/my-offers/${o.id}`)}>Xem thư mời</Button>
+                        </div>
+                    </div>
+                </Panel>
+            ))}
 
-                        return (
-                            <Card
-                                key={offer.id}
-                                style={{
-                                    width: "100%",
-                                    borderRadius: 10,
-                                    borderColor: pending && !expired ? COLORS.primary : undefined,
-                                }}
-                            >
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-                                    <Space orientation="vertical" size={6}>
-                                        <Title level={4} style={{ margin: 0 }}>
-                                            {offer.jobTitle ?? "Thư mời nhận việc"}
-                                        </Title>
-                                        <Text strong style={{ color: COLORS.primary, fontSize: 16 }}>
-                                            {formatMoney(offer.salaryOffered)}
-                                        </Text>
-                                        <Text type="secondary">
-                                            Ngày bắt đầu: {dayjs(offer.startDate).format("DD/MM/YYYY")}
-                                            {offer.responseDeadline
-                                                && ` · Hạn phản hồi: ${dayjs(offer.responseDeadline).format("HH:mm DD/MM/YYYY")}`}
-                                        </Text>
-                                        <Space size={8} wrap>
-                                            <Tag color={STATUS_COLOR[offer.status]} style={{ margin: 0 }}>
-                                                {expired && pending ? "Đã quá hạn phản hồi" : STATUS_LABEL[offer.status]}
-                                            </Tag>
-                                            {countdown && (
-                                                <Text type="warning" style={{ fontSize: 13 }}>
-                                                    <ClockCircleOutlined style={{ marginRight: 4 }} />
-                                                    {countdown}
-                                                </Text>
-                                            )}
-                                        </Space>
-                                    </Space>
-
-                                    <Button
-                                        type={pending && !expired ? "primary" : "default"}
-                                        icon={<FileTextOutlined />}
-                                        onClick={() => openOffer(`/my-offers/${offer.id}`)}
-                                    >
-                                        {pending && !expired ? "Xem và phản hồi" : "Xem chi tiết"}
-                                    </Button>
-                                </div>
-                            </Card>
-                        );
-                    })}
-                </div>
+            {others.length > 0 && (
+                <Panel bodyGap={0}>
+                    {others.map((o, i) => (
+                        <div key={o.id} className="row-clickable" onClick={() => navigate(`/my-offers/${o.id}`)} style={{
+                            display: "flex", alignItems: "center", gap: 12, padding: "12px 0", cursor: "pointer",
+                            borderTop: i ? `0.5px solid ${COLORS.border}` : undefined,
+                        }}>
+                            <StatusTag {...(CLOSED_VIEW[o.status] ?? CLOSED_VIEW.EXPIRED)} />
+                            <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+                                <span style={{ fontWeight: 600 }}>{o.jobTitle ?? "Thư mời nhận việc"}</span>
+                                <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                                    {[deptOf(o), dayjs(o.createdAt).format("DD/MM/YYYY")].filter(Boolean).join(" · ")}
+                                </span>
+                            </div>
+                            <Button size="small">Chi tiết</Button>
+                        </div>
+                    ))}
+                </Panel>
             )}
         </div>
     );

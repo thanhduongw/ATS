@@ -253,12 +253,12 @@ export default function EvaluationSubmitModal({
         {/* 
         <div
           style={{
-            background: "#FFFBEB",
-            border: "1px solid #FDE68A",
+            background: "#FF75001F",
+            border: "1px solid #FF750033",
             borderRadius: RADIUS.md,
             padding: "10px 14px",
             fontSize: 13,
-            color: "#92400E",
+            color: "#FF7500",
           }}
         >
           Đánh giá đã nộp sẽ được khóa lại và không sửa được. Hãy kiểm tra kỹ trước khi nộp.

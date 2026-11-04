@@ -5,9 +5,9 @@ import type { AiScoreStatus, AiTier } from "./types";
 // Chưa phân loại = AI không chắc chắn hoặc thiếu thông tin, HR xem tay. Không có nghĩa là "kém".
 // color = màu thẻ antd, stroke = màu vòng tròn điểm. Muốn đổi chữ/màu thì sửa ở đây.
 export const AI_TIER_META: Record<AiTier, { label: string; color: string; stroke: string }> = {
-    FIT: { label: "Phù hợp", color: "green", stroke: "#22C55E" },
-    UNCLASSIFIED: { label: "Chưa phân loại", color: "gold", stroke: "#F59E0B" },
-    NOT_FIT: { label: "Không phù hợp", color: "red", stroke: "#DC2626" },
+    FIT: { label: "Phù hợp", color: "green", stroke: "#00A06B" },
+    UNCLASSIFIED: { label: "Chưa phân loại", color: "gold", stroke: "#FF7500" },
+    NOT_FIT: { label: "Không phù hợp", color: "red", stroke: "#FA2A2D" },
 };
 
 /** Xếp loại lạ (vd giá trị cũ còn sót trong dữ liệu) -> null, để giao diện bỏ qua thay vì lỗi. */

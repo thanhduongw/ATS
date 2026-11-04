@@ -22,11 +22,12 @@ public class PublicJobPostingController {
     public ResponseEntity<List<JobPostingResponse>> listOpenJobs(
             @RequestParam(required = false) Long employmentTypeId,
             @RequestParam(required = false) Long workLocationId) {
-        return ResponseEntity.ok(jobPostingService.getOpen(employmentTypeId, workLocationId));
+        return ResponseEntity.ok(jobPostingService.getOpen(employmentTypeId, workLocationId).stream()
+                .map(JobPostingResponse::forPublic).toList());
     }
 
     @GetMapping("/jobs/{jobId}")
     public ResponseEntity<JobPostingResponse> getOpenJob(@PathVariable Long jobId) {
-        return ResponseEntity.ok(jobPostingService.getOpenById(jobId));
+        return ResponseEntity.ok(jobPostingService.getOpenById(jobId).forPublic());
     }
 }

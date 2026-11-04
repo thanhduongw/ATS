@@ -32,6 +32,7 @@ public class ApplicationController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedTo,
             @RequestParam(required = false) String aiTier,
+            @RequestParam(required = false) String keyword,
             /* appliedAt,desc (mặc định) | aiScore,desc | aiScore,asc */
             @RequestParam(required = false) String sort,
             @RequestParam(required = false) Integer page,
@@ -41,7 +42,7 @@ public class ApplicationController {
         return ResponseEntity.ok(service.getAll(
                 actor, jobPostingId, candidateId,
                 assignedRecruiterId, recruitmentSourceId, stageType,
-                appliedFrom, appliedTo, aiTier, sort, page, size));
+                appliedFrom, appliedTo, aiTier, keyword, sort, page, size));
     }
 
     @GetMapping("/{id}")
@@ -65,6 +66,15 @@ public class ApplicationController {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireCandidate(actor);
         return ResponseEntity.ok(service.getMyApplication(actor, id));
+    }
+
+    /** Ứng viên tự rút đơn (docs/UI UC06 "Rút đơn ứng tuyển"; quyết định B5). */
+    @PatchMapping("/my/{id}/withdraw")
+    public ResponseEntity<CandidateApplicationResponse> withdrawMyApplication(
+            @PathVariable Long id) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireCandidate(actor);
+        return ResponseEntity.ok(service.withdrawMyApplication(actor, id));
     }
 
     @GetMapping("/access-scope/candidate-ids")

@@ -1,20 +1,21 @@
-import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useState, useRef, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-    App, Card, Row, Col, Tag, Button, Space, Spin, Avatar, Timeline, Popconfirm, Tabs, Skeleton, Alert,
+    App, Tag, Button, Space, Spin, Popconfirm, Tabs, Skeleton, Alert, Input,
 } from "antd";
 import {
-    CalendarOutlined, DollarOutlined, CommentOutlined, SwapOutlined,
-    DownloadOutlined, ExpandOutlined, RobotOutlined, CheckCircleOutlined, CloseCircleOutlined,
-    FileUnknownOutlined, MailOutlined, PhoneOutlined, EnvironmentOutlined,
-    VideoCameraOutlined, LinkOutlined, TeamOutlined, ClockCircleOutlined, StopOutlined,
-    ReloadOutlined,
+    CalendarOutlined, SendOutlined, DownloadOutlined, ExpandOutlined, RobotOutlined,
+    FileUnknownOutlined, EnvironmentOutlined, VideoCameraOutlined, LinkOutlined,
+    ClockCircleOutlined, StopOutlined, ReloadOutlined, LeftOutlined, RightOutlined,
 } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import {
-    getApplicationById, advanceApplicationStage, getApplicationHistory, getApplicationComments,
+    getApplicationById, getApplicationHistory, getApplicationComments, getApplications, addApplicationComment,
 } from "../applicationApi";
+import { getOffers } from "../../offer/offerApi";
+import type { OfferResponse } from "../../offer/types";
 import { getCandidateById } from "../candidateApi";
+import ProposedSlotsPanel from "../../interview/components/ProposedSlotsPanel";
 import { getPostingById } from "../../recruitment/recruitmentApi";
 import { getPipelines, getCatalogItems } from "../../masterdata/masterdataApi";
 import type { PipelineStageResponse } from "../../masterdata/types";
@@ -27,9 +28,14 @@ import InterviewQuickCreateModal from "../../interview/components/InterviewQuick
 import { getInterviews, cancelInterview } from "../../interview/interviewApi";
 import { INTERVIEW_CANCELLABLE, type InterviewResponse } from "../../interview/types";
 import ApplicationEvaluationPanel from "../components/ApplicationEvaluationPanel";
-import { COLORS, SHADOWS } from "../../../app/theme";
-import { PageBreadcrumb } from "../../../components/ui/PageHeader";
-import { stageTypeTagColor, genderLabel, interviewStatusMeta } from "../../../app/statusLabels";
+import { COLORS, FIXED_STAGES } from "../../../app/theme";
+import { OFFER_STATUS, genderLabel, interviewStatusMeta, statusMeta } from "../../../app/statusLabels";
+import StatusTag from "../../../components/ui/StatusTag";
+import { INTERVIEW_HELD } from "../../interview/types";
+import { AiScorePill, Avatar, Panel } from "../../../components/ui/designKit";
+import { aiTierMeta } from "../../ai/aiScore";
+import { fullDate } from "../../../app/datetime";
+import { formatMoney } from "../../../app/money";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
@@ -37,108 +43,21 @@ import CvParseResultPanel from "../../ai/components/CvParseResultPanel";
 import AiScoreCard from "../../ai/components/AiScoreCard";
 import type { CVExtractionResult, ExtractionProvenance, CVExtractionResponse } from "../../ai/types";
 import { getCvExtraction, reExtractCv } from "../../ai/aiApi";
-
-interface ActivityItem {
-    kind: "history" | "comment";
-    timestamp: string;
-    content: ReactNode;
-}
+import StageTag from "../../../components/ui/StageTag";
+import { advanceSteps, planNextFixedStage } from "../stageAdvance";
+import { FIXED_STAGE_LABEL, stageTypeFilterOf, toFixedStage } from "../../../app/stages";
 
 const INTERVIEW_STAGE_TYPES = ["TECHNICAL_INTERVIEW", "HR_INTERVIEW", "FINAL_INTERVIEW"];
 
 const formatDate = (value?: string | null) =>
     value ? new Date(value).toLocaleDateString("vi-VN") : "—";
 
-/** Một ô nhãn — giá trị trong lưới thông tin. */
+/** Một dòng nhãn — giá trị gọn trong tab. */
 function Field({ label, value }: { label: string; value: ReactNode }) {
     return (
-        <div style={{ marginBottom: 18 }}>
-            <div style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 3 }}>
-                {label}
-            </div>
-            <div style={{ fontSize: 14.5, color: COLORS.textPrimary, fontWeight: 500 }}>
-                {value || "—"}
-            </div>
-        </div>
-    );
-}
-
-/** Tiêu đề một khối nội dung trong tab, có gạch chân nhạt. */
-function Section({ title, extra, children }: { title: string; extra?: ReactNode; children: ReactNode }) {
-    return (
-        <section style={{ marginBottom: 32 }}>
-            <div
-                style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    gap: 12, fontSize: 15, fontWeight: 600, color: COLORS.textPrimary,
-                    marginBottom: 16, paddingBottom: 8, borderBottom: `1px solid ${COLORS.borderLight}`,
-                }}
-            >
-                <span>{title}</span>
-                {extra}
-            </div>
-            {children}
-        </section>
-    );
-}
-
-/**
- * Dải quy trình tuyển dụng: bước đã qua, bước hiện tại và bước còn lại,
- * kèm ngày chuyển vòng lấy từ lịch sử hồ sơ.
- */
-function ProcessTimeline({ stages, currentStageId, rejected, stageDates }: {
-    stages: PipelineStageResponse[];
-    currentStageId: number;
-    rejected: boolean;
-    stageDates: Record<string, string>;
-}) {
-    const currentIndex = stages.findIndex((s) => s.id === currentStageId);
-    return (
-        <div style={{ display: "flex", overflowX: "auto", paddingBottom: 8 }}>
-            {stages.map((stage, index) => {
-                const isPast = !rejected && currentIndex >= 0 && index < currentIndex;
-                const isActive = !rejected && index === currentIndex;
-                const dotBg = rejected ? "#FEE2E2" : isActive ? COLORS.accentWarm : isPast ? COLORS.primary : "#E5E7EB";
-                const dotColor = rejected ? COLORS.error : isActive || isPast ? "#fff" : COLORS.textMuted;
-                return (
-                    <div
-                        key={stage.id}
-                        style={{ flex: 1, minWidth: 130, textAlign: "center", position: "relative", padding: "0 8px" }}
-                    >
-                        {index < stages.length - 1 && (
-                            <span
-                                style={{
-                                    position: "absolute", top: 17, left: "50%", width: "100%", height: 3, zIndex: 0,
-                                    background: isPast ? COLORS.primary : "#E5E7EB",
-                                }}
-                            />
-                        )}
-                        <div
-                            style={{
-                                width: 36, height: 36, borderRadius: "50%", margin: "0 auto 10px",
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                fontSize: 14, fontWeight: 600, position: "relative", zIndex: 1,
-                                border: "3px solid #fff", boxShadow: `0 0 0 2px ${dotBg}`,
-                                background: dotBg, color: dotColor,
-                            }}
-                        >
-                            {rejected ? <CloseCircleOutlined /> : isPast ? <CheckCircleOutlined /> : index + 1}
-                        </div>
-                        <div
-                            style={{
-                                fontSize: 13, lineHeight: 1.35,
-                                fontWeight: isActive || isPast ? 600 : 500,
-                                color: isActive || isPast ? COLORS.textPrimary : COLORS.textMuted,
-                            }}
-                        >
-                            {stage.name}
-                        </div>
-                        <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 3 }}>
-                            {stageDates[stage.name] ? formatDate(stageDates[stage.name]) : "—"}
-                        </div>
-                    </div>
-                );
-            })}
+        <div style={{ display: "flex", gap: 12, padding: "6px 0", fontSize: 13 }}>
+            <span style={{ width: 130, flexShrink: 0, color: COLORS.textSecondary }}>{label}</span>
+            <span style={{ fontWeight: 500 }}>{value || "—"}</span>
         </div>
     );
 }
@@ -148,21 +67,17 @@ function ProcessTimeline({ stages, currentStageId, rejected, stageDates }: {
  * de HR khong phai nho "danh gia nam o tab nao".
  */
 function relevantTabFor(stageType: string): string {
-    if (stageType.includes("INTERVIEW")) return "interview";
-    if (stageType === "OFFER" || stageType === "HIRED") return "overview";
+    if (stageType.includes("INTERVIEW")) return "evaluation";
+    if (stageType === "OFFER" || stageType === "HIRED") return "offer";
     if (stageType === "REJECTED") return "activity";
-    // APPLIED, CV_SCREENING, HR_SCREENING và các vòng tùy biến khác: việc đầu tiên là đọc CV.
-    return "resume";
+    // Ứng tuyển, Sàng lọc: việc đầu tiên là đọc CV và xem điểm AI.
+    return "ai";
 }
 
-const TAB_KEYS = ["overview", "resume", "interview", "evaluation", "activity"];
+const TAB_KEYS = ["ai", "evaluation", "interview", "offer", "activity", "info"];
 
-const TAB_HINT: Record<string, string> = {
-    resume: "Cần xem CV",
-    interview: "Đang phỏng vấn",
-    overview: "Đang chờ đề nghị",
-    activity: "Đã kết thúc",
-};
+/** Thứ tự 5 giai đoạn chính (không tính Từ chối) để hiện "3/5". */
+const MAIN_FIXED = FIXED_STAGES.filter((s) => s !== "REJECTED");
 
 export default function CandidateApplicationDetailPage() {
     const { applicationId: applicationIdParam } = useParams();
@@ -181,6 +96,11 @@ export default function CandidateApplicationDetailPage() {
     const [comments, setComments] = useState<ApplicationCommentResponse[]>([]);
     const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
+    const [offers, setOffers] = useState<OfferResponse[]>([]);
+    /** Hồ sơ cùng việc làm, cùng giai đoạn — cho "‹ Trước 3 / 6 trong Phỏng vấn Sau ›". */
+    const [siblings, setSiblings] = useState<ApplicationResponse[]>([]);
+    const [noteDraft, setNoteDraft] = useState("");
+    const [savingNote, setSavingNote] = useState(false);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [cancelingInterviewId, setCancelingInterviewId] = useState<number | null>(null);
@@ -218,6 +138,18 @@ export default function CandidateApplicationDetailPage() {
             setComments(commentsRes.data);
             setInterviews([...interviewsRes.data].sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()));
             setWorkLocationMap(Object.fromEntries(workLocationRes.data.map((w) => [w.id, String(w.name)])));
+            // Phần phụ: lỗi không chặn màn.
+            getOffers({ applicationId, size: 20 })
+                .then((r) => setOffers(r.data.content))
+                .catch(() => setOffers([]));
+            getApplications({
+                jobPostingId: appRes.data.jobPostingId,
+                stageType: stageTypeFilterOf(toFixedStage(appRes.data.currentStageType)),
+                size: 500,
+            })
+                .then((r) => setSiblings([...r.data.content].sort(
+                    (a, b) => new Date(a.appliedAt).getTime() - new Date(b.appliedAt).getTime())))
+                .catch(() => setSiblings([]));
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
             message.error(e.response?.data?.message ?? "Không tải được hồ sơ ứng tuyển");
@@ -277,29 +209,39 @@ export default function CandidateApplicationDetailPage() {
     const handleRetryExtract = useCallback(() => loadExtraction(false), [loadExtraction]);
     const handleReExtract = useCallback(() => loadExtraction(true), [loadExtraction]);
 
-    /** Ngày hồ sơ bước vào từng vòng — lấy lần chuyển vào vòng đó sớm nhất. */
-    const stageDates = useMemo(() => {
-        const map: Record<string, string> = {};
-        [...history]
-            .sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime())
-            .forEach((h) => {
-                if (!map[h.toStageName]) map[h.toStageName] = h.changedAt;
-            });
-        return map;
-    }, [history]);
-
     const handlePass = async () => {
         if (!application) return;
         setActionLoading(true);
         try {
-            await advanceApplicationStage(application.id, { note: "Chuyển vòng tiếp theo" });
-            message.success("Đã chuyển vòng tiếp theo, ứng viên sẽ được thông báo qua email");
+            // Sang giai đoạn cố định kế tiếp (DS06). Quy trình 6 bước: 1 lần; quy trình cũ 9 bước: có thể nhiều lần.
+            const plan = planNextFixedStage(stages, application.currentStageId);
+            await advanceSteps(application.id, plan?.steps ?? 1, "Chuyển giai đoạn tiếp theo");
+            message.success(plan
+                ? `Đã chuyển sang ${FIXED_STAGE_LABEL[plan.target]}, ứng viên sẽ được thông báo qua email`
+                : "Đã chuyển giai đoạn, ứng viên sẽ được thông báo qua email");
             loadAll();
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
             message.error(e.response?.data?.message ?? "Thất bại");
         } finally {
             setActionLoading(false);
+        }
+    };
+
+    const handleSaveNote = async () => {
+        const content = noteDraft.trim();
+        if (!content) return;
+        setSavingNote(true);
+        try {
+            await addApplicationComment(applicationId, content);
+            setNoteDraft("");
+            const res = await getApplicationComments(applicationId);
+            setComments(res.data);
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Không lưu được ghi chú");
+        } finally {
+            setSavingNote(false);
         }
     };
 
@@ -345,137 +287,62 @@ export default function CandidateApplicationDetailPage() {
     const activeTabKey = requestedTab && TAB_KEYS.includes(requestedTab)
         ? requestedTab
         : stageTabKey;
-    const tabLabel = (key: string, text: string) => (
-        key === stageTabKey && TAB_HINT[key] ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                {text}
-                <Tag color="processing" style={{ margin: 0, fontSize: 11, lineHeight: "16px" }}>
-                    {TAB_HINT[key]}
-                </Tag>
-            </span>
-        ) : text
-    );
-
-    const mainStages = stages.filter((s) => s.stageType !== "REJECTED");
-    const currentStageIndex = mainStages.findIndex((s) => s.id === application.currentStageId);
-    const nextStage = currentStageIndex >= 0 && currentStageIndex < mainStages.length - 1
-        ? mainStages[currentStageIndex + 1] : null;
+    const nextPlan = planNextFixedStage(stages, application.currentStageId);
+    const fixedStage = toFixedStage(application.currentStageType);
+    const stepIndex = (MAIN_FIXED as readonly string[]).indexOf(fixedStage) + 1;
+    const siblingIndex = siblings.findIndex((s) => s.id === application.id);
+    const prevSibling = siblingIndex > 0 ? siblings[siblingIndex - 1] : null;
+    const nextSibling = siblingIndex >= 0 && siblingIndex < siblings.length - 1 ? siblings[siblingIndex + 1] : null;
+    const openSibling = (a: ApplicationResponse) => navigate(`/candidates/${a.candidateId}/applications/${a.id}`);
+    const activeInterviews = interviews.filter((iv) => iv.status !== "CANCELLED");
+    const evalDone = activeInterviews.reduce((n, iv) => n + iv.interviewers.filter((i) => i.evaluationSubmitted).length, 0);
+    const evalTotal = activeInterviews.reduce((n, iv) => n + iv.interviewers.length, 0);
+    const tier = aiTierMeta(application.aiTier);
 
     // Chỉ cho phép lên lịch khi hồ sơ đang thực sự ở một vòng phỏng vấn.
     const showInterviewBtn = INTERVIEW_STAGE_TYPES.includes(application.currentStageType);
     const showOfferBtn = application.currentStageType === "OFFER";
 
-    const activity: ActivityItem[] = [
+    const fmtStamp = (v: string) => {
+        const d = new Date(v);
+        return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    };
+    const activity = [
         ...history.map((h) => ({
-            kind: "history" as const,
-            timestamp: h.changedAt,
-            content: (
-                <>
-                    <div style={{ fontWeight: 500 }}>{h.fromStageName ? `${h.fromStageName} → ${h.toStageName}` : `Bắt đầu: ${h.toStageName}`}</div>
-                    {h.note && <div style={{ color: COLORS.textSecondary, fontSize: 12 }}>{h.note}</div>}
-                    <div style={{ color: COLORS.textMuted, fontSize: 12 }}>
-                        {h.changedByUserName} · {new Date(h.changedAt).toLocaleString("vi-VN")}
-                    </div>
-                </>
-            ),
+            key: `h-${h.id}`, at: h.changedAt, who: h.changedByUserName, whoId: h.changedByUserId,
+            what: h.fromStageName ? `chuyển sang ${h.toStageName}` : `nộp hồ sơ · ${h.toStageName}`,
+            body: h.note,
         })),
         ...comments.map((c) => ({
-            kind: "comment" as const,
-            timestamp: c.createdAt,
-            content: (
-                <>
-                    <div style={{ whiteSpace: "pre-wrap" }}>{c.content}</div>
-                    <div style={{ color: COLORS.textMuted, fontSize: 12 }}>
-                        {c.authorUserName} · {new Date(c.createdAt).toLocaleString("vi-VN")}
-                    </div>
-                </>
-            ),
+            key: `c-${c.id}`, at: c.createdAt, who: c.authorUserName, whoId: c.authorUserId,
+            what: "ghi chú", body: c.content,
         })),
-    ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
-    const getInitials = (name: string) => {
-        const parts = name.split(" ").filter(Boolean);
-        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        return name.substring(0, 2).toUpperCase();
-    };
-
-    const metaItem = (icon: ReactNode, value: ReactNode) => (
-        <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13.5, color: COLORS.textSecondary }}>
-            {icon} {value}
-        </span>
-    );
-
-    /* ── Tab 1: Tổng quan ─────────────────────────────── */
-    const overviewTab = (
-        <>
-            {mainStages.length > 0 && (
-                <Section title="Quy trình tuyển dụng">
-                    <ProcessTimeline
-                        stages={mainStages}
-                        currentStageId={application.currentStageId}
-                        rejected={isRejected}
-                        stageDates={stageDates}
-                    />
-                </Section>
+    /* ── Tab: Thông tin (giữ phần dữ liệu cũ không có trong HTML nhưng vẫn cần) ── */
+    const infoTab = (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+            <Field label="Ngày sinh" value={formatDate(candidate.dateOfBirth)} />
+            <Field label="Giới tính" value={genderLabel(candidate.gender)} />
+            <Field label="Học vấn" value={candidate.educationLevelName} />
+            <Field label="Địa chỉ" value={candidate.address} />
+            <Field label="Phòng ban" value={application.departmentName} />
+            <Field label="Nguồn ứng tuyển" value={application.recruitmentSourceName} />
+            {application.rejectionReasonName && <Field label="Lý do từ chối" value={application.rejectionReasonName} />}
+            {application.note && <Field label="Ghi chú ứng tuyển" value={application.note} />}
+            {candidate.skillNames?.length > 0 && (
+                <Field label="Kỹ năng" value={(
+                    <Space wrap size={4}>
+                        {candidate.skillNames.map((s) => <Tag key={s} style={{ margin: 0 }}>{s}</Tag>)}
+                    </Space>
+                )} />
             )}
-
-            {/* Ho ten, email, dien thoai, dia chi da nam tren the dinh danh phia tren
-                nen khong lap lai o day. */}
-            <Section title="Thông tin cơ bản">
-                <Row gutter={48}>
-                    <Col xs={24} md={12}>
-                        <Field label="Ngày sinh" value={formatDate(candidate.dateOfBirth)} />
-                        <Field label="Vị trí hiện tại" value={candidate.currentPosition} />
-                    </Col>
-                    <Col xs={24} md={12}>
-                        <Field label="Giới tính" value={genderLabel(candidate.gender)} />
-                        <Field label="Học vấn" value={candidate.educationLevelName} />
-                    </Col>
-                </Row>
-                {candidate.skillNames?.length > 0 && (
-                    <div>
-                        <div style={{ fontSize: 12.5, color: COLORS.textSecondary, fontWeight: 500, marginBottom: 6 }}>
-                            Kỹ năng
-                        </div>
-                        <Space wrap size={4}>
-                            {candidate.skillNames.map((s) => (
-                                <Tag key={s} color="blue" style={{ borderRadius: 6 }}>{s}</Tag>
-                            ))}
-                        </Space>
-                    </div>
-                )}
-            </Section>
-
-            <Section title="Thông tin ứng tuyển">
-                <Row gutter={48}>
-                    <Col xs={24} md={12}>
-                        <Field label="Phòng ban" value={application.departmentName} />
-                        <Field label="Nguồn ứng tuyển" value={application.recruitmentSourceName} />
-                    </Col>
-                    <Col xs={24} md={12}>
-                        {application.rejectionReasonName && (
-                            <Field label="Lý do từ chối" value={application.rejectionReasonName} />
-                        )}
-                    </Col>
-                </Row>
-                {application.note && (
-                    <Field label="Ghi chú ứng tuyển" value={application.note} />
-                )}
-            </Section>
-
-        </>
+        </div>
     );
 
     /* ── Tab: Phỏng vấn ──────────────────────────────── */
     const interviewTab = (
-        <Section
-            title="Lịch phỏng vấn"
-            extra={isHr && showInterviewBtn ? (
-                <Button size="small" icon={<CalendarOutlined />} onClick={() => setInterviewModalOpen(true)}>
-                    Lên lịch
-                </Button>
-            ) : undefined}
-        >
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {interviews.length === 0 ? (
                 <div style={{ color: COLORS.textMuted, fontSize: 13, padding: "8px 0" }}>
                     Chưa có lịch phỏng vấn nào cho hồ sơ này.
@@ -489,7 +356,7 @@ export default function CandidateApplicationDetailPage() {
                         return (
                             <div key={iv.id} style={{
                                 display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16,
-                                padding: "14px 16px", borderRadius: 10, border: `1px solid ${COLORS.borderLight}`, background: "#F9FAFB",
+                                padding: "14px 16px", borderRadius: 14, background: COLORS.fill,
                             }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
@@ -517,7 +384,7 @@ export default function CandidateApplicationDetailPage() {
                                         ) : null}
                                         {iv.interviewers.length > 0 && (
                                             <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                <TeamOutlined /> {iv.interviewers.map((p) => p.fullName).join(", ")}
+                                                <span style={{ color: COLORS.textMuted }}>Người phỏng vấn:</span> {iv.interviewers.map((p) => p.fullName).join(", ")}
                                             </span>
                                         )}
                                     </div>
@@ -544,48 +411,86 @@ export default function CandidateApplicationDetailPage() {
                     })}
                 </div>
             )}
-        </Section>
-
+            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                Mỗi ứng viên thường có 1 buổi phỏng vấn; chuyên viên tuyển dụng có thể thêm buổi khi cần.
+            </span>
+        </div>
     );
 
-    /* ── Tab: Hoạt động ──────────────────────────────── */
+    /* ── Tab: Hoạt động (R13) — ghi chú + dòng thời gian, mới nhất trên cùng ── */
     const activityTab = (
-        <Section title="Lịch sử hoạt động">
-            {activity.length === 0 ? (
-                <div style={{ color: COLORS.textMuted, fontSize: 13, padding: "8px 0" }}>
-                    Chưa có hoạt động nào.
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {role !== "CANDIDATE" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <Input.TextArea
+                        rows={2}
+                        value={noteDraft}
+                        onChange={(e) => setNoteDraft(e.target.value)}
+                        placeholder="Viết ghi chú cho đồng nghiệp…"
+                        maxLength={2000}
+                    />
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <Button size="small" type="primary" disabled={!noteDraft.trim()} loading={savingNote} onClick={handleSaveNote}>
+                            Lưu ghi chú
+                        </Button>
+                    </div>
                 </div>
-            ) : (
-                <Timeline
-                    items={activity.map((item) => ({
-                        dot: item.kind === "comment" ? <CommentOutlined /> : <SwapOutlined />,
-                        children: item.content,
-                    }))}
-                />
             )}
-        </Section>
+            {activity.length === 0 ? (
+                <span style={{ color: COLORS.textSecondary, fontSize: 13 }}>Chưa có hoạt động nào.</span>
+            ) : activity.map((a) => (
+                <div key={a.key} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <Avatar name={a.who} colorKey={a.whoId} size={28} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2, flexGrow: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
+                            <span><b style={{ fontWeight: 600 }}>{a.who}</b> <span style={{ color: COLORS.textSecondary }}>{a.what}</span></span>
+                            <span style={{ fontSize: 12, color: COLORS.textMuted, flexShrink: 0 }}>{fmtStamp(a.at)}</span>
+                        </div>
+                        {a.body && <span style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{a.body}</span>}
+                    </div>
+                </div>
+            ))}
+        </div>
     );
 
-    /* ── Tab 2: Hồ sơ CV ──────────────────────────────── */
-    /* ── Tab: Hồ sơ ─────────────────────────────────── */
-    // Thẻ chấm điểm AI đặt ở đầu tab Hồ sơ, cạnh CV và kết quả AI trích xuất CV — HR đối chiếu dẫn chứng với CV ngay tại chỗ.
-    const resumeTab = (
-        <>
-        <Section title="Mức độ phù hợp (AI)">
-            <AiScoreCard
-                applicationId={application.id}
-                canRescore={isHr}
-                hasResume={!!application.resumeUrl}
-            />
-        </Section>
-        <Row gutter={24}>
-            <Col xs={24} lg={15}>
+    /* ── Tab: Thư mời ── */
+    const offerTab = offers.length === 0 ? (
+        <span style={{ color: COLORS.textSecondary, fontSize: 13 }}>
+            {fixedStage === "OFFER" ? "Chưa có thư mời cho hồ sơ này." : "Thư mời được soạn khi hồ sơ tới giai đoạn Thư mời."}
+        </span>
+    ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {offers.map((o) => (
+                <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => navigate(`/offers/${o.id}`)}
+                    style={{
+                        all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 12,
+                        padding: "12px 14px", borderRadius: 14, background: COLORS.fill,
+                    }}
+                >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2, flexGrow: 1 }}>
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>Thư mời #{o.id}</span>
+                        <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                            {o.salaryOffered != null ? `${formatMoney(o.salaryOffered)} · ` : ""}Khởi đầu {fullDate(o.startDate)}{o.responseDeadline ? ` · hạn phản hồi ${fullDate(o.responseDeadline)}` : ""}
+                        </span>
+                    </div>
+                    <StatusTag {...statusMeta(OFFER_STATUS, o.status)} />
+                    <RightOutlined style={{ color: COLORS.textMuted, fontSize: 12 }} />
+                </button>
+            ))}
+        </div>
+    );
+
+    /* ── CV (cột trái, R14) ── */
+    const cvPanel = (
                 <div style={{
                     border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, overflow: "hidden",
-                    background: "#F8FAFC", minHeight: 620, display: "flex", flexDirection: "column",
+                    background: "#1824310C", minHeight: 620, display: "flex", flexDirection: "column",
                 }}>
                     <div style={{
-                        background: "#F1F5F9", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`,
+                        background: "#1824311A", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`,
                         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
                         fontSize: 13, fontWeight: 500,
                     }}>
@@ -619,13 +524,16 @@ export default function CandidateApplicationDetailPage() {
                         </div>
                     )}
                 </div>
-            </Col>
+    );
 
-            <Col xs={24} lg={9}>
+    /* ── Tab Điểm AI: thẻ chấm điểm + thông tin AI trích xuất từ CV ── */
+    const aiTab = (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <AiScoreCard applicationId={application.id} canRescore={isHr} hasResume={!!application.resumeUrl} />
                 {/* ── AI Loading state ── */}
                 {aiLoading && (
                     <div style={{
-                        background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 12, padding: "24px 20px",
+                        background: "#7C4DFF1A", border: "1px solid #7C4DFF33", borderRadius: 12, padding: "24px 20px",
                     }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
                             <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI</Tag>
@@ -634,7 +542,7 @@ export default function CandidateApplicationDetailPage() {
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "20px 0" }}>
                             <div style={{
                                 width: 64, height: 64, borderRadius: "50%",
-                                background: "linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)",
+                                background: "linear-gradient(135deg, #7C4DFF 0%, #3F56EA 100%)",
                                 display: "flex", alignItems: "center", justifyContent: "center",
                                 animation: "pulse 1.5s ease-in-out infinite",
                             }}>
@@ -662,7 +570,7 @@ export default function CandidateApplicationDetailPage() {
                 {/* ── AI Error state ── */}
                 {!aiLoading && aiError && (
                     <div style={{
-                        background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 12, padding: "18px 20px",
+                        background: "#FA2A2D17", border: "1px solid #FA2A2D33", borderRadius: 12, padding: "18px 20px",
                     }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                             <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI</Tag>
@@ -706,7 +614,7 @@ export default function CandidateApplicationDetailPage() {
                 {/* ── No CV uploaded & no extraction in progress ── */}
                 {!aiLoading && !aiError && !aiResult && !application.resumeUrl && (
                     <div style={{
-                        background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 12, padding: "18px 20px",
+                        background: "#7C4DFF1A", border: "1px solid #7C4DFF33", borderRadius: 12, padding: "18px 20px",
                     }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                             <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI</Tag>
@@ -714,10 +622,10 @@ export default function CandidateApplicationDetailPage() {
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                             <div style={{
-                                width: 52, height: 52, borderRadius: "50%", background: "#EDE9FE", flexShrink: 0,
+                                width: 52, height: 52, borderRadius: "50%", background: "#7C4DFF1A", flexShrink: 0,
                                 display: "flex", alignItems: "center", justifyContent: "center",
                             }}>
-                                <FileUnknownOutlined style={{ fontSize: 22, color: "#8B5CF6" }} />
+                                <FileUnknownOutlined style={{ fontSize: 22, color: "#7C4DFF" }} />
                             </div>
                             <div style={{ fontSize: 13.5, color: COLORS.textSecondary, lineHeight: 1.55 }}>
                                 <div style={{ fontWeight: 600, color: COLORS.textPrimary, marginBottom: 2 }}>
@@ -728,127 +636,130 @@ export default function CandidateApplicationDetailPage() {
                         </div>
                     </div>
                 )}
-            </Col>
-        </Row>
-        </>
+            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Điểm AI chỉ để tham khảo, không thay đánh giá phỏng vấn.</span>
+        </div>
     );
 
     return (
-        <div className="page-container animate-fade-in" style={{ maxWidth: 1280 }}>
-            {/* Thẻ định danh bên dưới đã là tiêu đề trang, nên ở đây chỉ cần dải phân cấp. */}
-            <PageBreadcrumb crumb={candidate.fullName} />
+        <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Dải điều hướng: Ứng viên › Tên · Trước / Sau trong cùng giai đoạn của việc làm */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
+                    <a onClick={() => navigate("/applications")}>Ứng viên</a>
+                    <span style={{ margin: "0 6px", color: COLORS.textMuted }}>›</span>
+                    <span style={{ color: COLORS.textPrimary, fontWeight: 600 }}>{candidate.fullName}</span>
+                </span>
+                {siblingIndex >= 0 && siblings.length > 1 && (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: COLORS.textSecondary }}>
+                        <Button size="small" type="text" icon={<LeftOutlined />} disabled={!prevSibling} onClick={() => prevSibling && openSibling(prevSibling)}>Trước</Button>
+                        {siblingIndex + 1} / {siblings.length} trong {FIXED_STAGE_LABEL[fixedStage]}
+                        <Button size="small" type="text" disabled={!nextSibling} onClick={() => nextSibling && openSibling(nextSibling)}>
+                            Sau <RightOutlined />
+                        </Button>
+                    </span>
+                )}
+            </div>
 
-            {/* ── Thẻ định danh ứng viên ───────────────────── */}
-            <Card
-                style={{
-                    border: `1px solid ${COLORS.borderLight}`, borderRadius: 12,
-                    boxShadow: SHADOWS.card, marginBottom: 20,
-                }}
-                styles={{ body: { padding: "24px 28px" } }}
-            >
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
-                    <Avatar
-                        size={88}
-                        style={{ background: COLORS.primary, color: "#fff", fontWeight: 600, fontSize: 30, flexShrink: 0 }}
-                    >
-                        {getInitials(candidate.fullName)}
-                    </Avatar>
+            {/* Khung giờ đã gửi ở R18 "Để ứng viên chọn": ứng viên chọn xong thì HR chốt lịch ở đây. */}
+            {isHr && <ProposedSlotsPanel applicationId={application.id} onScheduled={() => void loadAll()} />}
 
-                    <div style={{ flex: "1 1 320px", minWidth: 0 }}>
-                        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: COLORS.textPrimary }}>
-                            {candidate.fullName}
-                        </h1>
-                        <div style={{ fontSize: 15, color: COLORS.primary, fontWeight: 500, margin: "4px 0 12px" }}>
-                            {application.jobTitle || `Tin tuyển dụng #${application.jobPostingId}`}
+            {/* ── Thẻ định danh ── */}
+            <Panel>
+                <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+                    <Avatar name={candidate.fullName} colorKey={candidate.id} size={56} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 320px", minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 22, fontWeight: 700 }}>{candidate.fullName}</span>
+                            {application.aiScore != null && (
+                                <AiScorePill score={Math.round(application.aiScore)} suffix={tier ? ` ${tier.label.toLowerCase()}` : undefined} />
+                            )}
                         </div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 22px" }}>
-                            {metaItem(<MailOutlined />, candidate.email)}
-                            {candidate.phone && metaItem(<PhoneOutlined />, candidate.phone)}
-                            {candidate.address && metaItem(<EnvironmentOutlined />, candidate.address)}
-                            {metaItem(<CalendarOutlined />, `Ứng tuyển: ${formatDate(application.appliedAt)}`)}
+                        {candidate.currentPosition && <span style={{ fontSize: 14 }}>{candidate.currentPosition}</span>}
+                        <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
+                            {[candidate.email, candidate.phone, `Ứng tuyển ${fullDate(application.appliedAt)}`,
+                                application.assignedRecruiterName ? `Phụ trách: ${application.assignedRecruiterName}` : null]
+                                .filter(Boolean).join(" · ")}
+                        </span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10, marginLeft: "auto" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                            <a onClick={() => navigate(`/recruitment/postings/${application.jobPostingId}`)} style={{ fontWeight: 600 }}>
+                                {application.jobTitle || `Việc làm #${application.jobPostingId}`}
+                            </a>
+                            <StageTag stageType={application.currentStageType} />
+                            {stepIndex > 0 && <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{stepIndex}/{MAIN_FIXED.length}</span>}
                         </div>
-                    </div>
-
-                    {/* Trang thai luon bam phai cung hang voi ten; nhom nut xuong hang rieng ben duoi
-                        de khong bi day lech khi ten hoac tieu de tin tuyen dung dai. */}
-                    <div style={{ marginLeft: "auto", flexShrink: 0 }}>
-                        <Tag
-                            color={stageTypeTagColor(application.currentStageType)}
-                            style={{ margin: 0, borderRadius: 20, padding: "5px 14px", fontSize: 13, fontWeight: 500 }}
-                        >
-                            {application.currentStageName}
-                        </Tag>
-                    </div>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-                    <div>
-                        {isHired ? (
-                            <Tag color="success" style={{ margin: 0, borderRadius: 8, padding: "6px 14px", fontWeight: 600 }}>
-                                <CheckCircleOutlined /> Đã tuyển dụng thành công
-                            </Tag>
-                        ) : isRejected ? (
-                            <Tag color="error" style={{ margin: 0, borderRadius: 8, padding: "6px 14px", fontWeight: 600 }}>
-                                <CloseCircleOutlined /> Hồ sơ đã bị từ chối
-                            </Tag>
-                        ) : isHr ? (
+                        {!isHr && (() => {
+                            /* H09: Đại diện phòng ban chỉ xem hồ sơ và nộp đánh giá buổi mình được phân công. */
+                            const mine = interviews.find((iv) => INTERVIEW_HELD.has(iv.status)
+                                && iv.interviewers.some((p) => p.interviewerId === currentUserId && !p.evaluationSubmitted));
+                            return (
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                                    {mine && (
+                                        <Button type="primary" onClick={() => navigate(`/candidates/${application.candidateId}/applications/${application.id}/evaluate?interviewId=${mine.id}`)}>
+                                            Viết đánh giá
+                                        </Button>
+                                    )}
+                                    <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Bạn chỉ xem hồ sơ và nộp đánh giá</span>
+                                </div>
+                            );
+                        })()}
+                        {isHr && !isHired && !isRejected && (
                             <Space wrap size={8} style={{ justifyContent: "flex-end" }}>
-                                <Button type="text" danger icon={<CloseCircleOutlined />} onClick={() => setRejectModalOpen(true)}>
-                                    Từ chối hồ sơ
-                                </Button>
                                 {showInterviewBtn && (
-                                    <Button icon={<CalendarOutlined />} onClick={() => setInterviewModalOpen(true)}>
-                                        Lên lịch phỏng vấn
+                                    <Button icon={<CalendarOutlined />} onClick={() => navigate(`/interviews/schedule/${application.id}`)}>
+                                        {activeInterviews.length ? "Thêm buổi phỏng vấn" : "Lên lịch phỏng vấn"}
                                     </Button>
                                 )}
-                                {showOfferBtn && (
-                                    <Button
-                                        icon={<DollarOutlined />}
-                                        style={{ background: "#722ED1", color: "#fff", borderColor: "#722ED1" }}
-                                        onClick={() => navigate(`/offers/create?applicationId=${application.id}`)}
-                                    >
-                                        Tạo đề nghị nhận việc
+                                {showOfferBtn && !offers.some((o) => o.status !== "REJECTED" && o.status !== "EXPIRED") && (
+                                    <Button icon={<SendOutlined />} onClick={() => navigate(`/offers/create?applicationId=${application.id}`)}>
+                                        Soạn thư mời
                                     </Button>
                                 )}
-                                <Button type="primary" icon={<CheckCircleOutlined />} loading={actionLoading} onClick={handlePass}>
-                                    {nextStage ? `Chuyển sang "${nextStage.name}"` : "Chuyển vòng tiếp theo"}
-                                </Button>
+                                <Button danger onClick={() => setRejectModalOpen(true)}>Từ chối</Button>
+                                {nextPlan && nextPlan.target !== "HIRED" && (
+                                    <Button type="primary" loading={actionLoading} onClick={handlePass}>
+                                        Chuyển sang {FIXED_STAGE_LABEL[nextPlan.target]}
+                                    </Button>
+                                )}
                             </Space>
-                        ) : null}
+                        )}
                     </div>
                 </div>
-            </Card>
+            </Panel>
 
-            {/* ── Ba tab nội dung ──────────────────────────── */}
-            <Card
-                style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12 }}
-                styles={{ body: { padding: "8px 28px 28px" } }}
-            >
-                <Tabs
-                    defaultActiveKey={activeTabKey}
-                    size="large"
-                    items={[
-                        { key: "overview", label: tabLabel("overview", "Tổng quan"), children: overviewTab },
-                        { key: "resume", label: tabLabel("resume", "Hồ sơ"), children: resumeTab },
-                        { key: "interview", label: tabLabel("interview", "Phỏng vấn"), children: interviewTab },
-                        {
-                            key: "evaluation",
-                            label: tabLabel("evaluation", "Đánh giá"),
-                            children: (
-                                <ApplicationEvaluationPanel
-                                    candidateId={application.candidateId}
-                                    applicationId={application.id}
-                                    interviews={interviews}
-                                    history={history}
-                                    currentUserId={currentUserId}
-                                    isHr={isHr}
-                                />
-                            ),
-                        },
-                        { key: "activity", label: tabLabel("activity", "Hoạt động"), children: activityTab },
-                    ]}
-                />
-            </Card>
+            {/* ── CV trái · tab phải ── */}
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 460px", minWidth: 0 }}>{cvPanel}</div>
+                <Panel style={{ flex: "1 1 540px", minWidth: 0 }}>
+                    <Tabs
+                        defaultActiveKey={activeTabKey}
+                        size="small"
+                        tabBarGutter={18}
+                        items={[
+                            { key: "ai", label: "Điểm AI", children: aiTab },
+                            {
+                                key: "evaluation",
+                                label: evalTotal ? `Đánh giá ${evalDone}/${evalTotal}` : "Đánh giá",
+                                children: (
+                                    <ApplicationEvaluationPanel
+                                        candidateId={application.candidateId}
+                                        applicationId={application.id}
+                                        interviews={interviews}
+                                        history={history}
+                                        currentUserId={currentUserId}
+                                        isHr={isHr}
+                                    />
+                                ),
+                            },
+                            { key: "interview", label: activeInterviews.length ? `Phỏng vấn ${activeInterviews.length}` : "Phỏng vấn", children: interviewTab },
+                            { key: "offer", label: "Thư mời", children: offerTab },
+                            { key: "activity", label: "Hoạt động", children: activityTab },
+                            { key: "info", label: "Thông tin", children: infoTab },
+                        ]}
+                    />
+                </Panel>
+            </div>
 
             <InterviewQuickCreateModal
                 open={interviewModalOpen}

@@ -27,7 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         "SERVICES_NOTIFICATION_SERVICE_URL=http://notification-service:8086",
         "SERVICES_DASHBOARD_SERVICE_URL=http://dashboard-service:8087",
         "SERVICES_APPLICATION_SERVICE_URL=http://application-service:8089",
-        "SERVICES_OFFER_SERVICE_URL=http://offer-service:8090"
+        "SERVICES_OFFER_SERVICE_URL=http://offer-service:8090",
+        "SERVICES_AI_SERVICE_URL=http://ai-service:8088"
 })
 class GatewayRouteConfigurationTest {
 
@@ -51,7 +52,7 @@ class GatewayRouteConfigurationTest {
     }
 
     @Test
-    void exposesExactlyTheNineDownstreamServicesPlusTheWebSocketRoute() {
+    void exposesExactlyTheTenDownstreamServicesPlusTheWebSocketRoute() {
         assertThat(routesById()).containsOnlyKeys(
                 "auth-service",
                 "masterdata-service",
@@ -62,6 +63,7 @@ class GatewayRouteConfigurationTest {
                 "dashboard-service",
                 "application-service",
                 "offer-service",
+                "ai-service",
                 "notification-websocket");
     }
 

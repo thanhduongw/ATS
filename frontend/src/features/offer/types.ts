@@ -12,7 +12,9 @@ export type OfferStatus =
   | "APPROVED"
   | "REJECTED"
   | "ACCEPTED"
-  | "DECLINED";
+  | "DECLINED"
+  /** Quá hạn phản hồi (docs/UI R25). */
+  | "EXPIRED";
 
 export interface OfferResponse {
   id: number;
@@ -50,6 +52,13 @@ export interface OfferResponse {
   submittedAt: string | null;
   approvedAt: string | null;
   responseDeadline: string | null;
+  /** Thời điểm gửi cho ứng viên. */
+  issuedAt?: string | null;
+  expiredAt?: string | null;
+  candidateRespondedAt?: string | null;
+  /** Số lần ứng viên mở thư đang chờ phản hồi (R43, UR17). */
+  candidateViewCount?: number | null;
+  candidateLastViewedAt?: string | null;
 }
 
 export interface OfferCreateRequest {

@@ -17,13 +17,15 @@ export const POSTING_STATUS: Record<string, StatusMeta> = {
     CLOSED: { label: "Đã đóng", color: "default" },
 };
 
+/** Thư mời — nhãn theo R25, sắc độ theo DS06 ("Đã gửi chờ phản hồi" = cam, "Ứng viên nhận" = xanh lá). */
 export const OFFER_STATUS: Record<string, StatusMeta> = {
     DRAFT: { label: "Bản nháp", color: "default" },
     PENDING_APPROVAL: { label: "Chờ duyệt", color: "warning" },
-    APPROVED: { label: "Đã gửi ứng viên", color: "processing" },
+    APPROVED: { label: "Đã gửi", color: "warning" },
     REJECTED: { label: "Từ chối duyệt", color: "error" },
     ACCEPTED: { label: "Ứng viên nhận", color: "success" },
-    DECLINED: { label: "Ứng viên từ chối", color: "magenta" },
+    DECLINED: { label: "Ứng viên từ chối", color: "error" },
+    EXPIRED: { label: "Hết hạn", color: "default" },
 };
 
 /**
@@ -45,35 +47,35 @@ export type InterviewStatusMeta = StatusMeta & {
 export const INTERVIEW_STATUS: Record<string, InterviewStatusMeta> = {
     SCHEDULED: {
         label: "Chờ phòng ban xác nhận", color: "warning",
-        accent: "#D97706", bg: "#FFFBEB", border: "#FDE68A",
+        accent: "#FF7500", bg: "#FF75001F", border: "#FF750033",
     },
     HM_RESCHEDULE_PROPOSED: {
         label: "Phòng ban đề xuất đổi giờ", color: "orange",
-        accent: "#EA580C", bg: "#FFF7ED", border: "#FED7AA",
+        accent: "#FF7500", bg: "#FF75001F", border: "#FF750033",
     },
     HM_CONFIRMED: {
         label: "Chờ ứng viên xác nhận", color: "processing",
-        accent: "#3B82F6", bg: "#EFF6FF", border: "#BFDBFE",
+        accent: "#0A59F7", bg: "#0A59F719", border: "#0A59F733",
     },
     CANDIDATE_CONFIRMED: {
         label: "Ứng viên đã xác nhận", color: "success",
-        accent: "#0E7A5F", bg: "#F0FDF4", border: "#A7F3D0",
+        accent: "#0A59F7", bg: "#00CB8724", border: "#00A06B33",
     },
     EVALUATION_PENDING: {
         label: "Chờ đánh giá", color: "purple",
-        accent: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE",
+        accent: "#7C4DFF", bg: "#7C4DFF1A", border: "#7C4DFF33",
     },
     COMPLETED: {
         label: "Hoàn thành", color: "default",
-        accent: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB",
+        accent: "#18243199", bg: "#1824310C", border: "#1824311A",
     },
     NO_SHOW: {
         label: "Vắng mặt", color: "gold",
-        accent: "#B45309", bg: "#FEF3C7", border: "#FCD34D",
+        accent: "#FF7500", bg: "#FF75001F", border: "#FF750033",
     },
     CANCELLED: {
         label: "Đã hủy", color: "error",
-        accent: "#DC2626", bg: "#FEF2F2", border: "#FECACA",
+        accent: "#FA2A2D", bg: "#FA2A2D17", border: "#FA2A2D33",
     },
 };
 
@@ -109,7 +111,7 @@ export const INTERVIEW_STATUS_ORDER = [
 
 const INTERVIEW_STATUS_FALLBACK: InterviewStatusMeta = {
     label: "—", color: "default",
-    accent: "#9CA3AF", bg: "#F9FAFB", border: "#E5E7EB",
+    accent: "#18243166", bg: "#1824310C", border: "#1824311A",
 };
 
 /**
@@ -131,6 +133,16 @@ export function interviewStatusMeta(
 }
 
 export const AUDIT_ACTION_LABEL: Record<string, string> = {
+    LOGIN: "Đăng nhập",
+    LOGIN_GOOGLE: "Đăng nhập bằng Google",
+    LOGOUT: "Đăng xuất",
+    PASSWORD_RESET: "Đặt lại mật khẩu",
+    PASSWORD_CHANGED: "Đổi mật khẩu",
+    USER_CREATED: "Tạo tài khoản",
+    USER_INVITED: "Mời người dùng",
+    USER_INVITATION_RESENT: "Gửi lại lời mời",
+    USER_INVITATION_ACCEPTED: "Kích hoạt tài khoản từ lời mời",
+    USER_STATUS_UPDATED: "Đổi trạng thái tài khoản",
     APPLICATION_STAGE_CHANGED: "Đổi giai đoạn hồ sơ",
     APPLICATION_REJECTED: "Từ chối hồ sơ",
     APPLICATION_CREATED: "Tạo hồ sơ ứng tuyển",
@@ -177,17 +189,21 @@ export const RESOURCE_TYPE_LABEL: Record<string, string> = {
     USER: "Người dùng",
 };
 
+/**
+ * Nhãn giai đoạn hiển thị — luôn là 1 trong 6 giai đoạn cố định (DS06, quyết định B1).
+ * Không dùng "Sàng lọc CV", "Phỏng vấn kỹ thuật"… trên giao diện.
+ */
 export const STAGE_TYPE_LABEL: Record<string, string> = {
-    APPLIED: "Mới ứng tuyển",
-    CV_SCREENING: "Sàng lọc CV",
-    HR_SCREENING: "Sàng lọc HR",
-    TECHNICAL_INTERVIEW: "Phỏng vấn kỹ thuật",
-    HR_INTERVIEW: "Phỏng vấn HR",
-    FINAL_INTERVIEW: "Phỏng vấn vòng cuối",
-    OFFER: "Đề nghị nhận việc",
+    APPLIED: "Ứng tuyển",
+    CV_SCREENING: "Sàng lọc",
+    HR_SCREENING: "Sàng lọc",
+    TECHNICAL_INTERVIEW: "Phỏng vấn",
+    HR_INTERVIEW: "Phỏng vấn",
+    FINAL_INTERVIEW: "Phỏng vấn",
+    OFFER: "Thư mời",
     HIRED: "Đã tuyển",
     REJECTED: "Từ chối",
-    CUSTOM: "Tùy chỉnh",
+    CUSTOM: "Sàng lọc",
 };
 
 export const GENDER_LABEL: Record<string, string> = {
@@ -213,13 +229,13 @@ export function statusMeta(
     return map[status] ?? { label: status, color: "default" };
 }
 
-/** Màu Antd Tag theo stageType của pipeline (APPLIED, CV_SCREENING, ...). */
+/** Sắc độ theo 6 giai đoạn cố định (DS06): Ứng tuyển xám · Sàng lọc xanh lá · Phỏng vấn tím · Thư mời cam · Đã tuyển xanh · Từ chối đỏ. */
 export function stageTypeTagColor(stageType?: string | null): string {
     if (!stageType) return "default";
-    if (stageType === "HIRED") return "success";
+    if (stageType === "HIRED") return "processing";
     if (stageType === "REJECTED") return "error";
-    if (stageType === "OFFER") return "gold";
+    if (stageType === "OFFER") return "warning";
     if (stageType.includes("INTERVIEW")) return "purple";
-    if (stageType.includes("SCREENING")) return "processing";
-    return "blue"; // APPLIED, CUSTOM
+    if (stageType === "APPLIED") return "default";
+    return "success"; // *_SCREENING, CUSTOM
 }

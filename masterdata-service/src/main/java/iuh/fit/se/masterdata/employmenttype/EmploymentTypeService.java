@@ -44,6 +44,14 @@ public class EmploymentTypeService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        EmploymentType entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy loại hình làm việc"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private EmploymentTypeResponse toResponse(EmploymentType e) {
         return new EmploymentTypeResponse(e.getId(), e.getName(), e.isActive());
     }

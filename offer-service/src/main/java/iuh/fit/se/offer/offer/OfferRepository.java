@@ -11,6 +11,10 @@ public interface OfferRepository extends JpaRepository<Offer, Long>, JpaSpecific
     List<Offer> findByApplicationIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long applicationId);
     Optional<Offer> findByIdAndDeletedAtIsNull(Long id);
 
+    /** Thư đã gửi quá hạn phản hồi — dùng cho job quét hạn. */
+    List<Offer> findByStatusAndResponseDeadlineBeforeAndDeletedAtIsNull(
+            OfferStatus status, java.time.LocalDateTime deadline);
+
     long countByJobPostingIdAndStatusInAndDeletedAtIsNull(
             Long jobPostingId, Collection<OfferStatus> statuses);
 }

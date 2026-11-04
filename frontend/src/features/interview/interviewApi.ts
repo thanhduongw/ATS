@@ -1,5 +1,7 @@
 import axiosClient from "../../services/axiosClient";
 import type {
+  InterviewSlotResponse,
+  SlotBatchCreateRequest,
   InterviewResponse,
   InterviewCreateRequest,
   InterviewHmRejectRequest,
@@ -109,3 +111,30 @@ export const getEvaluations = (interviewId: number) =>
   axiosClient.get<EvaluationResponse[]>(
     `/interview/interviews/${interviewId}/evaluations`
   );
+
+// ===== Khung giờ đề xuất (C13): HR gửi nhiều khung giờ, ứng viên chọn 1, HR chốt thành buổi phỏng vấn =====
+export const getSlotsByApplication = (applicationId: number) =>
+  axiosClient.get<InterviewSlotResponse[]>("/interview/slots", { params: { applicationId } });
+
+export const getMyPendingSlots = () =>
+  axiosClient.get<InterviewSlotResponse[]>("/interview/slots/my-pending");
+
+/** available=true: "tôi rảnh khung này" (ứng viên chọn); false: bỏ chọn. */
+export const confirmSlot = (id: number, available: boolean) =>
+  axiosClient.post<InterviewSlotResponse>(`/interview/slots/${id}/confirm`, { available });
+
+/** R18 "Để ứng viên chọn": HR gửi nhiều khung giờ cho 1 hồ sơ. */
+export const createSlotBatch = (data: SlotBatchCreateRequest) =>
+  axiosClient.post<InterviewSlotResponse[]>("/interview/slots/batch", data);
+
+/** HR chốt 1 khung giờ → tạo buổi phỏng vấn, huỷ các khung còn lại. */
+export const selectSlot = (id: number) =>
+  axiosClient.post<InterviewResponse>(`/interview/slots/${id}/select`, {});
+
+/** R21: HR từ chối giờ người phỏng vấn đề xuất (giữ giờ cũ). */
+export const rejectHmProposal = (id: number) =>
+  axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/reject-proposal`);
+
+/** R21: HR đặt lại danh sách người phỏng vấn. */
+export const updateInterviewers = (id: number, interviewerIds: number[]) =>
+  axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/interviewers`, { interviewerIds });

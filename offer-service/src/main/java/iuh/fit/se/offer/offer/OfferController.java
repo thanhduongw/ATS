@@ -90,6 +90,15 @@ public class OfferController {
         return ResponseEntity.ok(service.update(id, actor, req));
     }
 
+    /** Gửi thư mời cho ứng viên ngay (Bản nháp → Đã gửi) — docs/UI R27, quyết định B2. */
+    @PatchMapping("/{id}/send")
+    public ResponseEntity<OfferResponse> send(
+            @PathVariable Long id) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireHr(actor);
+        return ResponseEntity.ok(service.send(id, actor));
+    }
+
     @PatchMapping("/{id}/submit")
     public ResponseEntity<OfferResponse> submit(
             @PathVariable Long id) {

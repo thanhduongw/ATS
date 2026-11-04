@@ -8,7 +8,6 @@ import {
     Button,
     Card,
     Checkbox,
-    DatePicker,
     Empty,
     Form,
     Input,
@@ -22,7 +21,7 @@ import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 
 import { offerCreateSchema, type OfferCreateFormValues } from "../schemas/offerCreateSchema";
-import { createOffer, getOfferById, updateOffer, submitOffer } from "../offerApi";
+import { createOffer, getOfferById, updateOffer } from "../offerApi";
 import type { ApiMessageResponse } from "../types";
 import { getUserDirectory } from "../../auth/authApi";
 import type { UserDirectoryResponse } from "../../auth/types";
@@ -35,6 +34,7 @@ import { getPostingById, getPostings } from "../../recruitment/recruitmentApi";
 import type { JobPostingResponse } from "../../recruitment/types";
 import { COLORS } from "../../../app/theme";
 import PageHeader from "../../../components/ui/PageHeader";
+import DateField from "../../../components/ui/DateField";
 import { formatMoney, moneyFormatter, moneyParser } from "../../../app/money";
 
 /* ──────────────────────────────────────────────────────────────
@@ -94,19 +94,31 @@ const FULL: React.CSSProperties = { gridColumn: "1 / -1" };
 
 /* ── Hàm tiện ích ──────────────────────────────────────────── */
 
+/**
+ * Chuỗi phúc lợi = các mục chuẩn ở đầu (ngăn bởi " · ") + phần "khác" giữ NGUYÊN VĂN.
+ * Không trim phần "khác" khi đang gõ: trước đây trim làm mất dấu cách/xuống dòng cuối, giá trị hiển thị
+ * lệch với thứ vừa gõ và ô nhập cập nhật lặp vô hạn (trang trắng). Phần thừa được trim khi lưu.
+ */
 function splitBenefits(raw?: string | null) {
-    const parts = (raw ?? "")
-        .split(BENEFIT_SEPARATOR)
-        .map((p) => p.trim())
-        .filter(Boolean);
-    return {
-        checked: parts.filter((p) => STANDARD_BENEFITS.includes(p)),
-        other: parts.filter((p) => !STANDARD_BENEFITS.includes(p)).join(BENEFIT_SEPARATOR),
-    };
+    let rest = raw ?? "";
+    const checked: string[] = [];
+    for (let found = true; found;) {
+        found = false;
+        for (const b of STANDARD_BENEFITS) {
+            if (rest === b || rest.startsWith(b + BENEFIT_SEPARATOR)) {
+                if (!checked.includes(b)) checked.push(b);
+                rest = rest.slice(Math.min(rest.length, b.length + BENEFIT_SEPARATOR.length));
+                found = true;
+                break;
+            }
+        }
+    }
+    return { checked, other: rest };
 }
 
 function joinBenefits(checked: string[], other: string) {
-    return [...checked, ...(other.trim() ? [other.trim()] : [])].join(BENEFIT_SEPARATOR);
+    const ordered = STANDARD_BENEFITS.filter((b) => checked.includes(b));
+    return [...ordered, ...(other ? [other] : [])].join(BENEFIT_SEPARATOR);
 }
 
 const nameOf = (items: CatalogItem[], id?: number | null) =>
@@ -365,7 +377,7 @@ export default function OfferCreatePage() {
             payFrequency: data.payFrequency || "MONTHLY",
             performanceBonus: data.performanceBonus || null,
             annualLeaveDays: data.annualLeaveDays ?? null,
-            benefits: data.benefits || null,
+            benefits: data.benefits?.trim() || null,
             allowance: data.allowance ?? null,
             note: data.note || null,
             candidateVisibleNote: data.candidateVisibleNote || null,
@@ -395,16 +407,15 @@ export default function OfferCreatePage() {
         }
     });
 
-    const onSubmitForApproval = handleSubmit(async (data) => {
+    // R24 "Lưu & xem lại": lưu bản nháp rồi mở trang chi tiết (R26) để kiểm tra và bấm "Gửi thư mời".
+    const onSaveAndReview = handleSubmit(async (data) => {
         setSaving(true);
         try {
             const offerId = await persist(data);
-            await submitOffer(offerId);
-            message.success("Đã gửi đề nghị vào luồng duyệt");
             navigate(`/offers/${offerId}`);
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Gửi duyệt thất bại");
+            message.error(axiosErr.response?.data?.message ?? "Lưu thư mời thất bại");
         } finally {
             setSaving(false);
         }
@@ -468,9 +479,9 @@ export default function OfferCreatePage() {
                             icon={<SendOutlined />}
                             loading={saving}
                             disabled={!readyToCompose}
-                            onClick={onSubmitForApproval}
+                            onClick={onSaveAndReview}
                         >
-                            Gửi duyệt
+                            Lưu & xem lại
                         </Button>
                     </>
                 }
@@ -670,15 +681,7 @@ export default function OfferCreatePage() {
                                             name="startDate"
                                             control={control}
                                             render={({ field }) => (
-                                                <DatePicker
-                                                    style={{ width: "100%" }}
-                                                    format="DD/MM/YYYY"
-                                                    placeholder="Chọn ngày"
-                                                    value={field.value ? dayjs(field.value) : null}
-                                                    onChange={(d) =>
-                                                        field.onChange(d ? d.format("YYYY-MM-DD") : "")
-                                                    }
-                                                />
+                                                <DateField value={field.value} onChange={field.onChange} />
                                             )}
                                         />
                                     </Form.Item>
@@ -903,14 +906,7 @@ export default function OfferCreatePage() {
                                             name="responseDeadline"
                                             control={control}
                                             render={({ field }) => (
-                                                <DatePicker
-                                                    showTime
-                                                    style={{ width: "100%" }}
-                                                    format="HH:mm DD/MM/YYYY"
-                                                    placeholder="Chọn thời hạn"
-                                                    value={field.value ? dayjs(field.value) : null}
-                                                    onChange={(d) => field.onChange(d ? d.toISOString() : null)}
-                                                />
+                                                <DateField withTime futureOnly placeholder="Chọn thời hạn" value={field.value} onChange={(v) => field.onChange(v || null)} />
                                             )}
                                         />
                                     </Form.Item>

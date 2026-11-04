@@ -69,7 +69,7 @@ export default function SkillMultiSelect({ value, onChange, placeholder }: Skill
                 <>
                     {menu}
                     {canQuickAdd && (
-                        <div style={{ padding: "4px 8px", borderTop: "1px solid #f0f0f0" }}>
+                        <div style={{ padding: "4px 8px", borderTop: "1px solid #1824311A" }}>
                             <Button
                                 type="text"
                                 size="small"

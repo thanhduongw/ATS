@@ -30,51 +30,70 @@ interface RouteNode {
 
 const ROUTES: RouteNode[] = [
     { pattern: "/dashboard", label: "Tổng quan", moduleKey: "/dashboard" },
+    { pattern: "/dashboard/departments/:id", label: "Số liệu phòng ban", parent: "/dashboard" },
+    { pattern: "/my-work", label: "Việc của tôi", moduleKey: "/my-work" },
     { pattern: "/masterdata", label: "Danh mục", moduleKey: "/masterdata" },
+    { pattern: "/masterdata/:key", label: "Danh mục con", parent: "/masterdata" },
 
     // ── Tuyển dụng ────────────────────────────────────────────────────────
     { pattern: "/recruitment", label: "Tuyển dụng", moduleKey: "/recruitment/requisitions" },
     { pattern: "/recruitment/requisitions", label: "Yêu cầu tuyển dụng", moduleKey: "/recruitment/requisitions" },
-    { pattern: "/recruitment/postings", label: "Tin tuyển dụng", moduleKey: "/recruitment/postings" },
-    { pattern: "/recruitment/postings/:id", label: "Chi tiết tin tuyển dụng", parent: "/recruitment/postings" },
+    { pattern: "/recruitment/requisitions/:id", label: "Chi tiết yêu cầu", parent: "/recruitment/requisitions" },
+    { pattern: "/recruitment/requisitions/new", label: "Tạo mới", parent: "/recruitment/requisitions" },
+    { pattern: "/recruitment/requisitions/:id/edit", label: "Sửa", parent: "/recruitment/requisitions/:id" },
+    { pattern: "/recruitment/postings", label: "Việc làm", moduleKey: "/recruitment/postings" },
+    { pattern: "/recruitment/postings/:id", label: "Chi tiết việc làm", parent: "/recruitment/postings" },
+    { pattern: "/recruitment/postings/new", label: "Tạo mới", parent: "/recruitment/postings" },
+    { pattern: "/recruitment/postings/:id/edit", label: "Sửa", parent: "/recruitment/postings/:id" },
 
     // ── Hồ sơ ứng viên ────────────────────────────────────────────────────
-    { pattern: "/applications", label: "Hồ sơ ứng viên", moduleKey: "/applications" },
+    { pattern: "/applications", label: "Ứng viên", moduleKey: "/applications" },
     {
         pattern: "/candidates/:candidateId/applications/:applicationId",
-        label: "Chi tiết hồ sơ",
+        label: "Hồ sơ ứng viên",
         parent: "/applications",
     },
     {
         pattern: "/candidates/:candidateId/applications/:applicationId/evaluate",
-        label: "Phiếu đánh giá",
+        label: "Đánh giá phỏng vấn",
         parent: "/candidates/:candidateId/applications/:applicationId",
     },
 
     // ── Phỏng vấn ─────────────────────────────────────────────────────────
     { pattern: "/interviews", label: "Lịch phỏng vấn", moduleKey: "/interviews" },
+    { pattern: "/interviews/schedule/:applicationId", label: "Lên lịch phỏng vấn", parent: "/interviews" },
+    { pattern: "/interviews/:id", label: "Chi tiết buổi phỏng vấn", parent: "/interviews" },
     { pattern: "/interviews/:interviewId/result", label: "Kết quả phỏng vấn", parent: "/interviews" },
     // Đánh giá không còn mục riêng trên navbar nên mượn module Lịch phỏng vấn.
     { pattern: "/evaluations", label: "Đánh giá phỏng vấn", parent: "/interviews" },
 
     // ── Đề nghị nhận việc ─────────────────────────────────────────────────
-    { pattern: "/offers", label: "Đề nghị nhận việc", moduleKey: "/offers" },
+    { pattern: "/offers", label: "Thư mời", moduleKey: "/offers" },
     { pattern: "/offers/compare", label: "So sánh ứng viên", parent: "/offers" },
-    { pattern: "/offers/create", label: "Tạo đề nghị", parent: "/offers" },
-    { pattern: "/offers/:id", label: "Chi tiết đề nghị", parent: "/offers" },
+    { pattern: "/offers/create", label: "Soạn thư mời", parent: "/offers" },
+    { pattern: "/offers/:id", label: "Chi tiết thư mời", parent: "/offers" },
     { pattern: "/offers/:id/edit", label: "Chỉnh sửa", parent: "/offers/:id" },
 
     // ── Quản trị ──────────────────────────────────────────────────────────
     { pattern: "/admin/users", label: "Người dùng", moduleKey: "/admin/users" },
+    { pattern: "/admin/users/invite", label: "Mời người dùng", parent: "/admin/users" },
+    { pattern: "/admin/users/roles", label: "Vai trò & quyền", parent: "/admin/users" },
+    { pattern: "/admin/users/:id", label: "Chi tiết người dùng", parent: "/admin/users" },
+    { pattern: "/admin/company", label: "Thông tin doanh nghiệp", moduleKey: "/admin/company" },
     { pattern: "/audit-logs", label: "Nhật ký hệ thống", moduleKey: "/audit-logs" },
     { pattern: "/notifications", label: "Thông báo", moduleKey: "/notifications" },
     { pattern: "/settings", label: "Cài đặt tài khoản", moduleKey: "/settings" },
+    { pattern: "/results", label: "Kết quả tuyển dụng", moduleKey: "/results" },
+    { pattern: "/results/:id", label: "Kết quả một vị trí", parent: "/results" },
 
     // ── Khu vực ứng viên ──────────────────────────────────────────────────
     { pattern: "/my-profile", label: "Hồ sơ của tôi", moduleKey: "/my-profile" },
-    { pattern: "/jobs", label: "Việc làm", moduleKey: "/jobs" },
-    { pattern: "/my-applications", label: "Đơn ứng tuyển của tôi", moduleKey: "/my-applications" },
+    { pattern: "/careers", label: "Việc làm", moduleKey: "/careers" },
+    { pattern: "/my-home", label: "Tổng quan", moduleKey: "/my-home" },
+    { pattern: "/my-applications", label: "Đơn ứng tuyển", moduleKey: "/my-applications" },
+    { pattern: "/my-applications/:id", label: "Chi tiết đơn", parent: "/my-applications" },
     { pattern: "/my-interviews", label: "Lịch phỏng vấn", moduleKey: "/my-interviews" },
+    { pattern: "/my-interviews/choose/:applicationId", label: "Chọn lịch phỏng vấn", parent: "/my-interviews" },
     { pattern: "/my-offers", label: "Thư mời nhận việc", moduleKey: "/my-offers" },
     { pattern: "/my-offers/:id", label: "Chi tiết thư mời", parent: "/my-offers" },
 ];

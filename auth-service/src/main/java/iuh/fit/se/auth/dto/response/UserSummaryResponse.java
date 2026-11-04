@@ -6,5 +6,7 @@ public record UserSummaryResponse(
         String email,
         String role,
         Long departmentId,
-        String status
+        String status,
+        /** docs/UI A03 "Đăng nhập gần nhất"; null = chưa đăng nhập lần nào. */
+        java.time.LocalDateTime lastLoginAt
 ) {}

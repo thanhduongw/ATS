@@ -1,7 +1,10 @@
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useMyApplication } from "@/features/applications/hooks";
+import { useState } from "react";
+import { useMyApplication, useWithdrawApplication } from "@/features/applications/hooks";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { useSnackbar } from "@/components/ui/snackbar";
 import { useMyInterviews, useMyPendingSlots } from "@/features/interviews/hooks";
 import { InterviewAction, interviewPlace } from "@/features/interviews/interview-actions";
 import { useMyOffers } from "@/features/offers/hooks";
@@ -34,6 +37,11 @@ export default function ApplicationDetailScreen() {
   const slots = useMyPendingSlots();
   const locations = useWorkLocationNames();
   const insets = useSafeAreaInsets();
+  const withdraw = useWithdrawApplication(id);
+  const notify = useSnackbar();
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const stage = app.data?.currentStageType;
+  const canWithdraw = !!app.data && stage !== "HIRED" && stage !== "REJECTED";
 
   const refetchAll = () => {
     void app.refetch();
@@ -135,8 +143,39 @@ export default function ApplicationDetailScreen() {
               }
             />
           ) : null}
+
+          {canWithdraw ? (
+            <PillButton label={S.withdraw} variant="danger" fullWidth onPress={() => setConfirmWithdraw(true)} />
+          ) : null}
         </ScrollView>
       )}
+
+      {/* Hành động không hoàn tác được → xác nhận bằng nút đỏ trong bảng trượt (DS06). */}
+      <BottomSheet
+        visible={confirmWithdraw}
+        onDismiss={() => setConfirmWithdraw(false)}
+        title={S.withdrawTitle}
+        subtitle={app.data?.jobTitle ?? undefined}
+        footer={
+          <PillButton
+            label={S.withdrawConfirm}
+            variant="danger"
+            fullWidth
+            loading={withdraw.isPending}
+            onPress={() =>
+              withdraw.mutate(undefined, {
+                onSuccess: () => {
+                  setConfirmWithdraw(false);
+                  notify(S.withdrawDone);
+                },
+                onError: (e) => notify(apiErrorMessage(e, S.withdrawFailed)),
+              })
+            }
+          />
+        }
+      >
+        <Text style={styles.sub}>{S.withdrawBody}</Text>
+      </BottomSheet>
     </View>
   );
 }

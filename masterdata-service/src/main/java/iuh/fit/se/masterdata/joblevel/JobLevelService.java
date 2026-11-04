@@ -45,6 +45,14 @@ public class JobLevelService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        JobLevel entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy cấp bậc"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private JobLevelResponse toResponse(JobLevel e) {
         return new JobLevelResponse(e.getId(), e.getName(), e.getOrderNo(), e.isActive());
     }

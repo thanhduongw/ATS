@@ -21,6 +21,8 @@ export const getApplications = (params?: {
   appliedFrom?: string;
   appliedTo?: string;
   aiTier?: string;
+  /** R16: tìm theo tên hoặc email ứng viên */
+  keyword?: string;
   /** appliedAt,desc (mặc định) | aiScore,desc | aiScore,asc — hồ sơ chưa có điểm luôn ở cuối */
   sort?: string;
   page?: number;
@@ -32,6 +34,10 @@ export const getApplicationById = (id: number) =>
 
 export const getMyApplications = () =>
   axiosClient.get<CandidateApplicationResponse[]>("/application/applications/my");
+
+/** Ứng viên tự rút đơn (docs/UI UC06; quyết định B5). */
+export const withdrawMyApplication = (id: number) =>
+  axiosClient.patch<CandidateApplicationResponse>(`/application/applications/my/${id}/withdraw`);
 
 export const getMyApplicationById = (id: number) =>
   axiosClient.get<CandidateApplicationResponse>(`/application/applications/my/${id}`);

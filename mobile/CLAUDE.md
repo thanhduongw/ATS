@@ -126,60 +126,58 @@ Thanh tab đặt `tabBarHideOnKeyboard: true` (trong `useTabScreenOptions`).
 (người dùng đã phản ánh: đang gõ, cuộn xem ô khác thì bàn phím tự mất). Muốn đóng thì chạm
 vào chỗ trống — `keyboardShouldPersistTaps="handled"` đã lo việc đó.
 
-## Giao diện — theo canvas thiết kế, KHÔNG theo web
+## Giao diện — theo `docs/UI`, web và mobile dùng CHUNG bảng màu
 
-Chốt ngày 29/09/2026: giao diện mobile lấy từ canvas **"ATS TechCorp — HarmonyOS redesign"**
-(https://claude.ai/artifact/VRL7ymmJTpk91Huko9VXk1), trang **Mobile, artboard M01–M20**.
-Artboard `Main` là bảng màu + mẫu chip/nút/ô nhập. **Web giữ nguyên Ant Design, không đồng
-bộ ngược** — mobile và web cố ý trông khác nhau.
+**Chốt 03/11/2026 (thay quy ước 29/09 và 02/10):** nguồn thiết kế là thư mục **`docs/UI/`** của
+repo — `Mobile.html` (M01–M10, UC01–UC18 ứng viên, UR01–UR19 chuyên viên tuyển dụng,
+UH01–UH14 đại diện phòng ban) và `Interactive UI Prototype.html` (DS01–DS06: màu, chữ,
+component, quy tắc). Web và mobile **cùng một bảng màu DS01** (web: `frontend/src/app/theme.ts`).
+Quyết định chi tiết: `docs/learning/02-doi-chieu-thiet-ke-ui.md` (mục E, G) và
+`docs/learning/03-ke-hoach-trien-khai-ui.md` (mục 1 X1–X6, mục 5 ma trận màn).
 
-**Khu ỨNG VIÊN theo trang "Mobile v2" (N26–N36)** — chốt 02/10/2026. Màn auth, HR, HM vẫn theo
-trang "Mobile" (M01–M05, M15–M20). Quy tắc khi làm theo v2:
-- Tính năng v2 có mà backend KHÔNG có thì **bỏ hẳn, không vẽ nút chết**: đăng nhập bằng link
-  email (N02), tin nhắn (N33), lưu tin ⭐, AI tự điền + các ô họ tên/lương mong muốn (N28),
-  chữ ký điện tử (N34), "bước tiếp theo" sau khi nhận việc (N36), gợi ý việc qua email (N35).
-- Tab "Tin nhắn" thay bằng tab **Thông báo** → 5 tab: Việc làm · Hồ sơ · Lịch · Thông báo · Tôi.
-- Màn đăng nhập GIỮ như M01 (không có tab Nhân viên/Ứng viên của N01).
-- "Chọn giờ" (N31) chỉ là **báo rảnh**; nút ghi "Báo rảnh…", không ghi "Xác nhận…".
-- "Dữ liệu & quyền riêng tư" (N35) = `POST /candidate/me/request-deletion` — backend xóa mềm
+**Phạm vi màn** (thay `docs/mobile/MOBILE_V1_PLAN.md` ở phần này): làm cả khu ỨNG VIÊN (UC),
+CHUYÊN VIÊN TUYỂN DỤNG (UR, 4 tab: Việc của tôi · Ứng viên · Lịch · Thêm) và ĐẠI DIỆN PHÒNG BAN
+(UH, 4 tab như trên). Hoãn: M04 thông báo đẩy, nút Google và sinh trắc học ở M02/M10.
+Quy tắc giữ nguyên:
+- Tính năng HTML có mà backend KHÔNG có thì **bỏ hẳn, không vẽ nút chết**.
+- Mobile chỉ xem và thao tác nhanh (DS06): tạo tin, lên lịch, soạn thư mời làm trên web.
+- "Dữ liệu & quyền riêng tư" = `POST /candidate/me/request-deletion` — backend xóa mềm
   NGAY, nên phải tích ô xác nhận và đăng xuất sau khi xóa.
-
-**Phạm vi màn vẫn theo `docs/mobile/MOBILE_V1_PLAN.md`**, canvas chỉ quyết định giao diện.
-Canvas có M15 (dashboard HR) và M17 (pipeline) — kế hoạch đã loại, đừng làm. Màn canvas
-không vẽ (C3, C5, D2, D3) thì dựng bằng component chung bên dưới.
+- HTML có lỗi chữ "quản lý" bị thay thành "đại diện phòng ban" — xem mục 0.4 của file 03.
 
 - Chỉ import token qua `@/theme`, đừng import thẳng file con.
 - `src/theme/paper.ts` là chỗ DUY NHẤT nối token vào Paper. Màn hình không tự đặt màu.
 - Chỉ có giao diện SÁNG (`app.json` đặt `userInterfaceStyle: "light"`). Đừng thêm dark mode.
-- Làm một màn: đọc đúng artboard của nó trong canvas trước, rồi ghép từ component chung.
+- Làm một màn: mở đúng khung (mã màn) trong `docs/UI/Mobile.html` trước, chép đúng chữ, rồi ghép từ component chung.
 
 Các con số đã chốt:
 
 | Thứ | Giá trị | Token |
 |---|---|---|
-| Màu chính / chữ trên nền tonal | `#0E7A5F` / `#0A5C47` | `COLORS.primary` / `primaryDark` |
+| Màu chính / chữ trên nền tonal | `#0A59F7` / `#0848C7` | `COLORS.primary` / `primaryDark` |
 | Nền trang / thẻ | `#F1F3F5` / `#FFFFFF` | `COLORS.body` / `cardBg` |
 | Nền ô nhập, chip / nút phụ | `#182431` 5% / 10% | `COLORS.fill` / `fillStrong` |
 | Chữ chính / phụ / mờ | `#182431` · `#6B737B` · `#A3A7AD` | `textPrimary/Secondary/Muted` |
-| Đỏ · cam · xanh lá · tím PV | `#FA2A2D` · `#FF7500` · `#00CB87` · `#8A2BE2` | `error/warning/success/interview` |
+| Đỏ · cam · xanh lá · tím PV | `#FA2A2D` · `#FF7500` · `#00A06B` · `#7C4DFF` | `error/warning/success/interview` |
 | Chữ đỏ | `#B91C1C` | `COLORS.errorText` |
 | Font | Be Vietnam Pro 400/500/600/700 | `FONT.*` |
 | Cỡ chữ | 10 · 12 · 13 · 14 nền · 15 · 16 · 18 · 20 · 24 · 30 | `FONT_SIZE.*` |
 | Bo góc | 12 · 14 · 16 · 20 thẻ · 32 sheet · viên nhộng | `RADIUS.*` (`full` cho nút/ô/chip) |
-| Nút chính, ô nhập | cao 44 | `SIZES.control` |
+| Nút chính ở đáy / nút phụ, ô nhập | cao 48 / 44 | `SIZES.primaryAction` / `SIZES.control` |
 | Lề màn | 16 (danh sách) · 24 (auth) | `SPACING.page` / `pageAuth` |
 
-Những chỗ mobile CỐ Ý khác canvas, đừng "sửa lại cho giống":
+Những chỗ mobile CỐ Ý khác `docs/UI`, đừng "sửa lại cho giống":
 
 1. **Font Be Vietnam Pro**, không phải HarmonyOS Sans — chắc chắn đủ dấu tiếng Việt.
-2. **Nút và ô nhập cao 44**, canvas vẽ 40 — vùng chạm tối thiểu. Chip/nút nhỏ 32 thì nới
-   bằng `hitSlop`.
-3. **Chữ phụ `#6B737B`** chứ không phải `#18243199` (60%) của canvas: bản canvas chỉ đạt 4.1:1
-   trên nền xám. Tương tự chữ trên nút tonal dùng `primaryDark`/`errorText` thay cho
-   `#0E7A5F`/`#FA2A2D` (4.4:1 và 3.2:1 — không đạt 4.5:1).
-4. **Không gradient** cho nút AI. `expo-linear-gradient` là native module → build lại dev
-   build. Dùng màu đặc.
-5. **Font chọn độ đậm bằng TÊN FONT** (`FONT.bold`, `FONT.semibold`…), không dùng
+2. **Ô nhập và nút phụ cao 44, nút chính 48** (quyết định X6; DS02 ghi nút chính 46–50).
+   Chip/nút nhỏ 32 thì nới bằng `hitSlop`.
+3. **Chữ phụ `#6B737B`** chứ không phải `#18243199` (60%) của DS01: bản HTML chỉ đạt 4.1:1
+   trên nền xám. Chữ trên nút tonal dùng `primaryDark`/`errorText` cho đủ 4.5:1.
+4. **Gradient AI vẽ bằng `react-native-svg`** (`AiScoreBadge` trong `status-chip.tsx`, quyết
+   định X5) — KHÔNG thêm `expo-linear-gradient`. Dải màu AI chỉ cho điểm AI / nhãn AI.
+5. **Báo mất mạng không dùng thư viện** (quyết định X4 = b): hiện banner M06 khi request
+   lỗi mạng, không thêm `netinfo`/`expo-network`.
+6. **Font chọn độ đậm bằng TÊN FONT** (`FONT.bold`, `FONT.semibold`…), không dùng
    `fontWeight`. File font đã mang sẵn độ đậm; đặt cả hai khiến Android làm đậm thêm lần
    nữa, chữ bị dày bất thường.
 
@@ -193,7 +191,7 @@ cho màn chi tiết. `ScreenHeader` tự cộng safe-area phía trên.
 
 Component dùng chung (`src/components/ui/`):
 
-| Component | Dùng cho | Canvas |
+| Component | Dùng cho | Màn (canvas cũ / docs/UI) |
 |---|---|---|
 | `Icon` | mọi icon | tất cả |
 | `PillButton` (`primary`/`tonal`/`danger`/`text`, `md`/`sm`), `IconButton` | nút | Main, M09, M10, M12 |
@@ -201,6 +199,7 @@ Component dùng chung (`src/components/ui/`):
 | `SearchField`, `FilterChips`, `SegmentedControl` | tìm/lọc ở client | M06, M08, M10 |
 | `Card`, `CardTitle`, `IconTile`, `KeyValueRow`, `ListRow`, `InfoNote` | nội dung thẻ | M06–M14 |
 | `StatusChip`, `Tag` | trạng thái (qua `src/lib/status.ts`), nhãn trung tính | Main, M06–M12 |
+| `AiScoreBadge` | điểm AI trên dải màu AI (chỉ nội bộ) | DS01, DS05 |
 | `ScreenHeader`, `BottomActionBar` | đầu màn, thanh nút dính đáy | M06–M14 |
 | `BottomSheet` | form trượt lên (nộp đơn, chấm đánh giá) | M20 |
 | `AuthScaffold` (`leading`: `brand`/`back`/`{icon}`), `ResendRow`, `PromptLink` (ở `src/components/`) | 5 màn auth | M01–M05 |
@@ -229,6 +228,12 @@ Một view lặp ở **2 màn trở lên** mới tách thành component; chưa t
 
 ## Cấu trúc
 Xem mục 5 của `docs/mobile/MOBILE_V1_PLAN.md`. Route ở `app/`, logic ở `src/`.
+
+**Khu nhân viên là `app/hr` và `app/hm` (thư mục thường), KHÔNG phải nhóm `(hr)`/`(hm)`.** Nhóm trong
+ngoặc không tạo đoạn URL, nên `(candidate)/applications`, `(hr)/applications`, `(hm)/applications`
+cùng ra `/applications` — tải lại trang hoặc mở từ thông báo sẽ rơi vào khu ứng viên ("Role
+RECRUITER cannot perform this action"). Màn dùng chung cho hai khu nằm ở `src/features/staff/screens/`,
+file route chỉ re-export; điều hướng bằng `/${areaOf(role)}/…` (`src/features/staff/tasks.ts`).
 
 ## Lệnh hay dùng
 ```powershell

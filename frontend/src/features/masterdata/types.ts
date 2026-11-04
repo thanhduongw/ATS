@@ -15,6 +15,9 @@ export interface CatalogFieldConfig {
     hideInTable?: boolean; // ẩn khỏi cột bảng (vd: nội dung email dài) nhưng vẫn hiện trong form
 }
 
+/** Nhóm trên màn Danh mục — tổng quan (R41). */
+export type CatalogGroup = "ORG" | "WORK" | "CANDIDATE" | "EVALUATION" | "OTHER";
+
 export interface CatalogConfig {
     key: string;
     tabLabel: string;
@@ -22,6 +25,15 @@ export interface CatalogConfig {
     endpoint: string;      // vd: "/masterdata/departments" — khớp @RequestMapping bên BE
     primaryField: string;  // field chính, thường là "name" (Email Template dùng "code")
     fields: CatalogFieldConfig[];
+    group: CatalogGroup;
+    /** Dòng mô tả trên thẻ tổng quan; bỏ trống thì liệt kê vài mục đang dùng. */
+    hint?: string;
+    /** Chữ trên nút thêm, ví dụ "Thêm lý do". */
+    addLabel: string;
+    /** Field hiện thành dòng phụ dưới tên (thay vì cột riêng). */
+    secondaryField?: string;
+    /** Ghi chú cuối bảng. */
+    footnote?: string;
 }
 
 // ===== Pipeline (quy trình tuyển dụng) =====

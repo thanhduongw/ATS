@@ -151,6 +151,21 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
         return text;
     }
 
+    /** GET /api/auth/invitations/{token} và POST /api/auth/invitations/{token}/accept. */
+    static boolean isInvitationPath(HttpMethod method, String path) {
+        String prefix = "/api/auth/invitations/";
+        if (!path.startsWith(prefix)) return false;
+        String rest = path.substring(prefix.length());
+        if (HttpMethod.GET.equals(method)) {
+            return !rest.isEmpty() && !rest.contains("/");
+        }
+        if (HttpMethod.POST.equals(method) && rest.endsWith("/accept")) {
+            String token = rest.substring(0, rest.length() - "/accept".length());
+            return !token.isEmpty() && !token.contains("/");
+        }
+        return false;
+    }
+
     private boolean isPublicRequest(ServerWebExchange exchange) {
         String path = exchange.getRequest().getURI().getPath();
         HttpMethod method = exchange.getRequest().getMethod();
@@ -162,6 +177,10 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
             return true;
         }
         if (HttpMethod.GET.equals(method) && "/api/auth/public/company".equals(path)) {
+            return true;
+        }
+        // Nhận lời mời (docs/UI A04): người được mời chưa có tài khoản hoạt động nên chưa có JWT.
+        if (isInvitationPath(method, path)) {
             return true;
         }
         if (HttpMethod.GET.equals(method) && isOauth2EntrypointPath(path)) {

@@ -45,6 +45,14 @@ public class EducationLevelService {
         repository.save(entity);
     }
 
+    @Transactional
+    public void activate(Long id) {
+        EducationLevel entity = repository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy trình độ học vấn"));
+        entity.setActive(true);
+        repository.save(entity);
+    }
+
     private EducationLevelResponse toResponse(EducationLevel e) {
         return new EducationLevelResponse(e.getId(), e.getName(), e.getOrderNo(), e.isActive());
     }

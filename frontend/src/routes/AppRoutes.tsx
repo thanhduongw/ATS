@@ -11,7 +11,7 @@ import LoginPage from "../features/auth/pages/LoginPage";
 import OAuth2CallbackPage from "../features/auth/pages/OAuth2CallbackPage";
 import ForgotPasswordPage from "../features/auth/pages/ForgotPasswordPage";
 import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
-import AuthManagementPage from "../features/auth/pages/AuthManagementPage";
+import AccountSettingsPage from "../features/auth/pages/AccountSettingsPage";
 import DashboardPage from "../features/dashboard/pages/DashboardPage";
 import MasterDataPage from "../features/masterdata/pages/MasterDataPage";
 import CatalogDetailPage from "../features/masterdata/pages/CatalogDetailPage";
@@ -81,7 +81,7 @@ export default function AppRoutes() {
             <Route element={<AppLayout />}>
                 <Route index element={<RoleHomeRedirect />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/settings" element={<AuthManagementPage />} />
+                <Route path="/settings" element={<AccountSettingsPage />} />
 
                 <Route element={<RoleRoute allow={[...INTERNAL_ROLES]} />}>
                     <Route path="/dashboard" element={<DashboardPage />} />

@@ -17,7 +17,6 @@ import ListPage, { ListFilters, StatusTabs } from "../../../components/ui/listKi
 import { rowArrowColumn } from "../../../components/ui/listHelpers";
 import { Avatar } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
-import PostingFormModal from "./PostingFormModal";
 import { POSTING_STATUS_VIEW, WORK_ARRANGEMENT_LABEL } from "../postingLabels";
 
 /**
@@ -49,7 +48,6 @@ export default function PostingListPanel() {
     const [tab, setTab] = useState<Tab>("OPEN");
     const [keyword, setKeyword] = useState("");
     const [departmentId, setDepartmentId] = useState<number | undefined>();
-    const [createOpen, setCreateOpen] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -151,7 +149,7 @@ export default function PostingListPanel() {
     return (
         <ListPage
             title="Việc làm"
-            actions={canManage ? <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>Tạo việc làm</Button> : undefined}
+            actions={canManage ? <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate("/recruitment/postings/new")}>Tạo việc làm</Button> : undefined}
             tabs={
                 <StatusTabs<Tab>
                     active={tab}
@@ -191,14 +189,6 @@ export default function PostingListPanel() {
                 onRow={(p) => ({ onClick: () => navigate(`/recruitment/postings/${p.id}`) })}
                 locale={{ emptyText: "Không có việc làm nào" }}
             />
-            {canManage && (
-                <PostingFormModal
-                    open={createOpen}
-                    editingItem={null}
-                    onClose={() => setCreateOpen(false)}
-                    onSuccess={() => { setCreateOpen(false); void load(); }}
-                />
-            )}
         </ListPage>
     );
 }

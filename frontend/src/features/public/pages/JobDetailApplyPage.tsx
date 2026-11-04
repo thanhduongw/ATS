@@ -4,13 +4,13 @@ import dayjs from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
 import { getPublicJobById, getPublicJobs } from "../publicApi";
 import type { PublicJobPosting } from "../types";
-import { arrangementLabel, salaryText } from "../jobFormat";
-import { Chip, JobCard } from "../components/JobCard";
+import { experienceParts, salaryText } from "../jobFormat";
+import JobContent from "../components/JobContent";
+import { JobCard } from "../components/JobCard";
 import { getMyApplications } from "../../candidate/applicationApi";
 import type { CandidateApplicationResponse } from "../../candidate/types";
 import { useAppSelector } from "../../../app/hooks";
 import { COLORS } from "../../../app/theme";
-import { relativeTime } from "../../../app/datetime";
 import { InlineNotice } from "../../../components/ui/designKit";
 
 /**
@@ -24,11 +24,6 @@ const STEPS = [
     { title: "Phỏng vấn", hint: "Bạn tự chọn giờ trong các khung được đề xuất" },
     { title: "Nhận thư mời nhận việc", hint: "Phản hồi ngay trên cổng ứng viên" },
 ];
-
-/** Tách nội dung nhiều dòng thành gạch đầu dòng (bỏ ký hiệu "-", "•" người viết tự gõ). */
-function lines(text: string | null) {
-    return (text ?? "").split(/\r?\n/).map((l) => l.replace(/^\s*[-•*+]\s*/, "").trim()).filter(Boolean);
-}
 
 export default function JobDetailApplyPage() {
     const { jobId } = useParams<{ jobId: string }>();
@@ -78,11 +73,7 @@ export default function JobDetailApplyPage() {
         if (!role) navigate(`/login?redirect=${encodeURIComponent(target)}`, { state: { jobTitle: job.title } });
         else navigate(target);
     };
-    // "Kinh nghiệm" là chữ tự do: ngắn ("2+ năm") thì làm chip, dài thì hiện thành mục riêng trong nội dung.
-    const expShort = job.experienceRequired && job.experienceRequired.length <= 30 ? job.experienceRequired : null;
-    const expLong = job.experienceRequired && !expShort ? job.experienceRequired : null;
-    const chips = [arrangementLabel(job), job.employmentTypeName, expShort ? `${expShort} kinh nghiệm` : null,
-        job.headcount ? `Tuyển ${job.headcount} người` : null].filter(Boolean) as string[];
+    const expShort = experienceParts(job).short;
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -92,27 +83,13 @@ export default function JobDetailApplyPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 320px", gap: 24, alignItems: "start" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <section style={{ background: COLORS.cardBg, borderRadius: 20, padding: 24, display: "flex", flexDirection: "column", gap: 10 }}>
-                        <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
-                            {job.departmentName && <b style={{ color: COLORS.primary }}>{job.departmentName} · </b>}Đăng {relativeTime(job.publishedAt).toLowerCase()}
-                        </span>
-                        <span style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.25 }}>{job.title}</span>
-                        {job.workLocationName && <span style={{ color: COLORS.textSecondary }}>{job.workLocationName}</span>}
-                        <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{chips.map((c) => <Chip key={c}>{c}</Chip>)}</span>
-                    </section>
-
                     {mine && (
                         <InlineNotice tone="success" action={<Button onClick={() => navigate(`/my-applications/${mine.id}`)}>Xem đơn ứng tuyển</Button>}>
                             Bạn đã ứng tuyển vị trí này ngày {dayjs(mine.appliedAt).format("DD/MM/YYYY")}.
                         </InlineNotice>
                     )}
 
-                    <section style={{ background: COLORS.cardBg, borderRadius: 20, padding: 24, display: "flex", flexDirection: "column", gap: 22 }}>
-                        <Section title="Mô tả công việc" text={job.description} />
-                        <Section title="Kinh nghiệm" text={expLong} />
-                        <Section title="Yêu cầu" text={job.requirements} />
-                        <Section title="Quyền lợi" text={job.benefits} />
-                    </section>
+                    <JobContent job={job} />
                 </div>
 
                 <aside style={{ position: "sticky", top: 96, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -147,19 +124,6 @@ export default function JobDetailApplyPage() {
             </div>
 
             {similar.length > 0 && <SimilarJobs jobs={similar} />}
-        </div>
-    );
-}
-
-function Section({ title, text }: { title: string; text: string | null }) {
-    const items = lines(text);
-    if (items.length === 0) return null;
-    return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <b style={{ fontSize: 17 }}>{title}</b>
-            {items.length === 1
-                ? <span style={{ lineHeight: 1.7 }}>{items[0]}</span>
-                : <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 1.7 }}>{items.map((l, i) => <li key={i}>{l}</li>)}</ul>}
         </div>
     );
 }

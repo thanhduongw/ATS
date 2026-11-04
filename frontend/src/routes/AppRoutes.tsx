@@ -24,6 +24,7 @@ import CandidateProfilePage from "../features/candidate/pages/CandidateProfilePa
 import ApplyJobPage from "../features/public/pages/ApplyJobPage";
 import ScheduleInterviewPage from "../features/interview/pages/ScheduleInterviewPage";
 import InterviewDetailPage from "../features/interview/pages/InterviewDetailPage";
+import PostingFormPage from "../features/recruitment/pages/PostingFormPage";
 import MyApplicationsPage from "../features/candidate/pages/MyApplicationsPage";
 import InterviewSchedulePage from "../features/interview/pages/InterviewSchedulePage";
 import EvaluationsPage from "../features/interview/pages/EvaluationsPage";
@@ -124,6 +125,9 @@ export default function AppRoutes() {
                     <Route path="/offers/compare" element={<CandidateComparisonPage />} />
                     {/* R18: lên lịch phỏng vấn cho 1 hồ sơ (Tôi chọn giờ / Để ứng viên chọn). */}
                     <Route path="/interviews/schedule/:applicationId" element={<ScheduleInterviewPage />} />
+                    {/* R07/R08: tạo / sửa việc làm từ yêu cầu tuyển dụng (trang). */}
+                    <Route path="/recruitment/postings/new" element={<PostingFormPage />} />
+                    <Route path="/recruitment/postings/:id/edit" element={<PostingFormPage />} />
                     <Route path="/offers/create" element={<OfferCreatePage />} />
                     <Route path="/offers/:id/edit" element={<OfferCreatePage />} />
                 </Route>

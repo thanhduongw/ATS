@@ -13,3 +13,9 @@ export function salaryText(min: number | null, max: number | null): string {
 }
 
 export const arrangementLabel = (j: PublicJobPosting) => (j.workArrangement ? WORK_ARRANGEMENT_LABEL[j.workArrangement] : null);
+
+/** "Kinh nghiệm" là chữ tự do: ngắn ("2+ năm") thì làm chip, dài thì thành mục riêng trong nội dung tin. */
+export function experienceParts(job: Pick<PublicJobPosting, "experienceRequired">) {
+    const e = job.experienceRequired?.trim() || null;
+    return { short: e && e.length <= 30 ? e : null, long: e && e.length > 30 ? e : null };
+}

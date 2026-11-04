@@ -15,6 +15,9 @@ export const postingSchema = z.object({
     benefits: z.string().optional().nullable(),
     skillIds: z.array(z.number()).optional(),
     benchmarkCriteria: z.string().optional().nullable(),
+    applicationDeadline: z.string({ error: "Chọn hạn nộp hồ sơ" }).min(1, "Chọn hạn nộp hồ sơ"),
+    urgent: z.boolean().optional(),
+    showSalary: z.boolean().optional(),
 });
 
 export type PostingFormValues = z.infer<typeof postingSchema>;

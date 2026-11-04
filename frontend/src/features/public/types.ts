@@ -32,6 +32,9 @@ export interface PublicJobPosting {
     experienceRequired?: string | null;
     departmentId?: number | null;
     departmentName?: string | null;
+    applicationDeadline?: string | null;
+    urgent?: boolean;
+    showSalary?: boolean;
 }
 
 /** Response sau khi nộp public apply */

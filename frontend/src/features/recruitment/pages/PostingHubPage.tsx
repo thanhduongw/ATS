@@ -20,7 +20,6 @@ import type { ApplicationResponse } from "../../candidate/types";
 import ApplicationKanbanBoard from "../../candidate/components/ApplicationKanbanBoard";
 import ApplicationCreateModal from "../../candidate/components/ApplicationCreateModal";
 import CandidateComparisonPanel from "../../offer/components/CandidateComparisonPanel";
-import PostingFormModal from "../components/PostingFormModal";
 import { POSTING_STATUS_VIEW, WORK_ARRANGEMENT_LABEL } from "../postingLabels";
 import { AI_TIER_OPTIONS } from "../../ai/aiScore";
 import AiScoreBadge from "../../ai/components/AiScoreBadge";
@@ -82,7 +81,6 @@ export default function PostingHubPage() {
     const [recruiterId, setRecruiterId] = useState<number | undefined>();
     const [compareOpen, setCompareOpen] = useState(false);
     const [addOpen, setAddOpen] = useState(false);
-    const [editOpen, setEditOpen] = useState(false);
 
     const loadAll = useCallback(async () => {
         if (!jobPostingId) return;
@@ -266,7 +264,7 @@ export default function PostingHubPage() {
                 <TextBlock title="Yêu cầu" value={posting.requirements} />
                 <TextBlock title="Quyền lợi" value={posting.benefits} />
                 {canManage && posting.status !== "CLOSED" && (
-                    <div><Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>Sửa nội dung tin</Button></div>
+                    <div><Button icon={<EditOutlined />} onClick={() => navigate(`/recruitment/postings/${posting.id}/edit`)}>Sửa nội dung tin</Button></div>
                 )}
             </div>
         </Panel>
@@ -348,14 +346,6 @@ export default function PostingHubPage() {
                 onClose={() => setAddOpen(false)}
                 onSuccess={() => { setAddOpen(false); void loadAll(); }}
             />
-            {canManage && (
-                <PostingFormModal
-                    open={editOpen}
-                    editingItem={posting}
-                    onClose={() => setEditOpen(false)}
-                    onSuccess={() => { setEditOpen(false); void loadAll(); }}
-                />
-            )}
         </div>
     );
 }

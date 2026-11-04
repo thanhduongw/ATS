@@ -26,7 +26,12 @@ export function JobCard({ job, compact = false }: { job: PublicJobPosting; compa
                 background: COLORS.cardBg, cursor: "pointer", boxShadow: compact ? `inset 0 0 0 1px ${COLORS.border}` : undefined,
             }}
         >
-            {job.departmentName && <span style={{ fontSize: 12, color: COLORS.primary, fontWeight: 600 }}>{job.departmentName}</span>}
+            {(job.departmentName || job.urgent) && (
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {job.departmentName && <span style={{ fontSize: 12, color: COLORS.primary, fontWeight: 600 }}>{job.departmentName}</span>}
+                    {job.urgent && <span style={{ height: 20, padding: "0 8px", borderRadius: 10, background: "#FFE9DB", color: "#D45500", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center" }}>Tuyển gấp</span>}
+                </span>
+            )}
             <span style={{ fontSize: compact ? 15 : 17, fontWeight: 700, color: COLORS.textPrimary }}>{job.title}</span>
             <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{chips.map((c) => <Chip key={c}>{c}</Chip>)}</span>
             <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>

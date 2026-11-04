@@ -22,6 +22,7 @@ import { COLORS, type StatusTone } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
 import { InlineNotice, Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
+import OfferLetterPreview from "../components/OfferLetterPreview";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 
 /**
@@ -193,7 +194,7 @@ export default function OfferDetailPage() {
                         <Row label="Lương gộp" value={<b>{formatMoney(offer.salaryOffered)}{pay}</b>} />
                         {!!offer.allowance && <Row label="Phụ cấp" value={`${formatMoney(offer.allowance)}${pay}`} />}
                         {offer.performanceBonus && <Row label="Thưởng hiệu suất" value={offer.performanceBonus} />}
-                        {offer.benefits && <Row label="Phúc lợi" value={offer.benefits} />}
+                        {offer.benefits && <Row label="Phúc lợi" value={<span style={{ whiteSpace: "pre-line" }}>{offer.benefits}</span>} />}
                         <Row label="Ngày bắt đầu" value={d(offer.startDate)} />
                         <Row label="Thử việc" value={`${offer.probationMonths ?? 0} tháng`} />
                         <Row label="Hợp đồng" value={offer.contractTypeName ?? "—"} />
@@ -211,34 +212,14 @@ export default function OfferDetailPage() {
                 </div>
 
                 <Panel title={isDraft ? "Xem trước thư mời" : "Thư mời đã gửi"}>
-                    <div style={{ background: "#fff", borderRadius: 12, padding: "24px 28px", boxShadow: `inset 0 0 0 1px ${COLORS.border}`, fontSize: 14, lineHeight: 1.7 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-                            <b style={{ color: COLORS.primary }}>{company || "Công ty"}</b>
-                            <span style={{ color: COLORS.textSecondary, fontSize: 13 }}>
-                                {(location.match(/TP\.?\s?[^,·]+|Hà Nội|Đà Nẵng|Cần Thơ/)?.[0] ?? "TP.HCM")}, ngày {dayjs().format("DD/MM/YYYY")}
-                            </span>
-                        </div>
-                        <div style={{ textAlign: "center", fontWeight: 800, letterSpacing: "0.08em", marginBottom: 12 }}>THƯ MỜI NHẬN VIỆC</div>
-                        <p style={{ margin: "0 0 8px" }}>Kính gửi anh/chị <b>{offer.candidateName}</b>,</p>
-                        <p style={{ margin: "0 0 8px" }}>
-                            Sau quá trình phỏng vấn, {company || "công ty"} trân trọng mời anh/chị đảm nhận vị trí <b>{offer.jobTitle}</b>
-                            {deptName ? <> tại {deptName}</> : null}, với các điều khoản sau:
-                        </p>
-                        <ul style={{ margin: "0 0 8px", paddingLeft: 20 }}>
-                            <li>Lương gộp: <b>{formatMoney(offer.salaryOffered)}{pay}</b></li>
-                            {!!offer.allowance && <li>Phụ cấp: {formatMoney(offer.allowance)}{pay}</li>}
-                            <li>Ngày bắt đầu: {d(offer.startDate)}, thử việc {offer.probationMonths ?? 0} tháng</li>
-                            <li>Hợp đồng {(offer.contractTypeName ?? "").toLowerCase()}{offer.annualLeaveDays != null ? `, ${offer.annualLeaveDays} ngày phép/năm` : ""}</li>
-                            {offer.reportingManager && <li>Báo cáo trực tiếp cho {offer.reportingManager}</li>}
-                            {offer.benefits && <li>Phúc lợi: {offer.benefits}</li>}
-                        </ul>
-                        {offer.candidateVisibleNote && <p style={{ margin: "0 0 8px", whiteSpace: "pre-wrap" }}>{offer.candidateVisibleNote}</p>}
-                        <p style={{ margin: "0 0 12px" }}>
-                            Anh/chị vui lòng phản hồi trước{offer.responseDeadline ? ` ${dayjs(offer.responseDeadline).format("HH:mm")} ngày ${dayjs(offer.responseDeadline).format("DD/MM/YYYY")}` : " hạn ghi trên thư"} trên cổng ứng viên.
-                        </p>
-                        <p style={{ margin: 0 }}>Trân trọng,<br /><b>{offer.requesterName}</b><br />
-                            <span style={{ color: COLORS.textSecondary }}>Chuyên viên tuyển dụng, {company}</span></p>
-                    </div>
+                    <OfferLetterPreview data={{
+                        company, location, candidateName: offer.candidateName, jobTitle: offer.jobTitle, deptName,
+                        salaryOffered: offer.salaryOffered, allowance: offer.allowance, payFrequency: offer.payFrequency,
+                        startDate: offer.startDate, probationMonths: offer.probationMonths, contractTypeName: offer.contractTypeName,
+                        annualLeaveDays: offer.annualLeaveDays, reportingManager: offer.reportingManager, benefits: offer.benefits,
+                        candidateVisibleNote: offer.candidateVisibleNote, responseDeadline: offer.responseDeadline,
+                        requesterName: offer.requesterName,
+                    }} />
                 </Panel>
             </div>
 

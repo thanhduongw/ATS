@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { App, Button, DatePicker, Form, Input, InputNumber, Modal, Segmented, Select, Spin, Switch } from "antd";
+import { App, Button, Form, Input, InputNumber, Modal, Segmented, Select, Spin, Switch } from "antd";
 import { DesktopOutlined, MobileOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs from "dayjs";
@@ -21,6 +21,7 @@ import { moneyFormatter, moneyParser } from "../../../app/money";
 import { COLORS, FIXED_STAGES, STAGE_COLORS } from "../../../app/theme";
 import { FIXED_STAGE_LABEL } from "../../../app/stages";
 import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
+import DateField from "../../../components/ui/DateField";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 
 /**
@@ -197,9 +198,7 @@ export default function PostingFormPage() {
                             </Form.Item>
                             <Form.Item label="Hạn nộp hồ sơ" required {...field("applicationDeadline")}>
                                 <Controller name="applicationDeadline" control={control} render={({ field: f }) => (
-                                    <DatePicker format="DD/MM/YYYY" style={{ width: "100%" }} value={f.value ? dayjs(f.value) : null}
-                                        disabledDate={(d) => d.isBefore(dayjs(), "day")}
-                                        onChange={(d) => f.onChange(d ? d.format("YYYY-MM-DD") : "")} />)} />
+                                    <DateField futureOnly value={f.value} onChange={f.onChange} />)} />
                             </Form.Item>
                             <Form.Item label="Kinh nghiệm yêu cầu" style={{ gridColumn: "span 2" }}>
                                 <Controller name="experienceRequired" control={control} render={({ field: f }) => (

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Modal, Form, Input, InputNumber, Select, DatePicker, Upload, message } from "antd";
+import { Modal, Form, Input, InputNumber, Select, Upload, message } from "antd";
 import {
   InboxOutlined,
   FileTextOutlined,
@@ -31,13 +31,13 @@ const grid2: React.CSSProperties = {
 
 const spanAll: React.CSSProperties = { gridColumn: "1 / -1" };
 import type { UploadProps } from "antd";
-import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { candidateSchema, type CandidateFormValues } from "../schemas/candidateSchema";
 import { createCandidate, updateCandidate, uploadCandidateCv } from "../candidateApi";
 import { getCustomFieldDefinitions } from "../customFieldApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
+import DateField from "../../../components/ui/DateField";
 import type { ApiMessageResponse, CandidateResponse, CustomFieldDefinition } from "../types";
 
 interface Props {
@@ -210,12 +210,7 @@ export default function CandidateFormModal({ open, editingItem, initialValues, i
                 name="dateOfBirth"
                 control={control}
                 render={({ field }) => (
-                  <DatePicker
-                    style={{ width: "100%" }}
-                    format="DD/MM/YYYY"
-                    value={field.value ? dayjs(field.value) : null}
-                    onChange={(date) => field.onChange(date ? date.format("YYYY-MM-DD") : null)}
-                  />
+                  <DateField value={field.value} onChange={(v) => field.onChange(v || null)} />
                 )}
               />
             </Form.Item>
@@ -355,11 +350,9 @@ export default function CandidateFormModal({ open, editingItem, initialValues, i
                       onChange={(v) => setCustomFieldValues((prev) => ({ ...prev, [def.fieldKey]: v != null ? String(v) : "" }))}
                     />
                   ) : def.fieldType === "DATE" ? (
-                    <DatePicker
-                      style={{ width: "100%" }}
-                      format="DD/MM/YYYY"
-                      value={customFieldValues[def.fieldKey] ? dayjs(customFieldValues[def.fieldKey]) : null}
-                      onChange={(date) => setCustomFieldValues((prev) => ({ ...prev, [def.fieldKey]: date ? date.format("YYYY-MM-DD") : "" }))}
+                    <DateField
+                      value={customFieldValues[def.fieldKey]}
+                      onChange={(v) => setCustomFieldValues((prev) => ({ ...prev, [def.fieldKey]: v }))}
                     />
                   ) : (
                     <Input

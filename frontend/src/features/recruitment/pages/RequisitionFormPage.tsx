@@ -1,8 +1,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useForm, Controller, type FieldError } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { App, Button, DatePicker, Form, Input, InputNumber, Select, Spin } from "antd";
-import dayjs from "dayjs";
+import { App, Button, Form, Input, InputNumber, Select, Spin } from "antd";
 import type { AxiosError } from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { requisitionSchema, type RequisitionFormValues } from "../schemas/requisitionSchema";
@@ -20,6 +19,7 @@ import { useAppSelector } from "../../../app/hooks";
 import { COLORS, RADIUS } from "../../../app/theme";
 import { moneyFormatter, moneyParser } from "../../../app/money";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
+import DateField from "../../../components/ui/DateField";
 import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
 
 /**
@@ -259,9 +259,7 @@ export default function RequisitionFormPage() {
                             <Form.Item label="Ngày bắt đầu mong muốn" required {...err(errors.expectedStartDate)}>
                                 <Controller name="expectedStartDate" control={control}
                                     render={({ field }) => (
-                                        <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY"
-                                            value={field.value ? dayjs(field.value) : null}
-                                            onChange={(d) => field.onChange(d ? d.format("YYYY-MM-DD") : "")} />
+                                        <DateField value={field.value} onChange={field.onChange} />
                                     )} />
                             </Form.Item>
                             <Form.Item label="Độ ưu tiên">

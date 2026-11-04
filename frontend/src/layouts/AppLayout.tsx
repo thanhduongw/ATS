@@ -12,6 +12,7 @@ import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { logout, setUserProfile } from "../features/auth/authSlice";
 import { getMyProfile, logoutRequest } from "../features/auth/authApi";
 import NotificationBell from "../features/notification/components/NotificationBell";
+import QuickSearch from "../components/QuickSearch";
 import { getPublicCompany } from "../features/public/publicApi";
 import { getOpenPostings, getPostings, getRequisitions } from "../features/recruitment/recruitmentApi";
 import { getApplications } from "../features/candidate/applicationApi";
@@ -296,6 +297,9 @@ export default function AppLayout() {
                         padding: "0 24px 0 4px", background: COLORS.header,
                     }}
                 >
+                    {/* R29 · Tìm kiếm nhanh (Ctrl K) — Chuyên viên tuyển dụng và Đại diện phòng ban (Quản trị không mở được
+                        trang hồ sơ / việc làm nên không hiện, tránh kết quả dẫn tới trang bị chặn). */}
+                    {(user?.role === "RECRUITER" || user?.role === "HIRING_MANAGER") && <QuickSearch />}
                     <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
                         {isRecruiter && (
                             <Dropdown

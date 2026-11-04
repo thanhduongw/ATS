@@ -38,5 +38,8 @@ public record InterviewResponse(
          * Moc tao buoi phong van. Giao dien dung no doi chieu voi lich su chuyen vong cua
          * ho so de suy ra buoi nay thuoc vong nao — he thong khong luu vong tren interview.
          */
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        /** R21: ai đề xuất đổi giờ (null nếu không có đề xuất) và lúc ứng viên xác nhận. */
+        Long proposedBy,
+        LocalDateTime candidateConfirmedAt
 ) {}

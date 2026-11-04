@@ -404,6 +404,7 @@ public class InterviewService {
             interview.setStatus(InterviewStatus.CANCELLED);
         } else {
             interview.setProposedScheduledAt(req.proposedScheduledAt());
+            interview.setProposedBy(actor.userId());
             interview.setStatus(InterviewStatus.HM_RESCHEDULE_PROPOSED);
         }
         return toResponse(interviewRepository.save(interview));
@@ -424,8 +425,68 @@ public class InterviewService {
         interview.setScheduledAt(interview.getProposedScheduledAt());
         interview.setProposedScheduledAt(null);
         interview.setProposalNote(null);
+        interview.setProposedBy(null);
         markHmConfirmed(interview);
         return saveAndNotifyCandidate(interview);
+    }
+
+    /**
+     * R21 "Từ chối đề xuất": giữ giờ cũ, xoá đề xuất, đưa về chờ phòng ban xác nhận lại giờ cũ.
+     */
+    @Transactional
+    public InterviewResponse rejectHmProposal(CurrentUser actor, Long id) {
+        AuthorizationPolicy.requireHr(actor);
+        Interview interview = findById(id);
+        if (interview.getStatus() != InterviewStatus.HM_RESCHEDULE_PROPOSED) {
+            throw new BusinessException("Buổi phỏng vấn này không có đề xuất đổi lịch đang chờ");
+        }
+        interview.setProposedScheduledAt(null);
+        interview.setProposalNote(null);
+        interview.setProposedBy(null);
+        interview.setStatus(InterviewStatus.SCHEDULED);
+        return toResponse(interviewRepository.save(interview));
+    }
+
+    /**
+     * R21 "Thêm người phỏng vấn": đặt lại danh sách người phỏng vấn. Người mới có phiếu đánh giá trống;
+     * người bị bỏ chỉ được bỏ khi chưa nộp đánh giá. Buổi đã kết thúc / huỷ thì không sửa.
+     */
+    @Transactional
+    public InterviewResponse updateInterviewers(CurrentUser actor, Long id, java.util.List<Long> interviewerIds) {
+        AuthorizationPolicy.requireHr(actor);
+        Interview interview = findById(id);
+        if (interview.getStatus() == InterviewStatus.CANCELLED || interview.getStatus() == InterviewStatus.COMPLETED
+                || interview.getStatus() == InterviewStatus.NO_SHOW) {
+            throw new BusinessException("Không sửa người phỏng vấn của buổi đã kết thúc hoặc đã huỷ");
+        }
+        java.util.List<Long> wanted = interviewerIds == null ? java.util.List.of()
+                : interviewerIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (wanted.isEmpty()) throw new BusinessException("Cần ít nhất một người phỏng vấn");
+
+        Map<Long, InterviewEvaluation> evals = evaluationRepository.findByInterviewId(id).stream()
+                .collect(Collectors.toMap(InterviewEvaluation::getInterviewerId, e -> e, (a, b) -> a));
+        for (InterviewInterviewer current : java.util.List.copyOf(interview.getInterviewers())) {
+            if (wanted.contains(current.getInterviewerId())) continue;
+            InterviewEvaluation ev = evals.get(current.getInterviewerId());
+            if (ev != null && ev.getSubmittedAt() != null) {
+                throw new BusinessException(current.getInterviewerNameSnapshot() + " đã nộp đánh giá, không bỏ khỏi buổi được");
+            }
+            if (ev != null) evaluationRepository.delete(ev);
+            interview.getInterviewers().remove(current);
+        }
+        java.util.Set<Long> existing = interview.getInterviewers().stream()
+                .map(InterviewInterviewer::getInterviewerId).collect(Collectors.toSet());
+        java.util.List<Long> added = wanted.stream().filter(x -> !existing.contains(x)).toList();
+        if (!added.isEmpty()) {
+            Map<Long, String> names = authServiceClient.getUsers(null).stream()
+                    .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
+            added.forEach(uid -> interview.getInterviewers().add(InterviewInterviewer.builder()
+                    .interview(interview).interviewerId(uid).interviewerNameSnapshot(names.get(uid)).build()));
+        }
+        Interview saved = interviewRepository.save(interview);
+        added.forEach(uid -> evaluationRepository.save(InterviewEvaluation.builder()
+                .interview(saved).applicationId(saved.getApplicationId()).interviewerId(uid).build()));
+        return toResponse(saved);
     }
 
     /** HM ghi nhận ứng viên đã xác nhận nhưng không đến. */
@@ -699,7 +760,9 @@ public class InterviewService {
                 interview.getProposedScheduledAt(),
                 interview.getProposalNote(),
                 interviewerSummaries,
-                interview.getCreatedAt()
+                interview.getCreatedAt(),
+                interview.getProposedBy(),
+                interview.getCandidateConfirmedAt()
         );
     }
 }

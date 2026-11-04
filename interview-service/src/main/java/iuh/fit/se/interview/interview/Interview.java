@@ -79,6 +79,10 @@ public class Interview {
     @Column(name = "proposal_note", length = 500)
     private String proposalNote;
 
+    /** Người phỏng vấn đã đề xuất đổi giờ (R21). */
+    @Column(name = "proposed_by")
+    private Long proposedBy;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

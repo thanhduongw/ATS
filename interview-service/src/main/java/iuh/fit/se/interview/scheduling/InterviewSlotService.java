@@ -323,7 +323,9 @@ public class InterviewSlotService {
                 interview.getProposedScheduledAt(),
                 interview.getProposalNote(),
                 interviewerSummaries,
-                interview.getCreatedAt()
+                interview.getCreatedAt(),
+                interview.getProposedBy(),
+                interview.getCandidateConfirmedAt()
         );
     }
 }

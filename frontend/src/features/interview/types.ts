@@ -227,4 +227,19 @@ export interface InterviewSlotResponse {
   departmentConfirmed: boolean;
   candidateConfirmed: boolean;
   matched: boolean;
+  interviewerIds?: number[];
+  note?: string | null;
+  /** Hạn ứng viên chọn giờ (R18, C13, C25). */
+  responseDeadline?: string | null;
+}
+
+export interface SlotBatchCreateRequest {
+  applicationId: number;
+  format: InterviewFormat;
+  workLocationId?: number | null;
+  meetingLink?: string | null;
+  slots: { startTime: string; endTime: string }[];
+  interviewerIds?: number[];
+  note?: string | null;
+  responseDeadline?: string | null;
 }

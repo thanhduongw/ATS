@@ -22,6 +22,7 @@ import CandidateApplicationDetailPage from "../features/candidate/pages/Candidat
 import ApplicationsPage from "../features/candidate/pages/ApplicationsPage";
 import CandidateProfilePage from "../features/candidate/pages/CandidateProfilePage";
 import ApplyJobPage from "../features/public/pages/ApplyJobPage";
+import ScheduleInterviewPage from "../features/interview/pages/ScheduleInterviewPage";
 import MyApplicationsPage from "../features/candidate/pages/MyApplicationsPage";
 import InterviewSchedulePage from "../features/interview/pages/InterviewSchedulePage";
 import EvaluationsPage from "../features/interview/pages/EvaluationsPage";
@@ -118,6 +119,8 @@ export default function AppRoutes() {
                 {/* Tao va so sanh la thao tac cua HR; chi tiet offer thi moi role noi bo deu xem duoc. */}
                 <Route element={<RoleRoute allow={["RECRUITER"]} />}>
                     <Route path="/offers/compare" element={<CandidateComparisonPage />} />
+                    {/* R18: lên lịch phỏng vấn cho 1 hồ sơ (Tôi chọn giờ / Để ứng viên chọn). */}
+                    <Route path="/interviews/schedule/:applicationId" element={<ScheduleInterviewPage />} />
                     <Route path="/offers/create" element={<OfferCreatePage />} />
                     <Route path="/offers/:id/edit" element={<OfferCreatePage />} />
                 </Route>

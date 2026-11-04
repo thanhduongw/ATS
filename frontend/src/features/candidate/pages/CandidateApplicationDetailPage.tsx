@@ -15,6 +15,7 @@ import {
 import { getOffers } from "../../offer/offerApi";
 import type { OfferResponse } from "../../offer/types";
 import { getCandidateById } from "../candidateApi";
+import ProposedSlotsPanel from "../../interview/components/ProposedSlotsPanel";
 import { getPostingById } from "../../recruitment/recruitmentApi";
 import { getPipelines, getCatalogItems } from "../../masterdata/masterdataApi";
 import type { PipelineStageResponse } from "../../masterdata/types";
@@ -659,6 +660,9 @@ export default function CandidateApplicationDetailPage() {
                 )}
             </div>
 
+            {/* Khung giờ đã gửi ở R18 "Để ứng viên chọn": ứng viên chọn xong thì HR chốt lịch ở đây. */}
+            {isHr && <ProposedSlotsPanel applicationId={application.id} onScheduled={() => void loadAll()} />}
+
             {/* ── Thẻ định danh ── */}
             <Panel>
                 <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
@@ -703,7 +707,7 @@ export default function CandidateApplicationDetailPage() {
                         {isHr && !isHired && !isRejected && (
                             <Space wrap size={8} style={{ justifyContent: "flex-end" }}>
                                 {showInterviewBtn && (
-                                    <Button icon={<CalendarOutlined />} onClick={() => setInterviewModalOpen(true)}>
+                                    <Button icon={<CalendarOutlined />} onClick={() => navigate(`/interviews/schedule/${application.id}`)}>
                                         {activeInterviews.length ? "Thêm buổi phỏng vấn" : "Lên lịch phỏng vấn"}
                                     </Button>
                                 )}

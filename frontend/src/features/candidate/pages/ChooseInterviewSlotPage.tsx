@@ -16,8 +16,8 @@ import { chosenSlot, useCandidatePortal } from "../useCandidatePortal";
 /**
  * C13 · Chọn khung giờ phỏng vấn (ứng viên chọn 1 trong các khung HR đề xuất) → C24 thành công kèm "Thêm vào lịch (.ics)".
  * Sau khi chọn, HR chốt khung giờ thành buổi phỏng vấn (InterviewSlotService.selectSlot).
- * Khác HTML: khung giờ chưa có "Hạn chọn" nên chưa có màn C25 hết hạn — khung giờ đã qua thì không chọn được;
- * chưa có ô ghi chú (backend chưa lưu).
+ * C25 · Hết hạn chọn giờ: quá hạn HR đặt ở R18 thì không chọn được, hướng ứng viên liên hệ người phụ trách.
+ * Khác HTML: chưa có ô ghi chú của ứng viên (backend chưa lưu).
  */
 const WEEKDAY = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 const WEEKDAY_FULL = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
@@ -89,6 +89,23 @@ export default function ChooseInterviewSlotPage() {
         } finally { setBusy(false); }
     };
 
+    const deadline = slots.find((s) => s.responseDeadline)?.responseDeadline ?? null;
+    const hrNote = slots.find((s) => s.note)?.note ?? null;
+
+    // C25 · Hết hạn chọn giờ (chưa chọn khung nào).
+    if (deadline && dayjs(deadline).isBefore(dayjs()) && !already) {
+        return (
+            <Panel style={{ maxWidth: 560 }}>
+                <Result
+                    status="warning"
+                    title="Đã hết hạn chọn giờ"
+                    subTitle={`Hạn chọn là ${dayjs(deadline).format("DD/MM HH:mm")}. Liên hệ bộ phận tuyển dụng để được gửi lịch mới.`}
+                    extra={<Button type="primary" onClick={() => navigate(`/my-applications/${appId}`)}>Về đơn ứng tuyển</Button>}
+                />
+            </Panel>
+        );
+    }
+
     const byDay = new Map<string, InterviewSlotResponse[]>();
     slots.forEach((s) => {
         const k = dayjs(s.startTime).format("YYYY-MM-DD");
@@ -101,7 +118,10 @@ export default function ChooseInterviewSlotPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1000 }}>
             <div>
                 <PageBreadcrumb crumb={jobTitle} />
-                <ScreenTitle title="Chọn lịch phỏng vấn" />
+                <ScreenTitle
+                    title="Chọn lịch phỏng vấn"
+                    subtitle={deadline ? <span style={{ color: COLORS.warning, fontWeight: 600 }}>Hạn chọn: {dayjs(deadline).format("DD/MM HH:mm")}</span> : undefined}
+                />
             </div>
             {already && (
                 <InlineNotice tone="success">
@@ -157,6 +177,11 @@ export default function ChooseInterviewSlotPage() {
                     <span style={{ fontWeight: 600 }}>{jobTitle}</span>
                     <Info label="Thời lượng" value={`${dayjs(first.endTime).diff(dayjs(first.startTime), "minute")} phút`} />
                     <Info label="Hình thức" value={first.format === "ONLINE" ? "Trực tuyến" : "Tại văn phòng"} />
+                    {hrNote && (
+                        <div style={{ marginTop: 6, padding: 12, borderRadius: 12, background: COLORS.fill, fontSize: 13, whiteSpace: "pre-wrap" }}>
+                            {hrNote}
+                        </div>
+                    )}
                 </Panel>
             </div>
         </div>

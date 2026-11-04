@@ -1,6 +1,7 @@
 import axiosClient from "../../services/axiosClient";
 import type {
   InterviewSlotResponse,
+  SlotBatchCreateRequest,
   InterviewResponse,
   InterviewCreateRequest,
   InterviewHmRejectRequest,
@@ -121,3 +122,11 @@ export const getMyPendingSlots = () =>
 /** available=true: "tôi rảnh khung này" (ứng viên chọn); false: bỏ chọn. */
 export const confirmSlot = (id: number, available: boolean) =>
   axiosClient.post<InterviewSlotResponse>(`/interview/slots/${id}/confirm`, { available });
+
+/** R18 "Để ứng viên chọn": HR gửi nhiều khung giờ cho 1 hồ sơ. */
+export const createSlotBatch = (data: SlotBatchCreateRequest) =>
+  axiosClient.post<InterviewSlotResponse[]>("/interview/slots/batch", data);
+
+/** HR chốt 1 khung giờ → tạo buổi phỏng vấn, huỷ các khung còn lại. */
+export const selectSlot = (id: number) =>
+  axiosClient.post<InterviewResponse>(`/interview/slots/${id}/select`, {});

@@ -10,6 +10,7 @@ import { shortDate } from "../../../app/datetime";
 import { MetricCard, ScreenTitle } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
 import { rowArrowColumn } from "../../../components/ui/listHelpers";
+import { departmentLabel } from "../../overview/useCompanyOverview";
 import { offerStatusText, useDepartmentResults } from "../useDepartmentResults";
 
 /**
@@ -86,7 +87,7 @@ export default function ResultsPage() {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <ScreenTitle title="Kết quả tuyển dụng" subtitle={departmentName ? `Phòng ${departmentName}` : undefined} />
+            <ScreenTitle title="Kết quả tuyển dụng" subtitle={departmentName ? departmentLabel(departmentName) : undefined} />
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <MetricCard label="Vị trí đang tuyển" value={open.length}
                     hint={`${open.reduce((s, p) => s + (p.headcount ?? 0), 0)} người cần tuyển`} />

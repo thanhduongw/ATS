@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type Key } from "react";
+import { departmentLabel } from "../../overview/useCompanyOverview";
 import { Table, Button, Select, Modal, Form, Input, App, Tooltip } from "antd";
 import type { ColumnsType, SortOrder } from "antd/es/table/interface";
 import { useSearchParams } from "react-router-dom";
@@ -357,7 +358,7 @@ export default function ApplicationsPage() {
     return (
         <ListPage
             title="Ứng viên"
-            subtitle={isHm ? `${myDeptName ? `Phòng ${myDeptName} · ` : ""}bạn xem hồ sơ và nộp đánh giá khi được phân công phỏng vấn` : undefined}
+            subtitle={isHm ? `${myDeptName ? `${departmentLabel(myDeptName)} · ` : ""}bạn xem hồ sơ và nộp đánh giá khi được phân công phỏng vấn` : undefined}
             actions={
                 <>
                     <Button icon={<DownloadOutlined />} onClick={handleExportExcel}>Xuất Excel</Button>

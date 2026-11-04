@@ -12,7 +12,8 @@ import OAuth2CallbackPage from "../features/auth/pages/OAuth2CallbackPage";
 import ForgotPasswordPage from "../features/auth/pages/ForgotPasswordPage";
 import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
 import AccountSettingsPage from "../features/auth/pages/AccountSettingsPage";
-import DashboardPage from "../features/dashboard/pages/DashboardPage";
+import CompanyOverviewPage from "../features/overview/pages/CompanyOverviewPage";
+import DepartmentOverviewPage from "../features/overview/pages/DepartmentOverviewPage";
 import MasterDataPage from "../features/masterdata/pages/MasterDataPage";
 import CatalogDetailPage from "../features/masterdata/pages/CatalogDetailPage";
 import RecruitmentPage from "../features/recruitment/pages/RecruitmentPage";
@@ -49,7 +50,6 @@ import ResultsPage from "../features/results/pages/ResultsPage";
 import PositionResultPage from "../features/results/pages/PositionResultPage";
 import JobDetailApplyPage from "../features/public/pages/JobDetailApplyPage";
 
-const INTERNAL_ROLES = ["COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER"] as const;
 
 /**
  * Vai trò vận hành tuyển dụng (ứng viên, phỏng vấn, thư mời…).
@@ -83,9 +83,6 @@ export default function AppRoutes() {
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/settings" element={<AccountSettingsPage />} />
 
-                <Route element={<RoleRoute allow={[...INTERNAL_ROLES]} />}>
-                    <Route path="/dashboard" element={<DashboardPage />} />
-                </Route>
 
                 <Route element={<RoleRoute allow={[...OPERATION_ROLES]} />}>
                     {/* R01 / H01 "Việc của tôi" */}
@@ -131,6 +128,9 @@ export default function AppRoutes() {
                 </Route>
 
                 <Route element={<RoleRoute allow={["COMPANY_ADMIN"]} />}>
+                    {/* A01, A02: Tổng quan — chỉ số liệu tổng hợp. */}
+                    <Route path="/dashboard" element={<CompanyOverviewPage />} />
+                    <Route path="/dashboard/departments/:id" element={<DepartmentOverviewPage />} />
                     <Route path="/admin/users" element={<UsersPage />} />
                     <Route path="/admin/users/invite" element={<InviteUserPage />} />
                     <Route path="/admin/users/roles" element={<RolesPage />} />

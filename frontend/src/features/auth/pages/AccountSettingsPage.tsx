@@ -10,6 +10,7 @@ import { logout, setUserProfile } from "../authSlice";
 import { ROLE_LABELS } from "../../../app/roles";
 import { COLORS } from "../../../app/theme";
 import { Avatar, Panel, ScreenTitle } from "../../../components/ui/designKit";
+import { departmentLabel } from "../../overview/useCompanyOverview";
 
 /**
  * R32 · Cài đặt tài khoản (mọi vai trò nội bộ): thông tin cá nhân · đổi mật khẩu · đăng xuất.
@@ -91,7 +92,7 @@ export default function AccountSettingsPage() {
                     <div style={{ display: "flex", flexDirection: "column" }}>
                         <span style={{ fontWeight: 600, fontSize: 16 }}>{profile?.fullName}</span>
                         <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
-                            {[roleText, deptName ? `Phòng ${deptName}` : null].filter(Boolean).join(" · ")}
+                            {[roleText, deptName ? departmentLabel(deptName) : null].filter(Boolean).join(" · ")}
                         </span>
                     </div>
                 </div>

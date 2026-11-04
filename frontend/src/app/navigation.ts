@@ -30,6 +30,7 @@ interface RouteNode {
 
 const ROUTES: RouteNode[] = [
     { pattern: "/dashboard", label: "Tổng quan", moduleKey: "/dashboard" },
+    { pattern: "/dashboard/departments/:id", label: "Số liệu phòng ban", parent: "/dashboard" },
     { pattern: "/my-work", label: "Việc của tôi", moduleKey: "/my-work" },
     { pattern: "/masterdata", label: "Danh mục", moduleKey: "/masterdata" },
     { pattern: "/masterdata/:key", label: "Danh mục con", parent: "/masterdata" },

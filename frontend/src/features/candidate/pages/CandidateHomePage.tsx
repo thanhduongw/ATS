@@ -7,7 +7,7 @@ import { getOpenPostings } from "../../recruitment/recruitmentApi";
 import type { JobPostingResponse } from "../../recruitment/types";
 import { useAppSelector } from "../../../app/hooks";
 import { COLORS } from "../../../app/theme";
-import { formatSalaryRange } from "../../../app/money";
+import { salaryText } from "../../public/jobFormat";
 import { relativeTime } from "../../../app/datetime";
 import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
 import CandidateStageTag from "../components/CandidateStageTag";
@@ -134,7 +134,7 @@ export default function CandidateHomePage() {
                                     {[j.workLocationName, j.employmentTypeName].filter(Boolean).join(" · ")}
                                 </span>
                                 <span style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                                    <b>{formatSalaryRange(j.salaryMin, j.salaryMax)}</b>
+                                    <b>{salaryText(j.salaryMin, j.salaryMax)}</b>
                                     <span style={{ color: COLORS.textMuted }}>{relativeTime(j.publishedAt)}</span>
                                 </span>
                             </div>

@@ -13,6 +13,7 @@ import { setCredentials } from "../authSlice";
 import { loginSchema, type LoginFormValues } from "../schemas/loginSchema";
 import type { ApiMessageResponse, JwtPayload } from "../types";
 import { OAUTH2_PRE_LOGIN_URL } from "../../../config";
+import AuthShell from "../components/AuthShell";
 
 export default function LoginPage() {
     const { message } = App.useApp();
@@ -50,28 +51,16 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="auth-page">
-            <div className="auth-hero">
-                <div className="auth-hero-content">
-                    <div className="auth-hero-logo">ATS</div>
-                    <h1 className="auth-hero-title">Hệ thống tuyển dụng của doanh nghiệp</h1>
-                    <p className="auth-hero-subtitle">
-                        Nhân viên nội bộ sử dụng tài khoản do quản trị viên cấp. Ứng viên có thể đăng ký
-                        để nộp hồ sơ và theo dõi tiến độ tuyển dụng.
-                    </p>
+        <AuthShell
+            tagline="Chào mừng quay lại"
+            title="Đăng nhập"
+            subtitle="Dùng email và mật khẩu của bạn."
+            banner={state.jobTitle ? (
+                <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(10, 89, 247, 0.08)", fontSize: 13 }}>
+                    Ứng tuyển: <b>{state.jobTitle}</b>
                 </div>
-            </div>
-            <div className="auth-form-side">
-                <div className="auth-form-container">
-                    {state.jobTitle && (
-                        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(10, 89, 247, 0.08)", fontSize: 13 }}>
-                            Ứng tuyển: <b>{state.jobTitle}</b>
-                        </div>
-                    )}
-                    <div className="auth-form-header">
-                        <h2>Đăng nhập</h2>
-                        <p>Sử dụng email và mật khẩu của bạn.</p>
-                    </div>
+            ) : undefined}
+        >
                     <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
                         <Form.Item label="Email" validateStatus={errors.email ? "error" : ""} help={errors.email?.message}>
                             <Controller name="email" control={control} render={({ field }) => (
@@ -93,13 +82,11 @@ export default function LoginPage() {
                         window.location.href = OAUTH2_PRE_LOGIN_URL;
                     }}>Đăng nhập bằng Google</Button>
                     <div className="auth-form-footer">
-                        Bạn là ứng viên? <Button type="link" onClick={() => navigate("/register")}>Tạo tài khoản</Button>
+                        Chưa có tài khoản? <Button type="link" style={{ padding: 0 }} onClick={() => navigate(`/register${location.search}`)}>Đăng ký ứng viên</Button>
                     </div>
                     <div className="auth-form-footer">
                         <Button type="link" onClick={() => navigate("/careers")}>Xem việc làm đang tuyển</Button>
                     </div>
-                </div>
-            </div>
-        </div>
+        </AuthShell>
     );
 }

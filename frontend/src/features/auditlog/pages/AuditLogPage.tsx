@@ -1,278 +1,142 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-    Card,
-    Table,
-    Select,
-    DatePicker,
-    Button,
-    Typography,
-    Tag,
-    Space,
-    Tooltip,
-    Input,
-} from "antd";
+import { DatePicker, Input, Select, Table, Tooltip } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
-import type { Dayjs } from "dayjs";
-import { useNavigate } from "react-router-dom";
+import dayjs, { type Dayjs } from "dayjs";
 import { searchAuditLogs } from "../auditLogApi";
 import { getUsers } from "../../auth/authApi";
 import type { UserSummaryResponse } from "../../auth/types";
 import type { AuditLogResponse } from "../types";
-import {
-    AUDIT_ACTION_COLOR,
-    AUDIT_ACTION_LABEL,
-    RESOURCE_TYPE_LABEL,
-} from "../../../app/statusLabels";
-import { useTableScrollY } from "../../../app/useTableScrollY";
-import { listCardStyle } from "../../../components/ui/listStyles";
+import { AUDIT_ACTION_LABEL, RESOURCE_TYPE_LABEL } from "../../../app/statusLabels";
+import { COLORS } from "../../../app/theme";
+import ListPage, { ListFilters } from "../../../components/ui/listKit";
+import { Avatar } from "../../../components/ui/designKit";
 
-const { Title, Text } = Typography;
+/**
+ * Nhật ký hệ thống (Quản trị doanh nghiệp, menu riêng theo quyết định C6 = a) — style danh sách DS04.
+ * Chỉ hiện loại đối tượng + mã, không mở được hồ sơ: Quản trị doanh nghiệp không xem hồ sơ ứng viên (A07).
+ */
 const { RangePicker } = DatePicker;
 
-const RESOURCE_TYPES = [
-    "REQUISITION",
-    "JOB_POSTING",
-    "APPLICATION",
-    "OFFER",
-    "CANDIDATE",
-    "USER",
-    "INTERVIEW",
-];
-
-function resolveAuditPath(
-    resourceType: string | null,
-    resourceId: number | null
-): string | null {
-    if (!resourceType || resourceId == null) return null;
-    const t = resourceType.toUpperCase();
-    switch (t) {
-        case "REQUISITION":
-            return `/recruitment?tab=requisition&highlightId=${resourceId}`;
-        case "JOB_POSTING":
-            return `/recruitment?tab=posting&highlightId=${resourceId}`;
-        case "APPLICATION":
-            return `/applications?highlightId=${resourceId}`;
-        case "INTERVIEW":
-            return `/interviews?highlightId=${resourceId}`;
-        case "OFFER":
-            return `/offers?highlightId=${resourceId}`;
-        case "CANDIDATE":
-            return `/candidates?highlightId=${resourceId}`;
-        default:
-            return null;
-    }
-}
+const RESOURCE_TYPES = ["REQUISITION", "JOB_POSTING", "APPLICATION", "OFFER", "CANDIDATE", "USER", "INTERVIEW"];
 
 export default function AuditLogPage() {
-    const navigate = useNavigate();
     const [logs, setLogs] = useState<AuditLogResponse[]>([]);
     const [users, setUsers] = useState<UserSummaryResponse[]>([]);
     const [loading, setLoading] = useState(true);
-
+    const [failed, setFailed] = useState(false);
     const [resourceType, setResourceType] = useState<string | undefined>();
     const [actorUserId, setActorUserId] = useState<number | undefined>();
     const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
     const [keyword, setKeyword] = useState("");
 
-    const { wrapRef, scrollY } = useTableScrollY([loading, logs.length]);
-
-    const loadLogs = async () => {
-        setLoading(true);
-        try {
-            const res = await searchAuditLogs({
-                resourceType,
-                actorUserId,
-                from: dateRange ? dateRange[0].startOf("day").toISOString() : undefined,
-                to: dateRange ? dateRange[1].endOf("day").toISOString() : undefined,
-            });
-            setLogs(res.data ?? []);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
-        getUsers().then((res) => setUsers(res.data ?? []));
-        loadLogs();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        getUsers().then((r) => setUsers((r.data ?? []).filter((u) => u.role !== "CANDIDATE"))).catch(() => setUsers([]));
     }, []);
 
-    const filtered = useMemo(() => {
+    // Bộ lọc gửi lên server: đổi là tải lại ngay (không cần nút "Lọc").
+    useEffect(() => {
+        let cancelled = false;
+        searchAuditLogs({
+            resourceType,
+            actorUserId,
+            from: dateRange ? dateRange[0].startOf("day").toISOString() : undefined,
+            to: dateRange ? dateRange[1].endOf("day").toISOString() : undefined,
+        })
+            .then((r) => { if (!cancelled) { setLogs(r.data ?? []); setFailed(false); } })
+            .catch(() => { if (!cancelled) setFailed(true); })
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, [resourceType, actorUserId, dateRange]);
+
+    const rows = useMemo(() => {
         const q = keyword.trim().toLowerCase();
-        if (!q) return logs;
-        return logs.filter((l) => {
-            const blob = [
-                l.action,
-                l.actorName,
-                l.resourceType,
-                l.metadata,
-                String(l.resourceId ?? ""),
-            ]
-                .filter(Boolean)
-                .join(" ")
-                .toLowerCase();
-            return blob.includes(q);
-        });
+        const sorted = [...logs].sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf());
+        if (!q) return sorted;
+        return sorted.filter((l) => [AUDIT_ACTION_LABEL[l.action] ?? l.action, l.actorName, l.metadata, String(l.resourceId ?? "")]
+            .filter(Boolean).join(" ").toLowerCase().includes(q));
     }, [logs, keyword]);
 
     const columns: ColumnsType<AuditLogResponse> = [
         {
-            title: "Thời gian",
-            dataIndex: "createdAt",
-            key: "createdAt",
-            width: 170,
-            render: (v: string) => new Date(v).toLocaleString("vi-VN"),
+            title: "Thời gian", dataIndex: "createdAt", width: 160,
+            render: (v: string) => <span style={{ color: COLORS.textSecondary, whiteSpace: "nowrap" }}>{dayjs(v).format("DD/MM/YYYY HH:mm")}</span>,
         },
         {
-            title: "Người thực hiện",
-            responsive: ["lg"],
-            dataIndex: "actorName",
-            key: "actorName",
-            width: 160,
-            render: (v: string) => v || "—",
+            title: "Người thực hiện", key: "actor", width: 220,
+            render: (_, l) => l.actorName ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <Avatar name={l.actorName} colorKey={l.actorUserId} size={26} />{l.actorName}
+                </span>
+            ) : <span style={{ color: COLORS.textMuted }}>Hệ thống</span>,
         },
         {
-            title: "Hành động",
-            dataIndex: "action",
-            key: "action",
-            width: 200,
-            render: (v: string) => (
-                <Tag color={AUDIT_ACTION_COLOR[v] ?? "default"}>
-                    {AUDIT_ACTION_LABEL[v] ?? v}
-                </Tag>
-            ),
+            title: "Hành động", dataIndex: "action", width: 220,
+            render: (v: string) => <span style={{ fontWeight: 500 }}>{AUDIT_ACTION_LABEL[v] ?? v}</span>,
         },
         {
-            title: "Đối tượng",
-            responsive: ["xl"],
-            dataIndex: "resourceType",
-            key: "resourceType",
-            width: 150,
-            render: (v: string | null) =>
-                v ? RESOURCE_TYPE_LABEL[v] ?? v : "—",
+            title: "Đối tượng", key: "resource", width: 180,
+            render: (_, l) => l.resourceType
+                ? `${RESOURCE_TYPE_LABEL[l.resourceType] ?? l.resourceType}${l.resourceId != null ? ` #${l.resourceId}` : ""}`
+                : "—",
         },
         {
-            title: "ID",
-            responsive: ["xl"],
-            dataIndex: "resourceId",
-            key: "resourceId",
-            width: 90,
-            render: (id: number | null, row) => {
-                if (id == null) return "—";
-                const path = resolveAuditPath(row.resourceType, id);
-                if (!path) return id;
-                return (
-                    <Button
-                        type="link"
-                        size="small"
-                        style={{ padding: 0 }}
-                        onClick={() => navigate(path)}
-                    >
-                        #{id}
-                    </Button>
-                );
-            },
-        },
-        {
-            title: "Chi tiết",
-            dataIndex: "metadata",
-            key: "metadata",
-            ellipsis: true,
-            render: (v: string | null) =>
-                v ? (
-                    <Tooltip title={v}>
-                        <Text style={{ maxWidth: 280 }} ellipsis>
-                            {v}
-                        </Text>
-                    </Tooltip>
-                ) : (
-                    "—"
-                ),
+            title: "Chi tiết", dataIndex: "metadata", ellipsis: { showTitle: false },
+            render: (v: string | null) => v
+                ? <Tooltip title={v}><span style={{ color: COLORS.textSecondary }}>{v}</span></Tooltip>
+                : <span style={{ color: COLORS.textMuted }}>—</span>,
         },
     ];
 
     return (
-        <div className="page-shell">
-            <Card
-                className="table-card-fill"
-                style={listCardStyle}
-                styles={{ body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" } }}
-            >
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: 16,
-                        flexWrap: "wrap",
-                        gap: 12,
-                        flexShrink: 0,
-                    }}
-                >
-                    <div>
-                        <Title level={4} style={{ margin: 0 }}>
-                            Nhật ký hệ thống
-                        </Title>
-                        <Text type="secondary">
-                            Theo dõi thao tác quan trọng trong toàn doanh nghiệp
-                        </Text>
-                    </div>
-                </div>
-
-                <Space wrap style={{ marginBottom: 16, flexShrink: 0 }}>
+        <ListPage
+            title="Nhật ký hệ thống"
+            subtitle="Thao tác quan trọng trong toàn doanh nghiệp"
+            filters={
+                <ListFilters>
+                    <Input
+                        allowClear
+                        prefix={<SearchOutlined style={{ color: COLORS.textMuted }} />}
+                        placeholder="Tìm theo hành động, người, chi tiết"
+                        value={keyword}
+                        onChange={(e) => setKeyword(e.target.value)}
+                        style={{ width: 280 }}
+                    />
                     <Select
                         allowClear
                         placeholder="Loại đối tượng"
-                        style={{ width: 200 }}
+                        style={{ width: 180 }}
                         value={resourceType}
-                        onChange={setResourceType}
-                        options={RESOURCE_TYPES.map((t) => ({
-                            value: t,
-                            label: RESOURCE_TYPE_LABEL[t] ?? t,
-                        }))}
+                        onChange={(v) => { setLoading(true); setResourceType(v); }}
+                        options={RESOURCE_TYPES.map((t) => ({ value: t, label: RESOURCE_TYPE_LABEL[t] ?? t }))}
                     />
                     <Select
                         allowClear
                         showSearch
                         optionFilterProp="label"
                         placeholder="Người thực hiện"
-                        style={{ width: 220 }}
+                        style={{ width: 200 }}
                         value={actorUserId}
-                        onChange={setActorUserId}
-                        options={users.map((u) => ({
-                            value: u.id,
-                            label: u.fullName || u.email || String(u.id),
-                        }))}
+                        onChange={(v) => { setLoading(true); setActorUserId(v); }}
+                        options={users.map((u) => ({ value: u.id, label: u.fullName || u.email }))}
                     />
                     <RangePicker
+                        format="DD/MM/YYYY"
                         value={dateRange}
-                        onChange={(v) => setDateRange(v as [Dayjs, Dayjs] | null)}
+                        onChange={(v) => { setLoading(true); setDateRange(v as [Dayjs, Dayjs] | null); }}
                     />
-                    <Input.Search
-                        allowClear
-                        placeholder="Tìm trong chi tiết..."
-                        style={{ width: 220 }}
-                        value={keyword}
-                        onChange={(e) => setKeyword(e.target.value)}
-                    />
-                    <Button type="primary" onClick={loadLogs}>
-                        Lọc
-                    </Button>
-                </Space>
-
-                <div ref={wrapRef} className="table-scroll-wrap">
-                    <Table
-                        rowKey="id"
-                        loading={loading}
-                        columns={columns}
-                        dataSource={filtered}
-                        size="small"
-                        sticky
-                        scroll={{ y: scrollY }}
-                        pagination={{ pageSize: 15, size: "small", showSizeChanger: true }}
-                    />
-                </div>
-            </Card>
-        </div>
+                </ListFilters>
+            }
+            footnote={failed ? undefined : `${rows.length} thao tác`}
+        >
+            <Table<AuditLogResponse>
+                rowKey="id"
+                loading={loading}
+                columns={columns}
+                dataSource={rows}
+                pagination={rows.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
+                locale={{ emptyText: failed ? "Không tải được dữ liệu. Thử tải lại trang." : "Không có thao tác nào" }}
+            />
+        </ListPage>
     );
 }

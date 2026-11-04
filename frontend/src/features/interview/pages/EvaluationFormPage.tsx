@@ -24,7 +24,8 @@ import EmptyState from "../../../components/ui/EmptyState";
 import { Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
 
 /**
- * H14 · Đánh giá phỏng vấn (CV bên cạnh) và H15 · Xác nhận nộp đánh giá.
+ * H14/R46 · Đánh giá phỏng vấn (CV bên cạnh) và H15/R47 · Xác nhận nộp đánh giá — dùng chung cho
+ * Đại diện phòng ban và Chuyên viên tuyển dụng được phân công phỏng vấn.
  * Đích chấm là một buổi phỏng vấn (?interviewId=) hoặc chính hồ sơ khi vòng hiện tại không có
  * buổi phỏng vấn (Chuyên viên tuyển dụng chấm). Lưu nháp chỉ có khi chấm theo buổi phỏng vấn.
  */

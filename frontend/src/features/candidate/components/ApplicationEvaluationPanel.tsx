@@ -116,8 +116,9 @@ export default function ApplicationEvaluationPanel({
     const evaluatePath = `/candidates/${candidateId}/applications/${applicationId}/evaluate`;
 
     const openCreate = () => {
-        // HR chấm thẳng cho vòng hiện tại của hồ sơ; người phỏng vấn chấm theo buổi được giao.
-        if (!isHr && pendingOwnInterview) {
+        // Ai được phân công phỏng vấn (kể cả Chuyên viên tuyển dụng — R46) thì chấm theo buổi đó, có lưu nháp;
+        // HR không ngồi phỏng vấn thì chấm thẳng cho vòng hiện tại của hồ sơ.
+        if (pendingOwnInterview) {
             navigate(`${evaluatePath}?interviewId=${pendingOwnInterview.id}`);
             return;
         }

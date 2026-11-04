@@ -89,6 +89,7 @@ const ROUTES: RouteNode[] = [
     { pattern: "/my-applications", label: "Đơn ứng tuyển", moduleKey: "/my-applications" },
     { pattern: "/my-applications/:id", label: "Chi tiết đơn", parent: "/my-applications" },
     { pattern: "/my-interviews", label: "Lịch phỏng vấn", moduleKey: "/my-interviews" },
+    { pattern: "/my-interviews/choose/:applicationId", label: "Chọn lịch phỏng vấn", parent: "/my-interviews" },
     { pattern: "/my-offers", label: "Thư mời nhận việc", moduleKey: "/my-offers" },
     { pattern: "/my-offers/:id", label: "Chi tiết thư mời", parent: "/my-offers" },
 ];

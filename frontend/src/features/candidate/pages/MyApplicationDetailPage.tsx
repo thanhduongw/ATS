@@ -24,7 +24,7 @@ export default function MyApplicationDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { message } = App.useApp();
-    const { loading, failed, applications, interviews, offers, reload } = useCandidatePortal();
+    const { loading, failed, applications, interviews, offers, slotsByApp, reload } = useCandidatePortal();
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [busy, setBusy] = useState(false);
 
@@ -40,7 +40,7 @@ export default function MyApplicationDetailPage() {
     const ivs = interviews.filter((iv) => iv.applicationId === app.id && iv.status !== "CANCELLED")
         .sort((a, b) => dayjs(a.scheduledAt).valueOf() - dayjs(b.scheduledAt).valueOf());
     const offer = offers.filter((o) => o.applicationId === app.id).sort((a, b) => b.id - a.id)[0];
-    const todo = todoOf(app, interviews, offers);
+    const todo = todoOf(app, interviews, offers, slotsByApp);
     const closed = closedLabel(app);
 
     const withdraw = async () => {

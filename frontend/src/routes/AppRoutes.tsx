@@ -51,6 +51,7 @@ import PositionResultPage from "../features/results/pages/PositionResultPage";
 import JobDetailApplyPage from "../features/public/pages/JobDetailApplyPage";
 import CandidateHomePage from "../features/candidate/pages/CandidateHomePage";
 import MyApplicationDetailPage from "../features/candidate/pages/MyApplicationDetailPage";
+import ChooseInterviewSlotPage from "../features/candidate/pages/ChooseInterviewSlotPage";
 
 
 /**
@@ -148,6 +149,7 @@ export default function AppRoutes() {
                     <Route path="/my-applications" element={<MyApplicationsPage />} />
                     <Route path="/my-applications/:id" element={<MyApplicationDetailPage />} />
                     <Route path="/my-interviews" element={<CandidateInterviewsPage />} />
+                    <Route path="/my-interviews/choose/:applicationId" element={<ChooseInterviewSlotPage />} />
                     <Route path="/my-offers" element={<CandidateOffersPage />} />
                     <Route path="/my-offers/:id" element={<OfferCandidateViewPage />} />
                 </Route>

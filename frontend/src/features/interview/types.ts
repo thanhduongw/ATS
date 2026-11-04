@@ -211,3 +211,20 @@ export interface CandidateInterviewResponse {
   candidateConfirmed: boolean;
   interviewerNames: string[];
 }
+
+export type InterviewSlotStatus = "PROPOSED" | "SELECTED" | "CANCELLED";
+
+export interface InterviewSlotResponse {
+  id: number;
+  applicationId: number;
+  candidateName: string | null;
+  startTime: string;
+  endTime: string;
+  format: InterviewFormat;
+  workLocationId: number | null;
+  meetingLink: string | null;
+  status: InterviewSlotStatus;
+  departmentConfirmed: boolean;
+  candidateConfirmed: boolean;
+  matched: boolean;
+}

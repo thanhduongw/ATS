@@ -20,7 +20,7 @@ import { todoOf, useCandidatePortal } from "../useCandidatePortal";
 export default function CandidateHomePage() {
     const navigate = useNavigate();
     const fullName = useAppSelector((s) => s.auth.user?.fullName ?? "");
-    const { loading, failed, applications, interviews, offers, reload } = useCandidatePortal();
+    const { loading, failed, applications, interviews, offers, slotsByApp, reload } = useCandidatePortal();
     const [jobs, setJobs] = useState<JobPostingResponse[] | null>(null);
 
     useEffect(() => {
@@ -31,7 +31,7 @@ export default function CandidateHomePage() {
 
     const firstName = fullName.trim().split(/\s+/).pop() ?? "";
     const todos = applications
-        .map((a) => ({ app: a, todo: todoOf(a, interviews, offers) }))
+        .map((a) => ({ app: a, todo: todoOf(a, interviews, offers, slotsByApp) }))
         .filter((x): x is { app: typeof x.app; todo: NonNullable<typeof x.todo> } => x.todo != null)
         .sort((a, b) => dayjs(a.todo.due ?? "2999-01-01").valueOf() - dayjs(b.todo.due ?? "2999-01-01").valueOf());
     const nextIv = interviews

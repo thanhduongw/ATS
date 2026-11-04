@@ -1,5 +1,6 @@
 import axiosClient from "../../services/axiosClient";
 import type {
+  InterviewSlotResponse,
   InterviewResponse,
   InterviewCreateRequest,
   InterviewHmRejectRequest,
@@ -109,3 +110,14 @@ export const getEvaluations = (interviewId: number) =>
   axiosClient.get<EvaluationResponse[]>(
     `/interview/interviews/${interviewId}/evaluations`
   );
+
+// ===== Khung giờ đề xuất (C13): HR gửi nhiều khung giờ, ứng viên chọn 1, HR chốt thành buổi phỏng vấn =====
+export const getSlotsByApplication = (applicationId: number) =>
+  axiosClient.get<InterviewSlotResponse[]>("/interview/slots", { params: { applicationId } });
+
+export const getMyPendingSlots = () =>
+  axiosClient.get<InterviewSlotResponse[]>("/interview/slots/my-pending");
+
+/** available=true: "tôi rảnh khung này" (ứng viên chọn); false: bỏ chọn. */
+export const confirmSlot = (id: number, available: boolean) =>
+  axiosClient.post<InterviewSlotResponse>(`/interview/slots/${id}/confirm`, { available });

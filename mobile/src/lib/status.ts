@@ -63,6 +63,7 @@ const INTERVIEW_TONE: Record<InterviewStatus, StatusTone> = {
   COMPLETED: "neutral",
   NO_SHOW: "danger",
   CANCELLED: "neutral",
+  CANDIDATE_DECLINED: "warning",
 };
 
 /**
@@ -74,7 +75,7 @@ export function interviewStatus(status: InterviewStatus | undefined, viewer: Vie
   if (viewer === "CANDIDATE") {
     const override = STRINGS.status.interviewForCandidate as Partial<Record<InterviewStatus, string>>;
     if (override[status]) {
-      return { label: override[status], tone: status === "HM_CONFIRMED" ? "warning" : "neutral" };
+      return { label: override[status], tone: status === "HM_CONFIRMED" || status === "CANDIDATE_DECLINED" ? "warning" : "neutral" };
     }
   }
   return { label: STRINGS.status.interview[status], tone: INTERVIEW_TONE[status] };

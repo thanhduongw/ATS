@@ -4,14 +4,10 @@ import { interviewsApi } from "./api";
 export const interviewKeys = {
   all: ["interviews"] as const,
   my: () => [...interviewKeys.all, "my"] as const,
-  pendingSlots: () => [...interviewKeys.all, "pending-slots"] as const,
 };
 
 export const useMyInterviews = () =>
   useQuery({ queryKey: interviewKeys.my(), queryFn: interviewsApi.myList });
-
-export const useMyPendingSlots = () =>
-  useQuery({ queryKey: interviewKeys.pendingSlots(), queryFn: interviewsApi.myPendingSlots });
 
 export const useConfirmInterview = () => {
   const qc = useQueryClient();
@@ -21,10 +17,14 @@ export const useConfirmInterview = () => {
   });
 };
 
-export const useMarkSlotAvailable = () => {
+/** Xin dời lịch: làm mới lịch và đơn (dòng việc cần làm của đơn đổi theo). */
+export const useDeclineInterview = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: interviewsApi.markSlotAvailable,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: interviewKeys.pendingSlots() }),
+    mutationFn: ({ id, reason }: { id: number; reason: string }) => interviewsApi.decline(id, reason),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: interviewKeys.all });
+      void qc.invalidateQueries({ queryKey: ["applications"] });
+    },
   });
 };

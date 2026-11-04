@@ -210,6 +210,8 @@ public class InterviewSlotService {
         interviewerIds.forEach(id -> evaluationRepository.save(
                 InterviewEvaluation.builder()
                         .interview(savedInterview)
+                        // Cột application_id NOT NULL — thiếu dòng này thì chốt khung giờ báo lỗi 500.
+                        .applicationId(savedInterview.getApplicationId())
                         .interviewerId(id)
                         .build()
         ));

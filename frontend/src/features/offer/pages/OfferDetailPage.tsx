@@ -1,416 +1,292 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-    App, Alert, Button, Card, Popconfirm, Spin, Tag,
-} from "antd";
-import {
-    CheckCircleOutlined, CloseCircleOutlined, DownloadOutlined,
-    EditOutlined, SendOutlined,
-} from "@ant-design/icons";
+import { App, Button, Spin } from "antd";
+import { CheckCircleFilled, DownloadOutlined, ExclamationCircleFilled } from "@ant-design/icons";
 import { saveAs } from "file-saver";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
-import {
-    approveOffer, deleteOffer, getOfferById, getOfferPdf, sendOffer,
-} from "../offerApi";
+import { approveOffer, deleteOffer, getOfferById, getOfferPdf, getOffers, sendOffer } from "../offerApi";
 import OfferRejectModal from "../components/OfferRejectModal";
 import type { ApiMessageResponse, OfferResponse } from "../types";
+import { getApplicationById } from "../../candidate/applicationApi";
+import { getPostingById, getRequisitionById } from "../../recruitment/recruitmentApi";
+import { getApplicationEvaluations } from "../../interview/interviewApi";
+import type { EvaluationResponse, RecommendationType } from "../../interview/types";
+import { getCatalogItems } from "../../masterdata/masterdataApi";
+import { getPublicCompany } from "../../public/publicApi";
+import { salaryText } from "../../public/jobFormat";
 import { useAppSelector } from "../../../app/hooks";
 import { HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
-import { COLORS, RADIUS } from "../../../app/theme";
-import PageHeader from "../../../components/ui/PageHeader";
+import { COLORS, type StatusTone } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
-import { getCatalogItems } from "../../masterdata/masterdataApi";
-import type { CatalogItem } from "../../masterdata/types";
-import { OFFER_STATUS, statusMeta } from "../../../app/statusLabels";
-import { InlineNotice, SmallDialog } from "../../../components/ui/designKit";
+import { InlineNotice, Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
+import StatusTag from "../../../components/ui/StatusTag";
+import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 
-const initialsOf = (name: string) =>
-    (name || "?").trim().split(/\s+/).slice(-2).map((w) => w[0] ?? "").join("").toUpperCase();
+/**
+ * R26 · Chi tiết thư mời — bản nháp: điều khoản, "Kiểm tra trước khi gửi" (trong khung lương duyệt, còn suất,
+ * đã có đánh giá phỏng vấn) và "Xem trước thư mời". R27 · Xác nhận gửi: nhắc lại các mục kiểm tra.
+ * Thư mời đã gửi / đã phản hồi / hết hạn dùng cùng trang (không còn nút sửa).
+ */
+const STATUS_VIEW: Record<string, { label: string; tone: StatusTone }> = {
+    DRAFT: { label: "Bản nháp", tone: "neutral" },
+    PENDING_APPROVAL: { label: "Chờ duyệt", tone: "warning" },
+    APPROVED: { label: "Đã gửi", tone: "brand" },
+    REJECTED: { label: "Không duyệt", tone: "danger" },
+    ACCEPTED: { label: "Ứng viên nhận", tone: "success" },
+    DECLINED: { label: "Ứng viên từ chối", tone: "danger" },
+    EXPIRED: { label: "Hết hạn", tone: "neutral" },
+};
+const REC_LABEL: Record<RecommendationType, string> = {
+    STRONG_YES: "Rất nên tuyển", YES: "Nên tuyển", NO: "Không nên tuyển", STRONG_NO: "Không tuyển",
+};
+const PAY: Record<string, string> = { MONTHLY: "/tháng", YEARLY: "/năm" };
+const d = (v?: string | null) => (v ? dayjs(v).format("DD/MM/YYYY") : "—");
 
-/** Mức lương ở trên tính theo chu kỳ nào — in ngay cạnh con số cho khỏi hiểu nhầm. */
-const PAY_FREQUENCY_SUFFIX: Record<string, string> = { MONTHLY: "/tháng", YEARLY: "/năm" };
-
-const fmtDate = (v?: string | null) => (v ? dayjs(v).format("DD/MM/YYYY") : "—");
-const fmtDateTime = (v?: string | null) => (v ? dayjs(v).format("HH:mm DD/MM/YYYY") : "—");
+interface Check { ok: boolean; text: string }
 
 export default function OfferDetailPage() {
     const { id } = useParams();
     const offerId = Number(id);
     const navigate = useNavigate();
     const { message } = App.useApp();
-
     const user = useAppSelector((s) => s.auth.user);
     const role = user?.role as UserRole | undefined;
-    // AuthUser.userId là string (JWT sub) — convert để so với requesterId/approverId.
     const userId = user?.userId != null ? Number(user.userId) : undefined;
     const isHr = !!role && HR_ROLES.includes(role);
 
     const [offer, setOffer] = useState<OfferResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [acting, setActing] = useState(false);
-    const [rejectOpen, setRejectOpen] = useState(false);
-    const [sendOpen, setSendOpen] = useState(false);
-    /** Chỉ dùng để đổi mã địa điểm thành tên; hỏng danh mục thì hiện dấu gạch. */
-    const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
+    const [dialog, setDialog] = useState<null | "send" | "delete" | "reject">(null);
+    const [checks, setChecks] = useState<Check[] | null>(null);
+    const [company, setCompany] = useState("");
+    const [location, setLocation] = useState("");
+    const [deptName, setDeptName] = useState("");
 
     const load = useCallback(async () => {
-        setLoading(true);
         try {
             const res = await getOfferById(offerId);
-            setOffer(res.data);
-            try {
-                const locRes = await getCatalogItems("/masterdata/work-locations");
-                setWorkLocations(locRes.data);
-            } catch {
-                setWorkLocations([]);
+            const o = res.data;
+            setOffer(o);
+            getPublicCompany().then((r) => setCompany(r.data.name)).catch(() => undefined);
+            if (o.workLocationId) {
+                getCatalogItems("/masterdata/work-locations")
+                    .then((r) => setLocation(String(r.data.find((x) => x.id === o.workLocationId)?.name ?? ""))).catch(() => undefined);
             }
+            void buildChecks(o).then(setChecks).catch(() => setChecks([]));
         } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Không tải được đề nghị nhận việc");
+            message.error((err as AxiosError<ApiMessageResponse>).response?.data?.message ?? "Không tải được thư mời");
             navigate("/offers");
-        } finally {
-            setLoading(false);
+        } finally { setLoading(false); }
+
+        // Kiểm tra trước khi gửi: khung lương của yêu cầu đã duyệt, suất còn lại của việc làm, đánh giá phỏng vấn.
+        async function buildChecks(o: OfferResponse): Promise<Check[]> {
+            const app = (await getApplicationById(o.applicationId)).data;
+            setDeptName(app.departmentName ?? "");
+            const posting = (await getPostingById(app.jobPostingId)).data;
+            const [req, offers, evals] = await Promise.all([
+                getRequisitionById(posting.requisitionId).then((r) => r.data).catch(() => null),
+                getOffers({ jobPostingId: app.jobPostingId, size: 1000 }).then((r) => r.data.content).catch(() => [] as OfferResponse[]),
+                getApplicationEvaluations(o.applicationId).then((r) => r.data).catch(() => [] as EvaluationResponse[]),
+            ]);
+            const list: Check[] = [];
+            const min = req?.approvedSalaryMin ?? req?.expectedSalaryMin ?? null;
+            const max = req?.approvedSalaryMax ?? req?.expectedSalaryMax ?? null;
+            if (min != null || max != null) {
+                const inRange = (min == null || o.salaryOffered >= min) && (max == null || o.salaryOffered <= max);
+                list.push({ ok: inRange, text: inRange ? `Trong khung lương đã duyệt (${salaryText(min, max)})` : `Ngoài khung lương đã duyệt (${salaryText(min, max)})` });
+            }
+            if (posting.headcount) {
+                const taken = offers.filter((x) => x.id !== o.id && ["ACCEPTED", "APPROVED", "PENDING_APPROVAL"].includes(x.status)).length;
+                const left = posting.headcount - taken;
+                list.push({ ok: left > 0, text: left > 0 ? `Còn ${left}/${posting.headcount} suất tuyển` : `Đã hết suất tuyển (${posting.headcount}/${posting.headcount})` });
+            }
+            const submitted = evals.filter((e) => e.submittedAt && e.overallRecommendation);
+            const best = submitted.map((e) => e.overallRecommendation!).sort((a, b) => Object.keys(REC_LABEL).indexOf(a) - Object.keys(REC_LABEL).indexOf(b))[0];
+            list.push(submitted.length
+                ? { ok: best === "STRONG_YES" || best === "YES", text: `Đã có đánh giá phỏng vấn: ${REC_LABEL[best]}${submitted.length > 1 ? ` (${submitted.length} phiếu)` : ""}` }
+                : { ok: false, text: "Chưa có đánh giá phỏng vấn nào" });
+            return list;
         }
     }, [offerId, message, navigate]);
 
-    useEffect(() => {
-        load();
-    }, [load]);
+    useEffect(() => { void load(); }, [load]);
 
-    if (loading || !offer) {
-        return (
-            <div className="page-shell" style={{ display: "flex", justifyContent: "center", padding: 64 }}>
-                <Spin />
-            </div>
-        );
-    }
+    if (loading || !offer) return <div style={{ display: "flex", justifyContent: "center", padding: 64 }}><Spin /></div>;
 
+    const st = STATUS_VIEW[offer.status] ?? { label: offer.status, tone: "neutral" as StatusTone };
     const isOwner = userId != null && offer.requesterId === userId;
-    const isApprover = userId != null && offer.approverId === userId;
-    const meta = statusMeta(OFFER_STATUS, offer.status);
+    const isDraft = offer.status === "DRAFT";
+    const canEdit = isHr && isOwner && isDraft;
+    const canSend = isHr && isDraft;
+    const canApprove = isHr && offer.approverId === userId && offer.status === "PENDING_APPROVAL";
+    const canDelete = isHr && (isDraft || offer.status === "REJECTED");
+    const pay = PAY[offer.payFrequency ?? "MONTHLY"] ?? "";
+    const failing = (checks ?? []).filter((c) => !c.ok);
 
-    const canEdit = isHr && isOwner && offer.status === "DRAFT";
-    // R26–R27: HR gửi thẳng bản nháp cho ứng viên, không qua bước duyệt (quyết định B2).
-    const canSend = isHr && offer.status === "DRAFT";
-    // Duyet dong thoi la gui: tu APPROVED ung vien moi doc duoc offer.
-    const canApprove = isHr && isApprover && offer.status === "PENDING_APPROVAL";
-    const canDelete = isHr && (offer.status === "DRAFT" || offer.status === "REJECTED");
-    // Quy tac da chot cho phep tu duyet, nhung van phai noi ro de nguoi duyet y thuc duoc.
-    const selfApproving = canApprove && isOwner;
-
-    const run = async (fn: () => Promise<unknown>, okMsg: string, failMsg: string) => {
+    const run = async (fn: () => Promise<unknown>, ok: string) => {
         setActing(true);
         try {
             await fn();
-            message.success(okMsg);
+            message.success(ok);
+            setDialog(null);
             await load();
         } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? failMsg);
-        } finally {
-            setActing(false);
-        }
+            message.error((err as AxiosError<ApiMessageResponse>).response?.data?.message ?? "Thao tác thất bại");
+        } finally { setActing(false); }
     };
 
-    const handleDownloadPdf = async () => {
+    const downloadPdf = async () => {
         try {
             const res = await getOfferPdf(offer.id);
-            saveAs(res.data, `offer-letter-${offer.id}.pdf`);
+            saveAs(res.data, `thu-moi-${offer.candidateName}.pdf`);
         } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Không tải được file PDF");
-        }
-    };
-
-    const handleDelete = async () => {
-        try {
-            await deleteOffer(offer.id);
-            message.success("Đã xóa đề nghị nhận việc");
-            navigate("/offers");
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Xóa thất bại");
+            message.error((err as AxiosError<ApiMessageResponse>).response?.data?.message ?? "Không tải được file PDF");
         }
     };
 
     return (
-        <div className="page-shell animate-fade-in">
-            <PageHeader
-                className="page-shell-fixed"
-                crumb={offer.candidateName}
-                title={`Đề nghị nhận việc – ${offer.candidateName}`}
-                tags={<Tag color={meta.color} style={{ margin: 0 }}>{meta.label}</Tag>}
-                actions={<>
-                    <Button icon={<DownloadOutlined />} onClick={handleDownloadPdf}>Tải PDF</Button>
-                    {canEdit && (
-                        <Button icon={<EditOutlined />} onClick={() => navigate(`/offers/${offer.id}/edit`)}>
-                            Chỉnh sửa
-                        </Button>
-                    )}
-                    {canSend && (
-                        <Button
-                            type="primary"
-                            icon={<SendOutlined />}
-                            loading={acting}
-                            onClick={() => setSendOpen(true)}
-                        >
-                            Gửi thư mời
-                        </Button>
-                    )}
-                    {canApprove && (
-                        <>
-                            <Button danger icon={<CloseCircleOutlined />} onClick={() => setRejectOpen(true)}>
-                                Từ chối
-                            </Button>
-                            <Popconfirm
-                                title="Duyệt và gửi đề nghị tới ứng viên?"
-                                description={
-                                    <div style={{ maxWidth: 340 }}>
-                                        <div style={{ marginBottom: 6 }}>
-                                            Ứng viên sẽ đọc được đề nghị ngay sau khi bạn duyệt.
-                                        </div>
-                                        <div style={{ fontSize: 13, color: COLORS.textSecondary }}>
-                                            <div>{offer.candidateName} · {offer.jobTitle ?? "—"}</div>
-                                            <div>Lương {formatMoney(offer.salaryOffered)} · vào làm {fmtDate(offer.startDate)}</div>
-                                            <div>Hạn phản hồi {fmtDateTime(offer.responseDeadline)}</div>
-                                        </div>
-                                    </div>
-                                }
-                                okText="Duyệt và gửi"
-                                cancelText="Xem lại"
-                                onConfirm={() => run(
-                                    () => approveOffer(offer.id),
-                                    "Đã duyệt và gửi đề nghị tới ứng viên",
-                                    "Phê duyệt thất bại",
-                                )}
-                            >
-                                <Button type="primary" icon={<CheckCircleOutlined />} loading={acting}>
-                                    Duyệt và gửi ứng viên
-                                </Button>
-                            </Popconfirm>
-                        </>
-                    )}
-                    {canDelete && (
-                        <Popconfirm
-                            title="Xóa đề nghị nhận việc này?"
-                            description="Hành động này không thể hoàn tác."
-                            onConfirm={handleDelete}
-                            okText="Xóa"
-                            cancelText="Hủy"
-                            okButtonProps={{ danger: true }}
-                        >
-                            <Button danger>Xóa</Button>
-                        </Popconfirm>
-                    )}
-                </>}
-            />
-
-            {/* R27 "Gửi thư mời cho …?" — hộp thoại nhỏ, xác nhận trước hành động không sửa lại được. */}
-            <SmallDialog
-                open={sendOpen}
-                title={`Gửi thư mời cho ${offer.candidateName}?`}
-                okText="Gửi thư mời"
-                okLoading={acting}
-                onCancel={() => setSendOpen(false)}
-                onOk={() => run(
-                    async () => { await sendOffer(offer.id); setSendOpen(false); },
-                    `Đã gửi thư mời cho ${offer.candidateName}`,
-                    "Gửi thư mời thất bại",
-                )}
-            >
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 14 }}>
-                    <span>Lương {formatMoney(offer.salaryOffered)} · bắt đầu {fmtDate(offer.startDate)} · hạn phản hồi {fmtDateTime(offer.responseDeadline)}</span>
-                    {/* Thu hồi thư mời đang hoãn (B3) nên không ghi "chỉ có thể thu hồi" như HTML. */}
-                    <span style={{ color: COLORS.textSecondary }}>
-                        Ứng viên nhận thư qua email và cổng ứng viên ngay. Sau khi gửi không sửa được điều khoản.
-                    </span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1180 }}>
+            <div>
+                <PageBreadcrumb crumb={offer.candidateName} />
+                <ScreenTitle
+                    title="Chi tiết thư mời"
+                    actions={<>
+                        <Button icon={<DownloadOutlined />} onClick={downloadPdf}>Tải PDF</Button>
+                        {canDelete && <Button danger onClick={() => setDialog("delete")}>{isDraft ? "Xoá nháp" : "Xoá"}</Button>}
+                        {canEdit && <Button onClick={() => navigate(`/offers/${offer.id}/edit`)}>Sửa</Button>}
+                        {canApprove && <Button danger onClick={() => setDialog("reject")}>Không duyệt</Button>}
+                        {canApprove && <Button type="primary" loading={acting} onClick={() => run(() => approveOffer(offer.id), "Đã duyệt và gửi thư mời")}>Duyệt & gửi</Button>}
+                        {canSend && <Button type="primary" onClick={() => setDialog("send")}>Gửi thư mời</Button>}
+                    </>}
+                />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 13, color: COLORS.textSecondary }}>
+                    <StatusTag {...st} />
+                    <span><b style={{ color: COLORS.textPrimary }}>{offer.candidateName}</b> · {offer.jobTitle ?? "—"}</span>
+                    <span>· Soạn bởi {offer.requesterName ?? "—"} · {d(offer.createdAt)}</span>
                 </div>
-            </SmallDialog>
+            </div>
 
-            <div className="page-shell-scroll">
             {offer.status === "APPROVED" && (
-                <div style={{ marginBottom: 12 }}>
-                    {/* R43: "Ứng viên chưa phản hồi · đã xem 1 lần lúc 11:02" */}
-                    <InlineNotice tone="warning">
-                        {offer.candidateViewCount
-                            ? `Ứng viên chưa phản hồi · đã xem ${offer.candidateViewCount} lần${offer.candidateLastViewedAt ? ` lúc ${dayjs(offer.candidateLastViewedAt).format("HH:mm, DD/MM")}` : ""}`
-                            : "Ứng viên chưa phản hồi · chưa mở thư"}
-                    </InlineNotice>
-                </div>
+                <InlineNotice tone="warning">
+                    {offer.candidateViewCount
+                        ? `Ứng viên chưa phản hồi · đã xem ${offer.candidateViewCount} lần${offer.candidateLastViewedAt ? ` lúc ${dayjs(offer.candidateLastViewedAt).format("HH:mm, DD/MM")}` : ""}`
+                        : "Ứng viên chưa phản hồi · chưa mở thư"}
+                </InlineNotice>
             )}
             {offer.status === "EXPIRED" && (
-                <div style={{ marginBottom: 12 }}>
-                    <InlineNotice tone="neutral">
-                        Thư mời đã hết hạn phản hồi{offer.expiredAt ? ` lúc ${dayjs(offer.expiredAt).format("HH:mm, DD/MM/YYYY")}` : ""}. Suất tuyển đã được trả lại, bạn có thể soạn thư mời mới.
-                    </InlineNotice>
-                </div>
+                <InlineNotice tone="neutral">
+                    Thư mời đã hết hạn phản hồi{offer.expiredAt ? ` lúc ${dayjs(offer.expiredAt).format("HH:mm, DD/MM/YYYY")}` : ""}. Suất tuyển đã được trả lại, bạn có thể soạn thư mời mới.
+                </InlineNotice>
             )}
-            {selfApproving && (
-                <Alert
-                    type="info"
-                    showIcon
-                    message="Bạn đang duyệt đề nghị do chính mình tạo"
-                    description="Quy tắc hiện tại cho phép việc này. Thao tác duyệt được ghi vào nhật ký hệ thống kèm danh tính người duyệt."
-                    style={{ marginBottom: 12, borderRadius: RADIUS.md }}
-                />
-            )}
-
-            {offer.rejectReason && (
-                <Alert
-                    type="error"
-                    showIcon
-                    message="Đề nghị bị từ chối phê duyệt"
-                    description={offer.rejectReason}
-                    style={{ marginBottom: 12, borderRadius: RADIUS.md }}
-                />
-            )}
+            {offer.rejectReason && <InlineNotice tone="danger">Thư mời không được duyệt: {offer.rejectReason}</InlineNotice>}
             {offer.declineReasonName && (
-                <Alert
-                    type="warning"
-                    showIcon
-                    message="Ứng viên từ chối đề nghị"
-                    description={offer.declineReasonName + (offer.declineNote ? ` — ${offer.declineNote}` : "")}
-                    style={{ marginBottom: 12, borderRadius: RADIUS.md }}
-                />
+                <InlineNotice tone="danger">Ứng viên từ chối: {offer.declineReasonName}{offer.declineNote ? ` — ${offer.declineNote}` : ""}</InlineNotice>
             )}
+            {offer.status === "ACCEPTED" && <InlineNotice tone="success">Ứng viên đã nhận việc. Ngày đầu tiên {d(offer.startDate)}.</InlineNotice>}
 
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 16, alignItems: "start" }}
-                className="offer-detail-grid">
-                <div>
-                    <Card size="small" title="Thông tin ứng viên" style={{ marginBottom: 16, borderRadius: 12 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 14, marginBottom: 14, borderBottom: `1px solid ${COLORS.borderLight}` }}>
-                            <div style={{
-                                width: 48, height: 48, borderRadius: "50%",
-                                background: `${COLORS.primary}1A`, color: COLORS.primary,
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                fontWeight: 700, fontSize: 16, flexShrink: 0,
-                            }}>
-                                {initialsOf(offer.candidateName)}
-                            </div>
-                            <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 16, fontWeight: 600 }}>{offer.candidateName}</div>
-                                <div style={{ fontSize: 13, color: COLORS.textSecondary }}>
-                                    {offer.jobTitle ?? "—"}
-                                </div>
-                            </div>
-                        </div>
-                        <FieldGrid columns={2}>
-                            <Field label="Email" value={offer.candidateEmail ?? "—"} />
-                            <Field label="Số điện thoại" value={offer.candidatePhone ?? "—"} />
-                        </FieldGrid>
-                    </Card>
-
-                    <Card size="small" title="Điều khoản đề nghị" style={{ borderRadius: 12 }}>
-                        <FieldGrid columns={2}>
-                            <Field
-                                label="Mức lương"
-                                value={<span style={{ color: COLORS.primary, fontWeight: 600, fontSize: 16 }}>
-                                    {formatMoney(offer.salaryOffered)}
-                                    <span style={{ fontSize: 13, fontWeight: 400, color: COLORS.textSecondary }}>
-                                        {" "}{offer.currency ?? "VND"}
-                                        {PAY_FREQUENCY_SUFFIX[offer.payFrequency ?? "MONTHLY"] ?? ""}
-                                    </span>
-                                </span>}
-                            />
-                            <Field
-                                label="Phụ cấp hằng tháng"
-                                value={offer.allowance != null ? formatMoney(offer.allowance) : "—"}
-                            />
-                            <Field label="Loại hợp đồng" value={offer.contractTypeName ?? "—"} />
-                            <Field label="Thử việc" value={`${offer.probationMonths ?? 0} tháng`} />
-                            <Field label="Ngày bắt đầu" value={fmtDate(offer.startDate)} />
-                            <Field label="Hạn phản hồi" value={fmtDateTime(offer.responseDeadline)} />
-                            <Field label="Người quản lý trực tiếp" value={offer.reportingManager || "—"} />
-                            <Field
-                                label="Địa điểm làm việc"
-                                value={
-                                    workLocations.find((w) => w.id === offer.workLocationId)?.name ?? "—"
-                                }
-                            />
-                            <Field label="Thưởng hiệu suất" value={offer.performanceBonus || "—"} />
-                            <Field
-                                label="Số ngày phép năm"
-                                value={offer.annualLeaveDays != null ? `${offer.annualLeaveDays} ngày` : "—"}
-                            />
-                        </FieldGrid>
-
-                        {offer.benefits && <NoteBlock label="Phúc lợi" value={offer.benefits} />}
-                        {offer.candidateVisibleNote && (
-                            <NoteBlock label="Ghi chú hiển thị cho ứng viên" value={offer.candidateVisibleNote} />
-                        )}
-                    </Card>
-                </div>
-
-                <div>
-                    <Card size="small" title="Thông tin phê duyệt" style={{ marginBottom: 16, borderRadius: 12 }}>
-                        <FieldGrid columns={1}>
-                            <Field label="Người tạo" value={offer.requesterName ?? "—"} />
-                            <Field label="Ngày tạo" value={fmtDateTime(offer.createdAt)} />
-                            <Field label="Người duyệt" value={offer.approverName ?? "Chưa phân công"} />
-                            <Field label="Ngày gửi duyệt" value={fmtDateTime(offer.submittedAt)} />
-                            <Field label="Ngày duyệt" value={fmtDateTime(offer.approvedAt)} />
-                        </FieldGrid>
-                    </Card>
-
-                    {/* Ghi chu noi bo: chi HR va admin doc duoc, khong hien voi quan ly phong ban. */}
-                    {isHr && offer.note && (
-                        <Card size="small" title="Ghi chú nội bộ" style={{ borderRadius: 12 }}>
-                            <div style={{
-                                background: "#1824310C", borderRadius: 8, padding: "12px 14px",
-                                fontSize: 14, color: "#18243199", whiteSpace: "pre-wrap",
-                            }}>
-                                {offer.note}
-                            </div>
-                        </Card>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.15fr)", gap: 16, alignItems: "start" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <Panel title="Điều khoản" bodyGap={0}>
+                        <Row label="Lương gộp" value={<b>{formatMoney(offer.salaryOffered)}{pay}</b>} />
+                        {!!offer.allowance && <Row label="Phụ cấp" value={`${formatMoney(offer.allowance)}${pay}`} />}
+                        {offer.performanceBonus && <Row label="Thưởng hiệu suất" value={offer.performanceBonus} />}
+                        {offer.benefits && <Row label="Phúc lợi" value={offer.benefits} />}
+                        <Row label="Ngày bắt đầu" value={d(offer.startDate)} />
+                        <Row label="Thử việc" value={`${offer.probationMonths ?? 0} tháng`} />
+                        <Row label="Hợp đồng" value={offer.contractTypeName ?? "—"} />
+                        {location && <Row label="Nơi làm việc" value={location} />}
+                        {offer.reportingManager && <Row label="Báo cáo cho" value={offer.reportingManager} />}
+                        {offer.annualLeaveDays != null && <Row label="Nghỉ phép" value={`${offer.annualLeaveDays} ngày/năm`} />}
+                        <Row label="Hạn phản hồi" value={offer.responseDeadline ? dayjs(offer.responseDeadline).format("HH:mm DD/MM/YYYY") : "—"} />
+                        {isHr && offer.note && <Row label="Ghi chú nội bộ" value={<span style={{ whiteSpace: "pre-wrap" }}>{offer.note}</span>} />}
+                    </Panel>
+                    {isDraft && (
+                        <Panel title="Kiểm tra trước khi gửi">
+                            {checks == null ? <Spin size="small" /> : <CheckList items={checks} />}
+                        </Panel>
                     )}
                 </div>
+
+                <Panel title={isDraft ? "Xem trước thư mời" : "Thư mời đã gửi"}>
+                    <div style={{ background: "#fff", borderRadius: 12, padding: "24px 28px", boxShadow: `inset 0 0 0 1px ${COLORS.border}`, fontSize: 14, lineHeight: 1.7 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+                            <b style={{ color: COLORS.primary }}>{company || "Công ty"}</b>
+                            <span style={{ color: COLORS.textSecondary, fontSize: 13 }}>
+                                {(location.match(/TP\.?\s?[^,·]+|Hà Nội|Đà Nẵng|Cần Thơ/)?.[0] ?? "TP.HCM")}, ngày {dayjs().format("DD/MM/YYYY")}
+                            </span>
+                        </div>
+                        <div style={{ textAlign: "center", fontWeight: 800, letterSpacing: "0.08em", marginBottom: 12 }}>THƯ MỜI NHẬN VIỆC</div>
+                        <p style={{ margin: "0 0 8px" }}>Kính gửi anh/chị <b>{offer.candidateName}</b>,</p>
+                        <p style={{ margin: "0 0 8px" }}>
+                            Sau quá trình phỏng vấn, {company || "công ty"} trân trọng mời anh/chị đảm nhận vị trí <b>{offer.jobTitle}</b>
+                            {deptName ? <> tại {deptName}</> : null}, với các điều khoản sau:
+                        </p>
+                        <ul style={{ margin: "0 0 8px", paddingLeft: 20 }}>
+                            <li>Lương gộp: <b>{formatMoney(offer.salaryOffered)}{pay}</b></li>
+                            {!!offer.allowance && <li>Phụ cấp: {formatMoney(offer.allowance)}{pay}</li>}
+                            <li>Ngày bắt đầu: {d(offer.startDate)}, thử việc {offer.probationMonths ?? 0} tháng</li>
+                            <li>Hợp đồng {(offer.contractTypeName ?? "").toLowerCase()}{offer.annualLeaveDays != null ? `, ${offer.annualLeaveDays} ngày phép/năm` : ""}</li>
+                            {offer.reportingManager && <li>Báo cáo trực tiếp cho {offer.reportingManager}</li>}
+                            {offer.benefits && <li>Phúc lợi: {offer.benefits}</li>}
+                        </ul>
+                        {offer.candidateVisibleNote && <p style={{ margin: "0 0 8px", whiteSpace: "pre-wrap" }}>{offer.candidateVisibleNote}</p>}
+                        <p style={{ margin: "0 0 12px" }}>
+                            Anh/chị vui lòng phản hồi trước{offer.responseDeadline ? ` ${dayjs(offer.responseDeadline).format("HH:mm")} ngày ${dayjs(offer.responseDeadline).format("DD/MM/YYYY")}` : " hạn ghi trên thư"} trên cổng ứng viên.
+                        </p>
+                        <p style={{ margin: 0 }}>Trân trọng,<br /><b>{offer.requesterName}</b><br />
+                            <span style={{ color: COLORS.textSecondary }}>Chuyên viên tuyển dụng, {company}</span></p>
+                    </div>
+                </Panel>
             </div>
 
-            </div>
+            <SmallDialog open={dialog === "send"} title={`Gửi thư mời cho ${offer.candidateName}?`} okText="Gửi thư mời" okLoading={acting}
+                onCancel={() => setDialog(null)} onOk={() => run(() => sendOffer(offer.id), `Đã gửi thư mời cho ${offer.candidateName}`)}>
+                {checks && <CheckList items={checks} />}
+                {failing.length > 0 && (
+                    <span style={{ fontSize: 13, color: COLORS.warning }}>Còn {failing.length} mục chưa đạt — bạn vẫn có thể gửi nếu đã thống nhất với đại diện phòng ban.</span>
+                )}
+                <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
+                    Ứng viên nhận thư qua email và cổng ứng viên ngay. Sau khi gửi không sửa được điều khoản.
+                </span>
+            </SmallDialog>
 
-            <OfferRejectModal
-                open={rejectOpen}
-                offerId={offer.id}
-                onClose={() => setRejectOpen(false)}
-                onSuccess={() => { setRejectOpen(false); load(); }}
-            />
+            <SmallDialog open={dialog === "delete"} title="Xoá bản nháp thư mời?" okText="Xoá" danger okLoading={acting}
+                onCancel={() => setDialog(null)}
+                onOk={async () => {
+                    setActing(true);
+                    try { await deleteOffer(offer.id); message.success("Đã xoá bản nháp"); navigate("/offers"); }
+                    catch (err) { message.error((err as AxiosError<ApiMessageResponse>).response?.data?.message ?? "Xoá thất bại"); }
+                    finally { setActing(false); }
+                }}>
+                <span style={{ color: COLORS.textSecondary }}>Không hoàn tác được.</span>
+            </SmallDialog>
+
+            <OfferRejectModal open={dialog === "reject"} offerId={offer.id} onClose={() => setDialog(null)} onSuccess={() => { setDialog(null); void load(); }} />
         </div>
     );
 }
 
-function FieldGrid({ columns, children }: { columns: number; children: React.ReactNode }) {
+function CheckList({ items }: { items: Check[] }) {
     return (
-        <div style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-            gap: "14px 24px",
-        }}>
-            {children}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {items.map((c) => (
+                <span key={c.text} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+                    {c.ok ? <CheckCircleFilled style={{ color: COLORS.success }} /> : <ExclamationCircleFilled style={{ color: COLORS.warning }} />}
+                    {c.text}
+                </span>
+            ))}
         </div>
     );
 }
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
     return (
-        <div>
-            <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 }}>{label}</div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>{value}</div>
-        </div>
-    );
-}
-
-function NoteBlock({ label, value }: { label: string; value: string }) {
-    return (
-        <div style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 }}>{label}</div>
-            <div style={{
-                background: "#1824310C", borderRadius: 8, padding: "12px 14px",
-                fontSize: 14, color: "#18243199", whiteSpace: "pre-wrap",
-            }}>
-                {value}
-            </div>
+        <div style={{ display: "flex", gap: 16, padding: "9px 0", borderTop: `0.5px solid ${COLORS.border}`, fontSize: 14 }}>
+            <span style={{ width: 130, flexShrink: 0, color: COLORS.textSecondary }}>{label}</span>
+            <span style={{ flex: 1, minWidth: 0 }}>{value}</span>
         </div>
     );
 }

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { App, Input, Select, Table } from "antd";
+import { App, Button, Input, Select, Table } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import { getOffers } from "../offerApi";
+import { getPostings } from "../../recruitment/recruitmentApi";
+import type { JobPostingResponse } from "../../recruitment/types";
 import type { OfferResponse, OfferStatus } from "../types";
 import { useAppSelector } from "../../../app/hooks";
 import { COLORS } from "../../../app/theme";
@@ -13,7 +15,7 @@ import { formatMoney } from "../../../app/money";
 import { shortDate } from "../../../app/datetime";
 import ListPage, { ListFilters, StatusTabs } from "../../../components/ui/listKit";
 import { attentionRowStyle, rowArrowColumn } from "../../../components/ui/listHelpers";
-import { Avatar } from "../../../components/ui/designKit";
+import { Avatar, Panel } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
 
 type Tab = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "ENDED" | "ALL";
@@ -43,15 +45,29 @@ export default function OffersPage() {
     const [tab, setTab] = useState<Tab>("DRAFT");
     const [keyword, setKeyword] = useState("");
     const [job, setJob] = useState<string | undefined>();
+    const [postings, setPostings] = useState<JobPostingResponse[]>([]);
 
     useEffect(() => {
         getOffers({ size: 1000 })
             .then((r) => setOffers(r.data.content))
             .catch(() => { setFailed(true); message.error("Không tải được danh sách thư mời"); })
             .finally(() => setLoading(false));
+        getPostings({ size: 1000 }).then((r) => setPostings(r.data.content)).catch(() => undefined);
     }, [message]);
 
     const jobs = useMemo(() => [...new Set(offers.map((o) => o.jobTitle).filter(Boolean) as string[])], [offers]);
+    // R45: bộ chọn việc làm nhóm theo phòng ban, kèm số thư mời của từng việc.
+    const jobOptions = useMemo(() => {
+        const groups = new Map<string, { value: string; label: string }[]>();
+        jobs.forEach((j) => {
+            const dept = postings.find((p) => p.title === j)?.departmentName ?? "Khác";
+            const n = offers.filter((o) => o.jobTitle === j).length;
+            groups.set(dept, [...(groups.get(dept) ?? []), { value: j, label: `${j} · ${n} thư mời` }]);
+        });
+        return [...groups.entries()].map(([label, options]) => ({ label: label.toUpperCase(), options }));
+    }, [jobs, postings, offers]);
+    const jobPosting = job ? postings.find((p) => p.title === job) : undefined;
+    const jobOffers = job ? offers.filter((o) => o.jobTitle === job) : [];
     const filtered = useMemo(() => {
         const k = keyword.trim().toLowerCase();
         return offers.filter((o) => (!k || o.candidateName.toLowerCase().includes(k)) && (!job || o.jobTitle === job));
@@ -119,16 +135,44 @@ export default function OffersPage() {
                     />
                     <Select
                         allowClear
-                        placeholder="Việc làm"
+                        showSearch
+                        placeholder="Tìm việc làm"
                         value={job}
                         onChange={setJob}
-                        style={{ width: 260 }}
-                        options={jobs.map((j) => ({ value: j, label: j }))}
+                        style={{ width: 320, maxWidth: "100%" }}
+                        popupMatchSelectWidth={false}
+                        options={jobOptions}
                     />
                 </ListFilters>
             }
-            footnote={failed ? undefined : `${rows.length} thư mời`}
+            footnote={failed ? undefined : job ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    Đang lọc: <b style={{ color: COLORS.textPrimary }}>Việc làm: {job}</b>
+                    <a onClick={() => setJob(undefined)}>Xoá lọc</a> · {rows.length} thư mời
+                </span>
+            ) : `${rows.length} thư mời`}
         >
+            {job && !isHm && (
+                <Panel style={{ borderRadius: 0, boxShadow: `inset 0 -1px 0 ${COLORS.border}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: 240, display: "flex", flexDirection: "column", gap: 2 }}>
+                            <b style={{ fontSize: 15 }}>{job}</b>
+                            <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
+                                Tuyển {jobPosting?.headcount ?? "?"} · đã nhận {jobOffers.filter((o) => o.status === "ACCEPTED").length}
+                                {" "}· đã gửi {jobOffers.filter((o) => o.status === "APPROVED").length}
+                                {" "}· bản nháp {jobOffers.filter((o) => o.status === "DRAFT").length}
+                            </span>
+                        </div>
+                        {jobPosting?.headcount != null && (
+                            <span style={{ fontSize: 18, fontWeight: 700 }}>
+                                {jobOffers.filter((o) => o.status === "ACCEPTED").length}/{jobPosting.headcount}
+                                <span style={{ fontSize: 13, fontWeight: 400, color: COLORS.textSecondary }}> suất</span>
+                            </span>
+                        )}
+                        {jobPosting && <Button onClick={() => navigate(`/recruitment/postings/${jobPosting.id}`)}>Mở so sánh ứng viên</Button>}
+                    </div>
+                </Panel>
+            )}
             <Table<OfferResponse>
                 rowKey="id"
                 loading={loading}

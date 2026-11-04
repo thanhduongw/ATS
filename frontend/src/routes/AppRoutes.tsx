@@ -23,6 +23,7 @@ import ApplicationsPage from "../features/candidate/pages/ApplicationsPage";
 import CandidateProfilePage from "../features/candidate/pages/CandidateProfilePage";
 import ApplyJobPage from "../features/public/pages/ApplyJobPage";
 import ScheduleInterviewPage from "../features/interview/pages/ScheduleInterviewPage";
+import InterviewDetailPage from "../features/interview/pages/InterviewDetailPage";
 import MyApplicationsPage from "../features/candidate/pages/MyApplicationsPage";
 import InterviewSchedulePage from "../features/interview/pages/InterviewSchedulePage";
 import EvaluationsPage from "../features/interview/pages/EvaluationsPage";
@@ -102,6 +103,8 @@ export default function AppRoutes() {
                     <Route path="/candidates/:candidateId/applications/:applicationId/evaluate" element={<EvaluationFormPage />} />
                     <Route path="/applications" element={<ApplicationsPage />} />
                     <Route path="/interviews" element={<InterviewSchedulePage />} />
+                    {/* R21: chi tiết buổi phỏng vấn (HR và đại diện phòng ban). */}
+                    <Route path="/interviews/:id" element={<InterviewDetailPage />} />
                     <Route path="/evaluations" element={<EvaluationsPage />} />
                     <Route path="/interviews/:interviewId/result" element={<InterviewsPage />} />
                     <Route path="/offers" element={<OffersPage />} />

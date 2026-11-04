@@ -19,7 +19,6 @@ import { COLORS, type StatusTone } from "../../../app/theme";
 import ListPage, { ListFilters, StatusTabs } from "../../../components/ui/listKit";
 import { AvatarGroup, Avatar } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
-import InterviewDetailModal from "../components/InterviewDetailModal";
 import InterviewQuickCreateModal from "../components/InterviewQuickCreateModal";
 import BulkScheduleModal from "../components/BulkScheduleModal";
 import InterviewTimeGrid from "../components/InterviewTimeGrid";
@@ -153,7 +152,8 @@ export default function InterviewSchedulePage() {
     const [postings, setPostings] = useState<JobPostingResponse[]>([]);
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
 
-    const [selected, setSelected] = useState<InterviewResponse | null>(null);
+    // R21: bấm một buổi → trang chi tiết (thay cho InterviewDetailModal).
+    const openInterview = (iv: InterviewResponse) => navigate(`/interviews/${iv.id}`);
     const [quickCreate, setQuickCreate] = useState<{ open: boolean; start: Dayjs | null }>({ open: false, start: null });
     const [bulkOpen, setBulkOpen] = useState(false);
     const [compareOpen, setCompareOpen] = useState(false);
@@ -191,7 +191,7 @@ export default function InterviewSchedulePage() {
         const highlightId = searchParams.get("highlightId");
         if (!highlightId || interviews.length === 0) return;
         const target = interviews.find((i) => i.id === Number(highlightId));
-        if (target) setSelected(target);
+        if (target) { navigate(`/interviews/${target.id}`); return; }
         const next = new URLSearchParams(searchParams);
         next.delete("highlightId");
         setSearchParams(next, { replace: true });
@@ -388,7 +388,7 @@ export default function InterviewSchedulePage() {
                             anchorDate={weekAnchor}
                             workLocationMap={workLocationMap}
                             sessionDisplayById={sessionDisplayById}
-                            onSelectInterview={setSelected}
+                            onSelectInterview={openInterview}
                             onSelectEmptySlot={isHr ? (start) => setQuickCreate({ open: true, start }) : undefined}
                         />
                     </div>
@@ -416,7 +416,7 @@ export default function InterviewSchedulePage() {
                                 return (
                                     <div
                                         key={iv.id}
-                                        onClick={() => setSelected(iv)}
+                                        onClick={() => openInterview(iv)}
                                         className="row-clickable"
                                         style={{
                                             cursor: "pointer", display: "grid", gridTemplateColumns: HM_COLS, gap: 12, alignItems: "center",
@@ -462,7 +462,7 @@ export default function InterviewSchedulePage() {
                                             {kind === "CONFIRM" && (
                                                 <>
                                                     <Button size="small" type="primary" loading={confirming === iv.id} onClick={() => void confirm(iv)}>Xác nhận</Button>
-                                                    <Button size="small" onClick={() => setSelected(iv)}>Đề xuất giờ khác</Button>
+                                                    <Button size="small" onClick={() => openInterview(iv)}>Đề xuất giờ khác</Button>
                                                 </>
                                             )}
                                         </span>
@@ -494,7 +494,7 @@ export default function InterviewSchedulePage() {
                                     <button
                                         key={iv.id}
                                         type="button"
-                                        onClick={() => setSelected(iv)}
+                                        onClick={() => openInterview(iv)}
                                         className="row-clickable"
                                         style={{
                                             all: "unset", cursor: "pointer", boxSizing: "border-box", width: "100%",
@@ -533,13 +533,6 @@ export default function InterviewSchedulePage() {
                     ))}
                 </div>
             )}
-
-            <InterviewDetailModal
-                open={selected != null}
-                interview={selected}
-                onClose={() => setSelected(null)}
-                onChanged={() => void load()}
-            />
             <InterviewQuickCreateModal
                 open={quickCreate.open}
                 defaultStart={quickCreate.start}

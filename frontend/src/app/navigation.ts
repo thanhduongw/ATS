@@ -60,6 +60,7 @@ const ROUTES: RouteNode[] = [
     // ── Phỏng vấn ─────────────────────────────────────────────────────────
     { pattern: "/interviews", label: "Lịch phỏng vấn", moduleKey: "/interviews" },
     { pattern: "/interviews/schedule/:applicationId", label: "Lên lịch phỏng vấn", parent: "/interviews" },
+    { pattern: "/interviews/:id", label: "Chi tiết buổi phỏng vấn", parent: "/interviews" },
     { pattern: "/interviews/:interviewId/result", label: "Kết quả phỏng vấn", parent: "/interviews" },
     // Đánh giá không còn mục riêng trên navbar nên mượn module Lịch phỏng vấn.
     { pattern: "/evaluations", label: "Đánh giá phỏng vấn", parent: "/interviews" },

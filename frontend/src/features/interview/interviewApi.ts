@@ -130,3 +130,11 @@ export const createSlotBatch = (data: SlotBatchCreateRequest) =>
 /** HR chốt 1 khung giờ → tạo buổi phỏng vấn, huỷ các khung còn lại. */
 export const selectSlot = (id: number) =>
   axiosClient.post<InterviewResponse>(`/interview/slots/${id}/select`, {});
+
+/** R21: HR từ chối giờ người phỏng vấn đề xuất (giữ giờ cũ). */
+export const rejectHmProposal = (id: number) =>
+  axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/reject-proposal`);
+
+/** R21: HR đặt lại danh sách người phỏng vấn. */
+export const updateInterviewers = (id: number, interviewerIds: number[]) =>
+  axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/interviewers`, { interviewerIds });

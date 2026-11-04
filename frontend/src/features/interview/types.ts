@@ -81,6 +81,9 @@ export interface InterviewResponse {
   interviewers: InterviewerSummary[];
   /** Moc tao buoi phong van — doi chieu voi lich su chuyen vong de suy ra vong phong van. */
   createdAt?: string | null;
+  /** R21: người phỏng vấn đã đề xuất đổi giờ. */
+  proposedBy?: number | null;
+  candidateConfirmedAt?: string | null;
 }
 
 export interface InterviewCreateRequest {

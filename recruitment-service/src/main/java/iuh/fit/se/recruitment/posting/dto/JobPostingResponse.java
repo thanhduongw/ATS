@@ -39,4 +39,15 @@ public record JobPostingResponse(
         String workLocationName,
         Long departmentId,
         String departmentName
-) {}
+) {
+    /**
+     * Ban cho nguoi ngoai (trang tuyen dung cong khai, ung vien): bo tieu chi cham CV cua AI
+     * (benchmarkCriteria), pipeline va thong tin duyet noi bo.
+     */
+    public JobPostingResponse forPublic() {
+        return new JobPostingResponse(id, requisitionId, headcount, title, employmentTypeId, workLocationId,
+                workArrangement, experienceRequired, null, salaryMin, salaryMax, description, requirements, benefits,
+                skillIds, null, status, false, null, null, null, null, null, publishedAt, closedAt,
+                employmentTypeName, workLocationName, departmentId, departmentName);
+    }
+}

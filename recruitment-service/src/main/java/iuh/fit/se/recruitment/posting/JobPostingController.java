@@ -40,8 +40,13 @@ public class JobPostingController {
      */
     @GetMapping("/open")
     public ResponseEntity<List<JobPostingResponse>> getOpen() {
-        CurrentUser.required();
-        return ResponseEntity.ok(service.getOpen(null, null));
+        CurrentUser actor = CurrentUser.required();
+        List<JobPostingResponse> open = service.getOpen(null, null);
+        // Ung vien chi thay ban cong khai (khong co tieu chi cham CV, thong tin duyet noi bo).
+        if (AuthorizationPolicy.roleOf(actor) == AuthorizationPolicy.Role.CANDIDATE) {
+            open = open.stream().map(JobPostingResponse::forPublic).toList();
+        }
+        return ResponseEntity.ok(open);
     }
 
     @GetMapping("/{id}")

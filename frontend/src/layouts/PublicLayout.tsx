@@ -3,6 +3,9 @@ import { Layout } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { COLORS } from "../app/theme";
 import { getPublicCompany } from "../features/public/publicApi";
+import { useAppSelector } from "../app/hooks";
+import { defaultRouteForRole } from "../app/roleNavigation";
+import { Avatar } from "../components/ui/designKit";
 
 const { Content, Footer } = Layout;
 
@@ -16,6 +19,7 @@ export default function PublicLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const [companyName, setCompanyName] = useState<string | null>(null);
+    const user = useAppSelector((st) => st.auth.user);
 
     useEffect(() => {
         getPublicCompany().then((res) => setCompanyName(res.data?.name ?? null)).catch(() => undefined);
@@ -83,10 +87,18 @@ export default function PublicLayout() {
                     <nav style={{ display: "flex", gap: 36 }}>
                         {navLink("Việc làm", "/careers")}
                     </nav>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <button type="button" style={btn(false)} onClick={() => navigate("/login")}>Đăng nhập</button>
-                        <button type="button" style={btn(true)} onClick={() => navigate("/register")}>Đăng ký</button>
-                    </div>
+                    {user ? (
+                        // Đã đăng nhập (C09/C29): về trang của mình thay cho Đăng nhập / Đăng ký.
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <button type="button" style={btn(false)} onClick={() => navigate(defaultRouteForRole(user.role))}>Trang của tôi</button>
+                            <Avatar name={user.fullName || user.email} colorKey={user.userId} size={36} />
+                        </div>
+                    ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <button type="button" style={btn(false)} onClick={() => navigate("/login")}>Đăng nhập</button>
+                            <button type="button" style={btn(true)} onClick={() => navigate("/register")}>Đăng ký</button>
+                        </div>
+                    )}
                 </div>
             </header>
             <Content style={{ flex: 1 }}>

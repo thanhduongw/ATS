@@ -19,7 +19,10 @@ export default function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const dispatch = useAppDispatch();
-    const state = (location.state ?? {}) as { email?: string };
+    const state = (location.state ?? {}) as { email?: string; jobTitle?: string };
+    // C04: quay lại trang đang xem (vd. biểu mẫu ứng tuyển) sau khi đăng nhập. Chỉ nhận đường dẫn nội bộ.
+    const redirectParam = new URLSearchParams(location.search).get("redirect");
+    const redirect = redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//") ? redirectParam : null;
     const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
         defaultValues: { email: state.email ?? "", password: "" },
@@ -39,7 +42,7 @@ export default function LoginPage() {
             const claims = jwtDecode<JwtPayload>(response.data.accessToken);
             dispatch(setCredentials(response.data));
             message.success("Đăng nhập thành công");
-            navigate(defaultRouteForRole(claims.role), { replace: true });
+            navigate(redirect && claims.role === "CANDIDATE" ? redirect : defaultRouteForRole(claims.role), { replace: true });
         } catch (error) {
             const apiError = error as AxiosError<ApiMessageResponse>;
             message.error(apiError.response?.data?.message ?? "Đăng nhập thất bại");
@@ -60,6 +63,11 @@ export default function LoginPage() {
             </div>
             <div className="auth-form-side">
                 <div className="auth-form-container">
+                    {state.jobTitle && (
+                        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(10, 89, 247, 0.08)", fontSize: 13 }}>
+                            Ứng tuyển: <b>{state.jobTitle}</b>
+                        </div>
+                    )}
                     <div className="auth-form-header">
                         <h2>Đăng nhập</h2>
                         <p>Sử dụng email và mật khẩu của bạn.</p>

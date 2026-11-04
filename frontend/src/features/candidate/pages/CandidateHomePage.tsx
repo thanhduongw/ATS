@@ -104,7 +104,7 @@ export default function CandidateHomePage() {
                 {!failed && applications.length === 0 && (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                         <span style={{ color: COLORS.textSecondary }}>Bạn chưa ứng tuyển vị trí nào.</span>
-                        <Button onClick={() => navigate("/jobs")}>Tìm việc làm</Button>
+                        <Button onClick={() => navigate("/careers")}>Tìm việc làm</Button>
                     </div>
                 )}
                 {applications.slice(0, 3).map((a, i) => (
@@ -118,7 +118,7 @@ export default function CandidateHomePage() {
                 ))}
             </Panel>
 
-            <Panel title="Việc làm gợi ý" extra={<a onClick={() => navigate("/jobs")}>Xem tất cả việc làm</a>}>
+            <Panel title="Việc làm gợi ý" extra={<a onClick={() => navigate("/careers")}>Xem tất cả việc làm</a>}>
                 {jobs == null ? <Spin size="small" /> : suggested.length === 0 ? (
                     <span style={{ color: COLORS.textSecondary }}>Chưa có việc làm mới.</span>
                 ) : (

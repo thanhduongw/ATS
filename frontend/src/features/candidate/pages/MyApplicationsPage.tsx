@@ -37,7 +37,7 @@ export default function MyApplicationsPage() {
         return (
             <ListPage title="Đơn ứng tuyển">
                 <EmptyState title="Bạn chưa ứng tuyển vị trí nào"
-                    action={<Button type="primary" onClick={() => navigate("/jobs")}>Tìm việc làm</Button>} />
+                    action={<Button type="primary" onClick={() => navigate("/careers")}>Tìm việc làm</Button>} />
             </ListPage>
         );
     }

@@ -21,7 +21,7 @@ import PostingHubPage from "../features/recruitment/pages/PostingHubPage";
 import CandidateApplicationDetailPage from "../features/candidate/pages/CandidateApplicationDetailPage";
 import ApplicationsPage from "../features/candidate/pages/ApplicationsPage";
 import CandidateProfilePage from "../features/candidate/pages/CandidateProfilePage";
-import JobsPage from "../features/candidate/pages/JobsPage";
+import ApplyJobPage from "../features/public/pages/ApplyJobPage";
 import MyApplicationsPage from "../features/candidate/pages/MyApplicationsPage";
 import InterviewSchedulePage from "../features/interview/pages/InterviewSchedulePage";
 import EvaluationsPage from "../features/interview/pages/EvaluationsPage";
@@ -67,6 +67,8 @@ export default function AppRoutes() {
         <Route path="/careers" element={<PublicLayout />}>
             <Route index element={<CompanyJobsPage />} />
             <Route path="jobs/:jobId" element={<JobDetailApplyPage />} />
+            {/* C09/C10: biểu mẫu ứng tuyển (tự chuyển tới đăng nhập nếu chưa đăng nhập). */}
+            <Route path="jobs/:jobId/apply" element={<ApplyJobPage />} />
         </Route>
 
         <Route element={<GuestRoute />}>
@@ -144,7 +146,8 @@ export default function AppRoutes() {
 
                 <Route element={<RoleRoute allow={["CANDIDATE"]} />}>
                     <Route path="/my-profile" element={<CandidateProfilePage />} />
-                    <Route path="/jobs" element={<JobsPage />} />
+                    {/* Danh sách việc làm của ứng viên dùng chung trang công khai C02. */}
+                    <Route path="/jobs" element={<Navigate to="/careers" replace />} />
                     <Route path="/my-home" element={<CandidateHomePage />} />
                     <Route path="/my-applications" element={<MyApplicationsPage />} />
                     <Route path="/my-applications/:id" element={<MyApplicationDetailPage />} />

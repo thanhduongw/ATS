@@ -75,7 +75,7 @@ function menuFor(role: UserRole): NavItem[] {
         default:
             return [
                 { key: "/my-home", label: "Tổng quan", icon: <HomeOutlined /> },
-                { key: "/jobs", label: "Việc làm", icon: <AppstoreOutlined /> },
+                { key: "/careers", label: "Việc làm", icon: <AppstoreOutlined /> },
                 { key: "/my-applications", label: "Đơn ứng tuyển", icon: <FileTextOutlined /> },
                 { key: "/my-interviews", label: "Lịch phỏng vấn", icon: <CalendarOutlined /> },
                 { key: "/my-offers", label: "Thư mời nhận việc", icon: <FileDoneOutlined /> },

@@ -138,3 +138,7 @@ export const rejectHmProposal = (id: number) =>
 /** R21: HR đặt lại danh sách người phỏng vấn. */
 export const updateInterviewers = (id: number, interviewerIds: number[]) =>
   axiosClient.patch<InterviewResponse>(`/interview/interviews/${id}/interviewers`, { interviewerIds });
+
+/** Ứng viên xin dời lịch phỏng vấn (lý do bắt buộc) — lịch 1 giờ cố định, ứng viên không tự đề xuất giờ. */
+export const candidateDeclineInterview = (id: number, reason: string) =>
+  axiosClient.patch<CandidateInterviewResponse>(`/interview/interviews/${id}/candidate-decline`, { reason });

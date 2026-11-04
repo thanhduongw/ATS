@@ -50,7 +50,8 @@ function cardLine(app: ApplicationResponse, stage: FixedStage, iv: InterviewResp
         const done = iv.interviewers.filter((p) => p.evaluationSubmitted).length;
         const badge = ended && done < iv.interviewers.length ? `Chờ đánh giá ${done}/${iv.interviewers.length}`
             : iv.status === "SCHEDULED" || iv.status === "HM_CONFIRMED" ? "Chờ xác nhận"
-                : iv.status === "HM_RESCHEDULE_PROPOSED" ? "Đề xuất đổi giờ" : null;
+                : iv.status === "HM_RESCHEDULE_PROPOSED" ? "Đề xuất đổi giờ"
+                    : iv.status === "CANDIDATE_DECLINED" ? "Ứng viên xin dời" : null;
         return { text: when, badge };
     }
     if (stage === "INTERVIEW") return { text: "Chưa có lịch phỏng vấn", badge: "Cần lên lịch" };

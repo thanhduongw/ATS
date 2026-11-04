@@ -141,6 +141,12 @@ export default function ApplicationEvaluationPanel({
 
     const rows = useMemo(
         () => [...evaluations]
+            // Phiếu trống của buổi đã huỷ / ứng viên xin dời: buổi không diễn ra nên không ai chấm — ẩn đi.
+            // Nợ kỹ thuật: backend vẫn trả các phiếu này (nên tự dọn khi buổi kết thúc mà chưa diễn ra).
+            .filter((e) => {
+                const st = e.interviewId != null ? interviewById.get(e.interviewId)?.status : undefined;
+                return !!e.submittedAt || (st !== "CANCELLED" && st !== "CANDIDATE_DECLINED");
+            })
             .sort((a, b) => dayjs(b.submittedAt ?? 0).valueOf() - dayjs(a.submittedAt ?? 0).valueOf())
             .map((e) => {
                 const interview = e.interviewId != null ? interviewById.get(e.interviewId) : undefined;

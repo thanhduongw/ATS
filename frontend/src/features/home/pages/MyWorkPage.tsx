@@ -95,7 +95,7 @@ export default function MyWorkPage() {
 
     // "Cả nhóm": mọi buổi trong ngày; "Của tôi" và Đại diện phòng ban: buổi mình tham gia.
     const today = (data?.interviews ?? [])
-        .filter((iv) => iv.status !== "CANCELLED" && dayjs(iv.scheduledAt).isSame(dayjs(), "day"))
+        .filter((iv) => iv.status !== "CANCELLED" && iv.status !== "CANDIDATE_DECLINED" && dayjs(iv.scheduledAt).isSame(dayjs(), "day"))
         .filter((iv) => (isHr && scope === "team") || iv.interviewers.some((i) => i.interviewerId === me))
         .sort((a, b) => dayjs(a.scheduledAt).valueOf() - dayjs(b.scheduledAt).valueOf());
 
@@ -300,6 +300,20 @@ function recruiterTasks(d: Data, me: number): Task[] {
         });
     });
 
+    // 3b. Ứng viên xin dời lịch → đặt giờ mới
+    d.interviews.filter((iv) => iv.status === "CANDIDATE_DECLINED")
+        .filter((iv) => !d.interviews.some((x) => x.applicationId === iv.applicationId && ACTIVE_INTERVIEW.has(x.status)))
+        .forEach((iv) => {
+            const app = appById.get(iv.applicationId);
+            tasks.push({
+                key: `declined-${iv.id}`, icon: <CalendarOutlined />, color: COLORS.warning,
+                mine: app?.assignedRecruiterId === me,
+                title: `Ứng viên xin dời lịch · ${iv.candidateName}`,
+                sub: iv.candidateDeclineReason ? `“${iv.candidateDeclineReason}”` : `Lịch cũ ${fmtDay(iv.scheduledAt)} ${fmtTime(iv.scheduledAt)}`,
+                action: "Đặt lịch mới", to: `/interviews/schedule/${iv.applicationId}`,
+            });
+        });
+
     // 4. Sàng lọc hồ sơ mới
     const fresh = d.applications.filter((a) => toFixedStage(a.currentStageType) === "APPLIED");
     const freshMine = fresh.filter((a) => a.assignedRecruiterId === me);
@@ -316,7 +330,9 @@ function recruiterTasks(d: Data, me: number): Task[] {
 
     // 5. Lên lịch phỏng vấn (đang ở giai đoạn Phỏng vấn nhưng chưa có buổi nào còn hiệu lực)
     const scheduled = new Set(d.interviews.filter((iv) => ACTIVE_INTERVIEW.has(iv.status)).map((iv) => iv.applicationId));
-    const toSchedule = d.applications.filter((a) => toFixedStage(a.currentStageType) === "INTERVIEW" && !scheduled.has(a.id));
+    // Hồ sơ có buổi "ứng viên xin dời" đã có việc riêng (3b) — không đếm lại ở đây.
+    const declined = new Set(d.interviews.filter((iv) => iv.status === "CANDIDATE_DECLINED").map((iv) => iv.applicationId));
+    const toSchedule = d.applications.filter((a) => toFixedStage(a.currentStageType) === "INTERVIEW" && !scheduled.has(a.id) && !declined.has(a.id));
     for (const [list, mine] of [[toSchedule, false], [toSchedule.filter((a) => a.assignedRecruiterId === me), true]] as const) {
         if (!list.length) continue;
         tasks.push({

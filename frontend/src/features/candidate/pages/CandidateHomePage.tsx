@@ -20,7 +20,7 @@ import { todoOf, useCandidatePortal } from "../useCandidatePortal";
 export default function CandidateHomePage() {
     const navigate = useNavigate();
     const fullName = useAppSelector((s) => s.auth.user?.fullName ?? "");
-    const { loading, failed, applications, interviews, offers, slotsByApp, reload } = useCandidatePortal();
+    const { loading, failed, applications, interviews, offers, reload } = useCandidatePortal();
     const [jobs, setJobs] = useState<JobPostingResponse[] | null>(null);
 
     useEffect(() => {
@@ -31,11 +31,11 @@ export default function CandidateHomePage() {
 
     const firstName = fullName.trim().split(/\s+/).pop() ?? "";
     const todos = applications
-        .map((a) => ({ app: a, todo: todoOf(a, interviews, offers, slotsByApp) }))
+        .map((a) => ({ app: a, todo: todoOf(a, interviews, offers) }))
         .filter((x): x is { app: typeof x.app; todo: NonNullable<typeof x.todo> } => x.todo != null)
         .sort((a, b) => dayjs(a.todo.due ?? "2999-01-01").valueOf() - dayjs(b.todo.due ?? "2999-01-01").valueOf());
     const nextIv = interviews
-        .filter((iv) => iv.status !== "CANCELLED" && iv.status !== "NO_SHOW" && dayjs(iv.scheduledAt).isAfter(dayjs()))
+        .filter((iv) => iv.status !== "CANCELLED" && iv.status !== "NO_SHOW" && iv.status !== "CANDIDATE_DECLINED" && dayjs(iv.scheduledAt).isAfter(dayjs()))
         .sort((a, b) => dayjs(a.scheduledAt).valueOf() - dayjs(b.scheduledAt).valueOf())[0];
     const nextIvApp = nextIv ? applications.find((a) => a.id === nextIv.applicationId) : undefined;
     const appliedJobIds = new Set(applications.map((a) => a.jobPostingId));

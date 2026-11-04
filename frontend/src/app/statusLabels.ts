@@ -53,6 +53,10 @@ export const INTERVIEW_STATUS: Record<string, InterviewStatusMeta> = {
         label: "Phòng ban đề xuất đổi giờ", color: "orange",
         accent: "#FF7500", bg: "#FF75001F", border: "#FF750033",
     },
+    CANDIDATE_DECLINED: {
+        label: "Ứng viên xin dời", color: "orange",
+        accent: "#FF7500", bg: "#FF75001F", border: "#FF750033",
+    },
     HM_CONFIRMED: {
         label: "Chờ ứng viên xác nhận", color: "processing",
         accent: "#0A59F7", bg: "#0A59F719", border: "#0A59F733",

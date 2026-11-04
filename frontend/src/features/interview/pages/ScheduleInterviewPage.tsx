@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { App, Button, DatePicker, Input, Segmented, Select, Spin } from "antd";
+import { App, Button, Input, Segmented, Select, Spin } from "antd";
 import { CloseOutlined, LeftOutlined, RightOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs, { type Dayjs } from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
-import { createInterview, createSlotBatch, getInterviews } from "../interviewApi";
+import { createInterview, getInterviews } from "../interviewApi";
 import type { ApiMessageResponse, InterviewFormat, InterviewResponse } from "../types";
 import { getApplicationById } from "../../candidate/applicationApi";
 import type { ApplicationResponse } from "../../candidate/types";
@@ -20,17 +20,15 @@ import { AiScorePill, Avatar, InlineNotice, Panel, ScreenTitle } from "../../../
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 
 /**
- * R18 · Lên lịch phỏng vấn (trang). Hai cách:
- *  - "Tôi chọn giờ": chọn 1 ô → tạo buổi phỏng vấn ngay (người phỏng vấn xác nhận, rồi ứng viên xác nhận).
- *  - "Để ứng viên chọn": chọn tối đa 5 ô → gửi khung giờ kèm hạn chọn; ứng viên chọn ở C13, HR chốt.
+ * R18 · Lên lịch phỏng vấn (trang): HR chọn MỘT giờ cố định → tạo buổi phỏng vấn (người phỏng vấn
+ * xác nhận, rồi ứng viên Đồng ý / Từ chối). Quyết định 04/11/2026: bỏ cách "để ứng viên chọn khung giờ"
+ * (C13) — API khung giờ (`/interview/slots`) còn trong backend nhưng giao diện không dùng (nợ kỹ thuật).
  * Lưới giờ tuần: ô xám = người phỏng vấn đã có buổi khác trùng giờ (đếm cả thời lượng đang chọn).
  */
-type Mode = "PICK" | "CANDIDATE";
 const DAY_START = 8 * 60;
 const DAY_END = 18 * 60;
 const STEP = 30;
 const LUNCH = [12 * 60, 13 * 60];
-const MAX_SLOTS = 5;
 const WEEKDAY = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 const WEEKDAY_FULL = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 const BLOCKING = new Set(["SCHEDULED", "HM_CONFIRMED", "HM_RESCHEDULE_PROPOSED", "CANDIDATE_CONFIRMED"]);
@@ -50,14 +48,12 @@ export default function ScheduleInterviewPage() {
     const [busy, setBusy] = useState<InterviewResponse[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const [mode, setMode] = useState<Mode>("CANDIDATE");
     const [duration, setDuration] = useState(60);
     const [format, setFormat] = useState<InterviewFormat>("ONLINE");
     const [meetingLink, setMeetingLink] = useState("");
     const [workLocationId, setWorkLocationId] = useState<number | undefined>();
     const [interviewerIds, setInterviewerIds] = useState<number[]>([]);
     const [picked, setPicked] = useState<Dayjs[]>([]);
-    const [deadline, setDeadline] = useState<Dayjs | null>(null);
     const [note, setNote] = useState("");
     const [weekStart, setWeekStart] = useState(() => {
         const t = dayjs().add(1, "day");
@@ -107,29 +103,13 @@ export default function ScheduleInterviewPage() {
     };
 
     const isPicked = (d: Dayjs) => picked.some((p) => p.isSame(d, "minute"));
-    const toggle = (d: Dayjs) => {
-        if (mode === "PICK") { setPicked(isPicked(d) ? [] : [d]); return; }
-        if (isPicked(d)) setPicked(picked.filter((p) => !p.isSame(d, "minute")));
-        else if (picked.length >= MAX_SLOTS) message.warning(`Tối đa ${MAX_SLOTS} khung giờ`);
-        else setPicked([...picked, d].sort((a, b) => a.valueOf() - b.valueOf()));
-    };
+    const toggle = (d: Dayjs) => setPicked(isPicked(d) ? [] : [d]);
 
     if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
     if (!app) return <InlineNotice tone="danger">Không tìm thấy hồ sơ.</InlineNotice>;
 
     const backTo = `/candidates/${app.candidateId}/applications/${app.id}`;
-    // Hạn mặc định: 17:00 hôm trước khung đầu tiên, nhưng ít nhất 2 giờ kể từ bây giờ và trước khung đầu 1 giờ.
-    const defaultDeadline = (() => {
-        if (!picked[0]) return null;
-        let d = picked[0].subtract(1, "day").hour(17).minute(0).second(0);
-        const floor = dayjs().add(2, "hour").minute(0).second(0);
-        if (d.isBefore(floor)) d = floor;
-        const ceil = picked[0].subtract(1, "hour");
-        return d.isAfter(ceil) ? ceil : d;
-    })();
-    const effectiveDeadline = deadline ?? defaultDeadline;
-    const canSubmit = picked.length > 0 && interviewerIds.length > 0 && (format === "ONLINE" ? !!meetingLink.trim() : !!workLocationId)
-        && (mode === "PICK" || (effectiveDeadline != null && effectiveDeadline.isAfter(dayjs())));
+    const canSubmit = picked.length > 0 && interviewerIds.length > 0 && (format === "ONLINE" ? !!meetingLink.trim() : !!workLocationId);
 
     const submit = async () => {
         setSaving(true);
@@ -140,17 +120,8 @@ export default function ScheduleInterviewPage() {
                 workLocationId: format === "OFFLINE" ? workLocationId ?? null : null,
                 note: note.trim() || null,
             };
-            if (mode === "PICK") {
-                await createInterview({ ...common, applicationId: app.id, scheduledAt: toLocalDateTimeString(picked[0]), durationMinutes: duration });
-                message.success("Đã lên lịch. Người phỏng vấn sẽ xác nhận rồi báo ứng viên.");
-            } else {
-                await createSlotBatch({
-                    ...common, applicationId: app.id,
-                    slots: picked.map((p) => ({ startTime: toLocalDateTimeString(p), endTime: toLocalDateTimeString(p.add(duration, "minute")) })),
-                    responseDeadline: effectiveDeadline ? toLocalDateTimeString(effectiveDeadline) : null,
-                });
-                message.success(`Đã gửi ${picked.length} khung giờ cho ${app.candidateName}`);
-            }
+            await createInterview({ ...common, applicationId: app.id, scheduledAt: toLocalDateTimeString(picked[0]), durationMinutes: duration });
+            message.success("Đã lên lịch. Người phỏng vấn xác nhận xong, ứng viên sẽ Đồng ý hoặc Từ chối.");
             navigate(backTo);
         } catch (err) {
             message.error((err as AxiosError<ApiMessageResponse>).response?.data?.message ?? "Không lên lịch được");
@@ -168,14 +139,11 @@ export default function ScheduleInterviewPage() {
                     actions={<>
                         <Button onClick={() => navigate(backTo)}>Huỷ</Button>
                         <Button type="primary" disabled={!canSubmit} loading={saving} onClick={submit}>
-                            {mode === "PICK" ? "Lên lịch" : `Gửi ${picked.length || ""} khung giờ`.replace("  ", " ")}
+                            Lên lịch
                         </Button>
                     </>}
                 />
             </div>
-            {mode === "CANDIDATE" && effectiveDeadline && !effectiveDeadline.isAfter(dayjs()) && (
-                <InlineNotice tone="warning">Hạn chọn giờ đã qua — chọn hạn khác trước khi gửi.</InlineNotice>
-            )}
             {!isSchedulable(app) && (
                 <InlineNotice tone="warning">Hồ sơ đang ở giai đoạn {FIXED_STAGE_LABEL[toFixedStage(app.currentStageType)]} — chuyển sang Phỏng vấn trước khi lên lịch.</InlineNotice>
             )}
@@ -196,8 +164,6 @@ export default function ScheduleInterviewPage() {
                     </Panel>
 
                     <Panel title="Thông tin buổi phỏng vấn" bodyGap={14}>
-                        <Segmented<Mode> block value={mode} onChange={(m) => { setMode(m); setPicked((p) => (m === "PICK" ? p.slice(0, 1) : p)); }}
-                            options={[{ value: "PICK", label: "Tôi chọn giờ" }, { value: "CANDIDATE", label: "Để ứng viên chọn" }]} />
                         <Field label="Thời lượng">
                             <Select value={duration} onChange={(v) => { setDuration(v); setPicked([]); }} style={{ width: "100%" }}
                                 options={[30, 45, 60, 90].map((m) => ({ value: m, label: `${m} phút` }))} />
@@ -221,7 +187,7 @@ export default function ScheduleInterviewPage() {
                                 optionFilterProp="label" placeholder="Chọn người phỏng vấn"
                                 options={people.map((p) => ({ value: p.id, label: `${p.fullName}${p.role === "RECRUITER" ? " (Tuyển dụng)" : ""}` }))} />
                         </Field>
-                        <Field label={mode === "PICK" ? "Giờ đã chọn" : `${picked.length} khung giờ đã chọn`}>
+                        <Field label="Giờ đã chọn">
                             {picked.length === 0
                                 ? <span style={{ fontSize: 13, color: COLORS.textMuted }}>Bấm vào ô trống trên lưới giờ bên phải</span>
                                 : picked.map((p) => (
@@ -231,18 +197,6 @@ export default function ScheduleInterviewPage() {
                                     </div>
                                 ))}
                         </Field>
-                        {mode === "CANDIDATE" && (
-                            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
-                                Ứng viên chọn giờ trên cổng ứng viên. Hồ sơ do bạn thêm tay thì ứng viên cần đăng ký bằng đúng email trong hồ sơ để thấy khung giờ.
-                            </span>
-                        )}
-                        {mode === "CANDIDATE" && (
-                            <Field label="Hạn ứng viên chọn giờ">
-                                <DatePicker showTime={{ format: "HH:mm", minuteStep: 15 }} format="DD/MM/YYYY HH:mm" style={{ width: "100%" }}
-                                    value={effectiveDeadline} onChange={setDeadline}
-                                    disabledDate={(d) => d.isBefore(dayjs(), "day") || (!!picked[0] && d.isAfter(picked[0], "day"))} />
-                            </Field>
-                        )}
                         <Field label="Ghi chú cho ứng viên">
                             <Input.TextArea rows={3} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)}
                                 placeholder="Nội dung buổi phỏng vấn, cần chuẩn bị gì…" />
@@ -251,7 +205,7 @@ export default function ScheduleInterviewPage() {
                 </div>
 
                 <Panel
-                    title="Chọn khung giờ"
+                    title="Chọn giờ phỏng vấn"
                     subtitle="Ô xám là giờ người phỏng vấn đã có buổi khác trong hệ thống"
                     extra={
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -303,7 +257,7 @@ export default function ScheduleInterviewPage() {
                     <div style={{ display: "flex", gap: 16, fontSize: 12, color: COLORS.textSecondary, flexWrap: "wrap" }}>
                         <Legend color={COLORS.fill} label="Còn trống" />
                         <Legend color="#D9DCE1" label="Đã có lịch" />
-                        <Legend color={COLORS.primary} label={mode === "PICK" ? "Giờ đã chọn" : "Khung gửi ứng viên"} />
+                        <Legend color={COLORS.primary} label="Giờ đã chọn" />
                         {chosenPeople.length > 0 && <span>Kiểm tra lịch của: {chosenPeople.map((p) => p.fullName).join(", ")}</span>}
                     </div>
                 </Panel>

@@ -55,7 +55,7 @@ function tabOf(iv: InterviewResponse, now: Dayjs): Tab {
     if (ended && INTERVIEW_HELD.has(iv.status)) {
         return iv.interviewers.some((p) => !p.evaluationSubmitted) ? "EVAL" : "DONE";
     }
-    if (iv.status === "HM_RESCHEDULE_PROPOSED") return "ACTION";
+    if (iv.status === "HM_RESCHEDULE_PROPOSED" || iv.status === "CANDIDATE_DECLINED") return "ACTION";
     if (iv.status === "SCHEDULED" && dayjs(iv.scheduledAt).diff(now, "hour") <= 48) return "ACTION";
     return "UPCOMING";
 }
@@ -123,6 +123,7 @@ function statusText(iv: InterviewResponse, tab: Tab): { label: string; tone: Sta
     if (tab === "DONE") return { label: "Đã xong", tone: "success" };
     switch (iv.status) {
         case "HM_RESCHEDULE_PROPOSED": return { label: "Đề xuất đổi giờ", tone: "interview" };
+        case "CANDIDATE_DECLINED": return { label: "Ứng viên xin dời", tone: "warning" };
         case "SCHEDULED": return { label: "Chờ người phỏng vấn xác nhận", tone: "warning" };
         case "HM_CONFIRMED": return { label: "Chờ ứng viên xác nhận", tone: "warning" };
         default: return { label: "Đã xác nhận", tone: "success" };

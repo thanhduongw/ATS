@@ -19,7 +19,7 @@ type Tab = "ALL" | AppGroup;
 
 export default function MyApplicationsPage() {
     const navigate = useNavigate();
-    const { loading, failed, applications, interviews, offers, slotsByApp, reload } = useCandidatePortal();
+    const { loading, failed, applications, interviews, offers, reload } = useCandidatePortal();
     const [tab, setTab] = useState<Tab>("ALL");
 
     if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
@@ -61,7 +61,7 @@ export default function MyApplicationsPage() {
         {
             title: "Việc cần làm", key: "todo", width: 340,
             render: (_, a) => {
-                const t = todoOf(a, interviews, offers, slotsByApp);
+                const t = todoOf(a, interviews, offers);
                 return (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                         <span style={{ fontSize: 13, color: t ? COLORS.textPrimary : COLORS.textMuted }}>{t?.text ?? "—"}</span>

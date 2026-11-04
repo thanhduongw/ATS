@@ -3,7 +3,6 @@ import { App, Button, Calendar, Segmented, Spin } from "antd";
 import { CalendarOutlined, EnvironmentOutlined, TeamOutlined, VideoCameraOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs, { type Dayjs } from "dayjs";
-import { useNavigate } from "react-router-dom";
 import { confirmInterview } from "../interviewApi";
 import type { ApiMessageResponse, CandidateInterviewResponse } from "../types";
 import { downloadIcs } from "../ics";
@@ -11,10 +10,13 @@ import { COLORS, type StatusTone } from "../../../app/theme";
 import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
 import EmptyState from "../../../components/ui/EmptyState";
-import { awaitingReply, chosenSlot, needsConfirm, needsSlotChoice, useCandidatePortal } from "../../candidate/useCandidatePortal";
+import { awaitingReply, canDecline, needsConfirm, useCandidatePortal } from "../../candidate/useCandidatePortal";
+import CandidateDeclineDialog from "../components/CandidateDeclineDialog";
 
 /**
- * C14 · Lịch phỏng vấn — danh sách (Sắp tới · Chờ bạn chọn giờ · Đã diễn ra) và C26 dạng tháng.
+ * C14 · Lịch phỏng vấn — danh sách (Sắp tới · Đã diễn ra) và C26 dạng tháng.
+ * Lịch 1 giờ cố định (04/11/2026): ứng viên chỉ "Đồng ý" hoặc "Từ chối" (xin dời lịch kèm lý do / không tham
+ * gia nữa = rút đơn) — không chọn khung giờ, không tự đề xuất giờ.
  * Nút "Thêm vào lịch" tải file .ics; "Vào phòng họp" chỉ hiện với buổi trực tuyến đã xác nhận.
  */
 type View = "LIST" | "MONTH";
@@ -22,8 +24,9 @@ type View = "LIST" | "MONTH";
 const UPCOMING_STATUS: Record<string, { label: string; tone: StatusTone }> = {
     SCHEDULED: { label: "Chờ chốt giờ", tone: "warning" },
     HM_RESCHEDULE_PROPOSED: { label: "Đang đổi giờ", tone: "warning" },
-    HM_CONFIRMED: { label: "Chờ bạn xác nhận", tone: "brand" },
-    CANDIDATE_CONFIRMED: { label: "Đã xác nhận", tone: "success" },
+    HM_CONFIRMED: { label: "Chờ bạn trả lời", tone: "brand" },
+    CANDIDATE_CONFIRMED: { label: "Đã đồng ý", tone: "success" },
+    CANDIDATE_DECLINED: { label: "Đã xin dời · chờ lịch mới", tone: "warning" },
 };
 const PAST_STATUS: Record<string, { label: string; tone: StatusTone }> = {
     COMPLETED: { label: "Đã hoàn thành", tone: "success" },
@@ -33,11 +36,11 @@ const PAST_STATUS: Record<string, { label: string; tone: StatusTone }> = {
 };
 
 export default function CandidateInterviewsPage() {
-    const navigate = useNavigate();
     const { message } = App.useApp();
-    const { loading, failed, applications, interviews, offers, slotsByApp, reload } = useCandidatePortal();
+    const { loading, failed, applications, interviews, offers, reload } = useCandidatePortal();
     const [view, setView] = useState<View>("LIST");
     const [confirmingId, setConfirmingId] = useState<number>();
+    const [declining, setDeclining] = useState<CandidateInterviewResponse | null>(null);
 
     if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
 
@@ -50,13 +53,12 @@ export default function CandidateInterviewsPage() {
     const past = interviews
         .filter((iv) => !upcoming.includes(iv))
         .sort((a, b) => dayjs(b.scheduledAt).valueOf() - dayjs(a.scheduledAt).valueOf());
-    const waitingApps = applications.filter((a) => slotsByApp.has(a.id) && (needsSlotChoice(slotsByApp.get(a.id)) || chosenSlot(slotsByApp.get(a.id))));
 
     const confirm = async (id: number) => {
         setConfirmingId(id);
         try {
             await confirmInterview(id);
-            message.success("Đã xác nhận lịch phỏng vấn");
+            message.success("Đã đồng ý lịch phỏng vấn");
             reload();
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
@@ -71,7 +73,7 @@ export default function CandidateInterviewsPage() {
         description: iv.interviewerNames.length ? `Người phỏng vấn: ${iv.interviewerNames.join(", ")}` : null,
     });
 
-    const empty = !failed && upcoming.length === 0 && past.length === 0 && waitingApps.length === 0;
+    const empty = !failed && upcoming.length === 0 && past.length === 0;
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1000 }}>
@@ -115,41 +117,24 @@ export default function CandidateInterviewsPage() {
                                             <TeamOutlined /> {names[0]}{names.length > 1 ? ` + ${names.length - 1}` : ""}
                                         </span>
                                     )}
+                                    {iv.status === "CANDIDATE_DECLINED" && iv.candidateDeclineReason && (
+                                        <span style={{ fontSize: 13, color: COLORS.textSecondary }}>Lý do bạn gửi: “{iv.candidateDeclineReason}”</span>
+                                    )}
                                 </div>
                                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                    {canDecline(iv) && (
+                                        <Button danger onClick={() => setDeclining(iv)}>Từ chối</Button>
+                                    )}
                                     {needsConfirm(iv) && (
-                                        <Button type="primary" loading={confirmingId === iv.id} onClick={() => confirm(iv.id)}>Xác nhận tham gia</Button>
+                                        <Button type="primary" loading={confirmingId === iv.id} onClick={() => confirm(iv.id)}>Đồng ý</Button>
                                     )}
                                     {iv.status === "CANDIDATE_CONFIRMED" && iv.format === "ONLINE" && iv.meetingLink && (
                                         <Button type="primary" href={iv.meetingLink} target="_blank" rel="noreferrer">Vào phòng họp</Button>
                                     )}
-                                    <Button icon={<CalendarOutlined />} onClick={() => ics(iv)}>Thêm vào lịch</Button>
+                                    {iv.status !== "CANDIDATE_DECLINED" && (
+                                        <Button icon={<CalendarOutlined />} onClick={() => ics(iv)}>Thêm vào lịch</Button>
+                                    )}
                                 </div>
-                            </div>
-                        </Panel>
-                    );
-                })}
-
-                {waitingApps.map((a) => {
-                    const slots = slotsByApp.get(a.id);
-                    const chosen = chosenSlot(slots);
-                    return (
-                        <Panel key={`slot-${a.id}`}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, minWidth: 220 }}>
-                                    <span>
-                                        <StatusTag label={chosen ? "Chờ chốt lịch" : "Chờ bạn chọn giờ"} tone={chosen ? "warning" : "brand"} />
-                                    </span>
-                                    <span style={{ fontWeight: 600 }}>Phỏng vấn · {a.jobTitle}</span>
-                                    <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
-                                        {chosen
-                                            ? `Bạn đã chọn ${dayjs(chosen.startTime).format("DD/MM HH:mm")} – ${dayjs(chosen.endTime).format("HH:mm")}`
-                                            : `${slots?.length ?? 0} khung giờ đề xuất`}
-                                    </span>
-                                </div>
-                                <Button type={chosen ? "default" : "primary"} onClick={() => navigate(`/my-interviews/choose/${a.id}`)}>
-                                    {chosen ? "Đổi khung giờ" : "Chọn khung giờ"}
-                                </Button>
                             </div>
                         </Panel>
                     );
@@ -175,6 +160,18 @@ export default function CandidateInterviewsPage() {
                 )}
             </>)}
 
+            {declining && (
+                <CandidateDeclineDialog
+                    open
+                    interviewId={declining.id}
+                    applicationId={declining.applicationId}
+                    jobTitle={titleOf(declining.applicationId)}
+                    when={dayjs(declining.scheduledAt).format("HH:mm, DD/MM/YYYY")}
+                    onClose={() => setDeclining(null)}
+                    onDone={reload}
+                />
+            )}
+
             {view === "MONTH" && (
                 <Panel>
                     <Calendar
@@ -182,7 +179,7 @@ export default function CandidateInterviewsPage() {
                         cellRender={(date: Dayjs, info) => {
                             if (info.type !== "date") return info.originNode;
                             const items: { key: string; text: string; color: string }[] = [
-                                ...interviews.filter((iv) => iv.status !== "CANCELLED" && dayjs(iv.scheduledAt).isSame(date, "day"))
+                                ...interviews.filter((iv) => iv.status !== "CANCELLED" && iv.status !== "CANDIDATE_DECLINED" && dayjs(iv.scheduledAt).isSame(date, "day"))
                                     .map((iv) => ({ key: `iv${iv.id}`, text: `${dayjs(iv.scheduledAt).format("HH:mm")} Phỏng vấn`, color: COLORS.primary })),
                                 ...offers.filter((o) => awaitingReply(o) && o.responseDeadline && dayjs(o.responseDeadline).isSame(date, "day"))
                                     .map((o) => ({ key: `of${o.id}`, text: "Hạn phản hồi thư mời", color: COLORS.warning })),

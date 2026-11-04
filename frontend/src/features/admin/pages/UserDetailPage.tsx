@@ -41,7 +41,7 @@ async function loadDuties(userId: number): Promise<Duty[]> {
     ]);
     const now = dayjs();
     const mine = (ivs?.data ?? []).filter((iv) =>
-        iv.status !== "CANCELLED" && iv.interviewers.some((p) => p.interviewerId === userId));
+        iv.status !== "CANCELLED" && iv.status !== "CANDIDATE_DECLINED" && iv.interviewers.some((p) => p.interviewerId === userId));
     const list: (Duty | null)[] = [
         apps && {
             label: "Ứng viên đang phụ trách",

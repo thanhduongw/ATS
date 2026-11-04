@@ -7,7 +7,9 @@ export type InterviewStatus =
   | "EVALUATION_PENDING"
   | "COMPLETED"
   | "NO_SHOW"
-  | "CANCELLED";
+  | "CANCELLED"
+  /** Ứng viên xin dời lịch (kèm lý do) — HR đặt giờ mới. */
+  | "CANDIDATE_DECLINED";
 export type RecommendationType = "STRONG_YES" | "YES" | "NO" | "STRONG_NO";
 
 /** Các trạng thái còn chiếm chỗ trên lịch của người phỏng vấn. */
@@ -84,6 +86,9 @@ export interface InterviewResponse {
   /** R21: người phỏng vấn đã đề xuất đổi giờ. */
   proposedBy?: number | null;
   candidateConfirmedAt?: string | null;
+  /** Ứng viên xin dời lịch: lý do và lúc gửi. */
+  candidateDeclineReason?: string | null;
+  candidateDeclinedAt?: string | null;
 }
 
 export interface InterviewCreateRequest {
@@ -213,6 +218,7 @@ export interface CandidateInterviewResponse {
   status: InterviewStatus;
   candidateConfirmed: boolean;
   interviewerNames: string[];
+  candidateDeclineReason?: string | null;
 }
 
 export type InterviewSlotStatus = "PROPOSED" | "SELECTED" | "CANCELLED";

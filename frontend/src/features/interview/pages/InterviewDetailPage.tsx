@@ -37,6 +37,7 @@ const STATUS_VIEW: Record<string, { label: string; tone: StatusTone }> = {
     COMPLETED: { label: "Đã hoàn thành", tone: "success" },
     NO_SHOW: { label: "Ứng viên vắng mặt", tone: "danger" },
     CANCELLED: { label: "Đã huỷ", tone: "neutral" },
+    CANDIDATE_DECLINED: { label: "Ứng viên xin dời", tone: "warning" },
 };
 const BLOCKING = new Set(["SCHEDULED", "HM_CONFIRMED", "HM_RESCHEDULE_PROPOSED", "CANDIDATE_CONFIRMED"]);
 const when = (v: string | Dayjs) => { const d = dayjs(v); return `${WEEKDAY[d.day()]} ${d.format("DD/MM")} · ${d.format("HH:mm")}`; };
@@ -182,6 +183,15 @@ export default function InterviewDetailPage() {
                 </div>
             </Panel>
 
+            {iv.status === "CANDIDATE_DECLINED" && (
+                <InlineNotice tone="warning" action={isHr ? (
+                    <Button type="primary" onClick={() => navigate(`/interviews/schedule/${iv.applicationId}`)}>Đặt lịch mới</Button>
+                ) : undefined}>
+                    <b>{iv.candidateName}</b> xin dời lịch{iv.candidateDeclinedAt ? ` lúc ${dayjs(iv.candidateDeclinedAt).format("HH:mm DD/MM")}` : ""}
+                    {iv.candidateDeclineReason ? <> — “{iv.candidateDeclineReason}”</> : null}
+                </InlineNotice>
+            )}
+
             {iv.status === "HM_RESCHEDULE_PROPOSED" && iv.proposedScheduledAt && (
                 <InlineNotice tone="warning">
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -240,7 +250,7 @@ export default function InterviewDetailPage() {
                     </Info>
                     <Info icon={<CalendarOutlined />} label="Ứng viên">
                         {iv.candidateConfirmedAt ? `Đã xác nhận ${dayjs(iv.candidateConfirmedAt).format("DD/MM HH:mm")}`
-                            : iv.status === "HM_CONFIRMED" ? "Chờ ứng viên xác nhận" : iv.status === "SCHEDULED" || iv.status === "HM_RESCHEDULE_PROPOSED" ? "Chưa gửi (chờ người phỏng vấn chốt giờ)" : "—"}
+                            : iv.status === "CANDIDATE_DECLINED" ? "Xin dời lịch" : iv.status === "HM_CONFIRMED" ? "Chờ ứng viên trả lời" : iv.status === "SCHEDULED" || iv.status === "HM_RESCHEDULE_PROPOSED" ? "Chưa gửi (chờ người phỏng vấn chốt giờ)" : "—"}
                     </Info>
                     {iv.note && <div style={{ padding: 12, borderRadius: 12, background: COLORS.fill, fontSize: 13, whiteSpace: "pre-wrap" }}>{iv.note}</div>}
                     <Button icon={<CalendarOutlined />} onClick={downloadIcs} style={{ alignSelf: "flex-start" }}>Tải tệp lịch (.ics)</Button>

@@ -164,6 +164,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/invitations/{token}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/forgot-password": {
         parameters: {
             query?: never;
@@ -206,6 +222,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["createInternalUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/admin/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/admin/invitations/{userId}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resend"];
         delete?: never;
         options?: never;
         head?: never;
@@ -308,6 +356,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/invitations/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -335,6 +399,21 @@ export interface components {
             bannerUrl?: string;
             /** Format: int32 */
             dataRetentionMonths?: number;
+            address?: string;
+            phone?: string;
+            legalName?: string;
+            taxCode?: string;
+            /** Format: date */
+            foundedDate?: string;
+            website?: string;
+            sizeRange?: string;
+            recruitingEmail?: string;
+            brandColor?: string;
+            /** Format: int64 */
+            dataProtectionOfficerId?: number;
+            privacyPolicy?: string;
+            tagline?: string;
+            benefits?: string;
         };
         CompanyResponse: {
             /** Format: int64 */
@@ -345,6 +424,23 @@ export interface components {
             bannerUrl?: string;
             /** Format: int32 */
             dataRetentionMonths?: number;
+            address?: string;
+            phone?: string;
+            legalName?: string;
+            taxCode?: string;
+            /** Format: date */
+            foundedDate?: string;
+            website?: string;
+            sizeRange?: string;
+            recruitingEmail?: string;
+            brandColor?: string;
+            /** Format: int64 */
+            dataProtectionOfficerId?: number;
+            privacyPolicy?: string;
+            /** Format: date-time */
+            privacyPolicyUpdatedAt?: string;
+            tagline?: string;
+            benefits?: string;
         };
         VerifyEmailRequest: {
             email: string;
@@ -382,6 +478,9 @@ export interface components {
             email: string;
             password: string;
         };
+        AcceptInvitationRequest: {
+            password: string;
+        };
         ForgotPasswordRequest: {
             email: string;
         };
@@ -401,6 +500,16 @@ export interface components {
             /** @enum {string} */
             status: "PENDING_VERIFICATION" | "ACTIVE" | "LOCKED" | "INACTIVE";
         };
+        InviteUserRequest: {
+            fullName: string;
+            email: string;
+            /** @enum {string} */
+            role: "COMPANY_ADMIN" | "RECRUITER" | "HIRING_MANAGER" | "CANDIDATE";
+            /** Format: int64 */
+            departmentId?: number;
+            jobTitle?: string;
+            message?: string;
+        };
         UpdateUserStatusRequest: {
             /** @enum {string} */
             status: "PENDING_VERIFICATION" | "ACTIVE" | "LOCKED" | "INACTIVE";
@@ -414,6 +523,8 @@ export interface components {
             /** Format: int64 */
             departmentId?: number;
             status?: string;
+            /** Format: date-time */
+            lastLoginAt?: string;
         };
         UserDirectoryResponse: {
             /** Format: int64 */
@@ -422,6 +533,18 @@ export interface components {
             role?: string;
             /** Format: int64 */
             departmentId?: number;
+        };
+        InvitationPreviewResponse: {
+            email?: string;
+            fullName?: string;
+            roleName?: string;
+            /** Format: int64 */
+            departmentId?: number;
+            jobTitle?: string;
+            invitedByName?: string;
+            message?: string;
+            /** Format: date-time */
+            expiresAt?: string;
         };
     };
     responses: never;
@@ -692,6 +815,32 @@ export interface operations {
             };
         };
     };
+    accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiMessageResponse"];
+                };
+            };
+        };
+    };
     forgotPassword: {
         parameters: {
             query?: never;
@@ -752,6 +901,52 @@ export interface operations {
                 "application/json": components["schemas"]["CreateUserRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiMessageResponse"];
+                };
+            };
+        };
+    };
+    invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteUserRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiMessageResponse"];
+                };
+            };
+        };
+    };
+    resend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -888,6 +1083,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["UserProfileResponse"];
+                };
+            };
+        };
+    };
+    preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InvitationPreviewResponse"];
                 };
             };
         };

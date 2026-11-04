@@ -6,10 +6,10 @@ export const homeForRole = (role?: Role | string) => {
     case "CANDIDATE":
       return "/(candidate)/jobs";
     case "HIRING_MANAGER":
-      return "/(hm)";
+      return "/hm";
     case "RECRUITER":
     case "COMPANY_ADMIN":
-      return "/(hr)";
+      return "/hr";
     default:
       return "/(auth)/login";
   }

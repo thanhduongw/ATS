@@ -5,7 +5,7 @@ import type { NotificationResponse, Role } from "@/types/api";
 /**
  * Notification KHÔNG có trường deepLink — định tuyến suy từ `resourceType` + `resourceId` +
  * role, giống bản web (`frontend/src/features/notification/notificationRoutes.ts`).
- * Đợt này mới có nhánh CANDIDATE; HR/HM thêm khi làm khu vực của họ.
+ * Nhân viên (UR13, UH11): mở màn chi tiết trong khu của mình — `app/hr` hoặc `app/hm`.
  */
 export function notificationHref(n: NotificationResponse, role?: Role): string | null {
   const type = (n.resourceType ?? "").toUpperCase() || (n.type?.includes("OFFER") ? "OFFER" : "");
@@ -24,7 +24,21 @@ export function notificationHref(n: NotificationResponse, role?: Role): string |
         return null;
     }
   }
-  return null;
+  const area = role === "HIRING_MANAGER" ? "/hm" : role === "RECRUITER" || role === "COMPANY_ADMIN" ? "/hr" : null;
+  if (!area) return null;
+  switch (type) {
+    case "APPLICATION":
+      return id != null ? `${area}/applications/${id}` : `${area}/applications`;
+    case "INTERVIEW":
+      return id != null ? `${area}/interviews/${id}` : `${area}/interviews`;
+    case "OFFER":
+      // Đại diện phòng ban không xem thư mời (không thấy lương, quyết định C7).
+      return area === "/hr" ? "/hr/offers" : null;
+    case "REQUISITION":
+      return id != null ? `${area}/requisitions/${id}` : `${area}/requisitions`;
+    default:
+      return null;
+  }
 }
 
 /** Icon + sắc độ ô tròn đầu dòng theo loại tài nguyên (canvas M14). */

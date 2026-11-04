@@ -346,6 +346,10 @@ export interface components {
             benefits?: string;
             skillIds?: number[];
             benchmarkCriteria?: string;
+            /** Format: date */
+            applicationDeadline?: string;
+            urgent?: boolean;
+            showSalary?: boolean;
         };
         JobPostingResponse: {
             /** Format: int64 */
@@ -392,6 +396,10 @@ export interface components {
             /** Format: int64 */
             departmentId?: number;
             departmentName?: string;
+            /** Format: date */
+            applicationDeadline?: string;
+            urgent?: boolean;
+            showSalary?: boolean;
         };
         JobRequisitionCreateRequest: {
             title: string;
@@ -458,6 +466,10 @@ export interface components {
             benefits?: string;
             skillIds?: number[];
             benchmarkCriteria?: string;
+            /** Format: date */
+            applicationDeadline?: string;
+            urgent?: boolean;
+            showSalary?: boolean;
         };
         JobPostingStatusRequest: {
             /** @enum {string} */

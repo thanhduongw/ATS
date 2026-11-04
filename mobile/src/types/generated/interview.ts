@@ -180,6 +180,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/interview/interviews/{id}/reject-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["rejectProposal"];
+        trace?: never;
+    };
     "/api/interview/interviews/{id}/no-show": {
         parameters: {
             query?: never;
@@ -194,6 +210,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["markNoShow"];
+        trace?: never;
+    };
+    "/api/interview/interviews/{id}/interviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateInterviewers"];
         trace?: never;
     };
     "/api/interview/interviews/{id}/hm-reject": {
@@ -463,6 +495,10 @@ export interface components {
             interviewers?: components["schemas"]["InterviewerSummary"][];
             /** Format: date-time */
             createdAt?: string;
+            /** Format: int64 */
+            proposedBy?: number;
+            /** Format: date-time */
+            candidateConfirmedAt?: string;
         };
         InterviewerSummary: {
             /** Format: int64 */
@@ -493,6 +529,10 @@ export interface components {
             departmentConfirmed?: boolean;
             candidateConfirmed?: boolean;
             matched?: boolean;
+            interviewerIds?: number[];
+            note?: string;
+            /** Format: date-time */
+            responseDeadline?: string;
         };
         SlotBatchCreateRequest: {
             /** Format: int64 */
@@ -503,6 +543,10 @@ export interface components {
             workLocationId?: number;
             meetingLink?: string;
             slots: components["schemas"]["SlotTimeDto"][];
+            interviewerIds?: number[];
+            note?: string;
+            /** Format: date-time */
+            responseDeadline?: string;
         };
         SlotTimeDto: {
             /** Format: date-time */
@@ -1006,6 +1050,28 @@ export interface operations {
             };
         };
     };
+    rejectProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InterviewResponse"];
+                };
+            };
+        };
+    };
     markNoShow: {
         parameters: {
             query?: never;
@@ -1016,6 +1082,34 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InterviewResponse"];
+                };
+            };
+        };
+    };
+    updateInterviewers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: number[];
+                };
+            };
+        };
         responses: {
             /** @description OK */
             200: {

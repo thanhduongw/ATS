@@ -1,5 +1,6 @@
 import type { StatusTone } from "@/theme";
 import type {
+  EvaluationResponse,
   InterviewResponse,
   JobPostingResponse,
   OfferResponse,
@@ -86,14 +87,13 @@ const OFFER_TONE: Record<OfferStatus, StatusTone> = {
   REJECTED: "danger",
   ACCEPTED: "success",
   DECLINED: "danger",
+  EXPIRED: "neutral",
 };
 
 /** Duyệt offer = gửi luôn cho ứng viên, nên APPROVED với ứng viên là "Chờ phản hồi". */
 export function offerStatus(status: OfferStatus | undefined, viewer: Viewer): StatusView {
   if (!status) return UNKNOWN;
-  // EXPIRED có từ offer-service (docs/UI R25) nhưng type sinh tự động chưa cập nhật —
-  // chạy lại `npm run gen:types` khi backend chạy thì có thể bỏ nhánh này.
-  if ((status as string) === "EXPIRED") return { label: STRINGS.status.offerExpired, tone: "neutral" };
+  if (status === "EXPIRED") return { label: STRINGS.status.offerExpired, tone: "neutral" };
   if (viewer === "CANDIDATE") {
     if (status === "APPROVED") return { label: STRINGS.status.offerForCandidate.APPROVED, tone: "warning" };
     if (status === "DECLINED") return { label: STRINGS.status.offerForCandidate.DECLINED, tone: "neutral" };
@@ -159,4 +159,17 @@ export function applicationPhase(stageType?: string): ApplicationPhase {
     default:
       return { step: 1, rejected: false, hired: false, ended: false };
   }
+}
+
+type Recommendation = NonNullable<EvaluationResponse["overallRecommendation"]>;
+const RECOMMENDATION_TONE: Record<Recommendation, StatusTone> = {
+  STRONG_YES: "success",
+  YES: "success",
+  NO: "danger",
+  STRONG_NO: "danger",
+};
+
+/** Kết luận của phiếu đánh giá phỏng vấn (UR04, UH08). */
+export function recommendationStatus(rec?: Recommendation): StatusView {
+  return rec ? { label: STRINGS.status.recommendation[rec], tone: RECOMMENDATION_TONE[rec] } : UNKNOWN;
 }

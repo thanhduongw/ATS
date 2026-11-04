@@ -1,5 +1,5 @@
 import { apiClient } from "@/api/client";
-import type { EducationLevel, Pipeline, RecruitmentSource, RejectionReason, WorkLocation } from "@/types/api";
+import type { EducationLevel, InterviewCriteria, Pipeline, RecruitmentSource, RejectionReason, WorkLocation } from "@/types/api";
 
 export const masterdataApi = {
   recruitmentSources: () =>
@@ -13,4 +13,9 @@ export const masterdataApi = {
   pipeline: (id: number) => apiClient.get<Pipeline>(`/masterdata/pipelines/${id}`).then((r) => r.data),
   workLocations: () =>
     apiClient.get<WorkLocation[]>("/masterdata/work-locations").then((r) => r.data),
+  /** Tiêu chí chấm phỏng vấn (UR09, UH07) — chỉ lấy tiêu chí đang bật. */
+  interviewCriteria: () =>
+    apiClient
+      .get<InterviewCriteria[]>("/masterdata/interview-criteria")
+      .then((r) => r.data.filter((c) => c.active !== false)),
 };

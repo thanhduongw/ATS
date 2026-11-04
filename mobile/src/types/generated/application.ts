@@ -84,6 +84,22 @@ export interface paths {
         patch: operations["advanceStage"];
         trace?: never;
     };
+    "/api/application/applications/my/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["withdrawMyApplication"];
+        trace?: never;
+    };
     "/api/application/applications/bulk-reject": {
         parameters: {
             query?: never;
@@ -295,6 +311,9 @@ export interface components {
             appliedAt?: string;
             /** Format: date-time */
             hiredAt?: string;
+            aiScore?: number;
+            aiTier?: string;
+            aiStatus?: string;
         };
         ApplicationAssignRecruiterRequest: {
             /** Format: int64 */
@@ -302,6 +321,25 @@ export interface components {
         };
         ApplicationAdvanceStageRequest: {
             note?: string;
+        };
+        CandidateApplicationResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            jobPostingId?: number;
+            jobTitle?: string;
+            /** Format: int64 */
+            departmentId?: number;
+            departmentName?: string;
+            currentStageName?: string;
+            /** Format: int32 */
+            currentStageOrder?: number;
+            currentStageType?: string;
+            rejectionReasonName?: string;
+            /** Format: date-time */
+            appliedAt?: string;
+            /** Format: date-time */
+            hiredAt?: string;
         };
         BulkRejectRequest: {
             ids: number[];
@@ -356,6 +394,7 @@ export interface components {
             currentStageName?: string;
             /** Format: date-time */
             appliedAt?: string;
+            resumeUrl?: string;
         };
         ApplicationHistoryResponse: {
             /** Format: int64 */
@@ -368,25 +407,6 @@ export interface components {
             changedByUserName?: string;
             /** Format: date-time */
             changedAt?: string;
-        };
-        CandidateApplicationResponse: {
-            /** Format: int64 */
-            id?: number;
-            /** Format: int64 */
-            jobPostingId?: number;
-            jobTitle?: string;
-            /** Format: int64 */
-            departmentId?: number;
-            departmentName?: string;
-            currentStageName?: string;
-            /** Format: int32 */
-            currentStageOrder?: number;
-            currentStageType?: string;
-            rejectionReasonName?: string;
-            /** Format: date-time */
-            appliedAt?: string;
-            /** Format: date-time */
-            hiredAt?: string;
         };
     };
     responses: never;
@@ -407,6 +427,9 @@ export interface operations {
                 stageType?: string;
                 appliedFrom?: string;
                 appliedTo?: string;
+                aiTier?: string;
+                keyword?: string;
+                sort?: string;
                 page?: number;
                 size?: number;
             };
@@ -573,6 +596,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApplicationResponse"];
+                };
+            };
+        };
+    };
+    withdrawMyApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CandidateApplicationResponse"];
                 };
             };
         };

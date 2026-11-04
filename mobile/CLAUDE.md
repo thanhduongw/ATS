@@ -229,6 +229,12 @@ Một view lặp ở **2 màn trở lên** mới tách thành component; chưa t
 ## Cấu trúc
 Xem mục 5 của `docs/mobile/MOBILE_V1_PLAN.md`. Route ở `app/`, logic ở `src/`.
 
+**Khu nhân viên là `app/hr` và `app/hm` (thư mục thường), KHÔNG phải nhóm `(hr)`/`(hm)`.** Nhóm trong
+ngoặc không tạo đoạn URL, nên `(candidate)/applications`, `(hr)/applications`, `(hm)/applications`
+cùng ra `/applications` — tải lại trang hoặc mở từ thông báo sẽ rơi vào khu ứng viên ("Role
+RECRUITER cannot perform this action"). Màn dùng chung cho hai khu nằm ở `src/features/staff/screens/`,
+file route chỉ re-export; điều hướng bằng `/${areaOf(role)}/…` (`src/features/staff/tasks.ts`).
+
 ## Lệnh hay dùng
 ```powershell
 npx expo start --dev-client   # chạy app (KHÔNG dùng Expo Go — push không chạy từ SDK 53)

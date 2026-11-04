@@ -74,7 +74,7 @@ def test_prompt_wraps_jd_and_has_version():
     prompt = build_jd_extraction_prompt(JOB.as_text())
     begin, end = prompt.index("### BEGIN JD ###"), prompt.index("### END JD ###")
     assert begin < prompt.index("Bắt buộc: Java, Spring Boot, SQL.") < end
-    assert PROMPT_VERSION == "v1.1"
+    assert PROMPT_VERSION == "v1.2"
     assert "REQUIRED" in prompt and "PREFERRED" in prompt
 
 

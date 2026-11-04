@@ -14,7 +14,11 @@ Design:
 # [GIẢI THÍCH] Đổi phiên bản -> mọi JD được trích xuất lại ở lần chấm sau (bảng jd_extractions khóa theo
 # mã băm nội dung JD + phiên bản prompt).
 # v1.1: kỹ năng HR chọn trong form tin là kỹ năng BẮT BUỘC (gộp nếu trùng); "A/B", "A hoặc B" là MỘT yêu cầu.
-PROMPT_VERSION = "v1.1"
+# v1.2: câu cho CHỌN giữa các nhóm ("một trong hai: Java/Spring Boot hoặc Node.js/NestJS (TypeScript)") là MỘT yêu cầu
+#   cho cả câu; "/" bên trong một lựa chọn không tách; chữ trong ngoặc sau lựa chọn không thành kỹ năng riêng.
+#   Trước đó v1.1 tách thành "Java hoặc Spring Boot", "Node.js hoặc NestJS", "TypeScript" -> ứng viên chỉ biết Java bị
+#   trượt "Node.js" và "TypeScript" (bắt buộc), trái với "một trong hai".
+PROMPT_VERSION = "v1.2"
 
 # [GIẢI THÍCH] Hướng dẫn tách JD. Viết tiếng Anh như prompt CV vì model làm theo hướng dẫn tiếng Anh ổn định hơn.
 # Mỗi quy tắc bám một ý của Bước 1:
@@ -51,6 +55,14 @@ The list will be used to assess every candidate who applies for this job, so it 
   "Spring Boot" not "springboot"). Do NOT include soft skills (communication, teamwork, problem solving, working under pressure, ...).
   - Alternatives are ONE requirement, not several: "MySQL/PostgreSQL", "MySQL or PostgreSQL", "Java hoặc C#" ->
     one item named "MySQL hoặc PostgreSQL" / "Java hoặc C#" (join the options with " hoặc ").
+  - A sentence that offers a CHOICE between groups ("một trong hai", "một trong các", "either ... or", "one of",
+    "A hoặc B") is ONE single item for the WHOLE sentence, even when each option contains several technologies.
+    Keep every option exactly as the JD writes it (a "/" INSIDE an option is part of that option, do not split it)
+    and join the options with " hoặc ". A word in parentheses right after an option (e.g. "Node.js/NestJS (TypeScript)")
+    describes that option; it is NOT a separate skill, so keep it inside the same item.
+    Example: "Nắm vững một trong hai: Java/Spring Boot hoặc Node.js/NestJS (TypeScript)" -> exactly ONE item named
+    "Java/Spring Boot hoặc Node.js/NestJS (TypeScript)", REQUIRED. Never output "Java", "Spring Boot", "Node.js",
+    "NestJS" or "TypeScript" as extra separate items for that sentence.
   - Every item listed under "Kỹ năng yêu cầu (HR chọn)" is a separate REQUIRED skill (the HR picked it explicitly),
     even if the JD text also mentions it among alternatives. If the same skill already appears elsewhere in the JD,
     keep ONE item for it (REQUIRED), do not repeat it.

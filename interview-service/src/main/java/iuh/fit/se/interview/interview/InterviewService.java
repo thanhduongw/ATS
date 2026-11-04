@@ -177,7 +177,8 @@ public class InterviewService {
             validateWorkLocation(req.workLocationId());
         }
 
-        List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers("HIRING_MANAGER");
+        // Người phỏng vấn: Đại diện phòng ban hoặc Chuyên viên tuyển dụng đang hoạt động (docs/UI R18, R21).
+        List<UserSummaryResponse> interviewerPool = allowedInterviewers();
         Map<Long, String> interviewerNameMap = interviewerPool == null
                 ? Map.of()
                 : interviewerPool.stream()
@@ -185,7 +186,7 @@ public class InterviewService {
 
         boolean allValid = req.interviewerIds().stream().allMatch(interviewerNameMap::containsKey);
         if (!allValid) {
-            throw new BusinessException("Danh sách người phỏng vấn chứa tài khoản không hợp lệ (chỉ Phòng ban)");
+            throw new BusinessException("Người phỏng vấn phải là Đại diện phòng ban hoặc Chuyên viên tuyển dụng đang hoạt động");
         }
 
         Interview interview = Interview.builder()
@@ -251,7 +252,8 @@ public class InterviewService {
             validateWorkLocation(req.workLocationId());
         }
 
-        List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers("HIRING_MANAGER");
+        // Người phỏng vấn: Đại diện phòng ban hoặc Chuyên viên tuyển dụng đang hoạt động (docs/UI R18, R21).
+        List<UserSummaryResponse> interviewerPool = allowedInterviewers();
         Map<Long, String> interviewerNameMap = interviewerPool == null
                 ? Map.of()
                 : interviewerPool.stream()
@@ -259,7 +261,7 @@ public class InterviewService {
 
         boolean allValid = req.interviewerIds().stream().allMatch(interviewerNameMap::containsKey);
         if (!allValid) {
-            throw new BusinessException("Danh sách người phỏng vấn chứa tài khoản không hợp lệ (chỉ Phòng ban)");
+            throw new BusinessException("Người phỏng vấn phải là Đại diện phòng ban hoặc Chuyên viên tuyển dụng đang hoạt động");
         }
 
         List<Interview> existing = interviewRepository.findByInterviewers_InterviewerIdInAndStatusIn(
@@ -764,5 +766,14 @@ public class InterviewService {
                 interview.getProposedBy(),
                 interview.getCandidateConfirmedAt()
         );
+    }
+
+    private List<UserSummaryResponse> allowedInterviewers() {
+        List<UserSummaryResponse> all = authServiceClient.getUsers(null);
+        if (all == null) return List.of();
+        return all.stream()
+                .filter(u -> "HIRING_MANAGER".equals(u.role()) || "RECRUITER".equals(u.role()))
+                .filter(u -> u.status() == null || "ACTIVE".equals(u.status()))
+                .toList();
     }
 }

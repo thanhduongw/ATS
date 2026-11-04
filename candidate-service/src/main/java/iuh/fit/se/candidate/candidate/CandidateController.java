@@ -53,7 +53,8 @@ public class CandidateController {
     public ResponseEntity<CandidateResponse> create(
             @Valid @RequestBody CandidateCreateRequest req) {
         CurrentUser actor = CurrentUser.required();
-        AuthorizationPolicy.requireAdmin(actor);
+        // R16 "Thêm ứng viên" là việc của Chuyên viên tuyển dụng (trước đây chỉ cho admin → HR bị 403).
+        AuthorizationPolicy.requireHr(actor);
         return ResponseEntity.ok(service.create(actor, req));
     }
 

@@ -278,7 +278,7 @@ public class CandidateService {
 
     @Transactional
     public CandidateResponse create(CurrentUser actor, CandidateCreateRequest req) {
-        AuthorizationPolicy.requireAdmin(actor);
+        AuthorizationPolicy.requireHr(actor);
         if (candidateRepository.existsByEmailIgnoreCaseAndDeletedAtIsNull(req.email())) {
             throw new BusinessException("Ứng viên với email này đã tồn tại trong hệ thống");
         }

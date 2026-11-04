@@ -8,6 +8,7 @@ import type { AxiosError } from "axios";
 import dayjs, { type Dayjs } from "dayjs";
 import {
     getApplications,
+    getAiTierStats,
     bulkAdvanceApplicationStage,
     bulkRejectApplications,
     bulkAssignApplicationRecruiter,
@@ -15,7 +16,7 @@ import {
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { getPostings } from "../../recruitment/recruitmentApi";
 import { getUserDirectory } from "../../auth/authApi";
-import type { ApplicationResponse, ApiMessageResponse, BulkOperationResponse } from "../types";
+import type { ApplicationResponse, ApiMessageResponse, BulkOperationResponse, AiTierStats } from "../types";
 import type { JobPostingResponse } from "../../recruitment/types";
 import type { CatalogItem, StageType } from "../../masterdata/types";
 import { useAppSelector } from "../../../app/hooks";
@@ -36,7 +37,8 @@ import { listCardStyle, listCardBodyStyle, listPagination } from "../../../compo
 import CandidateFormModal from "../components/CandidateFormModal";
 import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
 import AiScoreBadge from "../../ai/components/AiScoreBadge";
-import { AI_TIER_OPTIONS, aiTierMeta } from "../../ai/aiScore";
+import { AI_TIER_OPTIONS, AI_TIER_META, aiTierMeta } from "../../ai/aiScore";
+import type { AiTier } from "../../ai/types";
 import { rescorePosting } from "../../ai/aiApi";
 import type { CandidateFormValues } from "../schemas/candidateSchema";
 
@@ -54,6 +56,11 @@ const STAGE_TYPE_OPTIONS: StageType[] = [
     "REJECTED",
     "CUSTOM",
 ];
+
+const AI_TIER_ORDER: AiTier[] = ["FIT", "UNCLASSIFIED", "NOT_FIT"];
+const AI_TIER_STAT_KEY: Record<AiTier, "fit" | "unclassified" | "notFit"> = {
+    FIT: "fit", UNCLASSIFIED: "unclassified", NOT_FIT: "notFit",
+};
 
 const INTERVIEW_STAGE_TYPES = ["TECHNICAL_INTERVIEW", "HR_INTERVIEW", "FINAL_INTERVIEW"];
 
@@ -120,6 +127,9 @@ export default function ApplicationsPage() {
     const [aiPrefill, setAiPrefill] = useState<Partial<CandidateFormValues> | null>(null);
     const [aiPrefillFile, setAiPrefillFile] = useState<File | null>(null);
 
+    // Thống kê theo xếp loại AI: cùng bộ lọc với danh sách, trừ chính bộ lọc xếp loại.
+    const [tierStats, setTierStats] = useState<AiTierStats | null>(null);
+
     const { wrapRef, scrollY } = useTableScrollY([loading, rows.length]);
 
     const load = useCallback(async () => {
@@ -146,6 +156,17 @@ export default function ApplicationsPage() {
     }, [jobPostingId, stageType, dateRange, aiTier, aiScoreOrder, page, pageSize, message]);
 
     useEffect(() => { load(); }, [load]);
+
+    useEffect(() => {
+        getAiTierStats({
+            jobPostingId,
+            stageType,
+            appliedFrom: dateRange ? dateRange[0].format("YYYY-MM-DD") : undefined,
+            appliedTo: dateRange ? dateRange[1].format("YYYY-MM-DD") : undefined,
+        })
+            .then((r) => setTierStats(r.data))
+            .catch(() => setTierStats(null));
+    }, [jobPostingId, stageType, dateRange]);
 
     useEffect(() => {
         getCatalogItems("/masterdata/rejection-reasons").then((r) => setReasons(r.data));
@@ -413,6 +434,29 @@ export default function ApplicationsPage() {
                         setStageType(stageType === "HIRED" ? undefined : "HIRED");
                         setPage(1);
                     }}
+                />
+            </StatRow>
+
+            {/* ── Thống kê theo xếp loại AI (theo bộ lọc hiện tại) ── */}
+            <StatRow>
+                {AI_TIER_ORDER.map((t) => (
+                    <StatTile
+                        key={t}
+                        icon={<RobotOutlined />}
+                        label={AI_TIER_META[t].label}
+                        hint="xếp loại AI"
+                        value={tierStats ? tierStats[AI_TIER_STAT_KEY[t]] : "–"}
+                        accent={AI_TIER_META[t].stroke}
+                        active={aiTier === t}
+                        onClick={() => { setAiTier(aiTier === t ? undefined : t); setPage(1); }}
+                    />
+                ))}
+                <StatTile
+                    icon={<RobotOutlined />}
+                    label="Chưa có xếp loại"
+                    hint="chưa chấm / đang chấm / lỗi"
+                    value={tierStats ? tierStats.unscored : "–"}
+                    accent="#94A3B8"
                 />
             </StatRow>
 

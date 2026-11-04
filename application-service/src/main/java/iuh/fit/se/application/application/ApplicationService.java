@@ -127,6 +127,38 @@ public class ApplicationService {
     }
 
     /**
+     * Thống kê số hồ sơ theo xếp loại AI (Phù hợp / Không phù hợp / Chưa phân loại / Chưa có xếp loại).
+     * Dùng cùng phạm vi quyền và bộ lọc như {@link #getAll}, trừ aiTier (thống kê đã chia theo xếp loại rồi).
+     */
+    public AiTierStatsResponse getAiTierStats(
+            CurrentUser actor,
+            Long jobPostingId, Long assignedRecruiterId, Long recruitmentSourceId, String stageType,
+            LocalDate appliedFrom, LocalDate appliedTo) {
+        AuthorizationPolicy.requireInternal(actor);
+        Long scopeDepartmentId = null;
+        boolean restrictToScope = false;
+        if (AuthorizationPolicy.roleOf(actor) == AuthorizationPolicy.Role.HIRING_MANAGER) {
+            scopeDepartmentId = actor.departmentId();
+            restrictToScope = true;
+        }
+        Specification<Application> spec = ApplicationSpecifications.build(
+                jobPostingId, null, assignedRecruiterId, recruitmentSourceId, stageType, null,
+                appliedFrom != null ? appliedFrom.atStartOfDay() : null,
+                appliedTo != null ? appliedTo.atTime(LocalTime.MAX) : null,
+                scopeDepartmentId, null, restrictToScope);
+
+        long fit = 0, notFit = 0, unclassified = 0, unscored = 0;
+        for (Application a : applicationRepository.findAll(spec)) {
+            String tier = a.getAiTier();
+            if ("FIT".equals(tier)) fit++;
+            else if ("NOT_FIT".equals(tier)) notFit++;
+            else if (AI_TIER_UNCLASSIFIED.equals(tier)) unclassified++;
+            else unscored++;
+        }
+        return new AiTierStatsResponse(fit + notFit + unclassified + unscored, fit, notFit, unclassified, unscored);
+    }
+
+    /**
      * Thứ tự danh sách. Mặc định (null) giữ thứ tự mới nộp trước của truy vấn. Sắp theo điểm AI thì
      * hồ sơ chưa có điểm (chưa chấm / đang chấm lần đầu / lỗi / Chưa phân loại không tính được điểm)
      * luôn nằm cuối, cả khi tăng dần.

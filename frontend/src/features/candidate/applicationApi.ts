@@ -9,6 +9,7 @@ import type {
   PageResponse,
   BulkOperationResponse,
   CandidateApplicationResponse,
+  AiTierStats,
 } from "./types";
 
 // ===== Application =====
@@ -26,6 +27,16 @@ export const getApplications = (params?: {
   page?: number;
   size?: number;
 }) => axiosClient.get<PageResponse<ApplicationResponse>>("/application/applications", { params });
+
+/** Số hồ sơ theo xếp loại AI, cùng bộ lọc với danh sách (không có aiTier). */
+export const getAiTierStats = (params?: {
+  jobPostingId?: number;
+  assignedRecruiterId?: number;
+  recruitmentSourceId?: number;
+  stageType?: string;
+  appliedFrom?: string;
+  appliedTo?: string;
+}) => axiosClient.get<AiTierStats>("/application/applications/ai-tier-stats", { params });
 
 export const getApplicationById = (id: number) =>
   axiosClient.get<ApplicationResponse>(`/application/applications/${id}`);

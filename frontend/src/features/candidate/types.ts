@@ -183,3 +183,13 @@ export interface BulkOperationResponse {
   succeededIds: number[];
   failedIds: Record<number, string>;
 }
+
+/** Số hồ sơ theo xếp loại AI (GET /application/applications/ai-tier-stats). */
+export interface AiTierStats {
+  total: number;
+  fit: number;
+  notFit: number;
+  unclassified: number;
+  /** Chưa có xếp loại: chưa chấm, đang chấm lần đầu hoặc chấm lỗi. */
+  unscored: number;
+}

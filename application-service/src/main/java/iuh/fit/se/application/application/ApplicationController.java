@@ -44,6 +44,21 @@ public class ApplicationController {
                 appliedFrom, appliedTo, aiTier, sort, page, size));
     }
 
+    /** Số hồ sơ theo xếp loại AI, cùng bộ lọc với danh sách (không có aiTier). */
+    @GetMapping("/ai-tier-stats")
+    public ResponseEntity<AiTierStatsResponse> getAiTierStats(
+            @RequestParam(required = false) Long jobPostingId,
+            @RequestParam(required = false) Long assignedRecruiterId,
+            @RequestParam(required = false) Long recruitmentSourceId,
+            @RequestParam(required = false) String stageType,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate appliedTo) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireInternal(actor);
+        return ResponseEntity.ok(service.getAiTierStats(
+                actor, jobPostingId, assignedRecruiterId, recruitmentSourceId, stageType, appliedFrom, appliedTo));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApplicationResponse> getById(
             @PathVariable Long id) {

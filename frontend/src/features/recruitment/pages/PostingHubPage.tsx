@@ -4,7 +4,7 @@ import { App, Button, Card, Segmented, Space, Steps, Table, Tag, Spin, Empty } f
 import {
     FileSearchOutlined, TeamOutlined, CalendarOutlined,
     DollarOutlined, TrophyOutlined, PlusCircleOutlined, SendOutlined, BarChartOutlined,
-    EditOutlined, RocketOutlined, StopOutlined,
+    EditOutlined, RocketOutlined, StopOutlined, RobotOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import type { AxiosError } from "axios";
@@ -20,6 +20,7 @@ import type { ApiMessageResponse, JobPostingResponse, JobRequisitionResponse, Po
 import type { ApplicationResponse } from "../../candidate/types";
 import RequisitionDetailModal from "../components/RequisitionDetailModal";
 import ApplicationKanbanBoard from "../../candidate/components/ApplicationKanbanBoard";
+import PostingAiTab from "../../ai/components/PostingAiTab";
 import CandidateComparisonPanel from "../../offer/components/CandidateComparisonPanel";
 import StatTile from "../../../components/ui/StatTile";
 import { StatRow } from "../../../components/ui/pageKit";
@@ -57,7 +58,7 @@ export default function PostingHubPage() {
     // Ho so mo tu day phai nho duong ve la tin tuyen dung nay, khong phai danh sach ho so.
     const goToApplication = useTrailNavigate(posting?.title);
     const [actionLoading, setActionLoading] = useState(false);
-    const [viewMode, setViewMode] = useState<"list" | "kanban" | "compare">("list");
+    const [viewMode, setViewMode] = useState<"list" | "kanban" | "compare" | "ai">("list");
 
     const [employmentTypeMap, setEmploymentTypeMap] = useState<Record<number, string>>({});
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
@@ -108,6 +109,15 @@ export default function PostingHubPage() {
     }, [jobPostingId, message]);
 
     useEffect(() => { loadAll(); }, [loadAll]);
+
+    // Làm mới danh sách hồ sơ (điểm AI) mà không bật vòng xoay toàn trang — dùng cho tab Đánh giá AI.
+    const reloadApplications = useCallback(async () => {
+        if (!jobPostingId) return;
+        try {
+            const res = await getApplications({ jobPostingId });
+            setApplications(res.data.content);
+        } catch { /* lần làm mới sau sẽ thử lại */ }
+    }, [jobPostingId]);
 
     const openRequisitionModal = async () => {
         if (!posting) return;
@@ -311,17 +321,27 @@ export default function PostingHubPage() {
                     </span>
                     <Segmented
                         value={viewMode}
-                        onChange={(v) => setViewMode(v as "list" | "kanban" | "compare")}
+                        onChange={(v) => setViewMode(v as "list" | "kanban" | "compare" | "ai")}
                         options={[
                             { label: "Danh sách", value: "list" },
                             { label: "Bảng trạng thái", value: "kanban" },
                             // So sanh la buoc ra quyet dinh offer nen chi HR va admin dung toi.
                             ...(canManage ? [{ label: "So sánh", value: "compare", icon: <BarChartOutlined /> }] : []),
+                            // Điểm AI là gợi ý cho nhân sự nội bộ, không hiện với vai trò khác.
+                            ...(canManage ? [{ label: "Đánh giá AI", value: "ai", icon: <RobotOutlined /> }] : []),
                         ]}
                     />
                 </div>
 
-                {viewMode === "compare" ? (
+                {viewMode === "ai" && canManage ? (
+                    <PostingAiTab
+                        jobPostingId={jobPostingId}
+                        applications={applications}
+                        canManage={canManage}
+                        onReload={reloadApplications}
+                        onOpen={(a) => goToApplication(`/candidates/${a.candidateId}/applications/${a.id}`)}
+                    />
+                ) : viewMode === "compare" ? (
                     <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                         <CandidateComparisonPanel jobPostingId={jobPostingId} showHeader={false} />
                     </div>

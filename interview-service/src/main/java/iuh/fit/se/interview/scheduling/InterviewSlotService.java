@@ -172,9 +172,14 @@ public class InterviewSlotService {
         int durationMinutes = duration > 0 ? (int) duration : 60;
 
         List<UserSummaryResponse> interviewerPool = authServiceClient.getUsers("HIRING_MANAGER");
-        List<Long> interviewerIds = interviewerPool != null && !interviewerPool.isEmpty()
-                ? List.of(interviewerPool.get(0).id())
-                : List.of();
+        // Nguoi phong van mac dinh: Dai dien phong ban dang hoat dong CUNG phong voi ho so
+        // (truoc day lay nguoi dau tien cua ca cong ty). Khong co ai cung phong thi de trong de HR gan sau.
+        List<Long> interviewerIds = interviewerPool == null ? List.of() : interviewerPool.stream()
+                .filter(u -> application.departmentId() != null && application.departmentId().equals(u.departmentId()))
+                .filter(u -> u.status() == null || "ACTIVE".equals(u.status()))
+                .map(UserSummaryResponse::id)
+                .limit(1)
+                .toList();
 
         Interview interview = Interview.builder()
                 .applicationId(slot.getApplicationId())

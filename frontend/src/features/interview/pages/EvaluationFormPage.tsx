@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { App, Button, Form, Input, InputNumber, Rate, Spin, Tabs } from "antd";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { LockOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 
@@ -166,7 +167,6 @@ export default function EvaluationFormPage() {
                     title="Đánh giá phỏng vấn"
                     actions={
                         <>
-                            <Button onClick={backToProfile} disabled={isSubmitting}>Huỷ</Button>
                             {interviewId != null && <Button onClick={() => void saveDraft()} loading={savingDraft}>Lưu nháp</Button>}
                             <Button type="primary" onClick={handleSubmit(() => setConfirmOpen(true))}>Nộp đánh giá</Button>
                         </>
@@ -183,14 +183,14 @@ export default function EvaluationFormPage() {
                 >
                     <Form layout="vertical" requiredMark>
                         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Chấm từng tiêu chí (1 – 5)</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             {fields.map((f, i) => (
-                                <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 12, borderBottom: `0.5px solid ${COLORS.border}` }}>
+                                <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                         <span style={{ flex: 1, fontWeight: 500 }}>{String(criteria[i]?.name ?? "")}</span>
                                         <Controller name={`scores.${i}.score`} control={control}
-                                            render={({ field }) => <Rate count={5} value={field.value} onChange={field.onChange} />} />
-                                        <span style={{ width: 32, textAlign: "right", fontWeight: 700, color: COLORS.primary }}>
+                                            render={({ field }) => <Rate count={5} value={field.value} onChange={field.onChange} style={{ fontSize: 18 }} />} />
+                                        <span style={{ width: 32, textAlign: "right", fontSize: 13, color: COLORS.textSecondary }}>
                                             {scores[i]?.score ? `${scores[i].score}/5` : "–"}
                                         </span>
                                     </div>
@@ -210,17 +210,18 @@ export default function EvaluationFormPage() {
                         <Form.Item label="Kết luận đề xuất" required style={{ marginTop: 16 }}>
                             <Controller name="overallRecommendation" control={control}
                                 render={({ field }) => (
-                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                    <div style={{ display: "flex", gap: 8, width: "100%" }}>
                                         {RECOMMENDATIONS.map((o) => {
                                             const on = field.value === o.value;
-                                            const negative = o.value === "NO" || o.value === "STRONG_NO";
-                                            const accent = negative ? COLORS.error : COLORS.primary;
+                                            // Mẫu R46: Rất nên / Nên tuyển xanh lá · Không nên tuyển cam · Hoàn toàn không đỏ.
+                                            const accent = o.value === "NO" ? COLORS.warning : o.value === "STRONG_NO" ? COLORS.error : COLORS.success;
                                             return (
                                                 <button key={o.value} type="button" onClick={() => field.onChange(o.value)}
                                                     style={{
-                                                        height: 34, padding: "0 16px", borderRadius: 17, cursor: "pointer", fontFamily: "inherit", fontSize: 14,
-                                                        border: `1px solid ${on ? accent : COLORS.border}`, background: on ? `${accent}14` : COLORS.cardBg,
-                                                        color: on ? accent : COLORS.textPrimary, fontWeight: on ? 600 : 400,
+                                                        flex: "1 1 0", minWidth: 0, whiteSpace: "nowrap", height: 38, padding: "0 6px", borderRadius: 19, cursor: "pointer",
+                                                        fontFamily: "inherit", fontSize: 13, fontWeight: 600,
+                                                        border: `1px solid ${accent}`, background: on ? accent : COLORS.cardBg,
+                                                        color: on ? "#fff" : accent,
                                                     }}>
                                                     {o.label}
                                                 </button>
@@ -229,10 +230,11 @@ export default function EvaluationFormPage() {
                                     </div>
                                 )} />
                         </Form.Item>
-                        <Form.Item label="Nhận xét chung">
+                        <Form.Item label="Nhận xét chung" required validateStatus={errors.generalComment ? "error" : ""}
+                            help={errors.generalComment?.message}>
                             <Controller name="generalComment" control={control}
                                 render={({ field }) => (
-                                    <Input.TextArea {...field} value={field.value ?? ""} autoSize={{ minRows: 4, maxRows: 10 }}
+                                    <Input.TextArea {...field} value={field.value ?? ""} autoSize={{ minRows: 3, maxRows: 8 }}
                                         placeholder="Điểm mạnh, điểm cần lưu ý, nhận định tổng quan" />
                                 )} />
                         </Form.Item>
@@ -253,14 +255,18 @@ export default function EvaluationFormPage() {
                             Đề xuất lương chỉ Chuyên viên tuyển dụng thấy, dùng để tham khảo khi soạn thư mời.
                         </div>
                     </Form>
-                    {others.length > 0 && (
-                        <div style={{ padding: "12px 14px", borderRadius: RADIUS.md, background: COLORS.fill, fontSize: 13 }}>
-                            Phỏng vấn cùng: <b>{others.map((p) => p.fullName).join(", ")}</b>. Đánh giá của người khác hiện sau khi bạn nộp.
-                        </div>
-                    )}
                 </Panel>
 
                 <Panel style={{ flex: "1 1 480px", minWidth: 0, position: "sticky", top: 16 }}>
+                    {others.length > 0 && (
+                        <div style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 14px", borderRadius: RADIUS.md, background: COLORS.fill }}>
+                            <LockOutlined style={{ color: COLORS.textSecondary }} />
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                                <b style={{ fontSize: 14 }}>Phỏng vấn cùng: {others.map((p) => p.fullName).join(", ")}</b>
+                                <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Đánh giá của người khác hiện sau khi bạn nộp.</span>
+                            </div>
+                        </div>
+                    )}
                     <Tabs
                         size="small"
                         items={[

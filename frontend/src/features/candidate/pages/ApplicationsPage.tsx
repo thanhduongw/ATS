@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type Key } from "react";
+import { useCallback, useEffect, useRef, useState, type Key } from "react";
 import { departmentLabel } from "../../overview/useCompanyOverview";
 import { Table, Button, Select, Modal, Form, Input, App, Tooltip } from "antd";
 import type { ColumnsType, SortOrder } from "antd/es/table/interface";
@@ -43,6 +43,7 @@ import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
 import AiScoreBadge from "../../ai/components/AiScoreBadge";
 import { AI_TIER_OPTIONS, aiTierMeta } from "../../ai/aiScore";
 import { rescorePosting } from "../../ai/aiApi";
+import { useFitPageSize } from "../../../components/ui/useFitPageSize";
 import type { CandidateFormValues } from "../schemas/candidateSchema";
 
 /** Bộ lọc giai đoạn theo 6 nhóm cố định (DS06) — giá trị là danh sách stageType gửi lên API. */
@@ -94,7 +95,14 @@ export default function ApplicationsPage() {
 
     // Phân trang
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    // Số dòng/trang vừa khít màn hình (phân trang phía server — đổi cỡ cửa sổ thì tải lại đúng số dòng).
+    const tableRef = useRef<HTMLDivElement>(null);
+    const pageSize = useFitPageSize(tableRef, {
+        itemSelector: ".ant-table-tbody > tr.ant-table-row",
+        headerSelector: ".ant-table-thead",
+        fallbackItem: 57,
+        deps: [rows.length],
+    });
 
     // Nguồn dữ liệu cho các dropdown lọc
     const [postings, setPostings] = useState<JobPostingResponse[]>([]);
@@ -439,6 +447,7 @@ export default function ApplicationsPage() {
                 </div>
             )}
 
+            <div ref={tableRef}>
             <Table
                 rowKey="id"
                 loading={loading}
@@ -464,7 +473,8 @@ export default function ApplicationsPage() {
                     pageSize,
                     total: totalItems,
                     ...listPagination("ứng viên"),
-                    onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                    showSizeChanger: false,
+                    onChange: (p) => setPage(p),
                 }}
                 locale={{
                     emptyText: loading ? <span /> : (
@@ -475,6 +485,7 @@ export default function ApplicationsPage() {
                     ),
                 }}
             />
+            </div>
 
             <Modal
                 title={

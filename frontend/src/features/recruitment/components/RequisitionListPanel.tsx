@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { App, Button, Input, Select, Table } from "antd";
+import { App, Button, Input, Select} from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useNavigate } from "react-router-dom";
@@ -13,6 +13,7 @@ import ListPage, { ListFilters, StatusTabs } from "../../../components/ui/listKi
 import { attentionRowStyle, rowArrowColumn } from "../../../components/ui/listHelpers";
 import { Avatar } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
+import FitTable from "../../../components/ui/FitTable";
 import { requisitionCode, useRecruitmentCatalogs } from "../useRecruitmentCatalogs";
 
 type Tab = RequisitionStatus | "ALL";
@@ -173,12 +174,11 @@ export default function RequisitionListPanel() {
             }
             footnote={failed ? undefined : `${rows.length} yêu cầu`}
         >
-            <Table<JobRequisitionResponse>
+            <FitTable<JobRequisitionResponse>
                 rowKey="id"
                 loading={loading}
                 columns={columns}
                 dataSource={rows}
-                pagination={rows.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
                 rowClassName={() => "row-clickable"}
                 onRow={(r) => ({
                     onClick: () => navigate(`/recruitment/requisitions/${r.id}`),

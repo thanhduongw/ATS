@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Button, Spin } from "antd";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, Pagination, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
 import { getNotifications, markAllAsRead, markAsRead } from "../notificationApi";
 import type { NotificationResponse } from "../types";
@@ -10,6 +10,7 @@ import { COLORS } from "../../../app/theme";
 import { relativeTime } from "../../../app/datetime";
 import ListPage, { StatusTabs } from "../../../components/ui/listKit";
 import EmptyState from "../../../components/ui/EmptyState";
+import { useFitPageSize } from "../../../components/ui/useFitPageSize";
 
 /**
  * C19 · Thông báo (dùng chung mọi vai trò): tab Tất cả · Chưa đọc, "Đánh dấu tất cả đã đọc",
@@ -35,6 +36,8 @@ export default function NotificationsPage() {
     const [loading, setLoading] = useState(true);
     const [failed, setFailed] = useState(false);
     const [tab, setTab] = useState<Tab>("ALL");
+    const [page, setPage] = useState(1);
+    const listRef = useRef<HTMLDivElement>(null);
 
     const load = useCallback(async () => {
         try {
@@ -59,6 +62,11 @@ export default function NotificationsPage() {
 
     const unread = items.filter((n) => !n.read).length;
     const rows = tab === "UNREAD" ? items.filter((n) => !n.read) : items;
+    // Phân trang vừa 1 màn hình (04/11/2026) — không cuộn danh sách dài.
+    const pageSize = useFitPageSize(listRef, { itemSelector: "[data-row]", fallbackItem: 70, deps: [rows.length, page, tab] });
+    const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+    const current = Math.min(page, pages);
+    const shown = rows.slice((current - 1) * pageSize, current * pageSize);
 
     return (
         <ListPage
@@ -71,7 +79,7 @@ export default function NotificationsPage() {
             tabs={
                 <StatusTabs<Tab>
                     active={tab}
-                    onChange={setTab}
+                    onChange={(t) => { setTab(t); setPage(1); }}
                     items={[
                         { key: "ALL", label: "Tất cả" },
                         { key: "UNREAD", label: "Chưa đọc", count: failed ? undefined : unread },
@@ -87,12 +95,13 @@ export default function NotificationsPage() {
             ) : rows.length === 0 ? (
                 <EmptyState title={tab === "UNREAD" ? "Bạn đã đọc hết thông báo" : "Chưa có thông báo"} />
             ) : (
-                <div style={{ padding: "4px 20px" }}>
-                    {rows.map((n, i) => {
+                <div ref={listRef} style={{ padding: "4px 20px" }}>
+                    {shown.map((n, i) => {
                         const label = actionLabel(n, role);
                         return (
                             <div
                                 key={n.id}
+                                data-row
                                 className="row-clickable"
                                 onClick={() => void open(n)}
                                 style={{
@@ -120,6 +129,11 @@ export default function NotificationsPage() {
                             </div>
                         );
                     })}
+                    {rows.length > pageSize && (
+                        <Pagination size="small" align="end" style={{ padding: "12px 0" }} current={current} pageSize={pageSize}
+                            total={rows.length} showSizeChanger={false} onChange={setPage}
+                            showTotal={(t, [from, to]) => `${from}–${to} / ${t}`} />
+                    )}
                 </div>
             )}
         </ListPage>

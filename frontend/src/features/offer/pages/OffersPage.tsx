@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { App, Button, Input, Select, Table } from "antd";
+import { App, Button, Input, Select} from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
@@ -16,6 +16,7 @@ import { shortDate } from "../../../app/datetime";
 import ListPage, { ListFilters, StatusTabs } from "../../../components/ui/listKit";
 import { attentionRowStyle, rowArrowColumn } from "../../../components/ui/listHelpers";
 import { Avatar, Panel } from "../../../components/ui/designKit";
+import FitTable from "../../../components/ui/FitTable";
 import StatusTag from "../../../components/ui/StatusTag";
 
 type Tab = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "ENDED" | "ALL";
@@ -173,12 +174,11 @@ export default function OffersPage() {
                     </div>
                 </Panel>
             )}
-            <Table<OfferResponse>
+            <FitTable<OfferResponse>
                 rowKey="id"
                 loading={loading}
                 columns={columns}
                 dataSource={rows}
-                pagination={rows.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
                 rowClassName={() => "row-clickable"}
                 onRow={(o) => ({
                     onClick: () => navigate(`/offers/${o.id}`),

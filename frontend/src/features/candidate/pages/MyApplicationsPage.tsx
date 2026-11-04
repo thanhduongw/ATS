@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Spin, Table } from "antd";
+import { Button, Spin} from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
@@ -8,6 +8,7 @@ import { COLORS } from "../../../app/theme";
 import ListPage, { StatusTabs } from "../../../components/ui/listKit";
 import EmptyState from "../../../components/ui/EmptyState";
 import CandidateStageTag from "../components/CandidateStageTag";
+import FitTable from "../../../components/ui/FitTable";
 import { groupOf, todoOf, useCandidatePortal, type AppGroup } from "../useCandidatePortal";
 
 /**
@@ -94,11 +95,10 @@ export default function MyApplicationsPage() {
                 />
             }
         >
-            <Table<CandidateApplicationResponse>
+            <FitTable<CandidateApplicationResponse>
                 rowKey="id"
                 columns={columns}
                 dataSource={rows}
-                pagination={rows.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
                 rowClassName={() => "row-clickable"}
                 onRow={(a) => ({ onClick: () => navigate(`/my-applications/${a.id}`) })}
                 locale={{ emptyText: "Không có đơn nào trong mục này" }}

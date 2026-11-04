@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { App, Button, Form, Input, InputNumber, Select, Switch, Table } from "antd";
+import { App, Button, Form, Input, InputNumber, Select, Switch} from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
@@ -12,6 +12,7 @@ import { getUserDirectory } from "../../auth/authApi";
 import type { UserDirectoryResponse } from "../../auth/types";
 import { COLORS } from "../../../app/theme";
 import ListPage, { ListFilters } from "../../../components/ui/listKit";
+import FitTable from "../../../components/ui/FitTable";
 import { Avatar, SmallDialog } from "../../../components/ui/designKit";
 
 /**
@@ -232,12 +233,11 @@ export default function CatalogPanel({ config, breadcrumb }: Props) {
                 }
                 footnote={`${rows.length} mục`}
             >
-                <Table<CatalogItem>
+                <FitTable<CatalogItem>
                     rowKey="id"
                     loading={loading}
                     columns={columns}
                     dataSource={rows}
-                    pagination={rows.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
                     rowClassName={() => "row-clickable"}
                     onRow={(it) => ({ onClick: () => openDialog(it) })}
                     locale={{ emptyText: keyword || status !== "ALL" ? "Không có mục nào khớp" : `Chưa có mục nào — bấm "${config.addLabel}"` }}

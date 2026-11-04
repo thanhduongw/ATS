@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { App, Button, Input, Select, Table } from "antd";
+import { App, Button, Input, Select} from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +17,7 @@ import ListPage, { ListFilters, StatusTabs } from "../../../components/ui/listKi
 import { rowArrowColumn } from "../../../components/ui/listHelpers";
 import { Avatar } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
+import FitTable from "../../../components/ui/FitTable";
 import { POSTING_STATUS_VIEW, WORK_ARRANGEMENT_LABEL } from "../postingLabels";
 
 /**
@@ -179,12 +180,11 @@ export default function PostingListPanel() {
             }
             footnote={`${rows.length} việc làm`}
         >
-            <Table<JobPostingResponse>
+            <FitTable<JobPostingResponse>
                 rowKey="id"
                 loading={loading}
                 columns={columns}
                 dataSource={rows}
-                pagination={rows.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
                 rowClassName={() => "row-clickable"}
                 onRow={(p) => ({ onClick: () => navigate(`/recruitment/postings/${p.id}`) })}
                 locale={{ emptyText: "Không có việc làm nào" }}

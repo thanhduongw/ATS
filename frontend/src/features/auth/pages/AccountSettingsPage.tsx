@@ -9,13 +9,20 @@ import { useAppDispatch, useAppSelector } from "../../../app/hooks";
 import { logout, setUserProfile } from "../authSlice";
 import { ROLE_LABELS } from "../../../app/roles";
 import { COLORS } from "../../../app/theme";
-import { Avatar, Panel, ScreenTitle } from "../../../components/ui/designKit";
+import { Avatar, Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
 import { departmentLabel } from "../../overview/useCompanyOverview";
+import { requestOwnDataDeletion } from "../../candidate/candidateApi";
+import { getPublicCompany } from "../../public/publicApi";
 
 /**
  * R32 · Cài đặt tài khoản (mọi vai trò nội bộ): thông tin cá nhân · đổi mật khẩu · đăng xuất.
  * Email và phòng ban chỉ xem (do Quản trị doanh nghiệp đổi). Chưa có "Đổi ảnh" — tài khoản chưa có trường ảnh đại diện.
+ *
+ * C18 · Quyền riêng tư & bảo mật (ứng viên, cùng đường dẫn /settings): đổi mật khẩu · thời gian lưu dữ liệu ·
+ * xoá tài khoản và dữ liệu (gõ "XOA DU LIEU" để xác nhận). Thông tin cá nhân của ứng viên sửa ở "Hồ sơ của tôi".
+ * Khác HTML: chưa có ngày đồng ý xử lý dữ liệu và trang chính sách (backend chưa lưu ngày đồng ý).
  */
+const DELETE_PHRASE = "XOA DU LIEU";
 type PasswordForm = { currentPassword: string; newPassword: string; confirm: string };
 
 const errMsg = (e: unknown, fallback: string) => (e as AxiosError<ApiMessageResponse>).response?.data?.message ?? fallback;
@@ -32,6 +39,28 @@ export default function AccountSettingsPage() {
     const [loggingOut, setLoggingOut] = useState(false);
     const [profileForm] = Form.useForm<{ fullName: string; phone?: string }>();
     const [passwordForm] = Form.useForm<PasswordForm>();
+    const isCandidate = useAppSelector((s) => s.auth.user?.role === "CANDIDATE");
+    const [retentionMonths, setRetentionMonths] = useState<number | null>(null);
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deleteText, setDeleteText] = useState("");
+    const [deleting, setDeleting] = useState(false);
+
+    useEffect(() => {
+        if (!isCandidate) return;
+        getPublicCompany().then((r) => setRetentionMonths(r.data.dataRetentionMonths)).catch(() => undefined);
+    }, [isCandidate]);
+
+    const deleteMyData = async () => {
+        setDeleting(true);
+        try {
+            await requestOwnDataDeletion();
+            message.success("Đã xoá dữ liệu của bạn");
+            dispatch(logout());
+            navigate("/careers", { replace: true });
+        } catch (e) {
+            message.error(errMsg(e, "Không xoá được dữ liệu, vui lòng thử lại"));
+        } finally { setDeleting(false); }
+    };
 
     useEffect(() => {
         getMyProfile().then(async (r) => {
@@ -84,9 +113,9 @@ export default function AccountSettingsPage() {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 760 }}>
-            <ScreenTitle title="Cài đặt tài khoản" />
+            <ScreenTitle title={isCandidate ? "Quyền riêng tư & bảo mật" : "Cài đặt tài khoản"} />
 
-            <Panel title="Thông tin cá nhân" bodyGap={16}>
+            {!isCandidate && <Panel title="Thông tin cá nhân" bodyGap={16}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <Avatar name={profile?.fullName || profile?.email || "?"} colorKey={profile?.id ?? 0} size={56} />
                     <div style={{ display: "flex", flexDirection: "column" }}>
@@ -110,7 +139,7 @@ export default function AccountSettingsPage() {
                     </div>
                     <Button type="primary" htmlType="submit" loading={saving}>Lưu thay đổi</Button>
                 </Form>
-            </Panel>
+            </Panel>}
 
             <Panel title="Đổi mật khẩu" subtitle="Sau khi đổi, bạn cần đăng nhập lại.">
                 <Form form={passwordForm} layout="vertical" onFinish={submitPassword} requiredMark={false}>
@@ -132,9 +161,30 @@ export default function AccountSettingsPage() {
                             <Input.Password placeholder="Nhập lại" maxLength={72} autoComplete="new-password" />
                         </Form.Item>
                     </div>
-                    <Button htmlType="submit" loading={changing}>Đổi mật khẩu</Button>
+                    <Button htmlType="submit" loading={changing}>{isCandidate ? "Cập nhật mật khẩu" : "Đổi mật khẩu"}</Button>
                 </Form>
             </Panel>
+
+            {isCandidate && (
+                <Panel title="Đồng ý xử lý dữ liệu">
+                    <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
+                        Bạn đã đồng ý cho doanh nghiệp xử lý hồ sơ khi đăng ký tài khoản.
+                        {retentionMonths ? ` Hồ sơ được lưu tối đa ${retentionMonths} tháng kể từ lần ứng tuyển gần nhất, sau đó tự ẩn danh.` : ""}
+                    </span>
+                </Panel>
+            )}
+
+            {isCandidate && (
+                <Panel>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                            <span style={{ fontWeight: 600 }}>Xoá tài khoản và dữ liệu</span>
+                            <span style={{ fontSize: 13, color: COLORS.textSecondary }}>Xoá hồ sơ, CV và đơn ứng tuyển. Không khôi phục được.</span>
+                        </div>
+                        <Button danger onClick={() => { setDeleteText(""); setDeleteOpen(true); }}>Yêu cầu xoá dữ liệu</Button>
+                    </div>
+                </Panel>
+            )}
 
             <Panel>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -145,6 +195,22 @@ export default function AccountSettingsPage() {
                     <Button danger onClick={doLogout} loading={loggingOut}>Đăng xuất</Button>
                 </div>
             </Panel>
+
+            <SmallDialog
+                open={deleteOpen}
+                title="Xoá vĩnh viễn dữ liệu?"
+                okText="Xoá vĩnh viễn"
+                danger
+                okDisabled={deleteText.trim() !== DELETE_PHRASE}
+                okLoading={deleting}
+                onCancel={() => setDeleteOpen(false)}
+                onOk={deleteMyData}
+            >
+                <span style={{ color: COLORS.textSecondary }}>
+                    Nhập <b>{DELETE_PHRASE}</b> để xác nhận.
+                </span>
+                <Input value={deleteText} onChange={(e) => setDeleteText(e.target.value)} placeholder={DELETE_PHRASE} />
+            </SmallDialog>
         </div>
     );
 }

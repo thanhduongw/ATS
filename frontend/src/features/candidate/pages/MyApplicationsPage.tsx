@@ -1,184 +1,108 @@
-import { useEffect, useState } from "react";
-import { Card, Timeline, Typography, Spin, Button, Space, App } from "antd";
-import {
-    ScheduleOutlined, FileTextOutlined, DeleteOutlined
-} from "@ant-design/icons";
-import type { AxiosError } from "axios";
+import { useState } from "react";
+import { Button, Spin, Table } from "antd";
+import type { ColumnsType } from "antd/es/table";
+import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
-import { getMyApplications, withdrawMyApplication } from "../applicationApi";
-import { SmallDialog } from "../../../components/ui/designKit";
-import { requestOwnDataDeletion } from "../candidateApi";
-import type { CandidateApplicationResponse, ApiMessageResponse } from "../types";
-import { COLORS, RADIUS } from "../../../app/theme";
+import type { CandidateApplicationResponse } from "../types";
+import { COLORS } from "../../../app/theme";
+import ListPage, { StatusTabs } from "../../../components/ui/listKit";
 import EmptyState from "../../../components/ui/EmptyState";
-import { useAppDispatch } from "../../../app/hooks";
-import { logout } from "../../auth/authSlice";
-import StageTag from "../../../components/ui/StageTag";
+import CandidateStageTag from "../components/CandidateStageTag";
+import { groupOf, todoOf, useCandidatePortal, type AppGroup } from "../useCandidatePortal";
 
-const { Title, Text } = Typography;
+/**
+ * C11 · Đơn ứng tuyển (ứng viên): tab Tất cả · Đang xử lý · Có thư mời · Đã đóng; cột "Việc cần làm".
+ * C32 trống: "Bạn chưa ứng tuyển vị trí nào" + "Tìm việc làm". C33 lỗi tải: báo lỗi + "Thử lại", không hiện số 0.
+ * Rút đơn nằm ở trang chi tiết đơn (C12).
+ */
+type Tab = "ALL" | AppGroup;
 
 export default function MyApplicationsPage() {
     const navigate = useNavigate();
-    const dispatch = useAppDispatch();
-    const { modal, message } = App.useApp();
-    const [applications, setApplications] = useState<CandidateApplicationResponse[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [withdrawing, setWithdrawing] = useState<CandidateApplicationResponse | null>(null);
-    const [withdrawBusy, setWithdrawBusy] = useState(false);
+    const { loading, failed, applications, interviews, offers, reload } = useCandidatePortal();
+    const [tab, setTab] = useState<Tab>("ALL");
 
-    const reload = () => getMyApplications().then(res => setApplications(res.data)).catch(() => undefined);
+    if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
 
-    // UC06 "Rút đơn ứng tuyển": xác nhận bằng nút đỏ vì không hoàn tác được (DS06).
-    const confirmWithdraw = async () => {
-        if (!withdrawing) return;
-        setWithdrawBusy(true);
-        try {
-            await withdrawMyApplication(withdrawing.id);
-            message.success("Đã rút đơn ứng tuyển");
-            setWithdrawing(null);
-            await reload();
-        } catch (err) {
-            const e = err as AxiosError<ApiMessageResponse>;
-            message.error(e.response?.data?.message ?? "Không rút được đơn, vui lòng thử lại");
-        } finally {
-            setWithdrawBusy(false);
-        }
-    };
-
-    const handleRequestDeletion = () => {
-        modal.confirm({
-            title: "Yêu cầu xóa dữ liệu cá nhân?",
-            content: "Toàn bộ hồ sơ và lịch sử ứng tuyển của bạn sẽ bị xóa khỏi hệ thống. Hành động này không thể hoàn tác.",
-            okText: "Xóa dữ liệu của tôi",
-            okButtonProps: { danger: true },
-            onOk: async () => {
-                try {
-                    await requestOwnDataDeletion();
-                    message.success("Đã xóa dữ liệu của bạn. Đang đăng xuất...");
-                    setTimeout(() => dispatch(logout()), 1500);
-                } catch (err) {
-                    const e = err as AxiosError<ApiMessageResponse>;
-                    message.error(e.response?.data?.message ?? "Không thể xử lý yêu cầu, vui lòng thử lại");
-                }
-            },
-        });
-    };
-
-    useEffect(() => {
-        getMyApplications()
-            .then(res => setApplications(res.data))
-            .catch(() => setApplications([]))
-            .finally(() => setLoading(false));
-    }, []);
-
-    if (loading) {
+    if (failed) {
         return (
-            <div style={{ textAlign: "center", padding: "100px 0" }}>
-                <Spin size="large" />
-            </div>
+            <ListPage title="Đơn ứng tuyển">
+                <EmptyState title="Không tải được dữ liệu" description="Kiểm tra kết nối mạng rồi thử lại."
+                    action={<Button type="primary" onClick={reload}>Thử lại</Button>} />
+            </ListPage>
         );
     }
 
-    return (
-        <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px" }}>
-            <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-                <div>
-                    <Title level={2} style={{ margin: 0 }}>Hồ sơ ứng tuyển của tôi</Title>
-                    <Text type="secondary">Theo dõi tiến trình và trạng thái các vị trí bạn đã ứng tuyển</Text>
+    if (applications.length === 0) {
+        return (
+            <ListPage title="Đơn ứng tuyển">
+                <EmptyState title="Bạn chưa ứng tuyển vị trí nào"
+                    action={<Button type="primary" onClick={() => navigate("/jobs")}>Tìm việc làm</Button>} />
+            </ListPage>
+        );
+    }
+
+    const count = (g: AppGroup) => applications.filter((a) => groupOf(a) === g).length;
+    const rows = tab === "ALL" ? applications : applications.filter((a) => groupOf(a) === tab);
+
+    const columns: ColumnsType<CandidateApplicationResponse> = [
+        {
+            title: "Vị trí", key: "job",
+            render: (_, a) => (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{ fontWeight: 600 }}>{a.jobTitle ?? `Đơn #${a.id}`}</span>
+                    <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                        {[a.departmentName, `Nộp ${dayjs(a.appliedAt).format("DD/MM/YYYY")}`].filter(Boolean).join(" · ")}
+                    </span>
                 </div>
-                <Button danger icon={<DeleteOutlined />} onClick={handleRequestDeletion}>
-                    Yêu cầu xóa dữ liệu của tôi
-                </Button>
-            </div>
+            ),
+        },
+        { title: "Giai đoạn", key: "stage", width: 150, render: (_, a) => <CandidateStageTag app={a} /> },
+        {
+            title: "Việc cần làm", key: "todo", width: 340,
+            render: (_, a) => {
+                const t = todoOf(a, interviews, offers);
+                return (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                        <span style={{ fontSize: 13, color: t ? COLORS.textPrimary : COLORS.textMuted }}>{t?.text ?? "—"}</span>
+                        <Button
+                            size="small"
+                            type={t ? "primary" : "default"}
+                            onClick={(e) => { e.stopPropagation(); navigate(t?.to ?? `/my-applications/${a.id}`); }}
+                        >
+                            {t?.actionLabel ?? "Chi tiết"}
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ];
 
-            {applications.length === 0 ? (
-                <Card style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: RADIUS.lg }}>
-                    <EmptyState
-                        title="Bạn chưa có hồ sơ ứng tuyển nào"
-                        description="Hãy vào mục “Việc làm” để ứng tuyển vị trí phù hợp."
-                    />
-                </Card>
-            ) : (
-                <Space orientation="vertical" size={12} style={{ width: "100%" }}>
-                    {applications.map(app => (
-                        <Card key={app.id} hoverable style={{ borderRadius: RADIUS.lg, border: `1px solid ${COLORS.borderLight}` }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                                <div style={{ minWidth: 0 }}>
-                                    <StageTag stageType={app.currentStageType} />
-                                    <Title level={4} style={{ marginTop: 8, marginBottom: 4 }}>
-                                        {app.jobTitle ?? `Hồ sơ #${app.id}`}
-                                    </Title>
-                                    <Text type="secondary">
-                                        Ứng tuyển ngày: {new Date(app.appliedAt).toLocaleDateString("vi-VN")}
-                                    </Text>
-                                </div>
-
-                                <Space wrap>
-                                    {app.currentStageType === "OFFER" && (
-                                        <Button
-                                            type="primary"
-                                            icon={<FileTextOutlined />}
-                                            onClick={() => navigate("/my-offers")}
-                                        >
-                                            Xem Offer
-                                        </Button>
-                                    )}
-                                    {app.currentStageType.includes("INTERVIEW") && (
-                                        <Button
-                                            icon={<ScheduleOutlined />}
-                                            onClick={() => navigate("/my-interviews")}
-                                        >
-                                            Xác nhận lịch họp
-                                        </Button>
-                                    )}
-                                    {app.currentStageType !== "HIRED" && app.currentStageType !== "REJECTED" && (
-                                        <Button danger onClick={() => setWithdrawing(app)}>
-                                            Rút đơn ứng tuyển
-                                        </Button>
-                                    )}
-                                </Space>
-                            </div>
-
-                            <Timeline
-                                style={{ marginTop: 16 }}
-                                items={[
-                                    {
-                                        color: "green",
-                                        children: "Ứng tuyển thành công (Hồ sơ đã tiếp nhận)",
-                                    },
-                                    {
-                                        color: app.currentStageOrder > 1 ? "green" : "blue",
-                                        children: app.currentStageOrder > 1 ? "Đã vượt qua vòng Sơ tuyển CV" : "Đang sơ tuyển CV",
-                                    },
-                                    {
-                                        color: app.currentStageType.includes("INTERVIEW") ? "blue" : app.currentStageOrder > 2 ? "green" : "gray",
-                                        children: "Vòng phỏng vấn",
-                                    },
-                                    {
-                                        color: app.currentStageType === "OFFER" || app.currentStageType === "HIRED" ? "green" : "gray",
-                                        children: "Thư mời & Tuyển dụng",
-                                    },
-                                ]}
-                            />
-                        </Card>
-                    ))}
-                </Space>
-            )}
-
-            <SmallDialog
-                open={!!withdrawing}
-                title="Rút đơn ứng tuyển?"
-                subtitle={withdrawing?.jobTitle ?? undefined}
-                okText="Rút đơn"
-                danger
-                okLoading={withdrawBusy}
-                onCancel={() => setWithdrawing(null)}
-                onOk={confirmWithdraw}
-            >
-                <span style={{ color: COLORS.textSecondary }}>
-                    Đơn sẽ kết thúc và các buổi phỏng vấn chưa diễn ra sẽ bị huỷ. Không hoàn tác được.
-                </span>
-            </SmallDialog>
-        </div>
+    return (
+        <ListPage
+            title="Đơn ứng tuyển"
+            tabs={
+                <StatusTabs<Tab>
+                    active={tab}
+                    onChange={setTab}
+                    items={[
+                        { key: "ALL", label: "Tất cả", count: applications.length },
+                        { key: "ACTIVE", label: "Đang xử lý", count: count("ACTIVE") },
+                        { key: "OFFER", label: "Có thư mời", count: count("OFFER") },
+                        { key: "CLOSED", label: "Đã đóng", count: count("CLOSED") },
+                    ]}
+                />
+            }
+        >
+            <Table<CandidateApplicationResponse>
+                rowKey="id"
+                columns={columns}
+                dataSource={rows}
+                pagination={rows.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
+                rowClassName={() => "row-clickable"}
+                onRow={(a) => ({ onClick: () => navigate(`/my-applications/${a.id}`) })}
+                locale={{ emptyText: "Không có đơn nào trong mục này" }}
+            />
+        </ListPage>
     );
 }

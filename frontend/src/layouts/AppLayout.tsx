@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Dropdown, Layout } from "antd";
 import {
-    AppstoreOutlined, AuditOutlined, BankOutlined, CalendarOutlined, CheckSquareOutlined,
+    AppstoreOutlined,
+    HomeOutlined, AuditOutlined, BankOutlined, CalendarOutlined, CheckSquareOutlined,
     DashboardOutlined, DatabaseOutlined, FileDoneOutlined, FileTextOutlined, GlobalOutlined,
     LogoutOutlined, PlusOutlined, SafetyOutlined, SettingOutlined, SolutionOutlined,
     TeamOutlined, UserOutlined, BellOutlined, BarChartOutlined, RightOutlined,
@@ -73,6 +74,7 @@ function menuFor(role: UserRole): NavItem[] {
         // C20 — cổng ứng viên
         default:
             return [
+                { key: "/my-home", label: "Tổng quan", icon: <HomeOutlined /> },
                 { key: "/jobs", label: "Việc làm", icon: <AppstoreOutlined /> },
                 { key: "/my-applications", label: "Đơn ứng tuyển", icon: <FileTextOutlined /> },
                 { key: "/my-interviews", label: "Lịch phỏng vấn", icon: <CalendarOutlined /> },

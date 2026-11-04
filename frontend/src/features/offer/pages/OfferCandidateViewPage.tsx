@@ -1,443 +1,289 @@
 import { useCallback, useEffect, useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
-import {
-    Card,
-    Button,
-    Row,
-    Col,
-    Modal,
-    Popconfirm,
-    Select,
-    Input,
-    Result,
-    Spin,
-    Tag,
-    Typography,
-    message,
-    App,
-} from "antd";
-import {
-    CheckCircleFilled,
-    CloseCircleFilled,
-    GiftOutlined,
-} from "@ant-design/icons";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { App, Button, Checkbox, Input, Radio, Result, Spin } from "antd";
+import { CalendarOutlined, CheckCircleFilled } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
-import {
-    getOfferById,
-    getMyOffers,
-    acceptOffer,
-    declineOffer,
-} from "../offerCandidateApi";
+import { acceptOffer, declineOffer, getMyOffers, getOfferById } from "../offerCandidateApi";
 import type { ApiMessageResponse, CandidateOfferResponse } from "../types";
-import { COLORS, GRADIENTS } from "../../../app/theme";
+import { getCatalogItems } from "../../masterdata/masterdataApi";
+import type { CatalogItem } from "../../masterdata/types";
+import { getPublicCompany } from "../../public/publicApi";
+import { downloadIcs } from "../../interview/ics";
+import { useAppSelector } from "../../../app/hooks";
+import { COLORS } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
+import { InlineNotice, Panel, SmallDialog } from "../../../components/ui/designKit";
+import StatusTag from "../../../components/ui/StatusTag";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 
-const { Title, Text, Paragraph } = Typography;
+/**
+ * C16 · Chi tiết thư mời (dải màu xanh đậm) · C21 chấp nhận kèm ô "Tôi đã đọc và đồng ý" ·
+ * C22 từ chối kèm lý do · C23 chào mừng gia nhập sau khi chấp nhận.
+ * Lý do từ chối: 5 lựa chọn theo HTML; gửi kèm mã lý do của danh mục "Lý do từ chối" nếu khớp tên
+ * (lương, địa điểm), còn lại dùng "Ứng viên tự rút hồ sơ" và ghi lựa chọn vào ghi chú.
+ * Khác HTML: chưa tải được PDF thư mời và chưa có giờ / địa chỉ cụ thể của ngày đầu tiên.
+ */
+const WEEKDAY_FULL = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+const PAY_SUFFIX: Record<string, string> = { MONTHLY: " / tháng", YEARLY: " / năm" };
+const DECLINE_CHOICES = [
+    { key: "OTHER_OFFER", label: "Đã nhận thư mời khác", match: null },
+    { key: "SALARY", label: "Mức lương chưa phù hợp", match: "lương" },
+    { key: "LOCATION", label: "Địa điểm / hình thức làm việc", match: "địa điểm" },
+    { key: "PERSONAL", label: "Lý do cá nhân", match: null },
+    { key: "OTHER", label: "Khác", match: null },
+] as const;
+type DeclineKey = (typeof DECLINE_CHOICES)[number]["key"];
+
+const longDate = (v: string) => `${WEEKDAY_FULL[dayjs(v).day()]}, ${dayjs(v).format("DD/MM/YYYY")}`;
 
 export default function OfferCandidateViewPage() {
     const { id } = useParams();
     const location = useLocation();
-    const { message: msg } = App.useApp();
+    const navigate = useNavigate();
+    const { message } = App.useApp();
+    const fullName = useAppSelector((s) => s.auth.user?.fullName ?? "");
+    const firstName = fullName.trim().split(/\s+/).pop() ?? "";
 
     const [offer, setOffer] = useState<CandidateOfferResponse | null>(null);
     const [loading, setLoading] = useState(true);
-    const [forbidden, setForbidden] = useState(false);
-    const [notFound, setNotFound] = useState(false);
-    const [accepted, setAccepted] = useState(false);
+    const [error, setError] = useState<"forbidden" | "notfound" | null>(null);
+    const [company, setCompany] = useState<string>("");
+    const [locations, setLocations] = useState<CatalogItem[]>([]);
+    const [reasons, setReasons] = useState<CatalogItem[]>([]);
+    const [acceptOpen, setAcceptOpen] = useState(false);
+    const [agree, setAgree] = useState(false);
     const [declineOpen, setDeclineOpen] = useState(false);
-    const [declineReason, setDeclineReason] = useState<number>(1);
+    const [declineKey, setDeclineKey] = useState<DeclineKey | null>(null);
     const [note, setNote] = useState("");
-    const [timeLeft, setTimeLeft] = useState("");
+    const [busy, setBusy] = useState(false);
 
     const load = useCallback(async () => {
         if (!id) return;
-        setLoading(true);
-        setForbidden(false);
-        setNotFound(false);
         try {
             const byApplication = location.pathname.startsWith("/offers/candidate/");
-            const r = byApplication
-                ? await getMyOffers(Number(id))
-                : await getOfferById(Number(id));
-            const loadedOffer = Array.isArray(r.data) ? r.data[0] : r.data;
-            if (!loadedOffer) {
-                setNotFound(true);
-                return;
-            }
-            setOffer(loadedOffer);
-            if (loadedOffer.status === "ACCEPTED") setAccepted(true);
+            const r = byApplication ? await getMyOffers(Number(id)) : await getOfferById(Number(id));
+            const loaded = Array.isArray(r.data) ? r.data[0] : r.data;
+            if (!loaded) setError("notfound");
+            else { setOffer(loaded); setError(null); }
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
-            if (e.response?.status === 403) setForbidden(true);
-            else if (e.response?.status === 404) setNotFound(true);
-            else msg.error(e.response?.data?.message ?? "Không tải được thư mời nhận việc");
-        } finally {
-            setLoading(false);
-        }
-    }, [id, location.pathname, msg]);
+            if (e.response?.status === 403) setError("forbidden");
+            else if (e.response?.status === 404) setError("notfound");
+            else message.error(e.response?.data?.message ?? "Không tải được thư mời nhận việc");
+        } finally { setLoading(false); }
+    }, [id, location.pathname, message]);
 
+    useEffect(() => { void load(); }, [load]);
     useEffect(() => {
-        load();
-    }, [load]);
+        getPublicCompany().then((r) => setCompany(r.data.name)).catch(() => undefined);
+        getCatalogItems("/masterdata/work-locations").then((r) => setLocations(r.data)).catch(() => undefined);
+        getCatalogItems("/masterdata/rejection-reasons").then((r) => setReasons(r.data)).catch(() => undefined);
+    }, []);
 
-    useEffect(() => {
-        if (!offer?.responseDeadline) return;
-        const update = () => {
-            const diff = dayjs(offer.responseDeadline).valueOf() - Date.now();
-            if (diff <= 0) {
-                setTimeLeft("Đã hết hạn");
-                return;
-            }
-            const d = Math.floor(diff / 86400000);
-            const h = Math.floor((diff % 86400000) / 3600000);
-            const m = Math.floor((diff % 3600000) / 60000);
-            const s = Math.floor((diff % 60000) / 1000);
-            setTimeLeft(
-                `${d > 0 ? d + " ngày " : ""}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-            );
-        };
-        update();
-        const timer = setInterval(update, 1000);
-        return () => clearInterval(timer);
-    }, [offer?.responseDeadline]);
+    if (loading) return <div style={{ textAlign: "center", padding: 80 }}><Spin /></div>;
+    if (error === "forbidden") return <Result status="403" title="Không có quyền" subTitle="Đây không phải thư mời của bạn." />;
+    if (error === "notfound" || !offer) return <Result status="404" title="Không tìm thấy" subTitle="Thư mời không tồn tại hoặc đã bị xoá." />;
 
-    const handleAccept = async () => {
-        if (!offer) return;
+    const deadline = offer.responseDeadline ? dayjs(offer.responseDeadline) : null;
+    const expired = offer.status === "EXPIRED" || (offer.status === "APPROVED" && !!deadline && deadline.endOf("day").isBefore(dayjs()));
+    const pending = offer.status === "APPROVED" && !expired;
+    const daysLeft = deadline ? deadline.startOf("day").diff(dayjs().startOf("day"), "day") : null;
+    const workplace = offer.workLocationId != null ? String(locations.find((l) => l.id === offer.workLocationId)?.name ?? "") : "";
+    const pay = PAY_SUFFIX[offer.payFrequency ?? "MONTHLY"] ?? "";
+    const benefits = (offer.benefits ?? "").split(/\n|;|,(?![^(]*\))/).map((s) => s.trim()).filter(Boolean);
+
+    const accept = async () => {
+        setBusy(true);
         try {
             await acceptOffer(offer.id);
-            message.success("Chúc mừng! Bạn đã chấp nhận offer.");
-            setAccepted(true);
-            load();
+            setAcceptOpen(false);
+            await load();
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
-            message.error(e.response?.data?.message ?? "Không thể chấp nhận offer");
-        }
+            message.error(e.response?.data?.message ?? "Không chấp nhận được thư mời");
+        } finally { setBusy(false); }
     };
 
-    const handleDecline = async () => {
-        if (!offer) return;
+    const decline = async () => {
+        const choice = DECLINE_CHOICES.find((c) => c.key === declineKey);
+        if (!choice) return;
+        const matched = choice.match ? reasons.find((r) => String(r.name).toLowerCase().includes(choice.match!)) : undefined;
+        const fallback = reasons.find((r) => String(r.name).toLowerCase().includes("tự rút"));
+        const reasonId = matched?.id ?? fallback?.id;
+        if (reasonId == null) { message.error("Chưa tải được danh mục lý do, vui lòng thử lại"); return; }
+        setBusy(true);
         try {
             await declineOffer(offer.id, {
-                declineReasonId: declineReason,
-                note: note || null,
+                declineReasonId: reasonId,
+                note: [matched ? null : choice.label, note.trim() || null].filter(Boolean).join(": ") || null,
             });
             setDeclineOpen(false);
-            message.info("Bạn đã từ chối offer.");
-            load();
+            message.success("Đã gửi phản hồi từ chối");
+            await load();
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
-            message.error(e.response?.data?.message ?? "Không thể từ chối offer");
-        }
+            message.error(e.response?.data?.message ?? "Không từ chối được thư mời");
+        } finally { setBusy(false); }
     };
 
-    if (loading) {
+    // C23 · Chào mừng gia nhập.
+    if (offer.status === "ACCEPTED") {
         return (
-            <div style={{ textAlign: "center", padding: 80 }}>
-                <Spin size="large" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 760 }}>
+                <Band
+                    eyebrow="CHÀO MỪNG"
+                    title={`Chào mừng ${firstName || "bạn"} đến với ${company || "công ty"}!`}
+                    subtitle={offer.jobTitle ?? ""}
+                />
+                <Panel>
+                    <Row label="Ngày đầu tiên" value={longDate(offer.startDate)} />
+                    {workplace && <Row label="Địa điểm" value={workplace} />}
+                    {offer.reportingManager && <Row label="Người đón bạn" value={offer.reportingManager} />}
+                    <Row label="Mang theo" value="CCCD · Sổ bảo hiểm (nếu có) · Thông tin tài khoản ngân hàng" />
+                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <Button icon={<CalendarOutlined />} onClick={() => downloadIcs({
+                            uid: `offer-${offer.id}`, title: `Ngày đầu tiên · ${offer.jobTitle ?? ""}`,
+                            start: dayjs(offer.startDate).hour(8).minute(30).toISOString(), durationMinutes: 60, location: workplace || null,
+                        })}>Thêm vào lịch</Button>
+                        <Button type="primary" onClick={() => navigate("/my-home")}>Về trang tổng quan</Button>
+                    </div>
+                </Panel>
             </div>
         );
     }
-
-    if (forbidden) {
-        return (
-            <Result
-                status="403"
-                title="Không có quyền"
-                subTitle="Đây không phải thư mời của bạn."
-            />
-        );
-    }
-
-    if (notFound || !offer) {
-        return (
-            <Result
-                status="404"
-                title="Không tìm thấy"
-                subTitle="Thư mời không tồn tại hoặc đã bị xóa."
-            />
-        );
-    }
-
-    const pending = offer.status === "APPROVED";
-    const expired =
-        offer.responseDeadline != null &&
-        dayjs(offer.responseDeadline).isBefore(dayjs());
 
     return (
-        <div className="page-container animate-fade-in">
-            <div style={{ maxWidth: 720, margin: "0 auto" }}>
-                <PageBreadcrumb crumb={offer.jobTitle ?? "Thư mời nhận việc"} />
-                <Card
-                    style={{
-                        borderRadius: 16,
-                        border: "none",
-                        boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
-                    }}
-                >
-                    <div style={{ textAlign: "center", marginBottom: 24 }}>
-                        <div
-                            style={{
-                                width: 64,
-                                height: 64,
-                                borderRadius: 16,
-                                background: GRADIENTS.stat3,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: "#fff",
-                                fontSize: 28,
-                                marginBottom: 12,
-                            }}
-                        >
-                            <GiftOutlined />
-                        </div>
-                        <Title level={3} style={{ marginBottom: 4 }}>
-                            Thư đề nghị nhận việc
-                        </Title>
-                        <Text type="secondary">Xin chào, {offer.candidateName}</Text>
-                        <div style={{ marginTop: 8 }}>
-                            <Tag color={STATUS_COLOR_SAFE(offer.status)}>
-                                {STATUS_LABEL_SAFE(offer.status)}
-                            </Tag>
-                        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1000 }}>
+            <PageBreadcrumb crumb={offer.jobTitle ?? "Thư mời nhận việc"} />
+            <Band
+                eyebrow="THƯ MỜI NHẬN VIỆC"
+                title={`Chúc mừng ${firstName || "bạn"}!`}
+                subtitle={offer.jobTitle ?? ""}
+                aside={deadline && offer.status === "APPROVED" ? (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                        <span style={{ fontSize: 12, opacity: 0.8 }}>Hạn phản hồi {deadline.format("DD/MM/YYYY")}</span>
+                        <span style={{ fontSize: 18, fontWeight: 700 }}>
+                            {expired ? "Đã hết hạn" : daysLeft === 0 ? "Hôm nay" : `Còn ${daysLeft} ngày`}
+                        </span>
                     </div>
+                ) : undefined}
+            />
 
-                    <Card
-                        type="inner"
-                        title="Chi tiết đề nghị"
-                        style={{ marginBottom: 20, borderRadius: 12 }}
-                    >
-                        <Row gutter={[16, 16]}>
-                            <Col span={12}>
-                                <Text type="secondary">Mức lương</Text>
-                                <div style={{ fontSize: 22, fontWeight: 700, color: "#00A06B" }}>
-                                    {formatMoney(offer.salaryOffered)}
-                                </div>
-                            </Col>
-                            <Col span={12}>
-                                <Text type="secondary">Loại hợp đồng</Text>
-                                <div style={{ fontWeight: 600 }}>{offer.contractTypeName}</div>
-                            </Col>
-                            <Col span={12}>
-                                <Text type="secondary">Ngày bắt đầu</Text>
-                                <div style={{ fontWeight: 600 }}>
-                                    {dayjs(offer.startDate).format("DD/MM/YYYY")}
-                                </div>
-                            </Col>
-                            <Col span={12}>
-                                <Text type="secondary">Thử việc</Text>
-                                <div style={{ fontWeight: 600 }}>
-                                    {offer.probationMonths} tháng
-                                </div>
-                            </Col>
-                            {offer.allowance != null && (
-                                <Col span={12}>
-                                    <Text type="secondary">Phụ cấp</Text>
-                                    <div style={{ fontWeight: 600 }}>
-                                        {formatMoney(offer.allowance)}
-                                    </div>
-                                </Col>
-                            )}
-                            {offer.benefits && (
-                                <Col span={24}>
-                                    <Text type="secondary">Phúc lợi</Text>
-                                    <Paragraph style={{ marginBottom: 0 }}>
-                                        {offer.benefits}
-                                    </Paragraph>
-                                </Col>
-                            )}
-                            {offer.candidateVisibleNote && (
-                                <Col span={24}>
-                                    <Text type="secondary">Ghi chú</Text>
-                                    <Paragraph style={{ marginBottom: 0 }}>
-                                        {offer.candidateVisibleNote}
-                                    </Paragraph>
-                                </Col>
-                            )}
-                        </Row>
-                    </Card>
+            {offer.status === "DECLINED" && (
+                <InlineNotice tone="neutral">
+                    Bạn đã từ chối thư mời này{offer.declineReasonName ? ` · ${offer.declineReasonName}` : ""}. Cảm ơn bạn đã phản hồi.
+                </InlineNotice>
+            )}
+            {expired && <InlineNotice tone="warning">Thư mời đã hết hạn phản hồi. Liên hệ bộ phận tuyển dụng nếu bạn vẫn quan tâm.</InlineNotice>}
 
-                    {offer.responseDeadline && pending && (
-                        <AlertCountdown timeLeft={timeLeft} expired={expired} />
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <Panel title="Điều khoản chính" bodyGap={0}>
+                        <Row label="Lương gộp" value={`${formatMoney(offer.salaryOffered)}${pay}`} strong />
+                        {offer.allowance != null && <Row label="Phụ cấp" value={`${formatMoney(offer.allowance)}${pay}`} />}
+                        {offer.performanceBonus && <Row label="Thưởng hiệu suất" value={offer.performanceBonus} />}
+                        <Row label="Ngày bắt đầu" value={longDate(offer.startDate)} />
+                        <Row label="Thử việc" value={`${offer.probationMonths} tháng`} />
+                        <Row label="Loại hợp đồng" value={offer.contractTypeName} />
+                        {workplace && <Row label="Nơi làm việc" value={workplace} />}
+                        {offer.reportingManager && <Row label="Báo cáo cho" value={offer.reportingManager} />}
+                        {offer.annualLeaveDays != null && <Row label="Nghỉ phép" value={`${offer.annualLeaveDays} ngày / năm`} />}
+                    </Panel>
+                    {benefits.length > 0 && (
+                        <Panel title="Phúc lợi">
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                {benefits.map((b) => (
+                                    <span key={b} style={{ padding: "6px 12px", borderRadius: 14, background: COLORS.fill, fontSize: 13 }}>{b}</span>
+                                ))}
+                            </div>
+                        </Panel>
                     )}
+                    {offer.candidateVisibleNote && (
+                        <Panel title="Lời nhắn">
+                            <span style={{ whiteSpace: "pre-wrap", color: COLORS.textSecondary }}>{offer.candidateVisibleNote}</span>
+                        </Panel>
+                    )}
+                </div>
 
-                    {accepted || offer.status === "ACCEPTED" ? (
-                        <Result
-                            status="success"
-                            title="Bạn đã chấp nhận thư mời"
-                            subTitle="HR sẽ liên hệ các bước tiếp theo."
-                        />
-                    ) : offer.status === "DECLINED" ? (
-                        <Result
-                            status="info"
-                            title="Bạn đã từ chối thư mời"
-                            subTitle={offer.declineReasonName ?? ""}
-                        />
-                    ) : pending && !expired ? (
-                        <Row gutter={16} justify="center">
-                            <Col>
-                                <Popconfirm
-                                    title="Xác nhận nhận việc"
-                                    description={
-                                        <span style={{ display: "block", maxWidth: 320 }}>
-                                            Bạn xác nhận nhận vị trí <b>{offer.jobTitle ?? "này"}</b>,
-                                            mức lương <b>{formatMoney(offer.salaryOffered)}</b>,
-                                            bắt đầu ngày <b>{dayjs(offer.startDate).format("DD/MM/YYYY")}</b>?
-                                        </span>
-                                    }
-                                    okText="Xác nhận nhận việc"
-                                    cancelText="Để tôi xem lại"
-                                    onConfirm={handleAccept}
-                                >
-                                    <Button
-                                        type="primary"
-                                        size="large"
-                                        icon={<CheckCircleFilled />}
-                                        style={{
-                                            height: 52,
-                                            paddingInline: 32,
-                                            fontWeight: 600,
-                                            fontSize: 15,
-                                        }}
-                                    >
-                                        Chấp nhận
-                                    </Button>
-                                </Popconfirm>
-                            </Col>
-                            <Col>
-                                <Button
-                                    size="large"
-                                    danger
-                                    icon={<CloseCircleFilled />}
-                                    onClick={() => setDeclineOpen(true)}
-                                    style={{
-                                        height: 52,
-                                        paddingInline: 32,
-                                        fontWeight: 600,
-                                        fontSize: 15,
-                                    }}
-                                >
-                                    Từ chối
-                                </Button>
-                            </Col>
-                        </Row>
-                    ) : pending && expired ? (
-                        <Result status="warning" title="Thư mời đã hết hạn phản hồi" />
-                    ) : (
-                        <Result
-                            status="info"
-                            title="Thư mời chưa sẵn sàng"
-                            subTitle="Vui lòng đợi HR/Phòng ban hoàn tất phê duyệt."
+                <Panel title="Phản hồi thư mời">
+                    {pending ? (<>
+                        <Button type="primary" size="large" block onClick={() => { setAgree(false); setAcceptOpen(true); }}>Chấp nhận thư mời</Button>
+                        <Button size="large" block onClick={() => { setDeclineKey(null); setNote(""); setDeclineOpen(true); }}>Từ chối</Button>
+                    </>) : (
+                        <StatusTag
+                            label={offer.status === "DECLINED" ? "Đã từ chối" : expired ? "Đã hết hạn" : "Chưa sẵn sàng"}
+                            tone={offer.status === "DECLINED" ? "neutral" : "warning"}
                         />
                     )}
-                </Card>
+                </Panel>
             </div>
 
-            <Modal
-                open={declineOpen}
-                title={
-                    <>
-                        <CloseCircleFilled style={{ color: "#FA2A2D", marginRight: 8 }} />
-                        Từ chối Offer
-                    </>
-                }
-                okText="Xác nhận từ chối"
-                okButtonProps={{ danger: true }}
-                cancelText="Hủy"
-                onOk={handleDecline}
-                onCancel={() => setDeclineOpen(false)}
-                width={440}
+            <SmallDialog
+                open={acceptOpen}
+                title="Chấp nhận thư mời?"
+                okText="Chấp nhận"
+                okDisabled={!agree}
+                okLoading={busy}
+                onCancel={() => setAcceptOpen(false)}
+                onOk={accept}
             >
-                <div style={{ paddingTop: 12 }}>
-                    <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-                            Lý do từ chối
-                        </div>
-                        <Select
-                            style={{ width: "100%" }}
-                            size="large"
-                            value={declineReason}
-                            onChange={setDeclineReason}
-                            options={[
-                                { value: 1, label: "Không phù hợp mức lương" },
-                                { value: 2, label: "Không phù hợp thời gian bắt đầu" },
-                                { value: 3, label: "Đã nhận offer từ công ty khác" },
-                                { value: 4, label: "Lý do cá nhân" },
-                            ]}
-                        />
-                    </div>
-                    <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-                            Ghi chú thêm (tùy chọn)
-                        </div>
-                        <Input.TextArea
-                            rows={3}
-                            placeholder="Nhập ghi chú..."
-                            value={note}
-                            onChange={(e) => setNote(e.target.value)}
-                        />
-                    </div>
+                <div>
+                    <Row label="Vị trí" value={offer.jobTitle ?? "—"} />
+                    <Row label="Lương gộp" value={`${formatMoney(offer.salaryOffered)}${pay}`} />
+                    <Row label="Ngày bắt đầu" value={dayjs(offer.startDate).format("DD/MM/YYYY")} />
                 </div>
-            </Modal>
+                <Checkbox checked={agree} onChange={(e) => setAgree(e.target.checked)}>
+                    Tôi đã đọc và đồng ý với điều khoản trong thư mời
+                </Checkbox>
+            </SmallDialog>
+
+            <SmallDialog
+                open={declineOpen}
+                title="Từ chối thư mời"
+                okText="Xác nhận từ chối"
+                danger
+                okDisabled={!declineKey}
+                okLoading={busy}
+                onCancel={() => setDeclineOpen(false)}
+                onOk={decline}
+            >
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Lý do</span>
+                <Radio.Group value={declineKey} onChange={(e) => setDeclineKey(e.target.value)}
+                    style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                    options={DECLINE_CHOICES.map((c) => ({ value: c.key, label: c.label }))} />
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Ghi chú (không bắt buộc)</span>
+                <Input.TextArea rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+            </SmallDialog>
         </div>
     );
 }
 
-function STATUS_LABEL_SAFE(s: string) {
-    const m: Record<string, string> = {
-        DRAFT: "Nháp",
-        PENDING_APPROVAL: "Chờ duyệt",
-        APPROVED: "Chờ bạn phản hồi",
-        REJECTED: "Đã bị từ chối nội bộ",
-        ACCEPTED: "Đã chấp nhận",
-        DECLINED: "Đã từ chối",
-        EXPIRED: "Đã hết hạn",
-    };
-    return m[s] ?? s;
-}
-
-function STATUS_COLOR_SAFE(s: string) {
-    const m: Record<string, string> = {
-        APPROVED: "blue",
-        ACCEPTED: "green",
-        DECLINED: "magenta",
-        PENDING_APPROVAL: "gold",
-        REJECTED: "red",
-        DRAFT: "default",
-    };
-    return m[s] ?? "default";
-}
-
-function AlertCountdown({
-    timeLeft,
-    expired,
-}: {
-    timeLeft: string;
-    expired: boolean;
-}) {
+/** Dải màu xanh đậm đầu thư mời (C16). */
+function Band({ eyebrow, title, subtitle, aside }: { eyebrow: string; title: string; subtitle: string; aside?: React.ReactNode }) {
     return (
-        <div
-            style={{
-                marginBottom: 20,
-                padding: "12px 16px",
-                borderRadius: 10,
-                background: expired ? "#FA2A2D17" : "#0A59F719",
-                border: `1px solid ${expired ? "#FA2A2D33" : "#0A59F733"}`,
-                textAlign: "center",
-            }}
-        >
-            <Text type="secondary">Thời hạn phản hồi còn lại</Text>
-            <div
-                style={{
-                    fontSize: 20,
-                    fontWeight: 700,
-                    color: expired ? COLORS.error : COLORS.info,
-                }}
-            >
-                {timeLeft}
+        <section style={{
+            borderRadius: 20, padding: "24px 28px", color: "#fff",
+            background: "linear-gradient(135deg, #0A3FB8 0%, #0A59F7 100%)",
+            display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap",
+        }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 12, letterSpacing: "0.08em", opacity: 0.8 }}>{eyebrow}</span>
+                <span style={{ fontSize: 26, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 10 }}>
+                    {eyebrow === "CHÀO MỪNG" && <CheckCircleFilled />}{title}
+                </span>
+                {subtitle && <span style={{ fontSize: 14, opacity: 0.9 }}>{subtitle}</span>}
             </div>
+            {aside}
+        </section>
+    );
+}
+
+function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+    return (
+        <div style={{ display: "flex", gap: 16, padding: "9px 0", borderTop: `0.5px solid ${COLORS.border}` }}>
+            <span style={{ width: 150, flexShrink: 0, color: COLORS.textSecondary }}>{label}</span>
+            <span style={{ fontWeight: strong ? 700 : 500 }}>{value}</span>
         </div>
     );
 }

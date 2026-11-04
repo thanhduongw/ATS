@@ -12,7 +12,8 @@ import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
 import { InlineNotice, Panel, SmallDialog } from "../../../components/ui/designKit";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import CandidateStageTag from "../components/CandidateStageTag";
-import { canWithdraw, closedLabel, needsConfirm, todoOf, useCandidatePortal } from "../useCandidatePortal";
+import { canWithdraw, chosenSlot, closedLabel, needsConfirm, needsSlotChoice, todoOf, useCandidatePortal } from "../useCandidatePortal";
+import type { InterviewSlotResponse } from "../../interview/types";
 
 /**
  * C12 · Chi tiết đơn — tiến trình 5 bước theo quy trình; việc cần làm nổi bật ở đầu; nút "Rút đơn ứng tuyển" (UC06, B5).
@@ -89,7 +90,7 @@ export default function MyApplicationDetailPage() {
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
                 <Panel title="Tiến trình" bodyGap={0}>
                     {STEPS.map((s, i) => (
-                        <Step key={s} index={i} stage={s} state={stepState(app, i)} detail={stepDetail(app, s, ivs, offer?.status)} />
+                        <Step key={s} index={i} stage={s} state={stepState(app, i)} detail={stepDetail(app, s, ivs, offer?.status, slotsByApp.get(app.id))} />
                     ))}
                 </Panel>
 
@@ -142,6 +143,7 @@ function stepState(app: CandidateApplicationResponse, i: number): StepState {
 
 function stepDetail(
     app: CandidateApplicationResponse, s: FixedStage, ivs: CandidateInterviewResponse[], offerStatus?: string,
+    slots?: InterviewSlotResponse[],
 ): string | null {
     const stage = toFixedStage(app.currentStageType);
     if (s === "APPLIED") return dayjs(app.appliedAt).format("DD/MM · HH:mm");
@@ -149,6 +151,9 @@ function stepDetail(
     if (s !== stage) return null;
     if (s === "SCREENING") return "Đang xem hồ sơ của bạn";
     if (s === "INTERVIEW") {
+        if (needsSlotChoice(slots)) return "Chờ bạn chọn giờ phỏng vấn";
+        const chosen = chosenSlot(slots);
+        if (chosen) return `Bạn đã chọn ${dayjs(chosen.startTime).format("DD/MM HH:mm")} · chờ chốt lịch`;
         const pending = ivs.find(needsConfirm);
         if (pending) return `Chờ bạn xác nhận lịch ${dayjs(pending.scheduledAt).format("DD/MM HH:mm")}`;
         const next = ivs.find((iv) => dayjs(iv.scheduledAt).isAfter(dayjs()));

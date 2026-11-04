@@ -133,6 +133,16 @@ export function interviewStatusMeta(
 }
 
 export const AUDIT_ACTION_LABEL: Record<string, string> = {
+    LOGIN: "Đăng nhập",
+    LOGIN_GOOGLE: "Đăng nhập bằng Google",
+    LOGOUT: "Đăng xuất",
+    PASSWORD_RESET: "Đặt lại mật khẩu",
+    PASSWORD_CHANGED: "Đổi mật khẩu",
+    USER_CREATED: "Tạo tài khoản",
+    USER_INVITED: "Mời người dùng",
+    USER_INVITATION_RESENT: "Gửi lại lời mời",
+    USER_INVITATION_ACCEPTED: "Kích hoạt tài khoản từ lời mời",
+    USER_STATUS_UPDATED: "Đổi trạng thái tài khoản",
     APPLICATION_STAGE_CHANGED: "Đổi giai đoạn hồ sơ",
     APPLICATION_REJECTED: "Từ chối hồ sơ",
     APPLICATION_CREATED: "Tạo hồ sơ ứng tuyển",

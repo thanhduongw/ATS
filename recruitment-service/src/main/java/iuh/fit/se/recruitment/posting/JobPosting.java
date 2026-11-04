@@ -55,6 +55,20 @@ public class JobPosting {
     @Column(name = "benchmark_criteria", columnDefinition = "JSONB")
     private String benchmarkCriteria;
 
+    /** R07: hạn nộp hồ sơ hiển thị trên trang tuyển dụng (C03). */
+    @Column(name = "application_deadline")
+    private java.time.LocalDate applicationDeadline;
+
+    /** R07: nhãn "Tuyển gấp" trên thẻ việc làm (C02). */
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean urgent = false;
+
+    /** R07: tắt thì trang công khai không hiện lương ("Thoả thuận"). */
+    @Column(name = "show_salary", nullable = false)
+    @Builder.Default
+    private boolean showSalary = true;
+
     @ElementCollection
     @CollectionTable(name = "job_posting_skill", joinColumns = @JoinColumn(name = "posting_id"))
     @Column(name = "skill_id")

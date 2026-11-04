@@ -18,5 +18,8 @@ public record JobPostingUpdateRequest(
         String requirements,
         String benefits,
         List<Long> skillIds,
-        String benchmarkCriteria
+        String benchmarkCriteria,
+        java.time.LocalDate applicationDeadline,
+        Boolean urgent,
+        Boolean showSalary
 ) {}

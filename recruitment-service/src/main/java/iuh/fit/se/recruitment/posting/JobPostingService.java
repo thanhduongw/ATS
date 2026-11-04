@@ -145,6 +145,9 @@ public class JobPostingService {
                 .benefits(req.benefits())
                 .skillIds(skillIds)
                 .benchmarkCriteria(benchmarkCriteria)
+                .applicationDeadline(req.applicationDeadline())
+                .urgent(Boolean.TRUE.equals(req.urgent()))
+                .showSalary(req.showSalary() == null || req.showSalary())
                 .status(PostingStatus.DRAFT)
                 .pipelineLocked(false)
                 .build());
@@ -182,6 +185,9 @@ public class JobPostingService {
                 ? req.benchmarkCriteria()
                 : null;
         posting.setBenchmarkCriteria(benchmarkCriteria);
+        posting.setApplicationDeadline(req.applicationDeadline());
+        posting.setUrgent(Boolean.TRUE.equals(req.urgent()));
+        posting.setShowSalary(req.showSalary() == null || req.showSalary());
 
         return toResponse(repository.save(posting));
     }
@@ -332,7 +338,8 @@ public class JobPostingService {
                 p.getApprovedBy() != null ? userNameMap.get(p.getApprovedBy()) : null,
                 p.getPublishedAt(), p.getClosedAt(),
                 empMap.get(p.getEmploymentTypeId()), locMap.get(p.getWorkLocationId()),
-                departmentId, deptMap.get(departmentId)
+                departmentId, deptMap.get(departmentId),
+                p.getApplicationDeadline(), p.isUrgent(), p.isShowSalary()
         );
     }
 

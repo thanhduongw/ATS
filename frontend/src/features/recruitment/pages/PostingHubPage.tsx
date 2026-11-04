@@ -80,6 +80,8 @@ export default function PostingHubPage() {
     const [aiTier, setAiTier] = useState<string | undefined>();
     const [recruiterId, setRecruiterId] = useState<number | undefined>();
     const [compareOpen, setCompareOpen] = useState(false);
+    // R42: hồ sơ chọn trên bảng giai đoạn → mở so sánh với đúng các hồ sơ đó.
+    const [compareIds, setCompareIds] = useState<number[] | undefined>();
     const [addOpen, setAddOpen] = useState(false);
 
     const loadAll = useCallback(async () => {
@@ -235,6 +237,7 @@ export default function PostingHubPage() {
                     offers={offers}
                     canManage={canManage}
                     onChanged={() => void loadAll()}
+                    onCompare={(ids) => { setCompareIds(ids); setCompareOpen(true); }}
                 />
             ) : (
                 <Panel>
@@ -312,7 +315,7 @@ export default function PostingHubPage() {
                     {posting.status === "OPEN" && (
                         <Button icon={<ExportOutlined />} href={`/careers/jobs/${posting.id}`} target="_blank">Xem tin công khai</Button>
                     )}
-                    {canManage && <Button icon={<SwapOutlined />} onClick={() => setCompareOpen(true)}>So sánh ứng viên</Button>}
+                    {canManage && <Button icon={<SwapOutlined />} onClick={() => { setCompareIds(undefined); setCompareOpen(true); }}>So sánh ứng viên</Button>}
                     {canManage && posting.status === "OPEN" && (
                         <Button icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>Thêm ứng viên</Button>
                     )}
@@ -338,7 +341,7 @@ export default function PostingHubPage() {
                 style={{ top: 16 }}
                 destroyOnHidden
             >
-                <CandidateComparisonPanel jobPostingId={posting.id} showHeader={false} />
+                <CandidateComparisonPanel jobPostingId={posting.id} showHeader={false} initialSelectedIds={compareIds} />
             </Modal>
             <ApplicationCreateModal
                 open={addOpen}

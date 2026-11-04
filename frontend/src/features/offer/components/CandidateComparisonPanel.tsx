@@ -97,9 +97,11 @@ interface Props {
     jobPostingId: number;
     /** Ẩn tiêu đề khi panel nằm trong một card đã có tiêu đề riêng. */
     showHeader?: boolean;
+    /** R42: ứng viên đã chọn sẵn trên bảng giai đoạn — mở là thấy so sánh chi tiết luôn. */
+    initialSelectedIds?: number[];
 }
 
-export default function CandidateComparisonPanel({ jobPostingId, showHeader = true }: Props) {
+export default function CandidateComparisonPanel({ jobPostingId, showHeader = true, initialSelectedIds }: Props) {
     const navigate = useNavigate();
     const { message, modal } = App.useApp();
 
@@ -110,12 +112,14 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
     const [acceptedOfferCount, setAcceptedOfferCount] = useState(0);
     const [pendingOfferCount, setPendingOfferCount] = useState(0);
     const [stages, setStages] = useState<PipelineStageResponse[]>([]);
-    const [selectedIds, setSelectedIds] = useState<number[]>([]);
-    const [detailOpen, setDetailOpen] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<number[]>(initialSelectedIds?.slice(0, MAX_COMPARE) ?? []);
+    const [detailOpen, setDetailOpen] = useState((initialSelectedIds?.length ?? 0) >= 2);
     const { wrapRef, scrollY } = useTableScrollY([loading, rows.length]);
 
 
+    const pinnedKey = (initialSelectedIds ?? []).join(",");
     const load = useCallback(async () => {
+        const pinned = new Set(pinnedKey ? pinnedKey.split(",").map(Number) : []);
         setLoading(true);
         try {
             const postingRes = await getPostingById(jobPostingId);
@@ -169,8 +173,9 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                     offerByApplication.get(application.id) ?? null,
                     profileById.get(application.candidateId) ?? null,
                 ))
-                // Quy tắc so sánh: phải có tối thiểu một đánh giá đã nộp.
-                .filter((row) => row.readable.length > 0 || hasSubmitted(row.evaluations));
+                // Quy tắc so sánh: phải có tối thiểu một đánh giá đã nộp — trừ hồ sơ người dùng đã chọn
+                // trên bảng giai đoạn (R42): so sánh sớm theo điểm AI, kinh nghiệm, kỹ năng.
+                .filter((row) => pinned.has(row.application.id) || row.readable.length > 0 || hasSubmitted(row.evaluations));
 
             built.sort(compareRows);
             setRows(built);
@@ -180,7 +185,7 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
         } finally {
             setLoading(false);
         }
-    }, [jobPostingId, message]);
+    }, [jobPostingId, message, pinnedKey]);
 
     useEffect(() => {
         load();
@@ -324,6 +329,10 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                     Xem đề nghị
                 </Button>
             );
+        }
+        // Hồ sơ được chọn sớm (R42) chưa phỏng vấn / chưa có đánh giá thì chưa thể gửi đề nghị.
+        if (!hasSubmitted(row.evaluations) && row.readable.length === 0) {
+            return <span style={{ fontSize: 12, color: COLORS.textMuted }}>Chưa phỏng vấn</span>;
         }
         if (!offerStage) {
             return (

@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 import type { PublicJobPosting } from "../types";
-import { arrangementLabel, experienceParts } from "../jobFormat";
+import { arrangementLabel, experienceParts, salaryText } from "../jobFormat";
 import { Chip } from "./JobCard";
 import { COLORS } from "../../../app/theme";
 import { relativeTime } from "../../../app/datetime";
@@ -31,7 +31,11 @@ export function UrgentTag() {
 }
 
 /** Phần nội dung tin (C03), dùng chung cho trang chi tiết công khai và bản xem trước R08. */
-export default function JobContent({ job, compact = false }: { job: PublicJobPosting; compact?: boolean }) {
+export default function JobContent({ job, compact = false, showSalary = false }: {
+    job: PublicJobPosting; compact?: boolean;
+    /** Bản xem trước R08 không có cột phải của C03 nên hiện lương ngay trong phần đầu. */
+    showSalary?: boolean;
+}) {
     const exp = experienceParts(job);
     const chips = [arrangementLabel(job), job.employmentTypeName, exp.short ? `${exp.short} kinh nghiệm` : null,
         job.headcount ? `Tuyển ${job.headcount} người` : null].filter(Boolean) as string[];
@@ -47,6 +51,9 @@ export default function JobContent({ job, compact = false }: { job: PublicJobPos
                 <span style={{ fontSize: compact ? 22 : 28, fontWeight: 700, lineHeight: 1.25 }}>{job.title || "Tiêu đề tin"}</span>
                 {job.workLocationName && <span style={{ color: COLORS.textSecondary }}>{job.workLocationName}</span>}
                 <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{chips.map((c) => <Chip key={c}>{c}</Chip>)}</span>
+                {showSalary && (
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>{salaryText(job.salaryMin, job.salaryMax)}</span>
+                )}
                 {job.applicationDeadline && (
                     <span style={{ fontSize: 13, color: COLORS.textSecondary }}>Hạn nộp hồ sơ: <b style={{ color: COLORS.textPrimary }}>{dayjs(job.applicationDeadline).format("DD/MM/YYYY")}</b></span>
                 )}

@@ -36,6 +36,7 @@ import {
     rejectRequisition,
     requestRequisitionChanges,
     submitRequisition,
+    getPostings,
 } from "../recruitmentApi";
 
 import type {
@@ -49,6 +50,7 @@ import {
 } from "../requisitionStatus";
 
 import { useAppSelector } from "../../../app/hooks";
+import { useNavigate } from "react-router-dom";
 import { DEPARTMENT_ROLES, HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 
@@ -106,6 +108,16 @@ export default function RequisitionDetailModal({
 }: Props) {
     const { message } = App.useApp();
 
+    const navigate = useNavigate();
+    // Việc làm đã tạo từ yêu cầu này (để nút R07 dẫn tới tin có sẵn thay vì tạo trùng).
+    const [linkedPostingId, setLinkedPostingId] = useState<number | null>(null);
+    useEffect(() => {
+        const reqId = requisition?.id;
+        if (!reqId || requisition?.status !== "APPROVED") return;
+        getPostings({ size: 1000 })
+            .then((r) => setLinkedPostingId(r.data.content.find((p) => p.requisitionId === reqId)?.id ?? null))
+            .catch(() => setLinkedPostingId(null));
+    }, [requisition?.id, requisition?.status]);
     const currentUser = useAppSelector(
         (state) => state.auth.user,
     );
@@ -579,6 +591,20 @@ export default function RequisitionDetailModal({
                             }}
                         />
                     )}
+
+                {/* Yêu cầu đã duyệt → Chuyên viên tuyển dụng tạo việc làm ngay từ đây (R07). */}
+                {requisition.status === "APPROVED" && role === "RECRUITER" && (
+                    <Alert
+                        type="info"
+                        showIcon
+                        title={linkedPostingId ? "Đã có việc làm từ yêu cầu này" : "Tạo việc làm từ yêu cầu này"}
+                        description={linkedPostingId ? undefined : "Nội dung, lương duyệt và địa điểm sẽ được điền sẵn."}
+                        action={linkedPostingId
+                            ? <Button onClick={() => navigate(`/recruitment/postings/${linkedPostingId}`)}>Xem việc làm</Button>
+                            : <Button type="primary" onClick={() => navigate(`/recruitment/postings/new?requisitionId=${requisition.id}`)}>Tạo việc làm</Button>}
+                        style={{ marginBottom: 12, borderRadius: RADIUS.md }}
+                    />
+                )}
 
                 {/* ========================================================
                     POSITION INFORMATION

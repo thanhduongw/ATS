@@ -101,6 +101,8 @@ export default function PostingFormPage() {
         if (req.experienceRequired) setValue("experienceRequired", req.experienceRequired);
         if (req.description) setValue("description", req.description);
         if (req.requirements) setValue("requirements", req.requirements);
+        if (req.benefits) setValue("benefits", req.benefits);
+        if (req.priority === "URGENT" || req.priority === "HIGH") setValue("urgent", true);
         if (req.skillIds?.length) setValue("skillIds", req.skillIds);
     }, [req, editingId, setValue]);
 
@@ -149,6 +151,12 @@ export default function PostingFormPage() {
         applicationDeadline: values.applicationDeadline || null, urgent: !!values.urgent, showSalary: values.showSalary !== false,
     };
 
+    // Kiểm tra thất bại ở trường không có ô hiển thị (vd. yêu cầu, quy trình) thì vẫn phải báo cho người dùng.
+    const onInvalid = (errs: Record<string, { message?: unknown } | undefined>) => {
+        const msgs = Object.values(errs).map((e) => String(e?.message ?? "")).filter(Boolean);
+        message.error(msgs[0] ?? "Kiểm tra lại các ô bắt buộc");
+    };
+
     const field = (name: keyof PostingFormValues): { validateStatus?: "error"; help?: ReactNode } =>
         errors[name] ? { validateStatus: "error", help: String(errors[name]?.message ?? "") } : {};
 
@@ -159,9 +167,9 @@ export default function PostingFormPage() {
                 <ScreenTitle
                     title={editing ? "Sửa việc làm" : "Tạo việc làm"}
                     actions={<>
-                        <Button disabled={!!locked} loading={saving === "draft"} onClick={handleSubmit((d) => save(d, "draft"))}>Lưu nháp</Button>
+                        <Button disabled={!!locked} loading={saving === "draft"} onClick={handleSubmit((d) => save(d, "draft"), onInvalid)}>Lưu nháp</Button>
                         <Button onClick={() => setPreview("desktop")}>Xem trước</Button>
-                        <Button type="primary" disabled={!!locked} loading={saving === "submit"} onClick={handleSubmit((d) => save(d, "submit"))}>Gửi duyệt</Button>
+                        <Button type="primary" disabled={!!locked} loading={saving === "submit"} onClick={handleSubmit((d) => save(d, "submit"), onInvalid)}>Gửi duyệt</Button>
                     </>}
                 />
             </div>
@@ -266,7 +274,7 @@ export default function PostingFormPage() {
                 </div>}
                 styles={{ body: { background: COLORS.body, padding: preview === "mobile" ? 12 : 20, maxHeight: "75vh", overflowY: "auto", borderRadius: 12 } }}>
                 <div style={{ maxWidth: preview === "mobile" ? 390 : undefined, margin: "0 auto" }}>
-                    <JobContent job={previewJob} compact={preview === "mobile"} />
+                    <JobContent job={previewJob} compact={preview === "mobile"} showSalary />
                 </div>
             </Modal>
         </div>

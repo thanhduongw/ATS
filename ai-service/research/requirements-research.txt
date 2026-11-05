@@ -1,0 +1,7 @@
+# Môi trường nghiên cứu độc lập: không cần FastAPI/DB/RabbitMQ/PaddleOCR ở Phần 1.
+# Chỉ các PDF có text layer; file scan phải xử lý riêng sau khi có kiểm tra.
+PyMuPDF==1.25.5
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+google-genai>=1.0.0

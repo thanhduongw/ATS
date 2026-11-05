@@ -146,6 +146,31 @@ export function recruiterTasks(
       });
     });
 
+  // Ứng viên xin dời lịch (lịch 1 giờ cố định) và chưa có buổi mới → HR đặt lại giờ (trên máy tính).
+  ivs
+    .filter((iv) => iv.status === "CANDIDATE_DECLINED")
+    .filter(
+      (iv) =>
+        !d.interviews.some(
+          (x) => x.applicationId === iv.applicationId && ACTIVE.has(x.status ?? ""),
+        ),
+    )
+    .forEach((iv) => {
+      tasks.push({
+        key: `declined-${iv.id}`,
+        icon: "calendar",
+        tone: "warning",
+        mine: appById.get(iv.applicationId)?.assignedRecruiterId === me,
+        title: T.declined(iv.candidateName ?? ""),
+        sub: T.declinedSub(iv.candidateDeclineReason ?? ""),
+        action: T.action.view,
+        href: {
+          pathname: "/hr/applications/[id]",
+          params: { id: String(iv.applicationId) },
+        },
+      });
+    });
+
   const fresh = d.applications.filter(
     (a) => toFixedStage(a.currentStageType) === "APPLIED",
   );

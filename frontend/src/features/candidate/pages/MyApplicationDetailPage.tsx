@@ -12,8 +12,7 @@ import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
 import { InlineNotice, Panel, SmallDialog } from "../../../components/ui/designKit";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import CandidateStageTag from "../components/CandidateStageTag";
-import { canWithdraw, chosenSlot, closedLabel, needsConfirm, needsSlotChoice, todoOf, useCandidatePortal } from "../useCandidatePortal";
-import type { InterviewSlotResponse } from "../../interview/types";
+import { canWithdraw, closedLabel, needsConfirm, todoOf, useCandidatePortal } from "../useCandidatePortal";
 
 /**
  * C12 · Chi tiết đơn — tiến trình 5 bước theo quy trình; việc cần làm nổi bật ở đầu; nút "Rút đơn ứng tuyển" (UC06, B5).
@@ -25,7 +24,7 @@ export default function MyApplicationDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { message } = App.useApp();
-    const { loading, failed, applications, interviews, offers, slotsByApp, reload } = useCandidatePortal();
+    const { loading, failed, applications, interviews, offers, reload } = useCandidatePortal();
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [busy, setBusy] = useState(false);
 
@@ -41,7 +40,7 @@ export default function MyApplicationDetailPage() {
     const ivs = interviews.filter((iv) => iv.applicationId === app.id && iv.status !== "CANCELLED")
         .sort((a, b) => dayjs(a.scheduledAt).valueOf() - dayjs(b.scheduledAt).valueOf());
     const offer = offers.filter((o) => o.applicationId === app.id).sort((a, b) => b.id - a.id)[0];
-    const todo = todoOf(app, interviews, offers, slotsByApp);
+    const todo = todoOf(app, interviews, offers);
     const closed = closedLabel(app);
 
     const withdraw = async () => {
@@ -90,7 +89,7 @@ export default function MyApplicationDetailPage() {
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
                 <Panel title="Tiến trình" bodyGap={0}>
                     {STEPS.map((s, i) => (
-                        <Step key={s} index={i} stage={s} state={stepState(app, i)} detail={stepDetail(app, s, ivs, offer?.status, slotsByApp.get(app.id))} />
+                        <Step key={s} index={i} stage={s} state={stepState(app, i)} detail={stepDetail(app, s, ivs, offer?.status)} />
                     ))}
                 </Panel>
 
@@ -143,7 +142,6 @@ function stepState(app: CandidateApplicationResponse, i: number): StepState {
 
 function stepDetail(
     app: CandidateApplicationResponse, s: FixedStage, ivs: CandidateInterviewResponse[], offerStatus?: string,
-    slots?: InterviewSlotResponse[],
 ): string | null {
     const stage = toFixedStage(app.currentStageType);
     if (s === "APPLIED") return dayjs(app.appliedAt).format("DD/MM · HH:mm");
@@ -151,11 +149,11 @@ function stepDetail(
     if (s !== stage) return null;
     if (s === "SCREENING") return "Đang xem hồ sơ của bạn";
     if (s === "INTERVIEW") {
-        if (needsSlotChoice(slots)) return "Chờ bạn chọn giờ phỏng vấn";
-        const chosen = chosenSlot(slots);
-        if (chosen) return `Bạn đã chọn ${dayjs(chosen.startTime).format("DD/MM HH:mm")} · chờ chốt lịch`;
         const pending = ivs.find(needsConfirm);
-        if (pending) return `Chờ bạn xác nhận lịch ${dayjs(pending.scheduledAt).format("DD/MM HH:mm")}`;
+        if (pending) return `Chờ bạn trả lời lịch ${dayjs(pending.scheduledAt).format("DD/MM HH:mm")}`;
+        const live = ivs.filter((iv) => iv.status !== "CANCELLED")
+            .sort((a, b) => dayjs(b.scheduledAt).valueOf() - dayjs(a.scheduledAt).valueOf())[0];
+        if (live?.status === "CANDIDATE_DECLINED") return "Bạn đã xin dời lịch · chờ lịch mới";
         const next = ivs.find((iv) => dayjs(iv.scheduledAt).isAfter(dayjs()));
         return next ? `Phỏng vấn ${dayjs(next.scheduledAt).format("DD/MM HH:mm")}` : "Đang chờ kết quả";
     }

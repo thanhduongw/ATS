@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { App, Button, Dropdown, Input, Modal, Segmented, Select, Space, Spin, Tooltip, type MenuProps } from "antd";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { App, Button, Dropdown, Input, Modal, Pagination, Segmented, Select, Space, Spin, Tooltip, type MenuProps } from "antd";
 import {
     LeftOutlined, PlusOutlined, RightOutlined, SearchOutlined, SwapOutlined, ThunderboltOutlined, UserOutlined,
 } from "@ant-design/icons";
@@ -23,6 +23,7 @@ import InterviewQuickCreateModal from "../components/InterviewQuickCreateModal";
 import BulkScheduleModal from "../components/BulkScheduleModal";
 import InterviewTimeGrid from "../components/InterviewTimeGrid";
 import CandidateComparisonPanel from "../../offer/components/CandidateComparisonPanel";
+import { paginateGrouped, useFitPageSize } from "../../../components/ui/useFitPageSize";
 import { sessionAccent, type SessionDisplay } from "../session";
 
 /**
@@ -55,7 +56,7 @@ function tabOf(iv: InterviewResponse, now: Dayjs): Tab {
     if (ended && INTERVIEW_HELD.has(iv.status)) {
         return iv.interviewers.some((p) => !p.evaluationSubmitted) ? "EVAL" : "DONE";
     }
-    if (iv.status === "HM_RESCHEDULE_PROPOSED") return "ACTION";
+    if (iv.status === "HM_RESCHEDULE_PROPOSED" || iv.status === "CANDIDATE_DECLINED") return "ACTION";
     if (iv.status === "SCHEDULED" && dayjs(iv.scheduledAt).diff(now, "hour") <= 48) return "ACTION";
     return "UPCOMING";
 }
@@ -123,6 +124,7 @@ function statusText(iv: InterviewResponse, tab: Tab): { label: string; tone: Sta
     if (tab === "DONE") return { label: "Đã xong", tone: "success" };
     switch (iv.status) {
         case "HM_RESCHEDULE_PROPOSED": return { label: "Đề xuất đổi giờ", tone: "interview" };
+        case "CANDIDATE_DECLINED": return { label: "Ứng viên xin dời", tone: "warning" };
         case "SCHEDULED": return { label: "Chờ người phỏng vấn xác nhận", tone: "warning" };
         case "HM_CONFIRMED": return { label: "Chờ ứng viên xác nhận", tone: "warning" };
         default: return { label: "Đã xác nhận", tone: "success" };
@@ -142,6 +144,9 @@ export default function InterviewSchedulePage() {
     const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState<Tab | null>(null);
+    // Danh sách vừa 1 màn hình (04/11/2026): chia trang theo chiều cao thật, tiêu đề ngày tính như ~0,6 dòng.
+    const [listPage, setListPage] = useState(1);
+    const listRef = useRef<HTMLDivElement>(null);
     const [view, setView] = useState<"list" | "week">("list");
     const [weekAnchor, setWeekAnchor] = useState<Dayjs>(dayjs());
     const [keyword, setKeyword] = useState("");
@@ -228,9 +233,16 @@ export default function InterviewSchedulePage() {
             return activeTab === "DONE" || activeTab === "CANCELLED" ? -d : d;
         });
 
-    // Nhóm theo ngày
+    const fitSize = useFitPageSize(listRef, {
+        itemSelector: "[data-row]", headerSelector: "[data-head]", fallbackItem: 56, deps: [rows.length, listPage, view],
+    });
+    const dayOf = (iv: InterviewResponse) => dayjs(iv.scheduledAt).format("YYYY-MM-DD");
+    const hrPages = paginateGrouped(rows, fitSize, (r) => dayOf(r.iv));
+
+    // Nhóm theo ngày (chỉ các buổi của trang đang xem)
     const groups: { day: string; label: string; items: typeof rows }[] = [];
-    rows.forEach((r) => {
+    const hrRange = hrPages[Math.min(listPage, hrPages.length) - 1] ?? [0, 0];
+    rows.slice(hrRange[0], hrRange[1]).forEach((r) => {
         const d = dayjs(r.iv.scheduledAt);
         const key = d.format("YYYY-MM-DD");
         let g = groups.find((x) => x.day === key);
@@ -244,6 +256,7 @@ export default function InterviewSchedulePage() {
 
     // Đại diện phòng ban: tab Cần xử lý nhóm theo loại việc, các tab khác nhóm theo ngày.
     const hmGroups: { key: string; label: string; items: { iv: InterviewResponse; kind: HmKind }[] }[] = [];
+    let hmPages: [number, number][] = [];
     if (!isHr) {
         const newestFirst = activeHmTab === "DONE" || activeHmTab === "ALL";
         const shown = hmRows.filter((x) => activeHmTab === "ALL" || HM_KIND_TAB[x.kind] === activeHmTab)
@@ -251,13 +264,17 @@ export default function InterviewSchedulePage() {
                 const d = dayjs(a.iv.scheduledAt).valueOf() - dayjs(b.iv.scheduledAt).valueOf();
                 return newestFirst ? -d : d;
             });
+        const hmGroupOf = (x: { iv: InterviewResponse; kind: HmKind }) => (activeHmTab === "ACTION" ? x.kind : dayOf(x.iv));
+        hmPages = paginateGrouped(shown, fitSize, hmGroupOf);
+        const r = hmPages[Math.min(listPage, hmPages.length) - 1] ?? [0, 0];
+        const paged = shown.slice(r[0], r[1]);
         if (activeHmTab === "ACTION") {
             (["EVAL", "CONFIRM"] as HmKind[]).forEach((k) => {
-                const items = shown.filter((x) => x.kind === k);
+                const items = paged.filter((x) => x.kind === k);
                 if (items.length) hmGroups.push({ key: k, label: `${HM_KIND_GROUP[k]} · ${items.length}`, items });
             });
         } else {
-            shown.forEach((x) => {
+            paged.forEach((x) => {
                 const d = dayjs(x.iv.scheduledAt);
                 const key = d.format("YYYY-MM-DD");
                 let g = hmGroups.find((y) => y.key === key);
@@ -321,13 +338,13 @@ export default function InterviewSchedulePage() {
             tabs={view === "list" && !isHr ? (
                 <StatusTabs<HmTab>
                     active={activeHmTab}
-                    onChange={setHmTab}
+                    onChange={(k) => { setHmTab(k); setListPage(1); }}
                     items={HM_TABS.map((t) => ({ key: t.key, label: t.label, count: hmCounts[t.key] }))}
                 />
             ) : view === "list" ? (
                 <StatusTabs<Tab>
                     active={activeTab}
-                    onChange={setTab}
+                    onChange={(k) => { setTab(k); setListPage(1); }}
                     items={TABS.map((t) => ({ key: t.key, label: t.label, count: counts[t.key] }))}
                 />
             ) : undefined}
@@ -394,8 +411,8 @@ export default function InterviewSchedulePage() {
                     </div>
                 </div>
             ) : !isHr ? (
-                <div style={{ background: COLORS.cardBg, borderRadius: 20, padding: "8px 20px 16px" }}>
-                    <div style={{
+                <div ref={listRef} style={{ background: COLORS.cardBg, borderRadius: 20, padding: "8px 20px 16px" }}>
+                    <div data-head style={{
                         display: "grid", gridTemplateColumns: HM_COLS, gap: 12, padding: "10px 0",
                         fontSize: 12, color: COLORS.textSecondary, borderBottom: `0.5px solid ${COLORS.border}`,
                     }}>
@@ -416,6 +433,7 @@ export default function InterviewSchedulePage() {
                                 return (
                                     <div
                                         key={iv.id}
+                                        data-row
                                         onClick={() => openInterview(iv)}
                                         className="row-clickable"
                                         style={{
@@ -471,10 +489,14 @@ export default function InterviewSchedulePage() {
                             })}
                         </div>
                     ))}
+                    {hmPages.length > 1 && (
+                        <Pagination size="small" align="end" style={{ paddingTop: 12 }} current={Math.min(listPage, hmPages.length)}
+                            pageSize={1} total={hmPages.length} showSizeChanger={false} onChange={setListPage} />
+                    )}
                 </div>
             ) : (
-                <div style={{ background: COLORS.cardBg, borderRadius: 20, padding: "8px 20px 16px" }}>
-                    <div style={{
+                <div ref={listRef} style={{ background: COLORS.cardBg, borderRadius: 20, padding: "8px 20px 16px" }}>
+                    <div data-head style={{
                         display: "grid", gridTemplateColumns: gridCols, gap: 12, padding: "10px 0",
                         fontSize: 12, color: COLORS.textSecondary, borderBottom: `0.5px solid ${COLORS.border}`,
                     }}>
@@ -493,6 +515,7 @@ export default function InterviewSchedulePage() {
                                 return (
                                     <button
                                         key={iv.id}
+                                        data-row
                                         type="button"
                                         onClick={() => openInterview(iv)}
                                         className="row-clickable"
@@ -531,6 +554,10 @@ export default function InterviewSchedulePage() {
                             })}
                         </div>
                     ))}
+                    {hrPages.length > 1 && (
+                        <Pagination size="small" align="end" style={{ paddingTop: 12 }} current={Math.min(listPage, hrPages.length)}
+                            pageSize={1} total={hrPages.length} showSizeChanger={false} onChange={setListPage} />
+                    )}
                 </div>
             )}
             <InterviewQuickCreateModal

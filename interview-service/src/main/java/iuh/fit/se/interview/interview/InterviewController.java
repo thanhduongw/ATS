@@ -1,5 +1,7 @@
 package iuh.fit.se.interview.interview;
 
+import iuh.fit.se.interview.interview.dto.CandidateDeclineRequest;
+
 import iuh.fit.se.interview.interview.dto.InterviewBulkScheduleItem;
 import iuh.fit.se.interview.interview.dto.InterviewBulkScheduleRequest;
 import iuh.fit.se.interview.interview.dto.InterviewCreateRequest;
@@ -159,6 +161,16 @@ public class InterviewController {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireInternal(actor);
         return ResponseEntity.ok(service.markNoShow(actor, id));
+    }
+
+    /** Ứng viên xin dời lịch (kèm lý do) — lịch 1 giờ cố định, ứng viên không tự đề xuất giờ. */
+    @PatchMapping("/{id}/candidate-decline")
+    public ResponseEntity<InterviewResponse> candidateDecline(
+            @PathVariable Long id,
+            @Valid @RequestBody CandidateDeclineRequest request) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireCandidate(actor);
+        return ResponseEntity.ok(service.declineByCandidate(actor.userId(), id, request.reason()));
     }
 
     /** Candidate xác nhận lịch */

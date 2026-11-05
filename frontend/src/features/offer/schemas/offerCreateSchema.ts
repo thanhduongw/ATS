@@ -48,7 +48,8 @@ export const offerCreateSchema = z.object({
     error: "Vui lòng chọn người duyệt",
   }),
 
-  responseDeadline: z.string().optional().nullable(),
+  /** R24: hạn phản hồi bắt buộc — quá hạn thư tự hết hạn (B4). */
+  responseDeadline: z.string({ error: "Vui lòng chọn hạn phản hồi" }).min(1, "Vui lòng chọn hạn phản hồi"),
 });
 
 export type OfferCreateFormValues = z.infer<typeof offerCreateSchema>;

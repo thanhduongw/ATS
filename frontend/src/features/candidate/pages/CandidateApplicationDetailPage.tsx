@@ -15,7 +15,6 @@ import {
 import { getOffers } from "../../offer/offerApi";
 import type { OfferResponse } from "../../offer/types";
 import { getCandidateById } from "../candidateApi";
-import ProposedSlotsPanel from "../../interview/components/ProposedSlotsPanel";
 import { getPostingById } from "../../recruitment/recruitmentApi";
 import { getPipelines, getCatalogItems } from "../../masterdata/masterdataApi";
 import type { PipelineStageResponse } from "../../masterdata/types";
@@ -294,7 +293,7 @@ export default function CandidateApplicationDetailPage() {
     const prevSibling = siblingIndex > 0 ? siblings[siblingIndex - 1] : null;
     const nextSibling = siblingIndex >= 0 && siblingIndex < siblings.length - 1 ? siblings[siblingIndex + 1] : null;
     const openSibling = (a: ApplicationResponse) => navigate(`/candidates/${a.candidateId}/applications/${a.id}`);
-    const activeInterviews = interviews.filter((iv) => iv.status !== "CANCELLED");
+    const activeInterviews = interviews.filter((iv) => iv.status !== "CANCELLED" && iv.status !== "CANDIDATE_DECLINED");
     const evalDone = activeInterviews.reduce((n, iv) => n + iv.interviewers.filter((i) => i.evaluationSubmitted).length, 0);
     const evalTotal = activeInterviews.reduce((n, iv) => n + iv.interviewers.length, 0);
     const tier = aiTierMeta(application.aiTier);
@@ -388,6 +387,11 @@ export default function CandidateApplicationDetailPage() {
                                             </span>
                                         )}
                                     </div>
+                                    {iv.status === "CANDIDATE_DECLINED" && iv.candidateDeclineReason && (
+                                        <div style={{ fontSize: 13, color: COLORS.warning, marginTop: 6 }}>
+                                            Ứng viên xin dời: “{iv.candidateDeclineReason}”
+                                        </div>
+                                    )}
                                     {iv.note && (
                                         <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 6 }}>{iv.note}</div>
                                     )}
@@ -661,7 +665,6 @@ export default function CandidateApplicationDetailPage() {
             </div>
 
             {/* Khung giờ đã gửi ở R18 "Để ứng viên chọn": ứng viên chọn xong thì HR chốt lịch ở đây. */}
-            {isHr && <ProposedSlotsPanel applicationId={application.id} onScheduled={() => void loadAll()} />}
 
             {/* ── Thẻ định danh ── */}
             <Panel>

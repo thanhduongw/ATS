@@ -1,0 +1,7 @@
+﻿jd_id,cert_policy,verified,note
+JD-BE-01,PREFERRED,YES,Cần kiểm tra nguyên văn JD và xác nhận với nhóm/HR; đặc biệt TOEIC/chứng chỉ ngoại ngữ
+JD-BE-02,PREFERRED,YES,Cần kiểm tra nguyên văn JD và xác nhận với nhóm/HR; đặc biệt TOEIC/chứng chỉ ngoại ngữ
+JD-FE-01,PREFERRED,YES,Cần kiểm tra nguyên văn JD và xác nhận với nhóm/HR; đặc biệt TOEIC/chứng chỉ ngoại ngữ
+JD-FE-02,NOT_SPECIFIED,YES,Cần kiểm tra nguyên văn JD và xác nhận với nhóm/HR; đặc biệt TOEIC/chứng chỉ ngoại ngữ
+JD-FS-01,PREFERRED,YES,Cần kiểm tra nguyên văn JD và xác nhận với nhóm/HR; đặc biệt TOEIC/chứng chỉ ngoại ngữ
+JD-FS-02,REQUIRED,YES,Cần kiểm tra nguyên văn JD và xác nhận với nhóm/HR; đặc biệt TOEIC/chứng chỉ ngoại ngữ

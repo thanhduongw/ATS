@@ -26,7 +26,9 @@ export default function PublicLayout() {
     }, []);
 
     const navLink = (label: string, to: string) => {
-        const active = location.pathname === to || location.pathname.startsWith(`${to}/`);
+        // "/careers" (danh sách) chỉ sáng ở danh sách và chi tiết việc làm — không sáng ở "/careers/home" (C01).
+        const active = location.pathname === to
+            || (to === "/careers" ? location.pathname.startsWith("/careers/jobs") : location.pathname.startsWith(`${to}/`));
         return (
             <button
                 type="button"
@@ -63,7 +65,7 @@ export default function PublicLayout() {
                 >
                     <button
                         type="button"
-                        onClick={() => navigate("/careers")}
+                        onClick={() => navigate("/careers/home")}
                         style={{ display: "flex", alignItems: "center", gap: 10, border: 0, background: "transparent", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
                     >
                         <span
@@ -86,6 +88,7 @@ export default function PublicLayout() {
                     </button>
                     <nav style={{ display: "flex", gap: 36 }}>
                         {navLink("Việc làm", "/careers")}
+                        {navLink("Về công ty", "/careers/home")}
                     </nav>
                     {user ? (
                         // Đã đăng nhập (C09/C29): về trang của mình thay cho Đăng nhập / Đăng ký.

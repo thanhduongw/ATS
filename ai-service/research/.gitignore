@@ -1,0 +1,8 @@
+# CV chứa thông tin cá nhân; TUYỆT ĐỐI không push lên GitHub.
+data/cvs/
+data/jds/*.txt
+private/
+output/
+.env
+*.pyc
+__pycache__/

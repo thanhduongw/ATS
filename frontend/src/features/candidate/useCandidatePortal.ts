@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { getMyApplications } from "./applicationApi";
 import type { CandidateApplicationResponse } from "./types";
-import { getMyInterviews, getMyPendingSlots, getSlotsByApplication } from "../interview/interviewApi";
-import type { CandidateInterviewResponse, InterviewSlotResponse } from "../interview/types";
+import { getMyInterviews } from "../interview/interviewApi";
+import type { CandidateInterviewResponse } from "../interview/types";
 import { getMyOffers } from "../offer/offerCandidateApi";
 import type { CandidateOfferResponse } from "../offer/types";
 import { toFixedStage } from "../../app/stages";
@@ -20,14 +20,12 @@ export interface CandidatePortal {
     applications: CandidateApplicationResponse[];
     interviews: CandidateInterviewResponse[];
     offers: CandidateOfferResponse[];
-    /** Khung giờ HR đề xuất, theo đơn (chỉ những đơn đang có khung giờ chờ chọn). */
-    slotsByApp: Map<number, InterviewSlotResponse[]>;
     reload: () => void;
 }
 
 export function useCandidatePortal(): CandidatePortal {
     const [state, setState] = useState<Omit<CandidatePortal, "reload">>({
-        loading: true, failed: false, applications: [], interviews: [], offers: [], slotsByApp: new Map(),
+        loading: true, failed: false, applications: [], interviews: [], offers: [],
     });
     const [tick, setTick] = useState(0);
     const reload = useCallback(() => setTick((t) => t + 1), []);
@@ -38,11 +36,9 @@ export function useCandidatePortal(): CandidatePortal {
             getMyApplications(),
             getMyInterviews().catch(() => null),
             getMyOffers().catch(() => null),
-            loadSlots(),
-        ]).then(([a, i, o, slotsByApp]) => {
+        ]).then(([a, i, o]) => {
             if (cancelled) return;
             setState({
-                slotsByApp,
                 loading: false, failed: false,
                 applications: [...a.data].sort((x, y) => dayjs(y.appliedAt).valueOf() - dayjs(x.appliedAt).valueOf()),
                 interviews: i?.data ?? [],
@@ -54,25 +50,6 @@ export function useCandidatePortal(): CandidatePortal {
 
     return { ...state, reload };
 }
-
-/** Khung giờ đề xuất: lấy các đơn có khung giờ chờ chọn, rồi lấy đủ khung giờ của từng đơn (để biết đã chọn chưa). */
-async function loadSlots(): Promise<Map<number, InterviewSlotResponse[]>> {
-    const map = new Map<number, InterviewSlotResponse[]>();
-    try {
-        const pending = (await getMyPendingSlots()).data;
-        const appIds = [...new Set(pending.map((s) => s.applicationId))];
-        const lists = await Promise.all(appIds.map((id) => getSlotsByApplication(id).then((r) => r.data).catch(() => [])));
-        appIds.forEach((id, i) => map.set(id, lists[i].filter((s) => s.status === "PROPOSED")));
-    } catch { /* không có khung giờ nào */ }
-    return map;
-}
-
-/** Đơn đang chờ ứng viên chọn giờ: có khung giờ đề xuất mà chưa chọn khung nào. */
-export const needsSlotChoice = (slots: InterviewSlotResponse[] | undefined) =>
-    !!slots && slots.some((s) => dayjs(s.startTime).isAfter(dayjs())) && !slots.some((s) => s.candidateConfirmed);
-
-/** Đã chọn một khung giờ, chờ HR chốt lịch. */
-export const chosenSlot = (slots: InterviewSlotResponse[] | undefined) => slots?.find((s) => s.candidateConfirmed) ?? null;
 
 /* ── Việc cần làm của một đơn ─────────────────────────────────── */
 
@@ -86,11 +63,16 @@ export interface CandidateTodo {
 }
 
 /**
- * Buổi phỏng vấn sắp tới chờ ứng viên xác nhận. Backend chỉ cho xác nhận khi phòng ban đã chốt giờ
+ * Buổi phỏng vấn sắp tới chờ ứng viên Đồng ý / Từ chối. Backend chỉ cho trả lời khi phòng ban đã chốt giờ
  * (HM_CONFIRMED — InterviewService.confirmByCandidate); SCHEDULED nghĩa là đang chờ phòng ban.
+ * Lịch là 1 giờ cố định (04/11/2026): ứng viên không chọn khung giờ, không tự đề xuất giờ.
  */
 export const needsConfirm = (iv: CandidateInterviewResponse) =>
     iv.status === "HM_CONFIRMED" && dayjs(iv.scheduledAt).isAfter(dayjs());
+
+/** Ứng viên còn từ chối (xin dời / rút đơn) được: lịch đã chốt, kể cả đã đồng ý, và chưa tới giờ. */
+export const canDecline = (iv: CandidateInterviewResponse) =>
+    (iv.status === "HM_CONFIRMED" || iv.status === "CANDIDATE_CONFIRMED") && dayjs(iv.scheduledAt).isAfter(dayjs());
 
 /** Thư mời đã gửi, đang chờ ứng viên phản hồi. */
 export const awaitingReply = (o: CandidateOfferResponse) =>
@@ -98,7 +80,6 @@ export const awaitingReply = (o: CandidateOfferResponse) =>
 
 export function todoOf(
     app: CandidateApplicationResponse, interviews: CandidateInterviewResponse[], offers: CandidateOfferResponse[],
-    slotsByApp?: Map<number, InterviewSlotResponse[]>,
 ): CandidateTodo | null {
     const offer = offers.filter((o) => o.applicationId === app.id && awaitingReply(o)).sort((a, b) => b.id - a.id)[0];
     if (offer) {
@@ -109,21 +90,12 @@ export function todoOf(
             due: offer.responseDeadline,
         };
     }
-    const slots = slotsByApp?.get(app.id);
-    if (needsSlotChoice(slots)) {
-        return {
-            text: "Chọn giờ phỏng vấn",
-            actionLabel: "Chọn giờ",
-            to: `/my-interviews/choose/${app.id}`,
-            due: slots!.map((s) => s.startTime).sort()[0] ?? null,
-        };
-    }
     const iv = interviews.filter((x) => x.applicationId === app.id && needsConfirm(x))
         .sort((a, b) => dayjs(a.scheduledAt).valueOf() - dayjs(b.scheduledAt).valueOf())[0];
     if (iv) {
         return {
-            text: `Xác nhận lịch phỏng vấn ${dayjs(iv.scheduledAt).format("DD/MM HH:mm")}`,
-            actionLabel: "Xác nhận",
+            text: `Trả lời lịch phỏng vấn ${dayjs(iv.scheduledAt).format("DD/MM HH:mm")}`,
+            actionLabel: "Trả lời",
             to: "/my-interviews",
             due: iv.scheduledAt,
         };

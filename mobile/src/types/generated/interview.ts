@@ -276,6 +276,22 @@ export interface paths {
         patch: operations["confirm"];
         trace?: never;
     };
+    "/api/interview/interviews/{id}/candidate-decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["candidateDecline"];
+        trace?: never;
+    };
     "/api/interview/interviews/{id}/cancel": {
         parameters: {
             query?: never;
@@ -484,7 +500,7 @@ export interface components {
             meetingLink?: string;
             note?: string;
             /** @enum {string} */
-            status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED";
+            status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED" | "CANDIDATE_DECLINED";
             candidateConfirmed?: boolean;
             hmConfirmed?: boolean;
             /** Format: int64 */
@@ -499,6 +515,9 @@ export interface components {
             proposedBy?: number;
             /** Format: date-time */
             candidateConfirmedAt?: string;
+            candidateDeclineReason?: string;
+            /** Format: date-time */
+            candidateDeclinedAt?: string;
         };
         InterviewerSummary: {
             /** Format: int64 */
@@ -632,6 +651,9 @@ export interface components {
             proposedScheduledAt?: string;
             note?: string;
         };
+        CandidateDeclineRequest: {
+            reason: string;
+        };
         CandidateInterviewResponse: {
             /** Format: int64 */
             id?: number;
@@ -647,9 +669,10 @@ export interface components {
             workLocationId?: number;
             meetingLink?: string;
             /** @enum {string} */
-            status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED";
+            status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED" | "CANDIDATE_DECLINED";
             candidateConfirmed?: boolean;
             interviewerNames?: string[];
+            candidateDeclineReason?: string;
         };
         ApplicationEvaluationsResponse: {
             /** Format: int64 */
@@ -885,7 +908,7 @@ export interface operations {
                 applicationId?: number;
                 jobPostingId?: number;
                 interviewerId?: number;
-                status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED";
+                status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED" | "CANDIDATE_DECLINED";
                 fromDate?: string;
                 toDate?: string;
             };
@@ -1180,6 +1203,32 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InterviewResponse"];
+                };
+            };
+        };
+    };
+    candidateDecline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateDeclineRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

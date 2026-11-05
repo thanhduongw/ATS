@@ -59,6 +59,7 @@ export function useMyInterviewStatus(enabled: boolean, myId: number | null, appl
         const me = iv.interviewers.find((p) => p.interviewerId === myId);
         const at = dayjs(iv.scheduledAt);
         const now = dayjs();
+        if (iv.status === "CANDIDATE_DECLINED") return { text: "Ứng viên xin dời · chờ lịch mới", tone: "warning" };
         if (me?.evaluationSubmitted) {
             const rec = recs.get(applicationId);
             return { text: rec ? `Đã nộp · ${REC_SHORT[rec]}` : "Đã nộp đánh giá", tone: "success" };

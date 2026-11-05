@@ -53,6 +53,7 @@ export function candidateNote(
     if (offer?.status === "APPROVED") return N.sentOffer;
   }
   if (stage === "INTERVIEW") {
+    if (latest?.status === "CANDIDATE_DECLINED") return N.declined;
     if (!latest) {
       const days = Math.floor(
         (ctx.now - new Date(app.appliedAt ?? ctx.now).getTime()) / DAY,

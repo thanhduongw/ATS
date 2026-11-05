@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useMyApplication, useWithdrawApplication } from "@/features/applications/hooks";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useSnackbar } from "@/components/ui/snackbar";
-import { useMyInterviews, useMyPendingSlots } from "@/features/interviews/hooks";
+import { useMyInterviews } from "@/features/interviews/hooks";
 import { InterviewAction, interviewPlace } from "@/features/interviews/interview-actions";
 import { useMyOffers } from "@/features/offers/hooks";
 import { useWorkLocationNames } from "@/features/masterdata/hooks";
@@ -34,7 +34,6 @@ export default function ApplicationDetailScreen() {
   const app = useMyApplication(id);
   const interviews = useMyInterviews();
   const offers = useMyOffers();
-  const slots = useMyPendingSlots();
   const locations = useWorkLocationNames();
   const insets = useSafeAreaInsets();
   const withdraw = useWithdrawApplication(id);
@@ -47,9 +46,7 @@ export default function ApplicationDetailScreen() {
     void app.refetch();
     void interviews.refetch();
     void offers.refetch();
-    void slots.refetch();
   };
-  const mySlots = (slots.data ?? []).filter((sl) => sl.applicationId === id);
 
   // Buổi PV của đơn này: ưu tiên buổi sắp tới gần nhất, không có thì buổi gần đây nhất.
   const mine = (interviews.data ?? [])
@@ -81,19 +78,7 @@ export default function ApplicationDetailScreen() {
           }
         >
           {/* Việc cần làm ngay lên đầu (canvas N30). */}
-          {mySlots.length ? (
-            <Card style={styles.actionCard}>
-              <Text style={styles.actionTitle}>{S.slotInvite(mySlots.length)}</Text>
-              <PillButton
-                label={S.pickInterviewTime}
-                icon="calendar"
-                fullWidth
-                onPress={() =>
-                  router.push({ pathname: "/interviews/schedule", params: { applicationId: String(id) } })
-                }
-              />
-            </Card>
-          ) : interview?.status === "HM_CONFIRMED" ? (
+          {interview?.status === "HM_CONFIRMED" ? (
             <Card style={styles.actionCard}>
               <Text style={styles.actionTitle}>{S.confirmInvite}</Text>
               <Text style={styles.sub}>
@@ -117,7 +102,7 @@ export default function ApplicationDetailScreen() {
                 subtitle={formatTimeRange(interview.scheduledAt, interview.durationMinutes)}
               />
               <ListRow icon={interview.format === "ONLINE" ? "video" : "home"} title={interviewPlace(interview, locations)} last />
-              {/* Nút xác nhận đã nằm ở thẻ hành động trên cùng — không lặp lại ở đây. */}
+              {/* Nút Đồng ý / Từ chối đã nằm ở thẻ hành động trên cùng — không lặp lại ở đây. */}
               {interview.status !== "HM_CONFIRMED" ? <InterviewAction interview={interview} size="md" fullWidth /> : null}
             </Card>
           ) : null}

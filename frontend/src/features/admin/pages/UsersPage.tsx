@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { App, Button, Input, Select, Table } from "antd";
+import { App, Button, Input, Select} from "antd";
 import { SearchOutlined, SafetyOutlined, UserAddOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useNavigate } from "react-router-dom";
@@ -13,6 +13,7 @@ import { Avatar } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
 import { COLORS } from "../../../app/theme";
 import { relativeTime } from "../../../app/datetime";
+import FitTable from "../../../components/ui/FitTable";
 import { ROLE_NAME, USER_STATUS_VIEW } from "../adminLabels";
 
 type Tab = "ACTIVE" | "PENDING_VERIFICATION" | "LOCKED" | "ALL";
@@ -135,12 +136,11 @@ export default function UsersPage() {
             }
             footnote={failed ? undefined : `${rows.length} tài khoản`}
         >
-            <Table<UserSummaryResponse>
+            <FitTable<UserSummaryResponse>
                 rowKey="id"
                 loading={loading}
                 columns={columns}
                 dataSource={rows}
-                pagination={rows.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
                 rowClassName={() => "row-clickable"}
                 onRow={(u) => ({ onClick: () => navigate(`/admin/users/${u.id}`) })}
                 locale={{ emptyText: failed ? "Không tải được dữ liệu. Thử tải lại trang." : "Không có tài khoản nào" }}

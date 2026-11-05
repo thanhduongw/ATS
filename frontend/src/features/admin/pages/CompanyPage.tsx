@@ -115,16 +115,18 @@ export default function CompanyPage() {
 
     if (loading) return <div style={{ padding: 60, textAlign: "center" }}><Spin /></div>;
 
-    const two = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 } as const;
+    const two = { display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 12 } as const;
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1000 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <ScreenTitle
                 title="Thông tin doanh nghiệp"
                 actions={<Button type="primary" loading={saving} onClick={save}>Lưu thay đổi</Button>}
             />
-            <Form form={form} layout="vertical" requiredMark={false}>
+            {/* A08 theo mẫu: hàng trên "Thông tin pháp lý" | "Nhận diện" + "Trang tuyển dụng"; hàng dưới Văn phòng, Bảo vệ dữ liệu. */}
+            <Form form={form} layout="vertical" requiredMark={false} className="compact-form">
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)", gap: 16, alignItems: "start" }}>
                     <Panel title="Thông tin pháp lý" bodyGap={0}>
                         <div style={two}>
                             <Form.Item name="legalName" label="Tên đầy đủ *" rules={[{ required: true, message: "Vui lòng nhập tên đầy đủ" }]}><Input /></Form.Item>
@@ -139,11 +141,12 @@ export default function CompanyPage() {
                             <Form.Item name="phone" label="Điện thoại"><Input /></Form.Item>
                         </div>
                         <Form.Item name="address" label="Trụ sở"><Input /></Form.Item>
-                        <Form.Item name="description" label="Giới thiệu ngắn"><Input.TextArea rows={3} /></Form.Item>
+                        <Form.Item name="description" label="Giới thiệu ngắn" style={{ marginBottom: 0 }}><Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} /></Form.Item>
                     </Panel>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
                     <Panel title="Nhận diện" bodyGap={0}>
-                        <div style={two}>
+                        <div>
                             <Form.Item name="logoUrl" label="Logo" extra="PNG/SVG vuông, tối thiểu 256 px"><Input placeholder="Đường dẫn ảnh logo" /></Form.Item>
                             <Form.Item
                                 name="brandColor"
@@ -156,17 +159,6 @@ export default function CompanyPage() {
                                 />
                             </Form.Item>
                         </div>
-                    </Panel>
-
-                    <Panel title="Văn phòng" subtitle="Lấy từ danh mục Địa điểm làm việc — Chuyên viên tuyển dụng cập nhật ở Danh mục">
-                        {offices.length === 0 ? (
-                            <span style={{ color: COLORS.textSecondary }}>Chưa có văn phòng nào trong danh mục.</span>
-                        ) : offices.map((o) => (
-                            <div key={o.id} style={{ display: "flex", flexDirection: "column", padding: "10px 14px", borderRadius: 14, background: COLORS.fill }}>
-                                <span style={{ fontWeight: 600 }}>{String(o.name)}</span>
-                                {o.address ? <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{String(o.address)}</span> : null}
-                            </div>
-                        ))}
                     </Panel>
 
                     <Panel title="Trang tuyển dụng" subtitle="Hiện trên trang tuyển dụng công khai" bodyGap={0}>
@@ -193,6 +185,22 @@ export default function CompanyPage() {
                             )}
                         </Form.List>
                     </Panel>
+                    </div>
+                    </div>
+
+                    <Panel title="Văn phòng" subtitle="Lấy từ danh mục Địa điểm làm việc — Chuyên viên tuyển dụng cập nhật ở Danh mục">
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }}>
+                        {offices.length === 0 ? (
+                            <span style={{ color: COLORS.textSecondary }}>Chưa có văn phòng nào trong danh mục.</span>
+                        ) : offices.map((o) => (
+                            <div key={o.id} style={{ display: "flex", flexDirection: "column", padding: "10px 14px", borderRadius: 14, background: COLORS.fill }}>
+                                <span style={{ fontWeight: 600 }}>{String(o.name)}</span>
+                                {o.address ? <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{String(o.address)}</span> : null}
+                            </div>
+                        ))}
+                        </div>
+                    </Panel>
+
 
                     <Panel title="Bảo vệ dữ liệu ứng viên" bodyGap={0}>
                         <div style={two}>

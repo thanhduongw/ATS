@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Spin, Table } from "antd";
+import { Button, Spin} from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
@@ -8,6 +8,7 @@ import { COLORS } from "../../../app/theme";
 import ListPage, { StatusTabs } from "../../../components/ui/listKit";
 import EmptyState from "../../../components/ui/EmptyState";
 import CandidateStageTag from "../components/CandidateStageTag";
+import FitTable from "../../../components/ui/FitTable";
 import { groupOf, todoOf, useCandidatePortal, type AppGroup } from "../useCandidatePortal";
 
 /**
@@ -19,7 +20,7 @@ type Tab = "ALL" | AppGroup;
 
 export default function MyApplicationsPage() {
     const navigate = useNavigate();
-    const { loading, failed, applications, interviews, offers, slotsByApp, reload } = useCandidatePortal();
+    const { loading, failed, applications, interviews, offers, reload } = useCandidatePortal();
     const [tab, setTab] = useState<Tab>("ALL");
 
     if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
@@ -61,7 +62,7 @@ export default function MyApplicationsPage() {
         {
             title: "Việc cần làm", key: "todo", width: 340,
             render: (_, a) => {
-                const t = todoOf(a, interviews, offers, slotsByApp);
+                const t = todoOf(a, interviews, offers);
                 return (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                         <span style={{ fontSize: 13, color: t ? COLORS.textPrimary : COLORS.textMuted }}>{t?.text ?? "—"}</span>
@@ -94,11 +95,10 @@ export default function MyApplicationsPage() {
                 />
             }
         >
-            <Table<CandidateApplicationResponse>
+            <FitTable<CandidateApplicationResponse>
                 rowKey="id"
                 columns={columns}
                 dataSource={rows}
-                pagination={rows.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
                 rowClassName={() => "row-clickable"}
                 onRow={(a) => ({ onClick: () => navigate(`/my-applications/${a.id}`) })}
                 locale={{ emptyText: "Không có đơn nào trong mục này" }}

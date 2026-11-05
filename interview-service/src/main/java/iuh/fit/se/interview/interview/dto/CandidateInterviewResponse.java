@@ -16,5 +16,7 @@ public record CandidateInterviewResponse(
         String meetingLink,
         InterviewStatus status,
         boolean candidateConfirmed,
-        List<String> interviewerNames
+        List<String> interviewerNames,
+        /** Lý do ứng viên đã gửi khi xin dời lịch (CANDIDATE_DECLINED). */
+        String candidateDeclineReason
 ) {}

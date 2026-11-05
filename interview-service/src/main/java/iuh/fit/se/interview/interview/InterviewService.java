@@ -8,6 +8,7 @@ import iuh.fit.se.interview.client.dto.*;
 import iuh.fit.se.interview.common.AccessGuard;
 import iuh.fit.se.interview.evaluation.InterviewEvaluation;
 import iuh.fit.se.interview.evaluation.InterviewEvaluationRepository;
+import iuh.fit.se.interview.event.InterviewCandidateDeclinedEvent;
 import iuh.fit.se.interview.event.InterviewEventPublisher;
 import iuh.fit.se.interview.exception.BusinessException;
 import iuh.fit.se.interview.interview.dto.InterviewBulkScheduleItem;
@@ -639,6 +640,39 @@ public class InterviewService {
         return toResponse(saved);
     }
 
+    /**
+     * Ứng viên xin dời lịch (lịch 1 giờ cố định — ứng viên chỉ Đồng ý / Từ chối). Được gửi khi lịch đã
+     * được phòng ban chốt (kể cả đã xác nhận trước đó) và chưa tới giờ. Buổi chuyển CANDIDATE_DECLINED,
+     * không còn chặn lịch; HR và người phỏng vấn nhận thông báo để đặt giờ mới.
+     */
+    @Transactional
+    public InterviewResponse declineByCandidate(Long userId, Long id, String reason) {
+        Interview interview = findById(id);
+        long candidateId = resolveCandidateId(userId);
+        if (!Objects.equals(interview.getCandidateId(), candidateId)) {
+            throw new AccessDeniedException("Đây không phải lịch phỏng vấn của bạn");
+        }
+        if (interview.getStatus() != InterviewStatus.HM_CONFIRMED
+                && interview.getStatus() != InterviewStatus.CANDIDATE_CONFIRMED) {
+            throw new BusinessException("Chỉ xin dời được lịch đã được phòng ban chốt giờ");
+        }
+        if (!interview.getScheduledAt().isAfter(LocalDateTime.now())) {
+            throw new BusinessException("Buổi phỏng vấn đã bắt đầu, không xin dời được nữa");
+        }
+        interview.setStatus(InterviewStatus.CANDIDATE_DECLINED);
+        interview.setCandidateDeclineReason(reason.trim());
+        interview.setCandidateDeclinedAt(LocalDateTime.now());
+        Interview saved = interviewRepository.save(interview);
+
+        eventPublisher.publishInterviewCandidateDeclined(new InterviewCandidateDeclinedEvent(
+                saved.getId(), saved.getApplicationId(), saved.getScheduledAt(),
+                saved.getCandidateNameSnapshot(), saved.getCandidateDeclineReason(),
+                saved.getInterviewers().stream().map(InterviewInterviewer::getInterviewerId).toList(),
+                saved.getAssignedRecruiterId()));
+
+        return toResponse(saved);
+    }
+
     public void requireCanView(Interview interview, CurrentUser actor) {
         assertCanView(interview, actor);
     }
@@ -720,7 +754,8 @@ public class InterviewService {
                 interview.getCandidateConfirmedAt() != null,
                 interview.getInterviewers().stream()
                         .map(InterviewInterviewer::getInterviewerNameSnapshot)
-                        .toList());
+                        .toList(),
+                interview.getCandidateDeclineReason());
     }
 
     private Interview findById(Long id) {
@@ -764,7 +799,9 @@ public class InterviewService {
                 interviewerSummaries,
                 interview.getCreatedAt(),
                 interview.getProposedBy(),
-                interview.getCandidateConfirmedAt()
+                interview.getCandidateConfirmedAt(),
+                interview.getCandidateDeclineReason(),
+                interview.getCandidateDeclinedAt()
         );
     }
 

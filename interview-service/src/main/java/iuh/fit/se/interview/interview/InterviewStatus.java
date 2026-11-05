@@ -14,6 +14,7 @@ import java.util.EnumSet;
  *       │                                                                           │
  *       │ HM từ chối không kèm đề xuất                    đủ phiếu đánh giá ────────┤
  *       ▼                                                                           ▼
+ *   HM_CONFIRMED / CANDIDATE_CONFIRMED ──ứng viên xin dời (kèm lý do)──► CANDIDATE_DECLINED
  *   CANCELLED ◄── HR hủy (từ 4 trạng thái đầu)                                  COMPLETED
  *                                                    HM ghi nhận vắng ──────► NO_SHOW
  * </pre>
@@ -41,7 +42,14 @@ public enum InterviewStatus {
     NO_SHOW,
 
     /** Hủy bởi HR, hoặc tự động khi HM từ chối mà không đề xuất giờ thay thế. */
-    CANCELLED;
+    CANCELLED,
+
+    /**
+     * Ứng viên xin dời lịch (kèm lý do) — buổi không diễn ra nữa, HR đặt một giờ mới.
+     * Không chặn lịch người phỏng vấn. Ứng viên "không tham gia nữa" thì rút đơn (application-service),
+     * buổi bị hủy theo sự kiện đơn kết thúc.
+     */
+    CANDIDATE_DECLINED;
 
     /**
      * Các trạng thái còn chiếm chỗ trên lịch của người phỏng vấn — dùng để phát hiện

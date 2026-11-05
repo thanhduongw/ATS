@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { DatePicker, Input, Select, Table, Tooltip } from "antd";
+import { DatePicker, Input, Select, Tooltip } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
@@ -10,6 +10,7 @@ import type { AuditLogResponse } from "../types";
 import { AUDIT_ACTION_LABEL, RESOURCE_TYPE_LABEL } from "../../../app/statusLabels";
 import { COLORS } from "../../../app/theme";
 import ListPage, { ListFilters } from "../../../components/ui/listKit";
+import FitTable from "../../../components/ui/FitTable";
 import { Avatar } from "../../../components/ui/designKit";
 
 /**
@@ -129,12 +130,11 @@ export default function AuditLogPage() {
             }
             footnote={failed ? undefined : `${rows.length} thao tác`}
         >
-            <Table<AuditLogResponse>
+            <FitTable<AuditLogResponse>
                 rowKey="id"
                 loading={loading}
                 columns={columns}
                 dataSource={rows}
-                pagination={rows.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
                 locale={{ emptyText: failed ? "Không tải được dữ liệu. Thử tải lại trang." : "Không có thao tác nào" }}
             />
         </ListPage>

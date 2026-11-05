@@ -1,268 +1,156 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-    Alert,
-    App,
-    Button,
-    Card,
-    Checkbox,
-    Empty,
-    Form,
-    Input,
-    InputNumber,
-    Select,
-    Spin,
-    Tag,
-} from "antd";
-import { ArrowLeftOutlined, SaveOutlined, SendOutlined } from "@ant-design/icons";
-import dayjs from "dayjs";
+import { App, Button, Input, InputNumber, Select, Spin } from "antd";
 import type { AxiosError } from "axios";
 
 import { offerCreateSchema, type OfferCreateFormValues } from "../schemas/offerCreateSchema";
-import { createOffer, getOfferById, updateOffer } from "../offerApi";
-import type { ApiMessageResponse } from "../types";
-import { getUserDirectory } from "../../auth/authApi";
-import type { UserDirectoryResponse } from "../../auth/types";
+import { createOffer, getOfferById, getOffers, updateOffer } from "../offerApi";
+import type { ApiMessageResponse, OfferResponse } from "../types";
+import OfferLetterPreview from "../components/OfferLetterPreview";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import { getApplicationById, getApplications } from "../../candidate/applicationApi";
-import { getCandidateById } from "../../candidate/candidateApi";
-import type { ApplicationResponse, CandidateResponse } from "../../candidate/types";
-import { getPostingById, getPostings } from "../../recruitment/recruitmentApi";
-import type { JobPostingResponse } from "../../recruitment/types";
+import type { ApplicationResponse } from "../../candidate/types";
+import { getPostingById, getPostings, getRequisitionById } from "../../recruitment/recruitmentApi";
+import type { JobPostingResponse, JobRequisitionResponse } from "../../recruitment/types";
+import { getApplicationEvaluations } from "../../interview/interviewApi";
+import type { EvaluationResponse, RecommendationType } from "../../interview/types";
+import { getPublicCompany } from "../../public/publicApi";
+import { useAppSelector } from "../../../app/hooks";
 import { COLORS } from "../../../app/theme";
-import PageHeader from "../../../components/ui/PageHeader";
+import { moneyFormatter, moneyParser } from "../../../app/money";
+import { salaryText } from "../../public/jobFormat";
 import DateField from "../../../components/ui/DateField";
-import { formatMoney, moneyFormatter, moneyParser } from "../../../app/money";
-
-/* ──────────────────────────────────────────────────────────────
- * Hằng số & tiện ích
- * ────────────────────────────────────────────────────────────── */
-
-const WORK_ARRANGEMENT_LABEL: Record<string, string> = {
-    ONSITE: "Tại văn phòng",
-    HYBRID: "Kết hợp",
-    REMOTE: "Từ xa",
-};
-
-const PAY_FREQUENCY_SUFFIX: Record<string, string> = {
-    MONTHLY: "/tháng",
-    YEARLY: "/năm",
-};
+import { Panel, ScreenTitle } from "../../../components/ui/designKit";
+import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 
 /**
- * Phúc lợi vẫn lưu thành một chuỗi như cũ để không phải đổi lược đồ; giao diện chỉ tách
- * chuỗi đó ra thành các ô tick cho nhanh, phần nào không nằm trong danh sách chuẩn thì
- * rơi vào ô "phúc lợi khác" (kể cả đoạn phúc lợi dài chép sang từ tin tuyển dụng).
+ * R24 · Soạn thư mời (theo bản mẫu `docs/UI/HR.html`): bên trái "Điều khoản" (lưới 3 cột) + "Tham chiếu"
+ * (khung lương duyệt, đề xuất của người phỏng vấn, còn suất, vị trí trong khung lương); bên phải "Xem trước
+ * thư mời" cập nhật theo từng phím gõ. "Lưu & xem lại" lưu nháp rồi mở R26 để kiểm tra và gửi.
+ *
+ * Bỏ so với bản cũ (bản mẫu không có): ô "Người duyệt" — HR gửi thẳng từ bản nháp (B2), người duyệt tự gán là
+ * người soạn (nợ kỹ thuật: backend vẫn bắt buộc `approverId`); ô tiền tệ (luôn VND); ô tick phúc lợi chuẩn.
  */
-const STANDARD_BENEFITS = [
-    "Bảo hiểm xã hội, y tế, thất nghiệp",
-    "Bảo hiểm sức khỏe",
-    "Lương tháng 13",
-    "Thưởng lễ, Tết",
-    "Laptop công ty cấp",
-    "Phụ cấp ăn trưa",
-    "Phụ cấp đi lại",
-    "Khám sức khỏe định kỳ",
-];
-
-const BENEFIT_SEPARATOR = " · ";
-
-/** Tỷ lệ lương thử việc tối thiểu theo Bộ luật Lao động 2019. */
-const PROBATION_MIN_RATE = 0.85;
-
-/* ── Lưới bố cục ───────────────────────────────────────────── */
-
-/** Ô nhập rộng: mỗi hàng tối đa 2 cột trong khung 1120px, mỗi ô khoảng 550px. */
-const GRID_FIELDS: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
-    gap: "20px 24px",
+const REC_LABEL: Record<RecommendationType, string> = {
+    STRONG_YES: "Rất nên tuyển", YES: "Nên tuyển", NO: "Không nên tuyển", STRONG_NO: "Không tuyển",
 };
+const GRID3: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px 16px" };
+const GRID2: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px 16px" };
+const FULL: CSSProperties = { width: "100%" };
 
-/** Lưới thông tin chỉ đọc — chữ ngắn nên xếp được nhiều cột hơn. */
-const GRID_INFO: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-    gap: "16px 24px",
-};
-
-/** Ô chiếm trọn chiều ngang: phúc lợi, ghi chú, dòng lương. */
-const FULL: React.CSSProperties = { gridColumn: "1 / -1" };
-
-/* ── Hàm tiện ích ──────────────────────────────────────────── */
-
-/**
- * Chuỗi phúc lợi = các mục chuẩn ở đầu (ngăn bởi " · ") + phần "khác" giữ NGUYÊN VĂN.
- * Không trim phần "khác" khi đang gõ: trước đây trim làm mất dấu cách/xuống dòng cuối, giá trị hiển thị
- * lệch với thứ vừa gõ và ô nhập cập nhật lặp vô hạn (trang trắng). Phần thừa được trim khi lưu.
- */
-function splitBenefits(raw?: string | null) {
-    let rest = raw ?? "";
-    const checked: string[] = [];
-    for (let found = true; found;) {
-        found = false;
-        for (const b of STANDARD_BENEFITS) {
-            if (rest === b || rest.startsWith(b + BENEFIT_SEPARATOR)) {
-                if (!checked.includes(b)) checked.push(b);
-                rest = rest.slice(Math.min(rest.length, b.length + BENEFIT_SEPARATOR.length));
-                found = true;
-                break;
-            }
-        }
-    }
-    return { checked, other: rest };
+interface Reference {
+    min: number | null;
+    max: number | null;
+    recommendations: string[];
+    salaryNote: string | null;
+    headcount: number | null;
+    taken: number;
+    /** Đại diện phòng ban đã gửi yêu cầu tuyển dụng (dòng phụ dưới tiêu đề). */
+    rep: string | null;
 }
-
-function joinBenefits(checked: string[], other: string) {
-    const ordered = STANDARD_BENEFITS.filter((b) => checked.includes(b));
-    return [...ordered, ...(other ? [other] : [])].join(BENEFIT_SEPARATOR);
-}
-
-const nameOf = (items: CatalogItem[], id?: number | null) =>
-    items.find((c) => c.id === id)?.name?.toString() ?? "—";
-
-const salaryRangeLabel = (min?: number | null, max?: number | null) =>
-    `${min != null ? formatMoney(min) : "…"} – ${max != null ? formatMoney(max) : "…"}`;
-
-/* ──────────────────────────────────────────────────────────────
- * Trang
- * ────────────────────────────────────────────────────────────── */
 
 export default function OfferCreatePage() {
     const navigate = useNavigate();
     const { id } = useParams();
     const [searchParams] = useSearchParams();
     const { message } = App.useApp();
+    const me = useAppSelector((s) => s.auth.user);
 
     const editingId = id ? Number(id) : null;
     const applicationIdParam = searchParams.get("applicationId");
     const hasFixedApplication = !!editingId || !!applicationIdParam;
 
-    /* ── State ──────────────────────────────────────────────── */
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-
     const [application, setApplication] = useState<ApplicationResponse | null>(null);
-    /** Email và số điện thoại không nằm trong hồ sơ ứng tuyển, phải lấy từ hồ sơ ứng viên. */
-    const [candidate, setCandidate] = useState<CandidateResponse | null>(null);
     const [posting, setPosting] = useState<JobPostingResponse | null>(null);
-
-    const [approvers, setApprovers] = useState<UserDirectoryResponse[]>([]);
+    const [requesterName, setRequesterName] = useState(me?.fullName ?? "");
     const [contractTypes, setContractTypes] = useState<CatalogItem[]>([]);
     const [departments, setDepartments] = useState<CatalogItem[]>([]);
     const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
+    const [company, setCompany] = useState("");
+    const [reference, setReference] = useState<Reference | null>(null);
 
-    // Cascade select (chỉ dùng khi tạo mới tự do)
+    // Chọn dần phòng ban → việc làm → ứng viên (chỉ khi mở trang không kèm hồ sơ)
     const [departmentId, setDepartmentId] = useState<number | null>(null);
     const [postings, setPostings] = useState<JobPostingResponse[]>([]);
     const [postingId, setPostingId] = useState<number | null>(null);
     const [applications, setApplications] = useState<ApplicationResponse[]>([]);
-    const [loadingPostings, setLoadingPostings] = useState(false);
-    const [loadingApplications, setLoadingApplications] = useState(false);
 
-    /* ── Form ───────────────────────────────────────────────── */
-    const {
-        control,
-        handleSubmit,
-        reset,
-        setValue,
-        formState: { errors },
-    } = useForm<OfferCreateFormValues>({
+    const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<OfferCreateFormValues>({
         resolver: zodResolver(offerCreateSchema),
     });
-
-    /** Dùng cho cảnh báo lệch khoảng lương và cho ô tóm tắt — cập nhật theo từng phím gõ. */
     const draft = useWatch({ control });
-    const salaryOffered = draft.salaryOffered;
 
-    /* ── Nạp dữ liệu ────────────────────────────────────────── */
-    const loadCandidate = async (candidateId?: number | null) => {
-        setCandidate(null);
-        if (candidateId == null) return;
-        try {
-            const res = await getCandidateById(candidateId);
-            setCandidate(res.data);
-        } catch {
-            // Thiếu email/SĐT thì để trống chứ không chặn việc soạn đề nghị.
-        }
-    };
+    /* Tham chiếu: khung lương của yêu cầu đã duyệt, đề xuất trong phiếu đánh giá, suất còn lại. */
+    const loadReference = useCallback(async (app: ApplicationResponse, jd: JobPostingResponse | null, selfId?: number | null) => {
+        const [req, evals, offers] = await Promise.all([
+            jd?.requisitionId ? getRequisitionById(jd.requisitionId).then((r) => r.data).catch(() => null) : Promise.resolve(null as JobRequisitionResponse | null),
+            getApplicationEvaluations(app.id).then((r) => r.data).catch(() => [] as EvaluationResponse[]),
+            getOffers({ jobPostingId: app.jobPostingId, size: 1000 }).then((r) => r.data.content).catch(() => [] as OfferResponse[]),
+        ]);
+        const submitted = evals.filter((e) => e.submittedAt && e.overallRecommendation);
+        setReference({
+            min: req?.approvedSalaryMin ?? req?.expectedSalaryMin ?? jd?.salaryMin ?? null,
+            max: req?.approvedSalaryMax ?? req?.expectedSalaryMax ?? jd?.salaryMax ?? null,
+            recommendations: [...new Set(submitted.map((e) => REC_LABEL[e.overallRecommendation!]))],
+            salaryNote: submitted.map((e) => e.salaryNote).find((n) => !!n) ?? null,
+            headcount: jd?.headcount ?? null,
+            rep: req?.requesterName ?? null,
+            taken: offers.filter((o) => o.id !== selfId && ["ACCEPTED", "APPROVED", "PENDING_APPROVAL"].includes(o.status)).length,
+        });
+    }, []);
 
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [ctRes, hrRes, adminRes, deptRes, locRes] = await Promise.all([
+            const [ctRes, deptRes, locRes] = await Promise.all([
                 getCatalogItems("/masterdata/contract-types"),
-                getUserDirectory("RECRUITER"),
-                getUserDirectory("COMPANY_ADMIN"),
                 getCatalogItems("/masterdata/departments"),
                 getCatalogItems("/masterdata/work-locations"),
             ]);
-
             setContractTypes(ctRes.data.filter((c) => c.active !== false));
             setDepartments(deptRes.data);
             setWorkLocations(locRes.data);
-            setApprovers(
-                Array.from(
-                    new Map([...hrRes.data, ...adminRes.data].map((u) => [u.id, u])).values(),
-                ),
-            );
+            getPublicCompany().then((r) => setCompany(r.data.name)).catch(() => undefined);
+
+            const openApp = async (appId: number) => {
+                const app = (await getApplicationById(appId)).data;
+                setApplication(app);
+                const jd = app.jobPostingId ? (await getPostingById(app.jobPostingId)).data : null;
+                setPosting(jd);
+                return { app, jd };
+            };
 
             if (editingId) {
-                const offerRes = await getOfferById(editingId);
-                const o = offerRes.data;
-
-                const appRes = await getApplicationById(o.applicationId);
-                setApplication(appRes.data);
-                loadCandidate(appRes.data.candidateId);
-
-                if (appRes.data.jobPostingId) {
-                    const jdRes = await getPostingById(appRes.data.jobPostingId);
-                    setPosting(jdRes.data);
-                }
-
+                const o = (await getOfferById(editingId)).data;
+                const { app, jd } = await openApp(o.applicationId);
+                setRequesterName(o.requesterName ?? me?.fullName ?? "");
+                void loadReference(app, jd, o.id);
                 reset({
-                    applicationId: o.applicationId,
-                    salaryOffered: o.salaryOffered,
-                    contractTypeId: o.contractTypeId,
-                    startDate: o.startDate,
-                    probationMonths: o.probationMonths ?? 0,
-                    reportingManager: o.reportingManager ?? "",
-                    workLocationId: o.workLocationId ?? null,
-                    currency: o.currency ?? "VND",
-                    payFrequency: o.payFrequency ?? "MONTHLY",
-                    performanceBonus: o.performanceBonus ?? "",
-                    annualLeaveDays: o.annualLeaveDays ?? 12,
-                    benefits: o.benefits ?? "",
-                    allowance: o.allowance ?? 0,
-                    note: o.note ?? "",
-                    candidateVisibleNote: o.candidateVisibleNote ?? "",
-                    approverId: o.approverId,
-                    responseDeadline: o.responseDeadline ?? null,
+                    applicationId: o.applicationId, salaryOffered: o.salaryOffered, contractTypeId: o.contractTypeId,
+                    startDate: o.startDate, probationMonths: o.probationMonths ?? 0, reportingManager: o.reportingManager ?? "",
+                    workLocationId: o.workLocationId ?? null, currency: o.currency ?? "VND", payFrequency: o.payFrequency ?? "MONTHLY",
+                    performanceBonus: o.performanceBonus ?? "", annualLeaveDays: o.annualLeaveDays ?? 12, benefits: o.benefits ?? "",
+                    allowance: o.allowance ?? 0, note: o.note ?? "", candidateVisibleNote: o.candidateVisibleNote ?? "",
+                    approverId: o.approverId, responseDeadline: o.responseDeadline ?? "",
                 });
                 return;
             }
 
             let jd: JobPostingResponse | null = null;
-            let fixedAppId: number | undefined;
-
+            let appId: number | undefined;
             if (applicationIdParam) {
-                fixedAppId = Number(applicationIdParam);
-                const appRes = await getApplicationById(fixedAppId);
-                setApplication(appRes.data);
-                loadCandidate(appRes.data.candidateId);
-
-                if (appRes.data.jobPostingId) {
-                    const jdRes = await getPostingById(appRes.data.jobPostingId);
-                    jd = jdRes.data;
-                    setPosting(jd);
-                }
+                appId = Number(applicationIdParam);
+                const opened = await openApp(appId);
+                jd = opened.jd;
+                void loadReference(opened.app, jd);
             }
-
             reset({
-                applicationId: fixedAppId as number,
+                applicationId: appId as number,
                 salaryOffered: jd?.salaryMin ?? 15_000_000,
                 contractTypeId: undefined as unknown as number,
                 startDate: "",
@@ -277,25 +165,20 @@ export default function OfferCreatePage() {
                 allowance: 0,
                 note: "",
                 candidateVisibleNote: "",
-                approverId: undefined as unknown as number,
-                responseDeadline: null,
+                // Gửi thẳng từ bản nháp (B2): người duyệt = người soạn. Backend vẫn bắt buộc trường này (nợ kỹ thuật).
+                approverId: Number(me?.userId),
+                responseDeadline: "",
             });
         } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(
-                axiosErr.response?.data?.message ?? "Không tải được dữ liệu đề nghị nhận việc",
-            );
+            message.error((err as AxiosError<ApiMessageResponse>).response?.data?.message ?? "Không tải được dữ liệu thư mời");
             navigate("/offers");
         } finally {
             setLoading(false);
         }
-    }, [editingId, applicationIdParam, reset, message, navigate]);
+    }, [editingId, applicationIdParam, reset, message, navigate, me, loadReference]);
 
-    useEffect(() => {
-        load();
-    }, [load]);
+    useEffect(() => { void load(); }, [load]);
 
-    /* ── Chọn dần phòng ban → tin → ứng viên ────────────────── */
     const pickDepartment = async (value: number | null) => {
         setDepartmentId(value);
         setPostingId(null);
@@ -303,68 +186,29 @@ export default function OfferCreatePage() {
         setApplications([]);
         setApplication(null);
         setPosting(null);
+        setReference(null);
         setValue("applicationId", undefined as unknown as number);
-
         if (value == null) return;
-
-        setLoadingPostings(true);
-        try {
-            const res = await getPostings({ size: 1000 });
-            setPostings(res.data.content.filter((p) => p.departmentId === value));
-        } catch {
-            setPostings([]);
-            message.error("Không tải được danh sách tin tuyển dụng");
-        } finally {
-            setLoadingPostings(false);
-        }
+        const res = await getPostings({ size: 1000 }).catch(() => null);
+        setPostings((res?.data.content ?? []).filter((p) => p.departmentId === value));
     };
 
     const pickPosting = async (value: number | null) => {
         setPostingId(value);
         setApplications([]);
         setApplication(null);
+        setReference(null);
         setValue("applicationId", undefined as unknown as number);
-
         const jd = postings.find((p) => p.id === value) ?? null;
         setPosting(jd);
-
-        // Điền sẵn theo tin tuyển dụng để HR chỉ phải sửa phần thỏa thuận riêng.
         if (jd?.salaryMin != null) setValue("salaryOffered", jd.salaryMin);
         if (jd?.benefits) setValue("benefits", jd.benefits);
         if (jd?.workLocationId != null) setValue("workLocationId", jd.workLocationId);
-
         if (value == null) return;
-
-        setLoadingApplications(true);
-        try {
-            const res = await getApplications({
-                jobPostingId: value,
-                stageType: "OFFER",
-                size: 1000,
-            });
-            setApplications(res.data.content);
-        } catch {
-            setApplications([]);
-            message.error("Không tải được danh sách ứng viên");
-        } finally {
-            setLoadingApplications(false);
-        }
+        const res = await getApplications({ jobPostingId: value, stageType: "OFFER", size: 1000 }).catch(() => null);
+        setApplications(res?.data.content ?? []);
     };
 
-    /* ── Cảnh báo lệch khoảng lương đã đăng ─────────────────── */
-    const salaryWarning = useMemo(() => {
-        if (!posting || salaryOffered == null) return null;
-        const { salaryMin, salaryMax } = posting;
-        if (salaryMin != null && salaryOffered < salaryMin) {
-            return `Thấp hơn khoảng đã đăng (${salaryRangeLabel(salaryMin, salaryMax)}).`;
-        }
-        if (salaryMax != null && salaryOffered > salaryMax) {
-            return `Cao hơn khoảng đã đăng (${salaryRangeLabel(salaryMin, salaryMax)}).`;
-        }
-        return null;
-    }, [posting, salaryOffered]);
-
-    /* ── Lưu ────────────────────────────────────────────────── */
     const persist = async (data: OfferCreateFormValues) => {
         const payload = {
             salaryOffered: data.salaryOffered,
@@ -373,7 +217,7 @@ export default function OfferCreatePage() {
             probationMonths: data.probationMonths,
             reportingManager: data.reportingManager || null,
             workLocationId: data.workLocationId ?? null,
-            currency: data.currency || "VND",
+            currency: "VND",
             payFrequency: data.payFrequency || "MONTHLY",
             performanceBonus: data.performanceBonus || null,
             annualLeaveDays: data.annualLeaveDays ?? null,
@@ -384,760 +228,238 @@ export default function OfferCreatePage() {
             approverId: data.approverId,
             responseDeadline: data.responseDeadline || null,
         };
-
         if (editingId) {
             await updateOffer(editingId, payload);
             return editingId;
         }
-        const res = await createOffer({ ...payload, applicationId: data.applicationId });
-        return res.data.id;
+        return (await createOffer({ ...payload, applicationId: data.applicationId })).data.id;
     };
 
-    const onSaveDraft = handleSubmit(async (data) => {
+    const save = (review: boolean) => handleSubmit(async (data) => {
         setSaving(true);
         try {
             const offerId = await persist(data);
-            message.success("Đã lưu bản nháp");
+            if (!review) message.success("Đã lưu bản nháp");
             navigate(`/offers/${offerId}`);
         } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Lưu bản nháp thất bại");
+            message.error((err as AxiosError<ApiMessageResponse>).response?.data?.message ?? "Lưu thư mời thất bại");
         } finally {
             setSaving(false);
         }
-    });
+    }, () => message.warning("Còn thông tin bắt buộc chưa điền — xem các ô đánh dấu đỏ."));
 
-    // R24 "Lưu & xem lại": lưu bản nháp rồi mở trang chi tiết (R26) để kiểm tra và bấm "Gửi thư mời".
-    const onSaveAndReview = handleSubmit(async (data) => {
-        setSaving(true);
-        try {
-            const offerId = await persist(data);
-            navigate(`/offers/${offerId}`);
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Lưu thư mời thất bại");
-        } finally {
-            setSaving(false);
-        }
-    });
+    if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 64 }}><Spin size="large" /></div>;
 
-    /* ── Giá trị dẫn xuất ───────────────────────────────────── */
-    if (loading) {
-        return (
-            <div className="page-shell" style={{ display: "flex", justifyContent: "center", padding: 64 }}>
-                <Spin size="large" />
-            </div>
-        );
-    }
-
+    const ready = hasFixedApplication || !!application;
     const candidateName = application?.candidateName ?? "";
-    const departmentName =
-        posting?.departmentName ??
-        application?.departmentName ??
-        nameOf(departments, posting?.departmentId ?? application?.departmentId ?? departmentId);
+    const deptName = posting?.departmentName ?? application?.departmentName ?? null;
+    const contractName = contractTypes.find((c) => c.id === draft.contractTypeId)?.name?.toString() ?? null;
+    const locationName = workLocations.find((w) => w.id === draft.workLocationId)?.name?.toString() ?? "";
+    const salary = draft.salaryOffered ?? null;
+    const range = reference && reference.min != null && reference.max != null && reference.max > reference.min ? reference : null;
+    const rangePct = range && salary != null ? Math.max(0, Math.min(100, ((salary - range.min!) / (range.max! - range.min!)) * 100)) : null;
+    const outOfRange = range && salary != null && (salary < range.min! || salary > range.max!);
 
-    const readyToCompose = hasFixedApplication || !!application;
-
-    const currency = draft.currency ?? "VND";
-    const paySuffix = PAY_FREQUENCY_SUFFIX[draft.payFrequency ?? "MONTHLY"] ?? "";
-    const benefitTags = splitBenefits(draft.benefits).checked;
-
-    /** Lương thử việc tối thiểu — chỉ là gợi ý để HR ghi đúng vào điều khoản, không lưu lại. */
-    const probationFloor =
-        draft.probationMonths && salaryOffered
-            ? formatMoney(Math.round(salaryOffered * PROBATION_MIN_RATE))
-            : null;
-
-    /** Thu nhập hằng tháng gồm lương và phụ cấp — con số ứng viên thật sự quan tâm. */
-    const monthlyTotal =
-        draft.payFrequency !== "YEARLY" && salaryOffered
-            ? salaryOffered + (draft.allowance ?? 0)
-            : null;
-
-    /* ── Giao diện ──────────────────────────────────────────── */
     return (
-        <div className="page-shell animate-fade-in">
-            <PageHeader
-                className="page-shell-fixed"
-                title={`${editingId ? "Chỉnh sửa đề nghị" : "Tạo đề nghị nhận việc"}${candidateName ? ` – ${candidateName}` : ""
-                    }`}
-                actions={
-                    <>
-                        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
-                            Hủy
-                        </Button>
-                        <Button
-                            icon={<SaveOutlined />}
-                            loading={saving}
-                            disabled={!readyToCompose}
-                            onClick={onSaveDraft}
-                        >
-                            Lưu nháp
-                        </Button>
-                        <Button
-                            type="primary"
-                            icon={<SendOutlined />}
-                            loading={saving}
-                            disabled={!readyToCompose}
-                            onClick={onSaveAndReview}
-                        >
-                            Lưu & xem lại
-                        </Button>
-                    </>
-                }
-            />
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+                <PageBreadcrumb crumb={candidateName || "Soạn thư mời"} />
+                <ScreenTitle
+                    title={`Thư mời${candidateName ? ` · ${candidateName}` : ""}`}
+                    subtitle={posting ? `${posting.title}${reference?.rep ? ` · Đại diện phòng ban ${reference.rep}` : ""}` : undefined}
+                    actions={<>
+                        <Button onClick={() => navigate(-1)}>Huỷ</Button>
+                        <Button loading={saving} disabled={!ready} onClick={save(false)}>Lưu nháp</Button>
+                        <Button type="primary" loading={saving} disabled={!ready} onClick={save(true)}>Lưu & xem lại</Button>
+                    </>}
+                />
+            </div>
 
-            <div className="page-shell-scroll">
-                {/* Khung hẹp lại so với bề ngang trang: mỗi hàng chỉ 2 ô nên ô nhập rộng hẳn ra. */}
-                <div style={{ maxWidth: 1120, margin: "0 auto" }}>
-                    {/* ── Chọn vị trí (chỉ khi tạo mới tự do) ───── */}
-                    {!hasFixedApplication && (
-                        <Card
-                            size="small"
-                            title="Chọn vị trí & ứng viên"
-                            style={{ marginBottom: 16, borderRadius: 12 }}
-                        >
-                            <div style={GRID_FIELDS}>
-                                <Form.Item label="Phòng ban" required style={{ marginBottom: 0 }}>
-                                    <Select
-                                        allowClear
-                                        value={departmentId ?? undefined}
-                                        onChange={(v) => pickDepartment(v ?? null)}
-                                        showSearch
-                                        optionFilterProp="label"
-                                        placeholder="Chọn phòng ban"
-                                        options={departments.map((d) => ({
-                                            value: d.id,
-                                            label: String(d.name),
-                                        }))}
-                                    />
-                                </Form.Item>
+            {!hasFixedApplication && (
+                <Panel title="Chọn ứng viên">
+                    <div style={GRID3}>
+                        <Field label="Phòng ban" required>
+                            <Select allowClear showSearch optionFilterProp="label" placeholder="Chọn phòng ban" style={FULL}
+                                value={departmentId ?? undefined} onChange={(v) => void pickDepartment(v ?? null)}
+                                options={departments.map((d) => ({ value: d.id, label: String(d.name) }))} />
+                        </Field>
+                        <Field label="Việc làm" required>
+                            <Select allowClear showSearch optionFilterProp="label" style={FULL} disabled={departmentId == null}
+                                placeholder={departmentId == null ? "Chọn phòng ban trước" : "Chọn việc làm"}
+                                value={postingId ?? undefined} onChange={(v) => void pickPosting(v ?? null)}
+                                options={postings.map((p) => ({ value: p.id, label: p.title }))} />
+                        </Field>
+                        <Field label="Ứng viên (giai đoạn Thư mời)" required error={errors.applicationId?.message}>
+                            <Controller name="applicationId" control={control} render={({ field }) => (
+                                <Select showSearch optionFilterProp="label" style={FULL} disabled={postingId == null}
+                                    placeholder={postingId == null ? "Chọn việc làm trước" : "Chọn ứng viên"}
+                                    notFoundContent="Chưa có ứng viên ở giai đoạn Thư mời"
+                                    value={field.value} options={applications.map((a) => ({ value: a.id, label: a.candidateName }))}
+                                    onChange={(v) => {
+                                        field.onChange(v);
+                                        const picked = applications.find((a) => a.id === v) ?? null;
+                                        setApplication(picked);
+                                        if (picked) void loadReference(picked, posting);
+                                    }} />
+                            )} />
+                        </Field>
+                    </div>
+                </Panel>
+            )}
 
-                                <Form.Item label="Tin tuyển dụng" required style={{ marginBottom: 0 }}>
-                                    <Select
-                                        allowClear
-                                        value={postingId ?? undefined}
-                                        onChange={(v) => pickPosting(v ?? null)}
-                                        disabled={departmentId == null}
-                                        loading={loadingPostings}
-                                        showSearch
-                                        optionFilterProp="label"
-                                        placeholder={departmentId == null ? "Chọn phòng ban trước" : "Chọn tin"}
-                                        notFoundContent="Chưa có tin tuyển dụng"
-                                        options={postings.map((p) => ({ value: p.id, label: p.title }))}
-                                    />
-                                </Form.Item>
-
-                                <Form.Item
-                                    label="Ứng viên"
-                                    required
-                                    validateStatus={errors.applicationId ? "error" : ""}
-                                    help={errors.applicationId?.message}
-                                    style={{ marginBottom: 0 }}
-                                >
-                                    <Controller
-                                        name="applicationId"
-                                        control={control}
-                                        render={({ field }) => (
-                                            <Select
-                                                value={field.value}
-                                                onChange={(v) => {
-                                                    field.onChange(v);
-                                                    const picked = applications.find((a) => a.id === v) ?? null;
-                                                    setApplication(picked);
-                                                    loadCandidate(picked?.candidateId);
-                                                }}
-                                                disabled={postingId == null}
-                                                loading={loadingApplications}
-                                                showSearch
-                                                optionFilterProp="label"
-                                                placeholder={postingId == null ? "Chọn tin trước" : "Chọn ứng viên"}
-                                                notFoundContent="Chưa có ứng viên ở vòng Đề nghị"
-                                                options={applications.map((a) => ({
-                                                    value: a.id,
-                                                    label: a.candidateName,
-                                                }))}
-                                            />
-                                        )}
-                                    />
-                                </Form.Item>
+            {ready && (
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 420px)", gap: 16, alignItems: "start" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+                        <Panel title="Điều khoản" bodyGap={12}>
+                            <div style={GRID3}>
+                                <Field label="Lương gộp / tháng (đồng)" required error={errors.salaryOffered?.message}
+                                    hint={reference && (reference.min != null || reference.max != null) ? `Khung duyệt ${salaryText(reference.min, reference.max)}` : undefined}>
+                                    <Controller name="salaryOffered" control={control} render={({ field }) => (
+                                        <InputNumber style={FULL} min={0} step={500_000} formatter={moneyFormatter} parser={moneyParser}
+                                            status={outOfRange ? "warning" : undefined}
+                                            value={field.value} onChange={(v) => field.onChange(v ?? undefined)} />
+                                    )} />
+                                </Field>
+                                <Field label="Phụ cấp / tháng (đồng)">
+                                    <Controller name="allowance" control={control} render={({ field }) => (
+                                        <InputNumber style={FULL} min={0} step={100_000} formatter={moneyFormatter} parser={moneyParser}
+                                            value={field.value ?? undefined} onChange={(v) => field.onChange(v ?? 0)} />
+                                    )} />
+                                </Field>
+                                <Field label="Kỳ trả lương">
+                                    <Controller name="payFrequency" control={control} render={({ field }) => (
+                                        <Select style={FULL} value={field.value ?? "MONTHLY"} onChange={field.onChange}
+                                            options={[{ value: "MONTHLY", label: "Hằng tháng" }, { value: "YEARLY", label: "Hằng năm" }]} />
+                                    )} />
+                                </Field>
+                                <Field label="Ngày bắt đầu" required error={errors.startDate?.message}>
+                                    <Controller name="startDate" control={control} render={({ field }) => (
+                                        <DateField futureOnly value={field.value} onChange={field.onChange} />
+                                    )} />
+                                </Field>
+                                <Field label="Thời gian thử việc">
+                                    <Controller name="probationMonths" control={control} render={({ field }) => (
+                                        <Select style={FULL} value={field.value} onChange={field.onChange}
+                                            options={[0, 1, 2, 3, 6].map((m) => ({ value: m, label: m ? `${m} tháng` : "Không thử việc" }))} />
+                                    )} />
+                                </Field>
+                                <Field label="Loại hợp đồng" required error={errors.contractTypeId?.message}>
+                                    <Controller name="contractTypeId" control={control} render={({ field }) => (
+                                        <Select style={FULL} placeholder="Chọn loại hợp đồng" value={field.value} onChange={field.onChange}
+                                            options={contractTypes.map((c) => ({ value: c.id, label: String(c.name) }))} />
+                                    )} />
+                                </Field>
+                                <Field label="Nơi làm việc">
+                                    <Controller name="workLocationId" control={control} render={({ field }) => (
+                                        <Select style={FULL} allowClear placeholder="Chọn nơi làm việc" value={field.value ?? undefined}
+                                            onChange={(v) => field.onChange(v ?? null)}
+                                            options={workLocations.map((w) => ({ value: w.id, label: String(w.name) }))} />
+                                    )} />
+                                </Field>
+                                <Field label="Báo cáo cho">
+                                    <Controller name="reportingManager" control={control} render={({ field }) => (
+                                        <Input value={field.value ?? ""} onChange={field.onChange} placeholder="Họ tên quản lý trực tiếp" />
+                                    )} />
+                                </Field>
+                                <Field label="Ngày phép / năm">
+                                    <Controller name="annualLeaveDays" control={control} render={({ field }) => (
+                                        <InputNumber style={FULL} min={0} max={60} suffix="ngày"
+                                            value={field.value ?? undefined} onChange={(v) => field.onChange(v ?? null)} />
+                                    )} />
+                                </Field>
                             </div>
-                        </Card>
-                    )}
+                            <div style={GRID2}>
+                                <Field label="Thưởng hiệu suất">
+                                    <Controller name="performanceBonus" control={control} render={({ field }) => (
+                                        <Input value={field.value ?? ""} onChange={field.onChange} placeholder="Ví dụ: tối đa 2 tháng lương/năm, xét theo quý" />
+                                    )} />
+                                </Field>
+                                <Field label="Hạn phản hồi" required error={errors.responseDeadline?.message}>
+                                    <Controller name="responseDeadline" control={control} render={({ field }) => (
+                                        <DateField withTime futureOnly placeholder="Chọn hạn phản hồi" value={field.value} onChange={field.onChange} />
+                                    )} />
+                                </Field>
+                            </div>
+                            <Field label="Phúc lợi" hint="Mỗi dòng một mục — hiện thành danh sách trong thư.">
+                                <Controller name="benefits" control={control} render={({ field }) => (
+                                    <Input.TextArea autoSize={{ minRows: 3, maxRows: 6 }} value={field.value ?? ""} onChange={field.onChange}
+                                        placeholder={"Bảo hiểm sức khoẻ cho bản thân\nLương tháng 13"} />
+                                )} />
+                            </Field>
+                            <Field label="Lời nhắn cho ứng viên">
+                                <Controller name="candidateVisibleNote" control={control} render={({ field }) => (
+                                    <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} value={field.value ?? ""} onChange={field.onChange}
+                                        placeholder="Vài lời chúc mừng, điều cần chuẩn bị…" />
+                                )} />
+                            </Field>
+                            <Field label="Ghi chú nội bộ (ứng viên không thấy)">
+                                <Controller name="note" control={control} render={({ field }) => (
+                                    <Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} value={field.value ?? ""} onChange={field.onChange}
+                                        placeholder="Lý do chốt mức lương, điểm cần lưu ý khi thương lượng…" />
+                                )} />
+                            </Field>
+                        </Panel>
 
-                    {!readyToCompose ? (
-                        <Card size="small" style={{ borderRadius: 12 }}>
-                            <Empty
-                                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                description="Chọn phòng ban → tin tuyển dụng → ứng viên để bắt đầu"
-                            />
-                        </Card>
-                    ) : (
-                        <Form layout="vertical">
-                            {/* ── 1. Ứng viên & vị trí ứng tuyển ───────── */}
-                            <SectionCard step={1} title="Ứng viên & vị trí ứng tuyển">
-                                <div style={GRID_INFO}>
-                                    <ReadOnlyField label="Họ và tên" value={candidateName} />
-                                    <ReadOnlyField label="Email" value={candidate?.email ?? "—"} />
-                                    <ReadOnlyField label="Số điện thoại" value={candidate?.phone ?? "—"} />
-                                    <ReadOnlyField
-                                        label="Nguồn ứng viên"
-                                        value={application?.recruitmentSourceName ?? "—"}
-                                    />
-                                    <ReadOnlyField label="Tin tuyển dụng" value={posting?.title ?? "—"} />
-                                    <ReadOnlyField label="Phòng ban" value={departmentName} />
-                                    <ReadOnlyField
-                                        label="Khoảng lương đã đăng"
-                                        value={
-                                            posting?.salaryMin != null || posting?.salaryMax != null
-                                                ? salaryRangeLabel(posting.salaryMin, posting.salaryMax)
-                                                : "Không công bố"
-                                        }
-                                    />
-                                    <ReadOnlyField
-                                        label="Hình thức làm việc"
-                                        value={
-                                            posting?.workArrangement
-                                                ? WORK_ARRANGEMENT_LABEL[posting.workArrangement] ??
-                                                posting.workArrangement
-                                                : "—"
-                                        }
-                                    />
+                        {reference && (
+                            <Panel title="Tham chiếu" bodyGap={12}>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16 }}>
+                                    <RefItem label="Khung lương duyệt" value={reference.min != null || reference.max != null ? salaryText(reference.min, reference.max) : "—"} />
+                                    <RefItem label="Người phỏng vấn đề xuất" value={reference.recommendations.join(", ") || "Chưa có đánh giá"} />
+                                    <RefItem label="Ghi chú lương từ phỏng vấn" value={reference.salaryNote ?? "—"} />
+                                    <RefItem label="Còn suất" value={reference.headcount ? `${Math.max(0, reference.headcount - reference.taken)}/${reference.headcount}` : "—"} />
                                 </div>
-                            </SectionCard>
-
-                            {/* ── 2. Công việc ─────────────────────────── */}
-                            <SectionCard step={2} title="Công việc">
-                                <div style={GRID_FIELDS}>
-                                    <Form.Item label="Người quản lý trực tiếp" style={{ marginBottom: 0 }}>
-                                        <Controller
-                                            name="reportingManager"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Input
-                                                    value={field.value ?? ""}
-                                                    onChange={field.onChange}
-                                                    placeholder="Nguyễn Văn A — Trưởng phòng Kỹ thuật"
-                                                />
-                                            )}
-                                        />
-                                    </Form.Item>
-
-                                    <Form.Item label="Địa điểm làm việc" style={{ marginBottom: 0 }}>
-                                        <Controller
-                                            name="workLocationId"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Select
-                                                    allowClear
-                                                    value={field.value ?? undefined}
-                                                    onChange={(v) => field.onChange(v ?? null)}
-                                                    showSearch
-                                                    optionFilterProp="label"
-                                                    placeholder="Chọn địa điểm"
-                                                    options={workLocations.map((w) => ({
-                                                        value: w.id,
-                                                        label: String(w.name),
-                                                    }))}
-                                                />
-                                            )}
-                                        />
-                                    </Form.Item>
-
-                                    <Form.Item
-                                        label="Loại hợp đồng"
-                                        required
-                                        validateStatus={errors.contractTypeId ? "error" : ""}
-                                        help={errors.contractTypeId?.message}
-                                        style={{ marginBottom: 0 }}
-                                    >
-                                        <Controller
-                                            name="contractTypeId"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Select
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    showSearch
-                                                    optionFilterProp="label"
-                                                    placeholder="Chọn loại hợp đồng"
-                                                    options={contractTypes.map((c) => ({
-                                                        value: c.id,
-                                                        label: String(c.name),
-                                                    }))}
-                                                />
-                                            )}
-                                        />
-                                    </Form.Item>
-
-                                    <Form.Item
-                                        label="Ngày bắt đầu dự kiến"
-                                        required
-                                        validateStatus={errors.startDate ? "error" : ""}
-                                        help={errors.startDate?.message}
-                                        style={{ marginBottom: 0 }}
-                                    >
-                                        <Controller
-                                            name="startDate"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <DateField value={field.value} onChange={field.onChange} />
-                                            )}
-                                        />
-                                    </Form.Item>
-                                </div>
-                            </SectionCard>
-
-                            {/* ── 3. Lương & phúc lợi ──────────────────── */}
-                            <SectionCard step={3} title="Lương & phúc lợi">
-                                {salaryWarning && (
-                                    <Alert
-                                        type="warning"
-                                        showIcon
-                                        style={{ marginBottom: 20 }}
-                                        message="Lệch khoảng lương đã đăng"
-                                        description={salaryWarning}
-                                    />
-                                )}
-
-                                <div style={GRID_FIELDS}>
-                                    {/* Lương, đơn vị tiền và chu kỳ trả là một thỏa thuận, để chung một dòng. */}
-                                    <Form.Item
-                                        label="Lương Gross"
-                                        required
-                                        validateStatus={errors.salaryOffered ? "error" : ""}
-                                        help={errors.salaryOffered?.message}
-                                        style={{ ...FULL, marginBottom: 0 }}
-                                    >
-                                        <div style={{ display: "flex", gap: 10 }}>
-                                            <Controller
-                                                name="salaryOffered"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <InputNumber
-                                                        style={{ flex: 1 }}
-                                                        min={0}
-                                                        step={1_000_000}
-                                                        value={field.value}
-                                                        onChange={(v) => field.onChange(v ?? 0)}
-                                                        formatter={moneyFormatter}
-                                                        parser={moneyParser}
-                                                    />
-                                                )}
-                                            />
-                                            <Controller
-                                                name="currency"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Select
-                                                        style={{ width: 110 }}
-                                                        value={field.value ?? "VND"}
-                                                        onChange={field.onChange}
-                                                        options={[
-                                                            { value: "VND", label: "VND" },
-                                                            { value: "USD", label: "USD" },
-                                                        ]}
-                                                    />
-                                                )}
-                                            />
-                                            <Controller
-                                                name="payFrequency"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Select
-                                                        style={{ width: 150 }}
-                                                        value={field.value ?? "MONTHLY"}
-                                                        onChange={field.onChange}
-                                                        options={[
-                                                            { value: "MONTHLY", label: "Theo tháng" },
-                                                            { value: "YEARLY", label: "Theo năm" },
-                                                        ]}
-                                                    />
-                                                )}
-                                            />
-                                        </div>
-                                    </Form.Item>
-
-                                    <Form.Item label="Phụ cấp hằng tháng" style={{ marginBottom: 0 }}>
-                                        <Controller
-                                            name="allowance"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <InputNumber
-                                                    style={{ width: "100%" }}
-                                                    min={0}
-                                                    step={500_000}
-                                                    value={field.value}
-                                                    onChange={(v) => field.onChange(v ?? 0)}
-                                                    formatter={moneyFormatter}
-                                                    parser={moneyParser}
-                                                    placeholder="Ăn trưa, xăng xe, điện thoại…"
-                                                />
-                                            )}
-                                        />
-                                    </Form.Item>
-
-                                    <Form.Item
-                                        label="Thưởng hiệu suất"
-                                        extra="Thường thỏa thuận theo tỷ lệ nên để dạng chữ."
-                                        style={{ marginBottom: 0 }}
-                                    >
-                                        <Controller
-                                            name="performanceBonus"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Input
-                                                    value={field.value ?? ""}
-                                                    onChange={field.onChange}
-                                                    placeholder="10–15% lương năm, xét theo kết quả quý"
-                                                />
-                                            )}
-                                        />
-                                    </Form.Item>
-
-                                    <Form.Item
-                                        label="Thời gian thử việc"
-                                        extra={
-                                            probationFloor
-                                                ? `Lương thử việc tối thiểu theo luật (85%): ${probationFloor}`
-                                                : undefined
-                                        }
-                                        style={{ marginBottom: 0 }}
-                                    >
-                                        <Controller
-                                            name="probationMonths"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <InputNumber
-                                                    style={{ width: "100%" }}
-                                                    min={0}
-                                                    max={6}
-                                                    value={field.value}
-                                                    onChange={(v) => field.onChange(v ?? 0)}
-                                                    addonAfter="tháng"
-                                                />
-                                            )}
-                                        />
-                                    </Form.Item>
-
-                                    <Form.Item label="Số ngày phép năm" style={{ marginBottom: 0 }}>
-                                        <Controller
-                                            name="annualLeaveDays"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <InputNumber
-                                                    style={{ width: "100%" }}
-                                                    min={0}
-                                                    max={40}
-                                                    value={field.value}
-                                                    onChange={(v) => field.onChange(v ?? null)}
-                                                    addonAfter="ngày"
-                                                />
-                                            )}
-                                        />
-                                    </Form.Item>
-
-                                    <Form.Item label="Phúc lợi" style={{ ...FULL, marginBottom: 0 }}>
-                                        <Controller
-                                            name="benefits"
-                                            control={control}
-                                            render={({ field }) => {
-                                                const { checked, other } = splitBenefits(field.value);
-                                                const allChecked = checked.length === STANDARD_BENEFITS.length;
-                                                return (
-                                                    <>
-                                                        <Checkbox
-                                                            checked={allChecked}
-                                                            indeterminate={checked.length > 0 && !allChecked}
-                                                            onChange={(e) =>
-                                                                field.onChange(joinBenefits(
-                                                                    e.target.checked ? STANDARD_BENEFITS : [],
-                                                                    other,
-                                                                ))
-                                                            }
-                                                            style={{ marginBottom: 12, fontWeight: 500 }}
-                                                        >
-                                                            Chọn tất cả
-                                                        </Checkbox>
-                                                        <Checkbox.Group
-                                                            value={checked}
-                                                            onChange={(v) =>
-                                                                field.onChange(joinBenefits(v as string[], other))
-                                                            }
-                                                            style={{
-                                                                display: "grid",
-                                                                gridTemplateColumns:
-                                                                    "repeat(auto-fit, minmax(250px, 1fr))",
-                                                                gap: 10,
-                                                            }}
-                                                            options={STANDARD_BENEFITS.map((b) => ({
-                                                                label: b,
-                                                                value: b,
-                                                            }))}
-                                                        />
-                                                        <Input.TextArea
-                                                            style={{ marginTop: 12 }}
-                                                            rows={8}
-                                                            value={other}
-                                                            onChange={(e) =>
-                                                                field.onChange(
-                                                                    joinBenefits(checked, e.target.value),
-                                                                )
-                                                            }
-                                                            placeholder="Phúc lợi khác thỏa thuận riêng…"
-                                                        />
-                                                    </>
-                                                );
-                                            }}
-                                        />
-                                    </Form.Item>
-                                </div>
-                            </SectionCard>
-
-                            {/* ── 4. Điều khoản & phê duyệt ────────────── */}
-                            <SectionCard step={4} title="Điều khoản & phê duyệt">
-                                <div style={GRID_FIELDS}>
-                                    <Form.Item
-                                        label="Hạn phản hồi đề nghị"
-                                        extra="Quá hạn này ứng viên không bấm chấp nhận được nữa."
-                                        style={{ marginBottom: 0 }}
-                                    >
-                                        <Controller
-                                            name="responseDeadline"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <DateField withTime futureOnly placeholder="Chọn thời hạn" value={field.value} onChange={(v) => field.onChange(v || null)} />
-                                            )}
-                                        />
-                                    </Form.Item>
-
-                                    <Form.Item
-                                        label="Người duyệt"
-                                        required
-                                        validateStatus={errors.approverId ? "error" : ""}
-                                        help={errors.approverId?.message}
-                                        style={{ marginBottom: 0 }}
-                                    >
-                                        <Controller
-                                            name="approverId"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Select
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    showSearch
-                                                    optionFilterProp="label"
-                                                    placeholder="Chọn người duyệt"
-                                                    options={approvers.map((u) => ({
-                                                        value: u.id,
-                                                        label: u.fullName,
-                                                    }))}
-                                                />
-                                            )}
-                                        />
-                                    </Form.Item>
-
-                                    <Form.Item
-                                        label="Điều kiện kèm theo"
-                                        extra="Ứng viên đọc được phần này trong thư mời."
-                                        style={{ ...FULL, marginBottom: 0 }}
-                                    >
-                                        <Controller
-                                            name="candidateVisibleNote"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Input.TextArea
-                                                    value={field.value ?? ""}
-                                                    onChange={field.onChange}
-                                                    rows={6}
-                                                    placeholder="Đề nghị có hiệu lực sau khi hoàn tất kiểm tra thông tin và ký cam kết bảo mật…"
-                                                />
-                                            )}
-                                        />
-                                    </Form.Item>
-
-                                    <Form.Item
-                                        label="Ghi chú nội bộ"
-                                        extra="Chỉ nhân sự và quản trị hệ thống đọc được, không gửi cho ứng viên."
-                                        style={{ ...FULL, marginBottom: 0 }}
-                                    >
-                                        <Controller
-                                            name="note"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Input.TextArea
-                                                    value={field.value ?? ""}
-                                                    onChange={field.onChange}
-                                                    rows={6}
-                                                    placeholder="Lý do chốt mức lương này, điểm cần lưu ý khi thương lượng…"
-                                                />
-                                            )}
-                                        />
-                                    </Form.Item>
-                                </div>
-                            </SectionCard>
-
-                            {/* ── Tóm tắt ──────────────────────────────── */}
-                            <SectionCard step="✓" title="Tóm tắt đề nghị">
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "baseline",
-                                        gap: 10,
-                                        flexWrap: "wrap",
-                                        paddingBottom: 16,
-                                        marginBottom: 16,
-                                        borderBottom: `1px solid ${COLORS.borderLight}`,
-                                    }}
-                                >
-                                    <span style={{ fontSize: 26, fontWeight: 700, color: COLORS.primary }}>
-                                        {salaryOffered ? formatMoney(salaryOffered) : "—"}
-                                    </span>
-                                    <span style={{ color: COLORS.textSecondary }}>
-                                        {currency}
-                                        {paySuffix}
-                                    </span>
-                                    {monthlyTotal != null && (draft.allowance ?? 0) > 0 && (
-                                        <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
-                                            · Gồm phụ cấp: <b>{formatMoney(monthlyTotal)}</b>/tháng
+                                {rangePct != null && (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                        <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                                            Vị trí trong khung lương{outOfRange ? " — mức lương đang NGOÀI khung đã duyệt" : ""}
                                         </span>
-                                    )}
-                                </div>
-
-                                <div style={GRID_INFO}>
-                                    <ReadOnlyField label="Ứng viên" value={candidateName} />
-                                    <ReadOnlyField label="Vị trí" value={posting?.title ?? "—"} />
-                                    <ReadOnlyField
-                                        label="Địa điểm làm việc"
-                                        value={nameOf(workLocations, draft.workLocationId)}
-                                    />
-                                    <ReadOnlyField
-                                        label="Quản lý trực tiếp"
-                                        value={draft.reportingManager || "—"}
-                                    />
-                                    <ReadOnlyField
-                                        label="Loại hợp đồng"
-                                        value={nameOf(contractTypes, draft.contractTypeId)}
-                                    />
-                                    <ReadOnlyField
-                                        label="Ngày bắt đầu"
-                                        value={
-                                            draft.startDate ? dayjs(draft.startDate).format("DD/MM/YYYY") : "—"
-                                        }
-                                    />
-                                    <ReadOnlyField
-                                        label="Thử việc"
-                                        value={
-                                            draft.probationMonths ? `${draft.probationMonths} tháng` : "Không"
-                                        }
-                                    />
-                                    <ReadOnlyField
-                                        label="Phép năm"
-                                        value={
-                                            draft.annualLeaveDays != null
-                                                ? `${draft.annualLeaveDays} ngày`
-                                                : "—"
-                                        }
-                                    />
-                                    <ReadOnlyField
-                                        label="Thưởng hiệu suất"
-                                        value={draft.performanceBonus || "—"}
-                                    />
-                                    <ReadOnlyField
-                                        label="Hạn phản hồi"
-                                        value={
-                                            draft.responseDeadline
-                                                ? dayjs(draft.responseDeadline).format("HH:mm DD/MM/YYYY")
-                                                : "—"
-                                        }
-                                    />
-                                    <ReadOnlyField
-                                        label="Người duyệt"
-                                        value={
-                                            approvers.find((u) => u.id === draft.approverId)?.fullName ?? "—"
-                                        }
-                                    />
-                                </div>
-
-                                {benefitTags.length > 0 && (
-                                    <div style={{ marginTop: 16 }}>
-                                        <div
-                                            style={{
-                                                fontSize: 12,
-                                                color: COLORS.textSecondary,
-                                                marginBottom: 6,
-                                            }}
-                                        >
-                                            Phúc lợi
+                                        <div style={{ height: 6, borderRadius: 3, background: COLORS.fill, overflow: "hidden" }}>
+                                            <div style={{ width: `${rangePct}%`, height: "100%", background: outOfRange ? COLORS.warning : COLORS.primary }} />
                                         </div>
-                                        {benefitTags.map((b) => (
-                                            <Tag key={b} color="green" style={{ marginBottom: 6 }}>
-                                                {b}
-                                            </Tag>
-                                        ))}
                                     </div>
                                 )}
-                            </SectionCard>
-                        </Form>
-                    )}
+                            </Panel>
+                        )}
+                    </div>
+
+                    <div style={{ position: "sticky", top: 0 }}>
+                        <Panel title="Xem trước thư mời">
+                            <OfferLetterPreview data={{
+                                company, location: locationName, candidateName, jobTitle: posting?.title ?? application?.jobTitle,
+                                deptName, salaryOffered: salary, allowance: draft.allowance, payFrequency: draft.payFrequency,
+                                startDate: draft.startDate, probationMonths: draft.probationMonths, contractTypeName: contractName,
+                                annualLeaveDays: draft.annualLeaveDays, reportingManager: draft.reportingManager, benefits: draft.benefits,
+                                candidateVisibleNote: draft.candidateVisibleNote, responseDeadline: draft.responseDeadline,
+                                requesterName: requesterName || me?.fullName,
+                            }} />
+                        </Panel>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }
 
-/* ──────────────────────────────────────────────────────────────
- * Thành phần phụ
- * ────────────────────────────────────────────────────────────── */
-
-function SectionCard({
-    step,
-    title,
-    children,
-}: {
-    step: number | string;
-    title: string;
-    children: React.ReactNode;
+function Field({ label, required, error, hint, children }: {
+    label: string; required?: boolean; error?: string; hint?: string; children: ReactNode;
 }) {
     return (
-        <Card
-            size="small"
-            style={{ marginBottom: 16, borderRadius: 12 }}
-            styles={{ body: { padding: 20 } }}
-            title={
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <span
-                        style={{
-                            width: 22,
-                            height: 22,
-                            borderRadius: 6,
-                            background: `${COLORS.primary}14`,
-                            color: COLORS.primary,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 12,
-                            fontWeight: 700,
-                        }}
-                    >
-                        {step}
-                    </span>
-                    {title}
-                </span>
-            }
-        >
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                {label}{required && <span style={{ color: COLORS.error }}> *</span>}
+            </span>
             {children}
-        </Card>
+            {error ? <span style={{ fontSize: 12, color: COLORS.error }}>{error}</span>
+                : hint ? <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{hint}</span> : null}
+        </label>
     );
 }
 
-function ReadOnlyField({ label, value }: { label: string; value: string }) {
+function RefItem({ label, value }: { label: string; value: string }) {
     return (
-        <div>
-            <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 }}>
-                {label}
-            </div>
-            <div style={{ fontWeight: 500 }}>{value || "—"}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{label}</span>
+            <b style={{ fontSize: 14 }}>{value}</b>
         </div>
     );
 }

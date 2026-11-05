@@ -83,6 +83,13 @@ public class Interview {
     @Column(name = "proposed_by")
     private Long proposedBy;
 
+    /** Ứng viên xin dời lịch: lý do và thời điểm (trạng thái CANDIDATE_DECLINED). */
+    @Column(name = "candidate_decline_reason", length = 500)
+    private String candidateDeclineReason;
+
+    @Column(name = "candidate_declined_at")
+    private LocalDateTime candidateDeclinedAt;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

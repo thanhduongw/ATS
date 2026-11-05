@@ -3,7 +3,7 @@ import { Icon } from "@/components/ui/icon";
 import { useTabScreenOptions } from "@/lib/tab-options";
 import { STRINGS } from "@/lib/strings";
 import { useUnreadCount } from "@/features/notifications/hooks";
-import { useMyInterviews, useMyPendingSlots } from "@/features/interviews/hooks";
+import { useMyInterviews } from "@/features/interviews/hooks";
 
 const T = STRINGS.tabs.candidate;
 const DETAIL = { href: null, tabBarStyle: { display: "none" as const } };
@@ -15,11 +15,9 @@ const DETAIL = { href: null, tabBarStyle: { display: "none" as const } };
 export default function CandidateLayout() {
   const screenOptions = useTabScreenOptions();
   const unread = useUnreadCount();
-  const slots = useMyPendingSlots();
   const interviews = useMyInterviews();
-  // Việc đang chờ ứng viên ở tab Lịch: khung giờ cần báo rảnh + buổi cần xác nhận.
-  const todo =
-    (slots.data?.length ?? 0) + (interviews.data ?? []).filter((iv) => iv.status === "HM_CONFIRMED").length;
+  // Việc đang chờ ứng viên ở tab Lịch: buổi đã chốt giờ cần Đồng ý / Từ chối.
+  const todo = (interviews.data ?? []).filter((iv) => iv.status === "HM_CONFIRMED").length;
   const badge = (n: number) => (n > 0 ? (n > 9 ? "9+" : n) : undefined);
 
   return (
@@ -58,7 +56,6 @@ export default function CandidateLayout() {
       <Tabs.Screen name="jobs/[id]" options={DETAIL} />
       <Tabs.Screen name="jobs/apply" options={DETAIL} />
       <Tabs.Screen name="applications/[id]" options={DETAIL} />
-      <Tabs.Screen name="interviews/schedule" options={DETAIL} />
       <Tabs.Screen name="offers/index" options={DETAIL} />
       <Tabs.Screen name="offers/[id]" options={DETAIL} />
       <Tabs.Screen name="offers/welcome" options={DETAIL} />

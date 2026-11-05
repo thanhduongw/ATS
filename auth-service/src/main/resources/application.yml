@@ -5,6 +5,13 @@ server:
   forward-headers-strategy: framework
 
 spring:
+  # Biến AWS_* nằm trong .env (run-service.bat cũng nạp sẵn); import để chạy thẳng từ IDE vẫn đọc được.
+  config:
+    import: optional:file:./.env[.properties]
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   application:
     name: auth-service
   datasource:
@@ -63,3 +70,12 @@ services:
 springdoc:
   api-docs:
     path: /api/auth/v3/api-docs
+
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET:ats-bucket}
+    region: ${AWS_S3_REGION:us-east-1}
+    endpoint: ${AWS_S3_ENDPOINT:}
+    public-url: ${AWS_S3_PUBLIC_URL:}
+  access-key-id: ${AWS_ACCESS_KEY_ID:}
+  secret-access-key: ${AWS_SECRET_ACCESS_KEY:}

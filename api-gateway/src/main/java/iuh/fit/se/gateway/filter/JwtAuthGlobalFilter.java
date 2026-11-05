@@ -176,7 +176,8 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
         if (HttpMethod.GET.equals(method) && path.startsWith("/api/recruitment/public/")) {
             return true;
         }
-        if (HttpMethod.GET.equals(method) && "/api/auth/public/company".equals(path)) {
+        if (HttpMethod.GET.equals(method)
+                && ("/api/auth/public/company".equals(path) || "/api/auth/public/careers-page".equals(path))) {
             return true;
         }
         // Nhận lời mời (docs/UI A04): người được mời chưa có tài khoản hoạt động nên chưa có JWT.

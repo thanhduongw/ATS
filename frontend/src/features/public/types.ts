@@ -6,6 +6,15 @@ export interface PublicCompanyResponse {
     logoUrl: string | null;
     bannerUrl: string | null;
     dataRetentionMonths: number | null;
+    /** C01 chân trang + mặc định trang tuyển dụng (A08). */
+    tagline?: string | null;
+    benefits?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    recruitingEmail?: string | null;
+    website?: string | null;
+    legalName?: string | null;
+    brandColor?: string | null;
 }
 
 /** Khớp JobPostingResponse backend */

@@ -80,6 +80,7 @@ const ROUTES: RouteNode[] = [
     { pattern: "/admin/users/roles", label: "Vai trò & quyền", parent: "/admin/users" },
     { pattern: "/admin/users/:id", label: "Chi tiết người dùng", parent: "/admin/users" },
     { pattern: "/admin/company", label: "Thông tin doanh nghiệp", moduleKey: "/admin/company" },
+    { pattern: "/admin/careers", label: "Trang tuyển dụng", moduleKey: "/admin/careers" },
     { pattern: "/audit-logs", label: "Nhật ký hệ thống", moduleKey: "/audit-logs" },
     { pattern: "/notifications", label: "Thông báo", moduleKey: "/notifications" },
     { pattern: "/settings", label: "Cài đặt tài khoản", moduleKey: "/settings" },

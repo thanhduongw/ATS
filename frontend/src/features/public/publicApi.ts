@@ -3,7 +3,7 @@ import type { PublicCompanyResponse, PublicJobPosting } from "./types";
 import { API_BASE_URL } from "../../config";
 
 /** Public client: no JWT and no trusted identity headers. */
-const publicClient = axios.create({ baseURL: API_BASE_URL });
+export const publicClient = axios.create({ baseURL: API_BASE_URL });
 
 export const getPublicCompany = () =>
     publicClient.get<PublicCompanyResponse>("/auth/public/company");

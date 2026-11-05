@@ -69,7 +69,7 @@ function menuFor(role: UserRole): NavItem[] {
                 { key: "/dashboard", label: "Tổng quan", icon: <DashboardOutlined /> },
                 { key: "/admin/users", label: "Người dùng", icon: <UserOutlined /> },
                 { key: "/admin/company", label: "Thông tin doanh nghiệp", icon: <BankOutlined /> },
-                { key: "/careers", label: "Trang tuyển dụng", icon: <GlobalOutlined /> },
+                { key: "/admin/careers", label: "Trang tuyển dụng", icon: <GlobalOutlined /> },
                 { key: "/audit-logs", label: "Nhật ký hệ thống", icon: <AuditOutlined /> },
             ];
         // C20 — cổng ứng viên

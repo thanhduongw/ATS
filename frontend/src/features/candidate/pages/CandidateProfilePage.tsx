@@ -16,8 +16,7 @@ import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designK
 
 /**
  * C17 · Hồ sơ của tôi: thông tin cá nhân · kỹ năng · CV (chỉ 1 CV — "Tải CV mới" thay CV cũ, quyết định G7).
- * Khác HTML: chưa có ảnh đại diện (tài khoản chưa có trường ảnh) và chưa hiện tên file / ngày tải CV
- * (API chỉ trả "đã có CV hay chưa").
+ * Ảnh đại diện: AvatarUploader. Khác HTML: chưa hiện tên file / ngày tải CV (API chỉ trả "đã có CV hay chưa").
  */
 type ProfileForm = Omit<CandidateSelfUpdateRequest, "dateOfBirth"> & {
     dateOfBirth?: ReturnType<typeof dayjs> | null;

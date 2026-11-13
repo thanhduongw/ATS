@@ -18,7 +18,7 @@ import { getPublicCompany } from "../../public/publicApi";
 
 /**
  * R32 · Cài đặt tài khoản (mọi vai trò nội bộ): thông tin cá nhân · đổi mật khẩu · đăng xuất.
- * Email và phòng ban chỉ xem (do Quản trị doanh nghiệp đổi). Chưa có "Đổi ảnh" — tài khoản chưa có trường ảnh đại diện.
+ * Email và phòng ban chỉ xem (do Quản trị doanh nghiệp đổi). "Đổi ảnh" đại diện: AvatarUploader.
  *
  * C18 · Quyền riêng tư & bảo mật (ứng viên, cùng đường dẫn /settings): đổi mật khẩu · thời gian lưu dữ liệu ·
  * xoá tài khoản và dữ liệu (gõ "XOA DU LIEU" để xác nhận). Thông tin cá nhân của ứng viên sửa ở "Hồ sơ của tôi".

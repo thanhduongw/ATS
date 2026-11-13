@@ -17,6 +17,7 @@ import { getOffers } from "../../offer/offerApi";
 import type { OfferResponse } from "../../offer/types";
 import { getOpenPostings, getRequisitions } from "../../recruitment/recruitmentApi";
 import type { JobPostingResponse, JobRequisitionResponse } from "../../recruitment/types";
+import { INTERVIEW_HELD } from "../../interview/types";
 import { Avatar, IconTile, InlineNotice, Panel, StageBar } from "../../../components/ui/designKit";
 
 /**
@@ -261,7 +262,7 @@ function recruiterTasks(d: Data, me: number): Task[] {
     const appById = new Map(d.applications.map((a) => [a.id, a]));
 
     // 1. Viết đánh giá phỏng vấn (buổi đã diễn ra, tôi là người phỏng vấn và chưa nộp)
-    d.interviews.filter((iv) => iv.status !== "CANCELLED" && dayjs(iv.scheduledAt).isBefore(dayjs())
+    d.interviews.filter((iv) => INTERVIEW_HELD.has(iv.status) && dayjs(iv.scheduledAt).isBefore(dayjs())
         && iv.interviewers.some((i) => i.interviewerId === me && !i.evaluationSubmitted))
         .forEach((iv) => {
             const done = iv.interviewers.filter((i) => i.evaluationSubmitted && i.interviewerId !== me).map((i) => i.fullName);
@@ -368,7 +369,7 @@ function recruiterTasks(d: Data, me: number): Task[] {
 /* ── H01: việc cần làm của Đại diện phòng ban ─────────────────────────────── */
 function managerTasks(d: Data, me: number): Task[] {
     const tasks: Task[] = [];
-    d.interviews.filter((iv) => iv.status !== "CANCELLED" && dayjs(iv.scheduledAt).isBefore(dayjs())
+    d.interviews.filter((iv) => INTERVIEW_HELD.has(iv.status) && dayjs(iv.scheduledAt).isBefore(dayjs())
         && iv.interviewers.some((i) => i.interviewerId === me && !i.evaluationSubmitted))
         .forEach((iv) => {
             const done = iv.interviewers.filter((i) => i.evaluationSubmitted).length;

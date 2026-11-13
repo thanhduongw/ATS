@@ -20,6 +20,11 @@ export interface FitOptions {
     min?: number;
     /** Đổi dữ liệu / bộ lọc → đo lại. */
     deps?: unknown[];
+    /**
+     * Bộ chọn CSS của khung chứa bảng khi trang chia cột (vd. A01: bảng bên trái, phễu bên phải). Có thì chỉ
+     * đo tới đáy khung này — cột bên cạnh cao hơn không làm bảng co lại.
+     */
+    scope?: string;
 }
 
 const PAGINATION_RESERVE = 72;
@@ -40,7 +45,7 @@ const median = (xs: number[]) => {
 };
 
 export function useFitPageSize(ref: RefObject<HTMLElement | null>, opts: FitOptions): number {
-    const { itemSelector, fallbackItem, headerSelector, reserve = PAGINATION_RESERVE, min = 1, deps = [] } = opts;
+    const { itemSelector, fallbackItem, headerSelector, reserve = PAGINATION_RESERVE, min = 1, deps = [], scope } = opts;
     const [size, setSize] = useState(10);
 
     const measure = useCallback(() => {
@@ -58,7 +63,8 @@ export function useFitPageSize(ref: RefObject<HTMLElement | null>, opts: FitOpti
         // Khoảng trống THẬT còn lại ở đáy trang: đo tới đáy của TOÀN BỘ nội dung trong vùng cuộn (kể cả phần
         // nằm dưới danh sách như ghi chú, thanh phân trang), không chỉ đáy danh sách.
         const scrollTop = scroller ? scroller.scrollTop : window.scrollY;
-        const kids = scroller ? [...scroller.children] : [document.body];
+        const scopeEl = scope ? el.closest<HTMLElement>(scope) : null;
+        const kids = scopeEl ? [scopeEl] : scroller ? [...scroller.children] : [document.body];
         const contentBottom = Math.max(el.getBoundingClientRect().bottom, ...kids.map((k) => k.getBoundingClientRect().bottom)) + scrollTop;
         const spare = limit - contentBottom;
         setSize((cur) => {
@@ -77,7 +83,7 @@ export function useFitPageSize(ref: RefObject<HTMLElement | null>, opts: FitOpti
             next = Math.max(min, next);
             return next === cur ? cur : next;
         });
-    }, [ref, itemSelector, fallbackItem, headerSelector, reserve, min]);
+    }, [ref, itemSelector, fallbackItem, headerSelector, reserve, min, scope]);
 
     // Đo sau mỗi lần vẽ lại do dữ liệu / số dòng đổi — tự hiệu chỉnh tới khi vừa khít.
     useLayoutEffect(measure, [measure, size, ...deps]);

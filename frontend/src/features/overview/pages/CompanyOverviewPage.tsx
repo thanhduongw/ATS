@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Select, Table } from "antd";
+import { Select } from "antd";
+import FitTable from "../../../components/ui/FitTable";
 import type { ColumnsType } from "antd/es/table";
 import { useNavigate } from "react-router-dom";
 import { COLORS, STAGE_COLORS } from "../../../app/theme";
@@ -90,19 +91,30 @@ export default function CompanyOverviewPage() {
     }, [data, period, prev]);
 
     const columns: ColumnsType<DeptRow> = [
-        { title: "Phòng ban", dataIndex: "name", render: (v: string) => <span style={{ fontWeight: 600 }}>{v}</span> },
+        { title: "Phòng ban", dataIndex: "name", ellipsis: true, render: (v: string) => <span style={{ fontWeight: 600 }}>{v}</span> },
         {
-            title: "Đại diện", key: "rep",
+            title: "Đại diện", key: "rep", ellipsis: true,
             render: (_, r) => r.rep ? (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <Avatar name={r.rep.name} colorKey={r.rep.id} size={26} />{r.rep.name}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, maxWidth: "100%" }}>
+                    <Avatar name={r.rep.name} colorKey={r.rep.id} size={24} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.rep.name}</span>
                 </span>
             ) : <span style={{ color: COLORS.warning }}>Chưa có đại diện</span>,
         },
-        { title: "Vị trí đang tuyển", dataIndex: "openPositions", width: 140, align: "right" },
-        { title: "Còn cần tuyển", dataIndex: "remaining", width: 130, align: "right" },
-        { title: "Đã tuyển / tổng", key: "hired", width: 140, align: "right", render: (_, r) => `${r.hired}/${r.headcount}` },
-        { title: "Đang phỏng vấn", dataIndex: "interviewing", width: 140, align: "right" },
+        { title: "Đang tuyển", dataIndex: "openPositions", width: 84, align: "right", onHeaderCell: () => ({ style: { whiteSpace: "nowrap" } }) },
+        { title: "Còn cần", dataIndex: "remaining", width: 70, align: "right", onHeaderCell: () => ({ style: { whiteSpace: "nowrap" } }) },
+        {
+            title: "Đã tuyển / tổng", key: "hired", width: 118, onHeaderCell: () => ({ style: { whiteSpace: "nowrap" } }),
+            render: (_, r) => (
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ flex: 1, height: 6, borderRadius: 3, background: COLORS.fill, overflow: "hidden" }}>
+                        <span style={{ display: "block", height: "100%", width: `${r.headcount ? (r.hired / r.headcount) * 100 : 0}%`, background: COLORS.success }} />
+                    </span>
+                    <span style={{ fontSize: 13, color: COLORS.textSecondary, minWidth: 30, textAlign: "right" }}>{r.hired}/{r.headcount}</span>
+                </span>
+            ),
+        },
+        { title: "Đang PV", dataIndex: "interviewing", width: 70, align: "right", onHeaderCell: () => ({ style: { whiteSpace: "nowrap" } }) },
         rowArrowColumn,
     ];
 
@@ -137,8 +149,11 @@ export default function CompanyOverviewPage() {
                     hint={`${m.accepted}/${m.respondedCount} thư mời đã phản hồi`} />
             </div>
 
-            <Panel title="Theo phòng ban" extra={<span style={{ fontSize: 13, color: COLORS.textSecondary }}>Việc làm đang mở hoặc tạm dừng</span>} bodyGap={0}>
-                <Table<DeptRow>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2.2fr) minmax(280px, 1fr)", gap: 16, alignItems: "start" }}>
+            <div className="fit-scope-depts">
+            <Panel title="Theo phòng ban" subtitle={`Việc làm đang mở hoặc tạm dừng · ${period.label}`} bodyGap={0}>
+                <FitTable<DeptRow>
+                    fitScope=".fit-scope-depts"
                     rowKey="id"
                     loading={data.loading}
                     columns={columns}
@@ -149,11 +164,12 @@ export default function CompanyOverviewPage() {
                     locale={{ emptyText: "Chưa có phòng ban nào" }}
                 />
             </Panel>
+            </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)", gap: 16, alignItems: "start" }}>
-                <Panel title="Phễu tuyển dụng toàn công ty" subtitle={`Số ứng viên đã đi tới từng giai đoạn · ${period.label}`} bodyGap={10}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <Panel title="Phễu tuyển dụng toàn công ty" subtitle={`Ứng viên đã tới từng giai đoạn · ${period.label}`} bodyGap={7}>
                     {m.funnel.map(({ stage, count }) => (
-                        <div key={stage} style={{ display: "grid", gridTemplateColumns: "100px 1fr 48px", alignItems: "center", gap: 12 }}>
+                        <div key={stage} style={{ display: "grid", gridTemplateColumns: "76px 1fr 36px", alignItems: "center", gap: 10 }}>
                             <span style={{ fontSize: 13 }}>{FIXED_STAGE_LABEL[stage]}</span>
                             <div style={{ height: 10, borderRadius: 5, background: COLORS.fill }}>
                                 <div style={{ width: `${(count / max) * 100}%`, height: "100%", borderRadius: 5, background: STAGE_COLORS[stage].color }} />
@@ -161,8 +177,10 @@ export default function CompanyOverviewPage() {
                             <b style={{ textAlign: "right" }}>{count}</b>
                         </div>
                     ))}
-                    <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
-                        Tỉ lệ từ ứng tuyển đến phỏng vấn: {pct(interview, applied)} · Từ phỏng vấn đến thư mời: {pct(offer, interview)}
+                    <span style={{ fontSize: 12, color: COLORS.textSecondary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                        title={`Từ ứng tuyển đến phỏng vấn ${pct(interview, applied)} · từ phỏng vấn đến thư mời ${pct(offer, interview)}`}>
+                        Ứng tuyển → phỏng vấn <b style={{ color: COLORS.textPrimary }}>{pct(interview, applied)}</b>
+                        {" · "}phỏng vấn → thư mời <b style={{ color: COLORS.textPrimary }}>{pct(offer, interview)}</b>
                     </span>
                 </Panel>
 
@@ -173,7 +191,7 @@ export default function CompanyOverviewPage() {
                     {m.pendingInvites.length > 0 && (
                         <InlineNotice tone="warning" action={<a onClick={() => navigate("/admin/users")}>Xem</a>}>
                             <b>{m.pendingInvites.length} lời mời chưa được kích hoạt</b>
-                            <div style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                            <div style={{ fontSize: 12, color: COLORS.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {m.pendingInvites.slice(0, 3).map((u) => u.fullName || u.email).join(", ")}
                                 {m.pendingInvites.length > 3 ? "…" : ""}
                             </div>
@@ -182,13 +200,14 @@ export default function CompanyOverviewPage() {
                     {m.noRep.length > 0 && (
                         <InlineNotice tone="warning" action={<a onClick={() => navigate("/admin/users/invite")}>Mời</a>}>
                             <b>{m.noRep.length === 1 ? `${departmentLabel(m.noRep[0].name)} chưa có đại diện` : `${m.noRep.length} phòng ban chưa có đại diện`}</b>
-                            <div style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                            <div style={{ fontSize: 12, color: COLORS.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {m.noRep.length > 1 && <>{m.noRep.slice(0, 4).map((d) => d.name).join(", ")}{m.noRep.length > 4 ? "…" : ""} · </>}
                                 Không tạo được yêu cầu tuyển dụng cho {m.noRep.length > 1 ? "các phòng này" : "phòng này"}
                             </div>
                         </InlineNotice>
                     )}
                 </Panel>
+            </div>
             </div>
         </div>
     );

@@ -1,9 +1,9 @@
 import type { RequisitionPriority, RequisitionReason, WorkArrangement } from "./types";
 
 export const WORK_ARRANGEMENT_OPTIONS: { value: WorkArrangement; label: string }[] = [
-    { value: "ONSITE", label: "On-site" },
-    { value: "HYBRID", label: "Hybrid" },
-    { value: "REMOTE", label: "Remote" },
+    { value: "ONSITE", label: "Tại văn phòng" },
+    { value: "HYBRID", label: "Kết hợp" },
+    { value: "REMOTE", label: "Từ xa" },
 ];
 
 export const REASON_OPTIONS: { value: RequisitionReason; label: string }[] = [

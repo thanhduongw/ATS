@@ -33,7 +33,7 @@ export function BottomSheet({
   return (
     <Portal>
       <Modal visible={visible} onDismiss={onDismiss} style={styles.modal} contentContainerStyle={styles.container}>
-        <KeyboardAvoidingView behavior="padding">
+        <KeyboardAvoidingView behavior="padding" style={styles.limit}>
           <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, SPACING.md) + SPACING.sm2 }]}>
             <View style={styles.handle} />
             <View style={styles.header}>
@@ -64,9 +64,12 @@ export function BottomSheet({
 const styles = StyleSheet.create({
   modal: { justifyContent: "flex-end", margin: 0 },
   container: { flex: 1, justifyContent: "flex-end" },
+  // Một-lần: sheet không cao quá 88% màn, còn chừa mép trên cho thấy màn phía sau. Đặt ở đây (cha là lớp phủ
+  // toàn màn, có chiều cao cố định) — đặt trên `sheet` thì % tính theo khung tự co theo chính sheet → luôn
+  // cắt mất ~12% nội dung.
+  limit: { maxHeight: "88%" },
   sheet: {
-    // Một-lần: sheet không cao quá 88% màn, còn chừa mép trên cho thấy màn phía sau.
-    maxHeight: "88%",
+    maxHeight: "100%",
     backgroundColor: COLORS.cardBg,
     borderTopLeftRadius: RADIUS.sheet,
     borderTopRightRadius: RADIUS.sheet,

@@ -2,6 +2,7 @@ import { apiClient, requireTokens } from "./client";
 import type {
   ApiMessage,
   CandidateRegistrationRequest,
+  CompanyResponse,
   LoginResponse,
   ResetPasswordRequest,
   UserProfileResponse,
@@ -39,6 +40,8 @@ export const authApi = {
     apiClient.post<ApiMessage>("/auth/reset-password", body).then((r) => r.data),
 
   me: () => apiClient.get<UserProfileResponse>("/auth/me").then((r) => r.data),
+  /** Thông tin công ty công khai (tên hiển thị ở UR10 "Chuyên viên tuyển dụng · <công ty>"). */
+  publicCompany: () => apiClient.get<CompanyResponse>("/auth/public/company").then((r) => r.data),
 
   logout: (refreshToken: string) =>
     apiClient.post<ApiMessage>("/auth/logout", { refreshToken }).then((r) => r.data),

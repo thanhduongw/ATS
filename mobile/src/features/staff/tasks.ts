@@ -50,13 +50,18 @@ export const when = (iso?: string) =>
   `${formatDate(iso).slice(0, 5)} ${formatTime(iso)}`;
 
 /** Buổi đã diễn ra, tôi phỏng vấn và chưa nộp đánh giá. */
+/**
+ * Backend chỉ nhận phiếu đánh giá khi buổi ở CANDIDATE_CONFIRMED / EVALUATION_PENDING (`InterviewStatus.HELD`).
+ * Buổi ứng viên chưa xác nhận (HM_CONFIRMED…) dù đã qua giờ cũng không đánh giá được.
+ */
+export const EVALUABLE: ReadonlySet<string> = new Set(["CANDIDATE_CONFIRMED", "EVALUATION_PENDING"]);
+
 export const needsMyEvaluation = (
   iv: InterviewResponse,
   me: number,
   now: number,
 ) =>
-  iv.status !== "CANCELLED" &&
-  iv.status !== "NO_SHOW" &&
+  EVALUABLE.has(iv.status ?? "") &&
   new Date(iv.scheduledAt ?? 0).getTime() < now &&
   (iv.interviewers ?? []).some(
     (p) => p.interviewerId === me && !p.evaluationSubmitted,

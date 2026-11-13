@@ -1,5 +1,3 @@
-import { PlaceholderScreen } from "@/components/placeholder-screen";
+import { StaffInterviewsScreen } from "@/features/staff/screens/interviews-screen";
 
-export default function PendingInterviewsIndexTsx() {
-  return <PlaceholderScreen title="Lịch phỏng vấn" back={false} />;
-}
+export default StaffInterviewsScreen;

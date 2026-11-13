@@ -1,5 +1,3 @@
-import { PlaceholderScreen } from "@/components/placeholder-screen";
+import { StaffMoreScreen } from "@/features/staff/screens/more-screen";
 
-export default function PendingMoreTsx() {
-  return <PlaceholderScreen title="Thêm" back={false} />;
-}
+export default StaffMoreScreen;

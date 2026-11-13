@@ -16,6 +16,7 @@ import type { components as MasterDataC } from "./generated/masterdata";
 // --- Theo mục 1.5 của MOBILE_WEEK_1.md ---
 export type LoginResponse        = AuthC["schemas"]["LoginResponse"];
 export type UserProfileResponse  = AuthC["schemas"]["UserProfileResponse"];
+export type CompanyResponse      = AuthC["schemas"]["CompanyResponse"];
 export type JobPostingResponse   = RecruitmentC["schemas"]["JobPostingResponse"];
 export type RequisitionResponse  = RecruitmentC["schemas"]["JobRequisitionResponse"];
 export type CandidateApplication = ApplicationC["schemas"]["CandidateApplicationResponse"];

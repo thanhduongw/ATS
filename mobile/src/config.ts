@@ -39,3 +39,11 @@ if (!raw) {
 
 /** Base URL của API Gateway, ví dụ http:// */
 export const API_BASE_URL = raw.replace(/\/+$/, "");
+
+/**
+ * Bản web (UR10/UH09 "Mở bản web trên máy tính"). Dev: cùng máy với gateway, cổng Vite 3000.
+ * Production đặt EXPO_PUBLIC_WEB_URL.
+ */
+export const WEB_URL = (
+  process.env.EXPO_PUBLIC_WEB_URL ?? (metroHost ? `http://${metroHost}:3000` : "")
+).replace(/\/+$/, "");

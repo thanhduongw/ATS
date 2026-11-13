@@ -75,6 +75,7 @@ export default function SiteHeader() {
             }}
         >
             <div
+                className="site-header-row"
                 style={{
                     maxWidth: 1200, height: "100%", margin: "0 auto", padding: "0 24px",
                     display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 24,
@@ -96,17 +97,17 @@ export default function SiteHeader() {
                             ? <img src={logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 10 }} />
                             : (companyName ?? "A").charAt(0).toUpperCase()}
                     </span>
-                    <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-                        <span style={{ fontSize: 18, fontWeight: 700, color: COLORS.textPrimary, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
+                    <span className="site-header-hide-sm" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                        <span className="site-header-hide-sm" style={{ fontSize: 18, fontWeight: 700, color: COLORS.textPrimary, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
                             {companyName ?? "ATS"}
                         </span>
-                        <span style={{ fontSize: 12, fontWeight: 500, color: COLORS.textSecondary, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                        <span className="site-header-hide-sm" style={{ fontSize: 12, fontWeight: 500, color: COLORS.textSecondary, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                             Tuyển dụng
                         </span>
                     </span>
                 </button>
 
-                <nav style={{ display: "flex", gap: 36 }} aria-label="Điều hướng chính">
+                <nav className="site-header-nav" style={{ display: "flex", gap: 36 }} aria-label="Điều hướng chính">
                     {navLink("Trang chủ", "/careers/home", path === "/careers/home")}
                     {navLink("Việc làm", "/careers", path === "/careers" || path.startsWith("/careers/jobs"))}
                 </nav>
@@ -153,7 +154,7 @@ export default function SiteHeader() {
                                     style={{ display: "inline-flex", alignItems: "center", gap: 8, border: 0, background: "transparent", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 15, color: COLORS.textPrimary }}
                                 >
                                     <Avatar name={displayName} colorKey={user.userId} size={34} src={user.avatarUrl} />
-                                    <span style={{ fontWeight: 500, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.fullName || user.email}</span>
+                                    <span className="site-header-hide-sm" style={{ fontWeight: 500, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.fullName || user.email}</span>
                                     <DownOutlined style={{ fontSize: 11, color: COLORS.textSecondary }} />
                                 </button>
                             </Dropdown>

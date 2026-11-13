@@ -1,21 +1,21 @@
 import { useState } from "react";
 import { App, Button, Spin } from "antd";
-import { CheckOutlined } from "@ant-design/icons";
+import { ArrowRightOutlined, CalendarOutlined, CheckOutlined, LeftOutlined, MailOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
 import { withdrawMyApplication } from "../applicationApi";
 import type { ApiMessageResponse, CandidateApplicationResponse } from "../types";
 import type { CandidateInterviewResponse } from "../../interview/types";
-import { COLORS, FIXED_STAGES, STAGE_COLORS, type FixedStage } from "../../../app/theme";
+import { COLORS, FIXED_STAGES, RADIUS, type FixedStage } from "../../../app/theme";
 import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
 import { InlineNotice, Panel, SmallDialog } from "../../../components/ui/designKit";
-import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import CandidateStageTag from "../components/CandidateStageTag";
 import { canWithdraw, closedLabel, needsConfirm, todoOf, useCandidatePortal } from "../useCandidatePortal";
 
 /**
- * C12 · Chi tiết đơn — tiến trình 5 bước theo quy trình; việc cần làm nổi bật ở đầu; nút "Rút đơn ứng tuyển" (UC06, B5).
+ * C12 · Chi tiết đơn — "‹ Đơn ứng tuyển", thẻ đầu (giai đoạn, vị trí, ngày nộp, "Xem tin tuyển dụng"), việc cần làm
+ * nổi bật (khung cam), tiến trình 5 bước nối dọc một màu xanh chính như HTML; nút "Rút đơn ứng tuyển" (UC06, B5).
  * Khác HTML: chưa hiện tên file CV đã nộp và người phụ trách (API phía ứng viên chưa trả về).
  */
 const STEPS: FixedStage[] = FIXED_STAGES.filter((s) => s !== "REJECTED");
@@ -57,8 +57,17 @@ export default function MyApplicationDetailPage() {
     };
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1000 }}>
-            <PageBreadcrumb crumb={app.jobTitle ?? `Đơn #${app.id}`} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <button
+                type="button"
+                onClick={() => navigate("/my-applications")}
+                style={{
+                    alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6, border: 0, padding: 0,
+                    background: "transparent", cursor: "pointer", fontFamily: "inherit", fontSize: 13, color: COLORS.textSecondary,
+                }}
+            >
+                <LeftOutlined style={{ fontSize: 11 }} /> Đơn ứng tuyển
+            </button>
 
             <Panel>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
@@ -69,14 +78,24 @@ export default function MyApplicationDetailPage() {
                             {[app.departmentName, `Nộp ngày ${dayjs(app.appliedAt).format("DD/MM/YYYY")}`].filter(Boolean).join(" · ")}
                         </span>
                     </div>
-                    <Button onClick={() => navigate(`/careers/jobs/${app.jobPostingId}`)}>Xem tin tuyển dụng</Button>
+                    <Button icon={<ArrowRightOutlined />} onClick={() => navigate(`/careers/jobs/${app.jobPostingId}`)}>Xem tin tuyển dụng</Button>
                 </div>
             </Panel>
 
             {todo && (
-                <InlineNotice tone="brand" action={<Button type="primary" onClick={() => navigate(todo.to)}>{todo.actionLabel}</Button>}>
-                    <b>{todo.text}</b>
-                </InlineNotice>
+                <section style={{
+                    display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", borderRadius: RADIUS.lg,
+                    background: COLORS.cardBg, boxShadow: `inset 0 0 0 1.5px ${COLORS.warningBg}`,
+                }}>
+                    <span style={{
+                        width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: COLORS.warningBg, color: COLORS.warning,
+                        display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+                    }}>
+                        {todo.to.startsWith("/my-offers") ? <MailOutlined /> : <CalendarOutlined />}
+                    </span>
+                    <span style={{ flex: 1, fontWeight: 600, fontSize: 15 }}>{todo.text}</span>
+                    <Button type="primary" onClick={() => navigate(todo.to)}>{todo.actionLabel}</Button>
+                </section>
             )}
             {closed && (
                 <InlineNotice tone="neutral">
@@ -86,11 +105,16 @@ export default function MyApplicationDetailPage() {
                 </InlineNotice>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
-                <Panel title="Tiến trình" bodyGap={0}>
+            <div className="cand-2col" style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
+                <Panel title="Tiến trình" bodyGap={14}>
+                    <div>
                     {STEPS.map((s, i) => (
-                        <Step key={s} index={i} stage={s} state={stepState(app, i)} detail={stepDetail(app, s, ivs, offer?.status)} />
+                        <Step
+                            key={s} index={i} stage={s} state={stepState(app, i)} detail={stepDetail(app, s, ivs, offer?.status)}
+                            last={i === STEPS.length - 1} nextReached={i < STEPS.length - 1 && stepState(app, i + 1) !== "todo"}
+                        />
                     ))}
+                    </div>
                 </Panel>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -165,26 +189,35 @@ function stepDetail(
     return null;
 }
 
-function Step({ index, stage, state, detail }: { index: number; stage: FixedStage; state: StepState; detail: string | null }) {
-    const color = STAGE_COLORS[stage].color;
+/** Một bước: đã qua = tròn xanh có ✓, đang ở = viền xanh có chấm, chưa tới = số xám; đường nối xanh tới bước đã tới. */
+function Step({ index, stage, state, detail, last, nextReached }: {
+    index: number; stage: FixedStage; state: StepState; detail: string | null; last: boolean; nextReached: boolean;
+}) {
     const circle = state === "done"
-        ? { background: color, color: "#fff", border: "none" }
+        ? { background: COLORS.primary, color: COLORS.textOnDark, boxShadow: "none" }
         : state === "current"
-            ? { background: STAGE_COLORS[stage].bg, color, border: `2px solid ${color}` }
-            : { background: COLORS.fill, color: COLORS.textMuted, border: "none" };
+            ? { background: COLORS.cardBg, color: COLORS.primary, boxShadow: `inset 0 0 0 2px ${COLORS.primary}` }
+            : { background: COLORS.fill, color: COLORS.textMuted, boxShadow: "none" };
+    // Việc đang chờ chính ứng viên ("Chờ bạn …") tô cam như HTML; còn lại chữ phụ.
+    const waitingMe = state === "current" && !!detail && /^Chờ bạn/.test(detail);
     return (
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 0" }}>
-            <span style={{
-                width: 28, height: 28, borderRadius: 14, flexShrink: 0, display: "inline-flex",
-                alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, ...circle,
-            }}>
-                {state === "done" ? <CheckOutlined /> : index + 1}
-            </span>
-            <div style={{ display: "flex", flexDirection: "column", paddingTop: 3 }}>
+        <div style={{ display: "flex", gap: 14, alignItems: "stretch" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 28, flexShrink: 0 }}>
+                <span style={{
+                    width: 28, height: 28, borderRadius: 14, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, fontWeight: 700, ...circle,
+                }}>
+                    {state === "done" ? <CheckOutlined /> : state === "current"
+                        ? <span style={{ width: 10, height: 10, borderRadius: 5, background: COLORS.primary }} />
+                        : index + 1}
+                </span>
+                {!last && <span style={{ flex: 1, width: 2, minHeight: 28, background: nextReached ? COLORS.primary : COLORS.border }} />}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", paddingTop: 3, paddingBottom: last ? 0 : 18 }}>
                 <span style={{ fontWeight: state === "todo" ? 500 : 600, color: state === "todo" ? COLORS.textSecondary : COLORS.textPrimary }}>
                     {FIXED_STAGE_LABEL[stage]}
                 </span>
-                {detail && <span style={{ fontSize: 12, color: state === "current" ? color : COLORS.textSecondary }}>{detail}</span>}
+                {detail && <span style={{ fontSize: 12, color: waitingMe ? COLORS.warning : COLORS.textSecondary }}>{detail}</span>}
             </div>
         </div>
     );

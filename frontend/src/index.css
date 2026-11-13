@@ -961,3 +961,31 @@ h6 {
 
 /* R14/H09: thanh tab đứng yên khi nội dung tab cuộn trong khung (Panel có padding 20px). */
 .sticky-tabs > .ant-tabs-nav { position: sticky; top: -20px; z-index: 2; background: #FFFFFF; margin-top: -20px; padding-top: 20px; }
+
+/* Khung khu ứng viên (CandidateLayout — C20): thẻ menu trái 280px + nội dung; màn hẹp thì menu lên trên,
+   các mục xếp thành một hàng cuộn ngang, ẩn khối tên/email (đã có ở menu tài khoản). */
+.candidate-shell {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px 24px 48px;
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .candidate-shell { grid-template-columns: minmax(0, 1fr); padding: 16px 16px 40px; gap: 16px; }
+    .candidate-side { position: static !important; padding: 8px !important; }
+    .candidate-side-who { display: none !important; }
+    .candidate-side-nav { flex-direction: row !important; overflow-x: auto; }
+    .candidate-side-nav > button { flex-shrink: 0; }
+}
+@media (max-width: 700px) {
+    .site-header-row { padding: 0 16px !important; gap: 12px !important; }
+    .site-header-nav { gap: 18px !important; white-space: nowrap; }
+    .site-header-hide-sm { display: none !important; }
+}
+/* Lưới 2 cột trong trang ứng viên (C12, C17, C20) xếp chồng ở màn hẹp. */
+@media (max-width: 900px) {
+    .cand-2col { grid-template-columns: minmax(0, 1fr) !important; }
+}

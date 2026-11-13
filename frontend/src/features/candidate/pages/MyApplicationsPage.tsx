@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Spin} from "antd";
+import { Button, Spin, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
@@ -8,13 +8,13 @@ import { COLORS } from "../../../app/theme";
 import ListPage, { StatusTabs } from "../../../components/ui/listKit";
 import EmptyState from "../../../components/ui/EmptyState";
 import CandidateStageTag from "../components/CandidateStageTag";
-import FitTable from "../../../components/ui/FitTable";
+import StageProgress from "../components/StageProgress";
 import { groupOf, todoOf, useCandidatePortal, type AppGroup } from "../useCandidatePortal";
 
 /**
  * C11 · Đơn ứng tuyển (ứng viên): tab Tất cả · Đang xử lý · Có thư mời · Đã đóng; cột "Việc cần làm".
  * C32 trống: "Bạn chưa ứng tuyển vị trí nào" + "Tìm việc làm". C33 lỗi tải: báo lỗi + "Thử lại", không hiện số 0.
- * Rút đơn nằm ở trang chi tiết đơn (C12).
+ * Rút đơn nằm ở trang chi tiết đơn (C12). Khu ứng viên cuộn tự nhiên (13/11/2026): bảng thường, 10 đơn/trang.
  */
 type Tab = "ALL" | AppGroup;
 
@@ -58,7 +58,15 @@ export default function MyApplicationsPage() {
                 </div>
             ),
         },
-        { title: "Giai đoạn", key: "stage", width: 150, render: (_, a) => <CandidateStageTag app={a} /> },
+        {
+            title: "Giai đoạn", key: "stage", width: 150,
+            render: (_, a) => (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
+                    <CandidateStageTag app={a} />
+                    <StageProgress app={a} />
+                </div>
+            ),
+        },
         {
             title: "Việc cần làm", key: "todo", width: 340,
             render: (_, a) => {
@@ -95,8 +103,9 @@ export default function MyApplicationsPage() {
                 />
             }
         >
-            <FitTable<CandidateApplicationResponse>
+            <Table<CandidateApplicationResponse>
                 rowKey="id"
+                pagination={{ pageSize: 10, hideOnSinglePage: true }}
                 columns={columns}
                 dataSource={rows}
                 rowClassName={() => "row-clickable"}

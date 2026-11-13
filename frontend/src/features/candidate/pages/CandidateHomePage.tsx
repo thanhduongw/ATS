@@ -11,6 +11,7 @@ import { salaryText } from "../../public/jobFormat";
 import { relativeTime } from "../../../app/datetime";
 import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
 import CandidateStageTag from "../components/CandidateStageTag";
+import StageProgress from "../components/StageProgress";
 import { todoOf, useCandidatePortal } from "../useCandidatePortal";
 
 /**
@@ -43,7 +44,7 @@ export default function CandidateHomePage() {
         .sort((a, b) => dayjs(b.publishedAt ?? 0).valueOf() - dayjs(a.publishedAt ?? 0).valueOf()).slice(0, 4);
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1080 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <ScreenTitle title={firstName ? `Chào ${firstName}` : "Tổng quan"} />
             {failed && (
                 <InlineNotice tone="danger" action={<Button onClick={reload}>Thử lại</Button>}>
@@ -51,7 +52,7 @@ export default function CandidateHomePage() {
                 </InlineNotice>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)", gap: 16, alignItems: "start" }}>
+            <div className="cand-2col" style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)", gap: 16, alignItems: "start" }}>
                 <Panel title="Việc cần làm" bodyGap={0}>
                     {!failed && todos.length === 0 && (
                         <span style={{ color: COLORS.textSecondary }}>Bạn không có việc gì cần làm lúc này.</span>
@@ -112,8 +113,9 @@ export default function CandidateHomePage() {
                         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 0", cursor: "pointer",
                         borderTop: i ? `0.5px solid ${COLORS.border}` : undefined,
                     }}>
-                        <span style={{ fontWeight: 600 }}>{a.jobTitle}</span>
-                        <CandidateStageTag app={a} />
+                        <span style={{ flex: 1, fontWeight: 600, minWidth: 0 }}>{a.jobTitle}</span>
+                        <StageProgress app={a} />
+                        <span style={{ width: 110, display: "flex", justifyContent: "flex-end" }}><CandidateStageTag app={a} /></span>
                     </div>
                 ))}
             </Panel>

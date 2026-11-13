@@ -44,19 +44,15 @@ export default function CandidateLayout() {
         <Layout style={{ minHeight: "100vh", background: COLORS.body }}>
             <SiteHeader />
             <Content>
-                <div
-                    style={{
-                        maxWidth: 1200, margin: "0 auto", padding: "28px 24px 48px",
-                        display: "grid", gridTemplateColumns: "280px minmax(0, 1fr)", gap: 24, alignItems: "start",
-                    }}
-                >
+                <div className="candidate-shell">
                     <aside
+                        className="candidate-side"
                         style={{
                             position: "sticky", top: SITE_HEADER_HEIGHT + 28, background: COLORS.cardBg, borderRadius: RADIUS.lg,
                             padding: 16, display: "flex", flexDirection: "column", gap: 4,
                         }}
                     >
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 4px 12px" }}>
+                        <div className="candidate-side-who" style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 4px 12px" }}>
                             <Avatar name={user?.fullName || user?.email} colorKey={user?.userId} size={44} src={user?.avatarUrl} />
                             <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                                 <span style={{ fontWeight: 600, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -67,7 +63,7 @@ export default function CandidateLayout() {
                                 </span>
                             </div>
                         </div>
-                        <nav aria-label="Khu ứng viên" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <nav className="candidate-side-nav" aria-label="Khu ứng viên" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                             {items.map((it) => {
                                 const active = activeOf(it.to);
                                 return (

@@ -722,6 +722,30 @@ export const STRINGS = {
       errSalary: "Mức lương “từ” không được lớn hơn “đến”",
     },
 
+    /** UR16 / UR17 · Thư mời (chỉ Chuyên viên tuyển dụng; soạn / sửa / thu hồi trên máy tính). */
+    offers: {
+      title: "Thư mời",
+      filters: { ALL: "Tất cả", DRAFT: "Bản nháp", SENT: "Đã gửi", ACCEPTED: "Ứng viên nhận", DECLINED: "Từ chối" },
+      notSent: "Chưa gửi",
+      deadline: (date: string, left: string) => (left ? `Hạn ${date} · ${left}` : `Hạn ${date}`),
+      starts: (date: string) => `Bắt đầu ${date}`,
+      started: (date: string) => `Đã đi làm ${date}`,
+      emptyTitle: "Không có thư mời nào",
+      emptyMessage: "Soạn thư mời trên máy tính sau khi chuyển ứng viên sang giai đoạn Thư mời.",
+      waiting: "Đã gửi · chờ phản hồi",
+      deadlineAt: (when: string) => `Hạn ${when}`,
+      salary: "Lương gộp",
+      start: "Ngày bắt đầu",
+      sentAt: "Gửi lúc",
+      viewed: "Ứng viên đã mở",
+      viewedAt: (when: string, n: number) => `${when} · ${n} lần`,
+      notViewed: "Chưa mở",
+      responded: "Ứng viên phản hồi",
+      declineReason: "Lý do từ chối",
+      desktop: "Sửa hoặc thu hồi thư mời trên máy tính.",
+      call: "Gọi ứng viên",
+    },
+
     /** UR10 / UH09 · Thêm. */
     more: {
       title: "Thêm",

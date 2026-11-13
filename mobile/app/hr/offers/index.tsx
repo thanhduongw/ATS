@@ -1,5 +1,3 @@
-import { PlaceholderScreen } from "@/components/placeholder-screen";
+import { StaffOffersScreen } from "@/features/staff/screens/offers-screen";
 
-export default function PendingOffersIndexTsx() {
-  return <PlaceholderScreen title="Thư mời" back={true} />;
-}
+export default StaffOffersScreen;

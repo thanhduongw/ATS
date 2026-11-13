@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Pagination, Spin } from "antd";
+import { CalendarOutlined, CheckCircleOutlined, FileTextOutlined, MailOutlined, BellOutlined, SolutionOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { getNotifications, markAllAsRead, markAsRead } from "../notificationApi";
 import type { NotificationResponse } from "../types";
@@ -14,7 +15,8 @@ import { useFitPageSize } from "../../../components/ui/useFitPageSize";
 
 /**
  * C19 · Thông báo (dùng chung mọi vai trò): tab Tất cả · Chưa đọc, "Đánh dấu tất cả đã đọc",
- * mỗi dòng có nút hành động dẫn thẳng tới việc cần làm (Xem thư mời, Xem lịch…).
+ * mỗi dòng có ô icon theo loại, nền nhạt khi chưa đọc, nút hành động dẫn thẳng tới việc cần làm (Xem thư mời, Xem lịch…).
+ * Ứng viên: 20 thông báo/trang, trang cuộn tự nhiên; vai trò nội bộ: phân trang vừa 1 màn hình.
  */
 type Tab = "ALL" | "UNREAD";
 
@@ -27,6 +29,17 @@ function actionLabel(n: NotificationResponse, role?: UserRole): string | null {
     if (t.includes("APPLICATION")) return candidate ? "Xem đơn" : "Xem hồ sơ";
     if (t.includes("REQUISITION")) return "Xem yêu cầu";
     return null;
+}
+
+/** Ô icon theo loại đối tượng (C19): lịch cam, thư mời xanh lá, hồ sơ xanh chính, còn lại xám. */
+function iconOf(n: NotificationResponse) {
+    const t = (n.resourceType ?? n.type ?? "").toUpperCase();
+    if (t.includes("INTERVIEW")) return { icon: <CalendarOutlined />, bg: COLORS.warningBg, color: COLORS.warning };
+    if (t.includes("OFFER")) return { icon: <MailOutlined />, bg: COLORS.successBg, color: COLORS.success };
+    if (t.includes("APPLICATION")) return { icon: <CheckCircleOutlined />, bg: COLORS.primarySoft, color: COLORS.primary };
+    if (t.includes("REQUISITION")) return { icon: <SolutionOutlined />, bg: COLORS.primarySoft, color: COLORS.primary };
+    if (t.includes("DOCUMENT") || t.includes("CV")) return { icon: <FileTextOutlined />, bg: COLORS.fill, color: COLORS.textSecondary };
+    return { icon: <BellOutlined />, bg: COLORS.fill, color: COLORS.textSecondary };
 }
 
 export default function NotificationsPage() {
@@ -63,7 +76,8 @@ export default function NotificationsPage() {
     const unread = items.filter((n) => !n.read).length;
     const rows = tab === "UNREAD" ? items.filter((n) => !n.read) : items;
     // Phân trang vừa 1 màn hình (04/11/2026) — không cuộn danh sách dài.
-    const pageSize = useFitPageSize(listRef, { itemSelector: "[data-row]", fallbackItem: 70, deps: [rows.length, page, tab] });
+    const fitSize = useFitPageSize(listRef, { itemSelector: "[data-row]", fallbackItem: 70, deps: [rows.length, page, tab] });
+    const pageSize = role === "CANDIDATE" ? 20 : fitSize;
     const pages = Math.max(1, Math.ceil(rows.length / pageSize));
     const current = Math.min(page, pages);
     const shown = rows.slice((current - 1) * pageSize, current * pageSize);
@@ -95,9 +109,10 @@ export default function NotificationsPage() {
             ) : rows.length === 0 ? (
                 <EmptyState title={tab === "UNREAD" ? "Bạn đã đọc hết thông báo" : "Chưa có thông báo"} />
             ) : (
-                <div ref={listRef} style={{ padding: "4px 20px" }}>
+                <div ref={listRef} style={{ padding: "4px 0" }}>
                     {shown.map((n, i) => {
                         const label = actionLabel(n, role);
+                        const ic = iconOf(n);
                         return (
                             <div
                                 key={n.id}
@@ -105,32 +120,36 @@ export default function NotificationsPage() {
                                 className="row-clickable"
                                 onClick={() => void open(n)}
                                 style={{
-                                    display: "flex", alignItems: "center", gap: 12, padding: "14px 0", cursor: "pointer",
+                                    display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", cursor: "pointer",
                                     borderTop: i ? `0.5px solid ${COLORS.border}` : undefined,
+                                    background: n.read ? undefined : COLORS.primarySoft,
                                 }}
                             >
                                 <span style={{
-                                    width: 8, height: 8, borderRadius: 4, flexShrink: 0,
-                                    background: n.read ? "transparent" : COLORS.primary,
-                                }} />
+                                    width: 40, height: 40, borderRadius: 12, flexShrink: 0, fontSize: 17,
+                                    display: "inline-flex", alignItems: "center", justifyContent: "center", background: ic.bg, color: ic.color,
+                                }}>{ic.icon}</span>
                                 <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-                                    <span style={{ fontWeight: n.read ? 500 : 700 }}>{n.title}</span>
+                                    <span style={{ fontWeight: n.read ? 500 : 600 }}>{n.title}</span>
                                     <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{n.message}</span>
                                 </div>
                                 {label && (
-                                    <Button size="small" type={n.read ? "default" : "primary"}
+                                    <Button size="small" style={{ background: n.read ? COLORS.primarySoft : COLORS.cardBg, border: 0, color: COLORS.primary }}
                                         onClick={(e) => { e.stopPropagation(); void open(n); }}>
                                         {label}
                                     </Button>
                                 )}
-                                <span style={{ width: 90, textAlign: "right", fontSize: 12, color: COLORS.textMuted, flexShrink: 0 }}>
-                                    {relativeTime(n.createdAt)}
+                                <span style={{ width: 90, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                                    <span style={{ fontSize: 12, color: COLORS.textMuted }}>{relativeTime(n.createdAt)}</span>
+                                    <span aria-label={n.read ? undefined : "Chưa đọc"} style={{
+                                        width: 8, height: 8, borderRadius: 4, background: n.read ? "transparent" : COLORS.primary,
+                                    }} />
                                 </span>
                             </div>
                         );
                     })}
                     {rows.length > pageSize && (
-                        <Pagination size="small" align="end" style={{ padding: "12px 0" }} current={current} pageSize={pageSize}
+                        <Pagination size="small" align="end" style={{ padding: "12px 20px" }} current={current} pageSize={pageSize}
                             total={rows.length} showSizeChanger={false} onChange={setPage}
                             showTotal={(t, [from, to]) => `${from}–${to} / ${t}`} />
                     )}

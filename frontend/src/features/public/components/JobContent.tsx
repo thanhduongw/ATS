@@ -31,8 +31,10 @@ export function UrgentTag() {
 }
 
 /** Phần nội dung tin (C03), dùng chung cho trang chi tiết công khai và bản xem trước R08. */
-export default function JobContent({ job, compact = false, showSalary = false }: {
+export default function JobContent({ job, compact = false, showSalary = false, header = true }: {
     job: PublicJobPosting; compact?: boolean;
+    /** C03 vẽ phần đầu (tiêu đề, chip) trong dải xanh của trang → chỉ cần phần mô tả. */
+    header?: boolean;
     /** Bản xem trước R08 không có cột phải của C03 nên hiện lương ngay trong phần đầu. */
     showSalary?: boolean;
 }) {
@@ -42,7 +44,7 @@ export default function JobContent({ job, compact = false, showSalary = false }:
     const pad = compact ? 16 : 24;
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <section style={{ background: COLORS.cardBg, borderRadius: 20, padding: pad, display: "flex", flexDirection: "column", gap: 10 }}>
+            {header && <section style={{ background: COLORS.cardBg, borderRadius: 20, padding: pad, display: "flex", flexDirection: "column", gap: 10 }}>
                 <span style={{ fontSize: 12, color: COLORS.textSecondary, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     {job.departmentName && <b style={{ color: COLORS.primary }}>{job.departmentName}</b>}
                     {job.urgent && <UrgentTag />}
@@ -57,7 +59,7 @@ export default function JobContent({ job, compact = false, showSalary = false }:
                 {job.applicationDeadline && (
                     <span style={{ fontSize: 13, color: COLORS.textSecondary }}>Hạn nộp hồ sơ: <b style={{ color: COLORS.textPrimary }}>{dayjs(job.applicationDeadline).format("DD/MM/YYYY")}</b></span>
                 )}
-            </section>
+            </section>}
             <section style={{ background: COLORS.cardBg, borderRadius: 20, padding: pad, display: "flex", flexDirection: "column", gap: 22 }}>
                 <Section title="Mô tả công việc" text={job.description} />
                 <Section title="Kinh nghiệm" text={exp.long} />

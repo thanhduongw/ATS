@@ -6,7 +6,7 @@ import type { AxiosError } from "axios";
 import { exchangeOAuth2Code } from "../authApi";
 import { setCredentials } from "../authSlice";
 import { useAppDispatch } from "../../../app/hooks";
-import { defaultRouteForRole } from "../../../app/roleNavigation";
+import { afterLoginRoute } from "../../../app/roleNavigation";
 import type { ApiMessageResponse, JwtPayload } from "../types";
 
 export default function OAuth2CallbackPage() {
@@ -31,7 +31,7 @@ export default function OAuth2CallbackPage() {
                 const payload = jwtDecode<JwtPayload>(response.data.accessToken);
                 dispatch(setCredentials(response.data));
                 message.success("Đăng nhập thành công");
-                navigate(defaultRouteForRole(payload.role), { replace: true });
+                navigate(afterLoginRoute(payload.role), { replace: true });
             })
             .catch((error) => {
                 const apiError = error as AxiosError<ApiMessageResponse>;

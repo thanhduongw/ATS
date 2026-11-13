@@ -120,13 +120,13 @@ export default function CandidateProfilePage() {
 
     return (
         <Form form={form} layout="vertical" onFinish={saveProfile} requiredMark={false}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 900 }}>
-                <ScreenTitle
-                    title="Hồ sơ của tôi"
-                    actions={<Button type="primary" htmlType="submit" loading={saving}>Lưu thay đổi</Button>}
-                />
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <ScreenTitle title="Hồ sơ của tôi" />
 
-                <Panel title="Thông tin cá nhân">
+                {/* Bố cục C17: trái Thông tin cá nhân + Kỹ năng, phải CV; "Lưu thay đổi" nằm trong thẻ thông tin. */}
+                <div className="cand-2col" style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(260px, 2fr)", gap: 16, alignItems: "start" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+                <Panel title="Thông tin cá nhân" extra={<Button type="primary" htmlType="submit" loading={saving}>Lưu thay đổi</Button>}>
                     <div style={{ marginBottom: 16 }}><AvatarUploader profile={account} size={64} onChange={setAccount} /></div>
                     <div style={grid}>
                         <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true, whitespace: true, message: "Nhập họ và tên" }]}>
@@ -164,8 +164,18 @@ export default function CandidateProfilePage() {
                             options={skills.map((i) => ({ value: i.id, label: String(i.name) }))} />
                     </Form.Item>
                 </Panel>
+                </div>
 
-                <Panel title="CV" subtitle="Mỗi hồ sơ giữ 1 CV. Tải CV mới sẽ thay CV cũ cho các lần ứng tuyển sau.">
+                <Panel
+                    title="CV"
+                    extra={(
+                        <Upload {...uploadProps}>
+                            <Button icon={<UploadOutlined />} loading={uploading}>
+                                {profile?.resumeUploaded ? "Tải CV mới" : "Tải CV"}
+                            </Button>
+                        </Upload>
+                    )}
+                >
                     <div style={{
                         display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 14,
                         boxShadow: `inset 0 0 0 1px ${COLORS.border}`,
@@ -174,14 +184,11 @@ export default function CandidateProfilePage() {
                         <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                             <span style={{ fontWeight: 600 }}>{profile?.resumeUploaded ? "CV đã tải lên" : "Chưa có CV"}</span>
                             <span style={{ fontSize: 12, color: COLORS.textSecondary }}>PDF, DOC, DOCX · tối đa {MAX_CV_MB} MB</span>
+                            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Tải CV mới sẽ thay CV cũ cho các lần ứng tuyển sau.</span>
                         </div>
-                        <Upload {...uploadProps}>
-                            <Button icon={<UploadOutlined />} loading={uploading}>
-                                {profile?.resumeUploaded ? "Tải CV mới" : "Tải CV"}
-                            </Button>
-                        </Upload>
                     </div>
                 </Panel>
+                </div>
             </div>
         </Form>
     );

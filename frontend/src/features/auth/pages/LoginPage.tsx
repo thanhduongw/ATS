@@ -7,7 +7,7 @@ import type { AxiosError } from "axios";
 import { jwtDecode } from "jwt-decode";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAppDispatch } from "../../../app/hooks";
-import { defaultRouteForRole } from "../../../app/roleNavigation";
+import { afterLoginRoute } from "../../../app/roleNavigation";
 import { login as loginApi } from "../authApi";
 import { setCredentials } from "../authSlice";
 import { loginSchema, type LoginFormValues } from "../schemas/loginSchema";
@@ -43,7 +43,7 @@ export default function LoginPage() {
             const claims = jwtDecode<JwtPayload>(response.data.accessToken);
             dispatch(setCredentials(response.data));
             message.success("Đăng nhập thành công");
-            navigate(redirect && claims.role === "CANDIDATE" ? redirect : defaultRouteForRole(claims.role), { replace: true });
+            navigate(redirect && claims.role === "CANDIDATE" ? redirect : afterLoginRoute(claims.role), { replace: true });
         } catch (error) {
             const apiError = error as AxiosError<ApiMessageResponse>;
             message.error(apiError.response?.data?.message ?? "Đăng nhập thất bại");

@@ -23,7 +23,8 @@ export interface CandidatePortal {
     reload: () => void;
 }
 
-export function useCandidatePortal(): CandidatePortal {
+/** `refreshKey` đổi → tải lại (khung ứng viên truyền đường dẫn hiện tại để số trên menu luôn mới). */
+export function useCandidatePortal(refreshKey?: string): CandidatePortal {
     const [state, setState] = useState<Omit<CandidatePortal, "reload">>({
         loading: true, failed: false, applications: [], interviews: [], offers: [],
     });
@@ -46,7 +47,7 @@ export function useCandidatePortal(): CandidatePortal {
             });
         }).catch(() => { if (!cancelled) setState((s) => ({ ...s, loading: false, failed: true })); });
         return () => { cancelled = true; };
-    }, [tick]);
+    }, [tick, refreshKey]);
 
     return { ...state, reload };
 }

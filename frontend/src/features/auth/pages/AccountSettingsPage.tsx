@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { App, Button, Form, Input, Modal } from "antd";
+import { ArrowRightOutlined, CheckCircleOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
@@ -121,7 +122,7 @@ export default function AccountSettingsPage() {
     const grid = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 16 } as const;
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 760 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: isCandidate ? undefined : 760 }}>
             <ScreenTitle title={isCandidate ? "Quyền riêng tư & bảo mật" : "Cài đặt tài khoản"} />
 
             {!isCandidate && <Panel title="Thông tin cá nhân" bodyGap={16}>
@@ -150,18 +151,19 @@ export default function AccountSettingsPage() {
                 </Form>
             </Panel>}
 
-            <Panel title="Đổi mật khẩu" subtitle="Sau khi đổi, bạn cần đăng nhập lại.">
+            <Panel title="Đổi mật khẩu" subtitle={isCandidate ? undefined : "Sau khi đổi, bạn cần đăng nhập lại."}>
                 <Form form={passwordForm} layout="vertical" onFinish={submitPassword} requiredMark={false}>
-                    <div style={grid}>
+                    {/* C18 (ứng viên): 3 ô trên một hàng, nút chính căn phải như HTML. */}
+                    <div style={isCandidate ? { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", columnGap: 16 } : grid}>
                         <Form.Item name="currentPassword" label="Mật khẩu hiện tại" rules={[{ required: true, message: "Nhập mật khẩu hiện tại" }]}
-                            style={{ gridColumn: "1 / -1", maxWidth: "calc(50% - 8px)" }}>
+                            style={isCandidate ? undefined : { gridColumn: "1 / -1", maxWidth: "calc(50% - 8px)" }}>
                             <Input.Password autoComplete="current-password" />
                         </Form.Item>
                         <Form.Item name="newPassword" label="Mật khẩu mới"
                             rules={[{ required: true, message: "Nhập mật khẩu mới" }, { min: 8, message: "Tối thiểu 8 ký tự" }, { max: 72 }]}>
                             <Input.Password placeholder="Tối thiểu 8 ký tự" maxLength={72} autoComplete="new-password" />
                         </Form.Item>
-                        <Form.Item name="confirm" label="Nhập lại mật khẩu mới" dependencies={["newPassword"]}
+                        <Form.Item name="confirm" label={isCandidate ? "Nhập lại" : "Nhập lại mật khẩu mới"} dependencies={["newPassword"]}
                             rules={[{ required: true, message: "Nhập lại mật khẩu mới" },
                                 ({ getFieldValue }) => ({
                                     validator: (_, v) => !v || v === getFieldValue("newPassword")
@@ -170,28 +172,41 @@ export default function AccountSettingsPage() {
                             <Input.Password placeholder="Nhập lại" maxLength={72} autoComplete="new-password" />
                         </Form.Item>
                     </div>
-                    <Button htmlType="submit" loading={changing}>{isCandidate ? "Cập nhật mật khẩu" : "Đổi mật khẩu"}</Button>
+                    {isCandidate ? (
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                            <Button type="primary" htmlType="submit" loading={changing}>Cập nhật mật khẩu</Button>
+                        </div>
+                    ) : (
+                        <Button htmlType="submit" loading={changing}>Đổi mật khẩu</Button>
+                    )}
                 </Form>
             </Panel>
 
             {isCandidate && (
                 <Panel title="Đồng ý xử lý dữ liệu">
-                    <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
-                        Bạn đã đồng ý cho doanh nghiệp xử lý hồ sơ khi đăng ký tài khoản.
-                        {retentionMonths ? ` Hồ sơ được lưu tối đa ${retentionMonths} tháng kể từ lần ứng tuyển gần nhất, sau đó tự ẩn danh.` : ""}
+                    <span style={{ fontSize: 14, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                        <CheckCircleOutlined style={{ color: COLORS.success, marginTop: 3 }} />
+                        <span>
+                            Bạn đã đồng ý cho doanh nghiệp xử lý hồ sơ khi đăng ký tài khoản.
+                            {retentionMonths ? ` Hồ sơ được lưu tối đa ${retentionMonths} tháng kể từ lần ứng tuyển gần nhất, sau đó tự ẩn danh.` : ""}
+                        </span>
                     </span>
                     {policy && (
                         <Button type="link" style={{ padding: 0, height: "auto", alignSelf: "flex-start" }} onClick={() => setPolicyOpen(true)}>
-                            Xem chính sách
+                            Xem chính sách <ArrowRightOutlined />
                         </Button>
                     )}
                 </Panel>
             )}
 
             {isCandidate && (
-                <Panel>
+                <Panel style={{ boxShadow: `inset 0 0 0 1.5px ${COLORS.errorBg}` }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                        <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{
+                            width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: COLORS.errorBg, color: COLORS.error,
+                            display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+                        }}><DeleteOutlined /></span>
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                             <span style={{ fontWeight: 600 }}>Xoá tài khoản và dữ liệu</span>
                             <span style={{ fontSize: 13, color: COLORS.textSecondary }}>Xoá hồ sơ, CV và đơn ứng tuyển. Không khôi phục được.</span>
                         </div>
@@ -200,7 +215,8 @@ export default function AccountSettingsPage() {
                 </Panel>
             )}
 
-            <Panel>
+            {/* Ứng viên đăng xuất ở menu tài khoản (C28) — không lặp thẻ ở đây. */}
+            {!isCandidate && <Panel>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                     <div style={{ display: "flex", flexDirection: "column" }}>
                         <span style={{ fontWeight: 600 }}>Đăng xuất</span>
@@ -208,7 +224,7 @@ export default function AccountSettingsPage() {
                     </div>
                     <Button danger onClick={doLogout} loading={loggingOut}>Đăng xuất</Button>
                 </div>
-            </Panel>
+            </Panel>}
 
             <Modal
                 open={policyOpen}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { App, Button, Checkbox, Form, Input, Spin, Upload } from "antd";
-import { CheckCircleFilled, FilePdfOutlined, UploadOutlined } from "@ant-design/icons";
+import StatusTag from "../../../components/ui/StatusTag";
+import { CheckCircleFilled, FilePdfOutlined, ShoppingOutlined, UploadOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs from "dayjs";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
@@ -134,19 +135,29 @@ export default function ApplyJobPage() {
     };
 
     const grid = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 16 } as const;
-    const chips = [job.workLocationName, arrangementLabel(job), salaryText(job.salaryMin, job.salaryMax)].filter(Boolean) as string[];
+    const chips = [job.workLocationName, arrangementLabel(job)].filter(Boolean) as string[];
 
     return (
         <Form form={form} layout="vertical" requiredMark onFinish={submit}
             style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
-            <section style={{ background: COLORS.cardBg, borderRadius: 20, padding: 20, display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Đang ứng tuyển</span>
-                <b style={{ fontSize: 20 }}>{job.title}</b>
-                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{chips.map((c) => <Chip key={c}>{c}</Chip>)}</span>
+            {/* C09: một hàng — ô icon · "Đang ứng tuyển" + tên việc làm · chip địa điểm / hình thức / lương. */}
+            <section style={{ background: COLORS.cardBg, borderRadius: 20, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                <span style={{
+                    width: 44, height: 44, borderRadius: 12, flexShrink: 0, background: COLORS.primarySoft, color: COLORS.primary,
+                    display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+                }}><ShoppingOutlined /></span>
+                <span style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Đang ứng tuyển</span>
+                    <b style={{ fontSize: 17 }}>{job.title}</b>
+                </span>
+                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {chips.map((c) => <Chip key={c}>{c}</Chip>)}
+                    <StatusTag label={salaryText(job.salaryMin, job.salaryMax)} tone="brand" />
+                </span>
             </section>
 
             <section style={{ background: COLORS.cardBg, borderRadius: 20, padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-                <b>CV</b>
+                <b style={{ fontSize: 17 }}>CV</b>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, boxShadow: `inset 0 0 0 1px ${COLORS.border}` }}>
                     <FilePdfOutlined style={{ fontSize: 26, color: profile?.resumeUploaded ? COLORS.error : COLORS.textMuted }} />
                     <span style={{ flex: 1, fontWeight: 500, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -173,7 +184,7 @@ export default function ApplyJobPage() {
             </section>
 
             <section style={{ background: COLORS.cardBg, borderRadius: 20, padding: 20 }}>
-                <b style={{ display: "block", marginBottom: 12 }}>Thông tin liên hệ</b>
+                <b style={{ display: "block", marginBottom: 12, fontSize: 17 }}>Thông tin liên hệ</b>
                 <div style={grid}>
                     <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true, whitespace: true, message: "Nhập họ và tên" }]}>
                         <Input maxLength={150} />

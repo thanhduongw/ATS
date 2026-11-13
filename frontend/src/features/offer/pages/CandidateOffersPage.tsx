@@ -1,4 +1,5 @@
 import { Button, Spin } from "antd";
+import { MailOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import type { CandidateOfferResponse } from "../types";
@@ -11,7 +12,7 @@ import { awaitingReply, useCandidatePortal } from "../../candidate/useCandidateP
 
 /**
  * C15 · Thư mời nhận việc (ứng viên): thư đang chờ phản hồi là thẻ lớn ở trên (hạn, ngày bắt đầu, lương đề xuất),
- * các thư đã phản hồi / hết hạn là dòng gọn bên dưới.
+ * các thư đã phản hồi / hết hạn là thẻ gọn bên dưới (chữ mờ, icon xám) — như HTML.
  */
 const CLOSED_VIEW: Record<string, { label: string; tone: StatusTone }> = {
     ACCEPTED: { label: "Đã nhận việc", tone: "success" },
@@ -34,7 +35,7 @@ export default function CandidateOffersPage() {
     const deptOf = (o: CandidateOfferResponse) => applications.find((a) => a.id === o.applicationId)?.departmentName;
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 900 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <ScreenTitle title="Thư mời nhận việc" />
             {failed && (
                 <InlineNotice tone="danger" action={<Button onClick={reload}>Thử lại</Button>}>
@@ -46,11 +47,12 @@ export default function CandidateOffersPage() {
             )}
 
             {pending.map((o) => (
-                <Panel key={o.id} style={{ boxShadow: `inset 0 0 0 1.5px ${COLORS.primary}` }}>
+                <Panel key={o.id} style={{ boxShadow: `inset 0 0 0 1.5px ${COLORS.success}` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                        <div style={{ flex: 1, minWidth: 240, display: "flex", flexDirection: "column", gap: 6 }}>
+                        <MailTile tone="success" />
+                        <div style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column", gap: 4 }}>
                             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <StatusTag label="Chờ bạn phản hồi" tone="brand" />
+                                <StatusTag label="Chờ bạn phản hồi" tone="warning" />
                                 {o.responseDeadline && (
                                     <span style={{ fontSize: 12, color: COLORS.warning, fontWeight: 600 }}>
                                         Hạn {dayjs(o.responseDeadline).format("DD/MM")}
@@ -60,36 +62,46 @@ export default function CandidateOffersPage() {
                             <span style={{ fontSize: 18, fontWeight: 700 }}>{o.jobTitle ?? "Thư mời nhận việc"}</span>
                             <span style={{ fontSize: 13, color: COLORS.textSecondary }}>Bắt đầu {dayjs(o.startDate).format("DD/MM/YYYY")}</span>
                         </div>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
                             <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Lương đề xuất</span>
-                            <span style={{ fontSize: 18, fontWeight: 700 }}>
+                            <span style={{ fontSize: 18, fontWeight: 700, color: COLORS.primary }}>
                                 {formatMoney(o.salaryOffered)}{PAY_SUFFIX[o.payFrequency ?? "MONTHLY"] ?? ""}
                             </span>
-                            <Button type="primary" onClick={() => navigate(`/my-offers/${o.id}`)}>Xem thư mời</Button>
                         </div>
+                        <Button type="primary" onClick={() => navigate(`/my-offers/${o.id}`)}>Xem thư mời</Button>
                     </div>
                 </Panel>
             ))}
 
-            {others.length > 0 && (
-                <Panel bodyGap={0}>
-                    {others.map((o, i) => (
-                        <div key={o.id} className="row-clickable" onClick={() => navigate(`/my-offers/${o.id}`)} style={{
-                            display: "flex", alignItems: "center", gap: 12, padding: "12px 0", cursor: "pointer",
-                            borderTop: i ? `0.5px solid ${COLORS.border}` : undefined,
-                        }}>
+            {others.map((o) => (
+                <Panel key={o.id}>
+                    <div className="row-clickable" onClick={() => navigate(`/my-offers/${o.id}`)}
+                        style={{ display: "flex", alignItems: "center", gap: 16, cursor: "pointer" }}>
+                        <MailTile tone="neutral" />
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, minWidth: 0 }}>
                             <StatusTag {...(CLOSED_VIEW[o.status] ?? CLOSED_VIEW.EXPIRED)} />
-                            <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-                                <span style={{ fontWeight: 600 }}>{o.jobTitle ?? "Thư mời nhận việc"}</span>
-                                <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
-                                    {[deptOf(o), dayjs(o.createdAt).format("DD/MM/YYYY")].filter(Boolean).join(" · ")}
-                                </span>
-                            </div>
-                            <Button size="small">Chi tiết</Button>
+                            <span style={{ fontSize: 16, fontWeight: 600, color: COLORS.textSecondary }}>{o.jobTitle ?? "Thư mời nhận việc"}</span>
+                            <span style={{ fontSize: 12, color: COLORS.textMuted }}>
+                                {[deptOf(o), dayjs(o.createdAt).format("DD/MM/YYYY")].filter(Boolean).join(" · ")}
+                            </span>
                         </div>
-                    ))}
+                        <Button>Chi tiết</Button>
+                    </div>
                 </Panel>
-            )}
+            ))}
         </div>
+    );
+}
+
+function MailTile({ tone }: { tone: "success" | "neutral" }) {
+    return (
+        <span style={{
+            width: 48, height: 48, borderRadius: 14, flexShrink: 0, fontSize: 20,
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            background: tone === "success" ? COLORS.successBg : COLORS.fill,
+            color: tone === "success" ? COLORS.success : COLORS.textSecondary,
+        }}>
+            <MailOutlined />
+        </span>
     );
 }

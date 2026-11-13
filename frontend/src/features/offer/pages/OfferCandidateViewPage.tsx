@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { App, Button, Checkbox, Input, Radio, Result, Spin } from "antd";
-import { CalendarOutlined, CheckCircleFilled, DownloadOutlined } from "@ant-design/icons";
+import {
+    CalendarOutlined, CheckCircleFilled, CheckCircleOutlined, CheckOutlined, ClockCircleOutlined, CoffeeOutlined, CreditCardOutlined,
+    DownloadOutlined, EnvironmentOutlined, FileTextOutlined, LeftOutlined, RiseOutlined, UserOutlined, WalletOutlined,
+} from "@ant-design/icons";
+import type { ReactNode } from "react";
 import { saveAs } from "file-saver";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
@@ -16,7 +20,6 @@ import { COLORS } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
 import { InlineNotice, Panel, SmallDialog } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
-import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 
 /**
  * C16 · Chi tiết thư mời (dải màu xanh đậm) · C21 chấp nhận kèm ô "Tôi đã đọc và đồng ý" ·
@@ -168,8 +171,17 @@ export default function OfferCandidateViewPage() {
     }
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1000 }}>
-            <PageBreadcrumb crumb={offer.jobTitle ?? "Thư mời nhận việc"} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <button
+                type="button"
+                onClick={() => navigate("/my-offers")}
+                style={{
+                    alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6, border: 0, padding: 0,
+                    background: "transparent", cursor: "pointer", fontFamily: "inherit", fontSize: 13, color: COLORS.textSecondary,
+                }}
+            >
+                <LeftOutlined style={{ fontSize: 11 }} /> Thư mời nhận việc
+            </button>
             <Band
                 eyebrow="THƯ MỜI NHẬN VIỆC"
                 title={`Chúc mừng ${firstName || "bạn"}!`}
@@ -191,28 +203,33 @@ export default function OfferCandidateViewPage() {
             )}
             {expired && <InlineNotice tone="warning">Thư mời đã hết hạn phản hồi. Liên hệ bộ phận tuyển dụng nếu bạn vẫn quan tâm.</InlineNotice>}
 
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
+            <div className="cand-2col" style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <Panel title="Điều khoản chính" bodyGap={0}>
-                        <Row label="Lương gộp" value={`${formatMoney(offer.salaryOffered)}${pay}`} strong />
-                        {offer.allowance != null && <Row label="Phụ cấp" value={`${formatMoney(offer.allowance)}${pay}`} />}
-                        {offer.performanceBonus && <Row label="Thưởng hiệu suất" value={offer.performanceBonus} />}
-                        <Row label="Ngày bắt đầu" value={longDate(offer.startDate)} />
-                        <Row label="Thử việc" value={`${offer.probationMonths} tháng`} />
-                        <Row label="Loại hợp đồng" value={offer.contractTypeName} />
-                        {workplace && <Row label="Nơi làm việc" value={workplace} />}
-                        {offer.reportingManager && <Row label="Báo cáo cho" value={offer.reportingManager} />}
-                        {offer.annualLeaveDays != null && <Row label="Nghỉ phép" value={`${offer.annualLeaveDays} ngày / năm`} />}
-                    </Panel>
-                    {benefits.length > 0 && (
-                        <Panel title="Phúc lợi">
+                    {/* C16: lưới 2 cột, mỗi điều khoản có ô icon; Phúc lợi là chip có dấu ✓ trong cùng thẻ. */}
+                    <Panel title="Điều khoản chính" bodyGap={18}>
+                        <div className="cand-2col" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px 24px" }}>
+                            <Term icon={<WalletOutlined />} label="Lương gộp" value={`${formatMoney(offer.salaryOffered)}${pay}`} />
+                            {offer.allowance != null && <Term icon={<CreditCardOutlined />} label="Phụ cấp" value={`${formatMoney(offer.allowance)}${pay}`} />}
+                            {offer.performanceBonus && <Term icon={<RiseOutlined />} label="Thưởng hiệu suất" value={offer.performanceBonus} />}
+                            <Term icon={<CalendarOutlined />} label="Ngày bắt đầu" value={longDate(offer.startDate)} />
+                            <Term icon={<ClockCircleOutlined />} label="Thử việc" value={`${offer.probationMonths} tháng`} />
+                            <Term icon={<FileTextOutlined />} label="Loại hợp đồng" value={offer.contractTypeName} />
+                            {workplace && <Term icon={<EnvironmentOutlined />} label="Nơi làm việc" value={workplace} />}
+                            {offer.reportingManager && <Term icon={<UserOutlined />} label="Báo cáo cho" value={offer.reportingManager} />}
+                            {offer.annualLeaveDays != null && <Term icon={<CoffeeOutlined />} label="Nghỉ phép" value={`${offer.annualLeaveDays} ngày / năm`} />}
+                        </div>
+                        {benefits.length > 0 && (<>
+                            <div style={{ borderTop: `0.5px solid ${COLORS.border}` }} />
+                            <b style={{ fontSize: 16 }}>Phúc lợi</b>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                 {benefits.map((b) => (
-                                    <span key={b} style={{ padding: "6px 12px", borderRadius: 14, background: COLORS.fill, fontSize: 13 }}>{b}</span>
+                                    <span key={b} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 14, background: COLORS.fill, fontSize: 13 }}>
+                                        <CheckCircleOutlined style={{ color: COLORS.textSecondary }} />{b}
+                                    </span>
                                 ))}
                             </div>
-                        </Panel>
-                    )}
+                        </>)}
+                    </Panel>
                     {offer.candidateVisibleNote && (
                         <Panel title="Lời nhắn">
                             <span style={{ whiteSpace: "pre-wrap", color: COLORS.textSecondary }}>{offer.candidateVisibleNote}</span>
@@ -222,8 +239,9 @@ export default function OfferCandidateViewPage() {
 
                 <Panel title="Phản hồi thư mời">
                     {pending ? (<>
-                        <Button type="primary" size="large" block onClick={() => { setAgree(false); setAcceptOpen(true); }}>Chấp nhận thư mời</Button>
-                        <Button size="large" block onClick={() => { setDeclineKey(null); setNote(""); setDeclineOpen(true); }}>Từ chối</Button>
+                        <Button type="primary" size="large" block icon={<CheckOutlined />} onClick={() => { setAgree(false); setAcceptOpen(true); }}>Chấp nhận thư mời</Button>
+                        <Button size="large" block style={{ background: COLORS.errorBg, color: COLORS.error, border: 0 }}
+                            onClick={() => { setDeclineKey(null); setNote(""); setDeclineOpen(true); }}>Từ chối</Button>
                     </>) : (
                         <StatusTag
                             label={offer.status === "DECLINED" ? "Đã từ chối" : expired ? "Đã hết hạn" : "Chưa sẵn sàng"}
@@ -292,6 +310,21 @@ function Band({ eyebrow, title, subtitle, aside }: { eyebrow: string; title: str
             </div>
             {aside}
         </section>
+    );
+}
+
+function Term({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+    return (
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <span style={{
+                width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: COLORS.primarySoft, color: COLORS.primary,
+                display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+            }}>{icon}</span>
+            <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{label}</span>
+                <span style={{ fontWeight: 600 }}>{value}</span>
+            </span>
+        </div>
     );
 }
 

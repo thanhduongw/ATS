@@ -53,12 +53,21 @@ public class ImageStorageService {
             log.error("Tải ảnh lên S3 thất bại: bucket={} key={}", bucket, key, e);
             throw new BusinessException("Không tải được ảnh lên, vui lòng thử lại");
         }
+        return baseUrl() + key;
+    }
+
+    /** Đường dẫn có phải ảnh do hệ thống tải lên vào `folder` (chặn gán ảnh từ nguồn ngoài). */
+    public boolean isStoredImage(String url, String folder) {
+        return url != null && url.startsWith(baseUrl() + "company/" + folder + "/") && !url.contains("..");
+    }
+
+    private String baseUrl() {
         if (publicUrl != null && !publicUrl.isBlank()) {
-            return String.format("%s/%s/%s", publicUrl.replaceAll("/+$", ""), bucket, key);
+            return String.format("%s/%s/", publicUrl.replaceAll("/+$", ""), bucket);
         }
         if (endpoint != null && !endpoint.isBlank()) {
-            return String.format("%s/%s/%s", endpoint.replaceAll("/+$", ""), bucket, key);
+            return String.format("%s/%s/", endpoint.replaceAll("/+$", ""), bucket);
         }
-        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, key);
+        return String.format("https://%s.s3.%s.amazonaws.com/", bucket, region);
     }
 }

@@ -48,6 +48,10 @@ public class AppUser {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
+    /** Ảnh đại diện (C17, R32) — đường dẫn S3 công khai, tải qua POST /api/auth/files/images. Migration V9. */
+    @Column(name = "avatar_url", length = 1000)
+    private String avatarUrl;
+
     public AppUser() {}
 
     public AppUser(Long id, String email, String passwordHash, String fullName, String phone,
@@ -136,6 +140,8 @@ public class AppUser {
     public UserStatus getStatus() { return status; }
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
     public void setStatus(UserStatus status) { this.status = status; }
     public boolean isEmailVerified() { return emailVerified; }
     public void setEmailVerified(boolean emailVerified) { this.emailVerified = emailVerified; }

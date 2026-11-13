@@ -8,5 +8,6 @@ public record UserProfileResponse(
         String role,
         Long departmentId,
         String status,
-        boolean emailVerified
+        boolean emailVerified,
+        String avatarUrl
 ) {}

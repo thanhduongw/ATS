@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { App, Button, Form, Input } from "antd";
+import { App, Button, Form, Input, Modal } from "antd";
+import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
 import { changePassword, getMyProfile, logoutRequest, updateMyProfile } from "../authApi";
@@ -17,11 +18,12 @@ import { getPublicCompany } from "../../public/publicApi";
 
 /**
  * R32 · Cài đặt tài khoản (mọi vai trò nội bộ): thông tin cá nhân · đổi mật khẩu · đăng xuất.
- * Email và phòng ban chỉ xem (do Quản trị doanh nghiệp đổi). Chưa có "Đổi ảnh" — tài khoản chưa có trường ảnh đại diện.
+ * Email và phòng ban chỉ xem (do Quản trị doanh nghiệp đổi). "Đổi ảnh" đại diện: AvatarUploader.
  *
  * C18 · Quyền riêng tư & bảo mật (ứng viên, cùng đường dẫn /settings): đổi mật khẩu · thời gian lưu dữ liệu ·
  * xoá tài khoản và dữ liệu (gõ "XOA DU LIEU" để xác nhận). Thông tin cá nhân của ứng viên sửa ở "Hồ sơ của tôi".
- * Khác HTML: chưa có ngày đồng ý xử lý dữ liệu và trang chính sách (backend chưa lưu ngày đồng ý).
+ * "Xem chính sách" mở chính sách bảo vệ dữ liệu soạn ở A08. Khác HTML: chưa có ngày đồng ý xử lý dữ liệu
+ * (backend chưa lưu ngày đồng ý).
  */
 const DELETE_PHRASE = "XOA DU LIEU";
 type PasswordForm = { currentPassword: string; newPassword: string; confirm: string };
@@ -42,13 +44,19 @@ export default function AccountSettingsPage() {
     const [passwordForm] = Form.useForm<PasswordForm>();
     const isCandidate = useAppSelector((s) => s.auth.user?.role === "CANDIDATE");
     const [retentionMonths, setRetentionMonths] = useState<number | null>(null);
+    const [policy, setPolicy] = useState<{ text: string; updatedAt: string | null } | null>(null);
+    const [policyOpen, setPolicyOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleteText, setDeleteText] = useState("");
     const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         if (!isCandidate) return;
-        getPublicCompany().then((r) => setRetentionMonths(r.data.dataRetentionMonths)).catch(() => undefined);
+        getPublicCompany().then((r) => {
+            setRetentionMonths(r.data.dataRetentionMonths);
+            const text = r.data.privacyPolicy?.trim();
+            setPolicy(text ? { text, updatedAt: r.data.privacyPolicyUpdatedAt ?? null } : null);
+        }).catch(() => undefined);
     }, [isCandidate]);
 
     const deleteMyData = async () => {
@@ -172,6 +180,11 @@ export default function AccountSettingsPage() {
                         Bạn đã đồng ý cho doanh nghiệp xử lý hồ sơ khi đăng ký tài khoản.
                         {retentionMonths ? ` Hồ sơ được lưu tối đa ${retentionMonths} tháng kể từ lần ứng tuyển gần nhất, sau đó tự ẩn danh.` : ""}
                     </span>
+                    {policy && (
+                        <Button type="link" style={{ padding: 0, height: "auto", alignSelf: "flex-start" }} onClick={() => setPolicyOpen(true)}>
+                            Xem chính sách
+                        </Button>
+                    )}
                 </Panel>
             )}
 
@@ -196,6 +209,21 @@ export default function AccountSettingsPage() {
                     <Button danger onClick={doLogout} loading={loggingOut}>Đăng xuất</Button>
                 </div>
             </Panel>
+
+            <Modal
+                open={policyOpen}
+                title="Chính sách bảo mật dữ liệu ứng viên"
+                onCancel={() => setPolicyOpen(false)}
+                footer={<Button onClick={() => setPolicyOpen(false)}>Đóng</Button>}
+                width={640}
+            >
+                {policy?.updatedAt && (
+                    <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 8 }}>
+                        Cập nhật {dayjs(policy.updatedAt).format("DD/MM/YYYY")}
+                    </div>
+                )}
+                <div style={{ whiteSpace: "pre-wrap", maxHeight: "60vh", overflowY: "auto", lineHeight: 1.6 }}>{policy?.text}</div>
+            </Modal>
 
             <SmallDialog
                 open={deleteOpen}

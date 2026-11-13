@@ -5,11 +5,11 @@ import type { AxiosError } from "axios";
 import dayjs, { type Dayjs } from "dayjs";
 import { getCompany, getUsers, updateCompany } from "../../auth/authApi";
 import type { ApiMessageResponse, CompanyResponse, UpdateCompanyRequest, UserSummaryResponse } from "../../auth/types";
-import { getCatalogItems } from "../../masterdata/masterdataApi";
+import { createCatalogItem, getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import { COLORS, RADIUS } from "../../../app/theme";
 import ImageUploadField from "../../../components/ui/ImageUploadField";
-import { Panel, ScreenTitle } from "../../../components/ui/designKit";
+import { Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
 
 interface Benefit { title: string; description?: string }
 
@@ -33,7 +33,8 @@ function parseBenefits(json?: string | null): Benefit[] {
 /**
  * A08 · MÀN CHÍNH · Thông tin doanh nghiệp: Thông tin pháp lý · Nhận diện · Văn phòng · Bảo vệ dữ liệu ứng viên.
  * Thêm khối "Trang tuyển dụng" (khẩu hiệu, phúc lợi) vì trình chỉnh A09–A10 đã bỏ (quyết định C5, Q7).
- * Văn phòng lấy từ danh mục "Địa điểm làm việc" (do Chuyên viên tuyển dụng quản lý), không hiện số nhân sự (Q5).
+ * Văn phòng lấy từ danh mục "Địa điểm làm việc" (Chuyên viên tuyển dụng quản lý ở Danh mục), không hiện số nhân sự (Q5);
+ * "Thêm văn phòng" tạo một địa điểm mới trong danh mục đó.
  */
 export default function CompanyPage() {
     const { message } = App.useApp();
@@ -45,6 +46,9 @@ export default function CompanyPage() {
     const [saving, setSaving] = useState(false);
     const [policyOpen, setPolicyOpen] = useState(false);
     const [policyDraft, setPolicyDraft] = useState("");
+    const [officeOpen, setOfficeOpen] = useState(false);
+    const [officeSaving, setOfficeSaving] = useState(false);
+    const [officeForm] = Form.useForm<{ name: string; address?: string }>();
     const brandColor = Form.useWatch("brandColor", form);
 
     useEffect(() => {
@@ -87,6 +91,27 @@ export default function CompanyPage() {
             message.error(e.response?.data?.message ?? "Lưu thất bại");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const addOffice = async () => {
+        let v: { name: string; address?: string };
+        try {
+            v = await officeForm.validateFields();
+        } catch {
+            return;
+        }
+        setOfficeSaving(true);
+        try {
+            const res = await createCatalogItem("/masterdata/work-locations", { name: v.name.trim(), address: v.address?.trim() || null });
+            setOffices((prev) => [...prev, res.data as CatalogItem]);
+            setOfficeOpen(false);
+            message.success("Đã thêm văn phòng");
+        } catch (err) {
+            const e = err as AxiosError<ApiMessageResponse>;
+            message.error(e.response?.data?.message ?? "Không thêm được văn phòng");
+        } finally {
+            setOfficeSaving(false);
         }
     };
 
@@ -189,7 +214,11 @@ export default function CompanyPage() {
                     </div>
                     </div>
 
-                    <Panel title="Văn phòng" subtitle="Lấy từ danh mục Địa điểm làm việc — Chuyên viên tuyển dụng cập nhật ở Danh mục">
+                    <Panel
+                        title="Văn phòng"
+                        subtitle="Lấy từ danh mục Địa điểm làm việc — Chuyên viên tuyển dụng cập nhật ở Danh mục"
+                        extra={<Button icon={<PlusOutlined />} onClick={() => { officeForm.resetFields(); setOfficeOpen(true); }}>Thêm văn phòng</Button>}
+                    >
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }}>
                         {offices.length === 0 ? (
                             <span style={{ color: COLORS.textSecondary }}>Chưa có văn phòng nào trong danh mục.</span>
@@ -232,6 +261,25 @@ export default function CompanyPage() {
             </Form>
 
             {/* Nội dung dài → hộp thoại rộng có ô văn bản; vẫn chỉ 1 trường (DS06). */}
+            <SmallDialog
+                open={officeOpen}
+                title="Thêm văn phòng"
+                subtitle="Văn phòng mới cũng hiện trong danh mục Địa điểm làm việc khi tạo việc làm."
+                okText="Thêm"
+                okLoading={officeSaving}
+                onCancel={() => setOfficeOpen(false)}
+                onOk={() => void addOffice()}
+            >
+                <Form form={officeForm} layout="vertical" requiredMark={false}>
+                    <Form.Item name="name" label="Tên văn phòng" rules={[{ required: true, whitespace: true, message: "Nhập tên văn phòng" }, { max: 150 }]}>
+                        <Input placeholder="VD: Chi nhánh Đà Nẵng" maxLength={150} />
+                    </Form.Item>
+                    <Form.Item name="address" label="Địa chỉ" rules={[{ max: 255 }]} style={{ marginBottom: 0 }}>
+                        <Input placeholder="Số nhà, đường, quận, thành phố" maxLength={255} />
+                    </Form.Item>
+                </Form>
+            </SmallDialog>
+
             <Modal
                 open={policyOpen}
                 title="Chính sách bảo mật dữ liệu ứng viên"

@@ -12,27 +12,36 @@ import { HR_ROLES } from "../../../app/roles";
 import type { UserRole } from "../../auth/types";
 import { COLORS, FIXED_STAGES, STAGE_COLORS, type FixedStage } from "../../../app/theme";
 import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
-import { shortDate } from "../../../app/datetime";
 import ListPage, { ListFilters, StatusTabs } from "../../../components/ui/listKit";
 import { rowArrowColumn } from "../../../components/ui/listHelpers";
 import { Avatar } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
 import FitTable from "../../../components/ui/FitTable";
-import { POSTING_STATUS_VIEW, WORK_ARRANGEMENT_LABEL } from "../postingLabels";
+import { POSTING_FILLED_VIEW, POSTING_STATUS_VIEW, WORK_ARRANGEMENT_LABEL } from "../postingLabels";
 
 /**
  * R06 · MÀN CHÍNH · Việc làm — danh sách.
- * Tab theo vòng đời tin. Backend không có bước "chờ duyệt" do người khác duyệt: tin HR tự xác nhận
- * (APPROVED) là "Chờ đăng". Tin chưa có trường hạn nộp nên cột cuối là "Ngày đăng".
+ * Tab theo vòng đời tin; tin HR đã xác nhận, chưa đăng (APPROVED) gọi là "Chờ duyệt" như mẫu (Q2).
+ * Cột cuối "Hạn nộp": số ngày còn lại của tin đang tuyển, "—" cho tin khác hoặc tin không đặt hạn.
+ * Tin đang tuyển đã tuyển đủ số cần hiện "Đã đủ người".
  */
 type Tab = "OPEN" | "APPROVED" | "DRAFT" | "PAUSED" | "CLOSED" | "ALL";
 const TAB_STATUSES: Record<Exclude<Tab, "ALL">, PostingStatus[]> = {
     OPEN: ["OPEN"], APPROVED: ["APPROVED"], DRAFT: ["DRAFT", "EDITING"], PAUSED: ["PAUSED"], CLOSED: ["CLOSED"],
 };
 const TAB_LABEL: Record<Tab, string> = {
-    OPEN: "Đang tuyển", APPROVED: "Chờ đăng", DRAFT: "Bản nháp", PAUSED: "Tạm dừng", CLOSED: "Đã đóng", ALL: "Tất cả",
+    OPEN: "Đang tuyển", APPROVED: "Chờ duyệt", DRAFT: "Bản nháp", PAUSED: "Tạm dừng", CLOSED: "Đã đóng", ALL: "Tất cả",
 };
 const MAIN_STAGES = FIXED_STAGES.filter((s) => s !== "REJECTED");
+const DAY = 86_400_000;
+
+/** "34 ngày" / "Hết hạn" / "—". Hạn nộp là ngày (yyyy-MM-dd): còn hạn tới hết ngày đó. */
+function deadlineText(p: JobPostingResponse, now: number): string {
+    if (p.status !== "OPEN" || !p.applicationDeadline) return "—";
+    const end = new Date(`${p.applicationDeadline}T23:59:59`).getTime();
+    const days = Math.ceil((end - now) / DAY) - 1;
+    return days < 0 ? "Hết hạn" : `${days} ngày`;
+}
 
 export default function PostingListPanel() {
     const navigate = useNavigate();
@@ -49,6 +58,7 @@ export default function PostingListPanel() {
     const [tab, setTab] = useState<Tab>("OPEN");
     const [keyword, setKeyword] = useState("");
     const [departmentId, setDepartmentId] = useState<number | undefined>();
+    const [now] = useState(() => Date.now());
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -113,7 +123,14 @@ export default function PostingListPanel() {
                 );
             },
         },
-        { title: "Trạng thái", key: "status", width: 130, render: (_, p) => <StatusTag {...POSTING_STATUS_VIEW[p.status]} /> },
+        {
+            title: "Trạng thái", key: "status", width: 130,
+            render: (_, p) => {
+                const hired = stageCounts.get(p.id)?.HIRED ?? 0;
+                const filled = p.status === "OPEN" && (p.headcount ?? 0) > 0 && hired >= (p.headcount ?? 0);
+                return <StatusTag {...(filled ? POSTING_FILLED_VIEW : POSTING_STATUS_VIEW[p.status])} />;
+            },
+        },
         {
             title: "Đại diện phòng ban", key: "rep", width: 200,
             render: (_, p) => {
@@ -143,7 +160,7 @@ export default function PostingListPanel() {
                 );
             },
         },
-        { title: "Ngày đăng", key: "published", width: 110, render: (_, p) => shortDate(p.publishedAt) },
+        { title: "Hạn nộp", key: "deadline", width: 110, render: (_, p) => deadlineText(p, now) },
         rowArrowColumn,
     ];
 

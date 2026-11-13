@@ -29,7 +29,7 @@ import { PageBreadcrumb } from "../../../components/ui/PageHeader";
  * Cột phải "Từ yêu cầu tuyển dụng": số lượng, cấp bậc, lương duyệt, đại diện phòng ban, giai đoạn cố định;
  * "Hiển thị trên trang tuyển dụng": hiện mức lương, gắn nhãn Tuyển gấp.
  * R08 · Xem trước tin: giống trang công khai C03, chuyển máy tính / điện thoại.
- * "Gửi duyệt" = lưu rồi chuyển tin sang "Chờ đăng" (backend: DRAFT/EDITING → APPROVED), đăng ở trang việc làm.
+ * "Gửi duyệt" = lưu rồi chuyển tin sang "Chờ duyệt" (backend: DRAFT/EDITING → APPROVED), đăng ở trang việc làm.
  */
 const grid4 = { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", columnGap: 12 } as const;
 
@@ -127,7 +127,7 @@ export default function PostingFormPage() {
             }
             if (then === "submit") {
                 await submitPostingForReview(saved.id);
-                message.success("Đã gửi duyệt — tin ở trạng thái Chờ đăng");
+                message.success("Đã gửi duyệt — tin ở trạng thái Chờ duyệt");
             } else {
                 message.success("Đã lưu nháp");
             }

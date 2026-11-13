@@ -15,6 +15,9 @@ export interface PublicCompanyResponse {
     website?: string | null;
     legalName?: string | null;
     brandColor?: string | null;
+    /** C18 "Xem chính sách": chính sách bảo mật dữ liệu ứng viên soạn ở A08. */
+    privacyPolicy?: string | null;
+    privacyPolicyUpdatedAt?: string | null;
 }
 
 /** Khớp JobPostingResponse backend */

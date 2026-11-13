@@ -56,6 +56,8 @@ export default function EvaluationFormPage() {
     const [loading, setLoading] = useState(true);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [savingDraft, setSavingDraft] = useState(false);
+    /** Tiêu chí đã bấm "+ Thêm nhận xét" (mẫu R46/H14 ẩn ô nhận xét tới khi cần — giảm cuộn). */
+    const [openComments, setOpenComments] = useState<Set<number>>(new Set());
 
     const backToProfile = useCallback(
         () => navigate(`/candidates/${candidateId}/applications/${applicationId}`),
@@ -194,10 +196,18 @@ export default function EvaluationFormPage() {
                                             {scores[i]?.score ? `${scores[i].score}/5` : "–"}
                                         </span>
                                     </div>
-                                    <Controller name={`scores.${i}.comment`} control={control}
-                                        render={({ field }) => (
-                                            <Input {...field} value={field.value ?? ""} placeholder="Nhận xét cho tiêu chí này" variant="filled" />
-                                        )} />
+                                    {openComments.has(i) || scores[i]?.comment ? (
+                                        <Controller name={`scores.${i}.comment`} control={control}
+                                            render={({ field }) => (
+                                                <Input {...field} value={field.value ?? ""} placeholder="Nhận xét cho tiêu chí này"
+                                                    variant="filled" autoFocus={openComments.has(i) && !field.value} />
+                                            )} />
+                                    ) : (
+                                        <Button type="link" size="small" style={{ alignSelf: "flex-start", padding: 0, height: "auto" }}
+                                            onClick={() => setOpenComments((prev) => new Set(prev).add(i))}>
+                                            + Thêm nhận xét
+                                        </Button>
+                                    )}
                                 </div>
                             ))}
                         </div>

@@ -5,6 +5,7 @@ import { planNextFixedStage } from "@/lib/stages";
 import { useAuthStore } from "@/store/authStore";
 import type {
   ApplicationRejectRequest,
+  RequisitionUpdateRequest,
   EvaluationDraftRequest,
   EvaluationSubmitRequest,
   InterviewHmRejectRequest,
@@ -120,6 +121,25 @@ export const useStaffRequisitions = () =>
     queryKey: staffKeys.requisitions(),
     queryFn: staffApi.requisitions,
   });
+export const useStaffRequisition = (id: number) =>
+  useQuery({
+    queryKey: [...staffKeys.requisitions(), id],
+    queryFn: () => staffApi.requisition(id),
+    enabled: valid(id),
+  });
+
+/** UH13: lưu nháp hoặc gửi lại để duyệt sau khi sửa theo góp ý. */
+export function useSaveRequisition(id: number) {
+  const invalidate = useInvalidateStaff();
+  return useMutation({
+    mutationFn: async ({ body, submit }: { body: RequisitionUpdateRequest; submit: boolean }) => {
+      const saved = await staffApi.updateRequisition(id, body);
+      return submit ? staffApi.submitRequisition(id) : saved;
+    },
+    onSuccess: invalidate,
+  });
+}
+
 export const useStaffPostings = () =>
   useQuery({ queryKey: staffKeys.postings(), queryFn: staffApi.postings });
 export const useStaffPosting = (id: number) =>

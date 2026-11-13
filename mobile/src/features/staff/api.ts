@@ -16,6 +16,7 @@ import type {
   PageOffer,
   PageRequisition,
   RequisitionResponse,
+  RequisitionUpdateRequest,
 } from "@/types/api";
 
 /**
@@ -126,6 +127,13 @@ export const staffApi = {
     apiClient
       .get<PageRequisition>("/recruitment/requisitions", { params: ALL })
       .then((r) => r.data.content ?? ([] as RequisitionResponse[])),
+  requisition: (id: number) =>
+    apiClient.get<RequisitionResponse>(`/recruitment/requisitions/${id}`).then((r) => r.data),
+  /** UH13: backend ghi đè cả yêu cầu → luôn gửi đủ mọi trường (lấy từ bản đang có). */
+  updateRequisition: (id: number, body: RequisitionUpdateRequest) =>
+    apiClient.put<RequisitionResponse>(`/recruitment/requisitions/${id}`, body).then((r) => r.data),
+  submitRequisition: (id: number) =>
+    apiClient.post<RequisitionResponse>(`/recruitment/requisitions/${id}/submit`).then((r) => r.data),
   postings: () =>
     apiClient
       .get<PageJobPosting>("/recruitment/postings", { params: ALL })

@@ -19,6 +19,7 @@ export type UserProfileResponse  = AuthC["schemas"]["UserProfileResponse"];
 export type CompanyResponse      = AuthC["schemas"]["CompanyResponse"];
 export type JobPostingResponse   = RecruitmentC["schemas"]["JobPostingResponse"];
 export type RequisitionResponse  = RecruitmentC["schemas"]["JobRequisitionResponse"];
+export type RequisitionUpdateRequest = RecruitmentC["schemas"]["JobRequisitionUpdateRequest"];
 export type CandidateApplication = ApplicationC["schemas"]["CandidateApplicationResponse"];
 export type ApplicationResponse  = ApplicationC["schemas"]["ApplicationResponse"];
 export type InterviewResponse    = InterviewC["schemas"]["InterviewResponse"];
@@ -35,6 +36,7 @@ export type RecruitmentSource    = MasterDataC["schemas"]["RecruitmentSourceResp
 /** B1 bộ lọc (ngày 5): `GET /recruitment/public/jobs?employmentTypeId=&workLocationId=` */
 export type EmploymentType       = MasterDataC["schemas"]["EmploymentTypeResponse"];
 export type WorkLocation         = MasterDataC["schemas"]["WorkLocationResponse"];
+export type Department           = MasterDataC["schemas"]["DepartmentResponse"];
 /** `GET /interview/interviews/my` — CHỈ dành cho CANDIDATE. */
 export type CandidateInterview   = InterviewC["schemas"]["CandidateInterviewResponse"];
 export type ApplicationCreateRequest = ApplicationC["schemas"]["ApplicationCreateRequest"];

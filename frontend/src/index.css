@@ -958,3 +958,6 @@ h6 {
 .compact-form .ant-form-item-label { padding-bottom: 4px; }
 .compact-form .ant-form-item-label > label { font-size: 12px; color: var(--ats-text-secondary, #6B737B); height: auto; }
 .compact-form .ant-form-item-extra { font-size: 12px; min-height: 0; }
+
+/* R14/H09: thanh tab đứng yên khi nội dung tab cuộn trong khung (Panel có padding 20px). */
+.sticky-tabs > .ant-tabs-nav { position: sticky; top: -20px; z-index: 2; background: #FFFFFF; margin-top: -20px; padding-top: 20px; }

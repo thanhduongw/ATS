@@ -902,7 +902,8 @@ export const STRINGS = {
     posting: {
       DRAFT: "Nháp",
       EDITING: "Đang sửa",
-      APPROVED: "Đã duyệt",
+      // HR đã xác nhận nội dung, chưa đăng — cùng chữ với web R06 (Q2).
+      APPROVED: "Chờ duyệt",
       OPEN: "Đang tuyển",
       PAUSED: "Tạm dừng",
       CLOSED: "Đã đóng",

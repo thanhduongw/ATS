@@ -746,6 +746,22 @@ export const STRINGS = {
       call: "Gọi ứng viên",
     },
 
+    /** UH10 · Kết quả tuyển dụng của phòng (không có lương). */
+    results: {
+      title: "Kết quả tuyển dụng",
+      hired: "Đã tuyển",
+      openFor: "Đã mở",
+      days: (n: number) => `${n} ngày`,
+      deadline: "Hạn nộp",
+      funnel: "Phễu tuyển dụng",
+      interviewed: "Ứng viên đã phỏng vấn",
+      noInterviewed: "Chưa có ứng viên nào được phỏng vấn.",
+      evalProgress: (done: number, total: number, mine: boolean) => `${done}/${total} đánh giá${mine ? " · còn bạn" : ""}`,
+      yours: (rec: string) => `Bạn: ${rec}`,
+      emptyTitle: "Phòng chưa có vị trí nào",
+      emptyMessage: "Vị trí hiện ở đây sau khi Chuyên viên tuyển dụng tạo việc làm từ yêu cầu của phòng.",
+    },
+
     /** M10 · Tài khoản & cài đặt (nhân viên). Sinh trắc học, thiết bị, thông báo đẩy: hoãn (D4) / backend chưa có. */
     settings: {
       title: "Tài khoản",

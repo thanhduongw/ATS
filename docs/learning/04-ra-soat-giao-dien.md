@@ -164,6 +164,18 @@ màn danh sách và màn chính **không cuộn trang**; màn chi tiết theo c�
 2. Phân trang ở client trên danh sách đã tải `size=1000` — dữ liệu lớn nên chuyển sang phân trang backend.
 3. C14 Lịch phỏng vấn và C15 Thư mời (ứng viên) là danh sách thẻ, chưa phân trang (ứng viên thường ít mục).
 
+## 10. Đã làm — phần 4: khác biệt nội dung ở mục 4 (13/11/2026)
+
+| Mã | Kết quả |
+|---|---|
+| R06 | Tab và nhãn "Chờ duyệt" (Q2, cả mobile), cột "Hạn nộp" (N ngày / Hết hạn / —), nhãn "Đã đủ người" khi tin đang tuyển đã tuyển đủ — `PostingListPanel.tsx` |
+| R46 / H14 | Ô nhận xét từng tiêu chí ẩn sau "+ Thêm nhận xét", tự hiện khi bản nháp đã có nhận xét — `EvaluationFormPage.tsx` |
+| C18 | "Xem chính sách" mở chính sách bảo mật dữ liệu ứng viên soạn ở A08; ẩn khi chưa có nội dung — `AccountSettingsPage.tsx` |
+| A08 | "Thêm văn phòng" tạo địa điểm trong danh mục Địa điểm làm việc (Quản trị được phép theo `requireHr`) — `CompanyPage.tsx` |
+| R14 / H09 | **Không cần làm**: "Kỹ năng & chứng chỉ" trong mẫu là nội dung của file CV mẫu; các dòng "Số năm kinh nghiệm / Học vấn & chứng chỉ / Lĩnh vực" nằm trong tab Điểm AI — web đã có |
+
+Dữ liệu test tạo khi kiểm (DB local): chính sách bảo mật "(Nội dung thử nghiệm)…", văn phòng "Văn phòng test A08".
+
 ## 7. Thứ tự làm đề xuất (sau khi duyệt)
 
 1. Luồng lịch mới (backend `candidate-decline` + `CANDIDATE_DECLINED`, web, mobile) — thay đổi nghiệp vụ.

@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { App, Button, Checkbox, Input, Radio, Result, Spin } from "antd";
 import {
     CalendarOutlined, CheckCircleFilled, CheckCircleOutlined, CheckOutlined, ClockCircleOutlined, CoffeeOutlined, CreditCardOutlined,
-    DownloadOutlined, EnvironmentOutlined, FileTextOutlined, LeftOutlined, RiseOutlined, UserOutlined, WalletOutlined,
+    DownloadOutlined, EnvironmentOutlined, FileTextOutlined, LeftOutlined, RiseOutlined, RocketOutlined, UserOutlined, WalletOutlined,
 } from "@ant-design/icons";
 import type { ReactNode } from "react";
 import { saveAs } from "file-saver";
@@ -16,7 +16,7 @@ import type { CatalogItem } from "../../masterdata/types";
 import { getPublicCompany } from "../../public/publicApi";
 import { downloadIcs } from "../../interview/ics";
 import { useAppSelector } from "../../../app/hooks";
-import { COLORS } from "../../../app/theme";
+import { COLORS, GRADIENTS, SHADOWS } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
 import { InlineNotice, Panel, SmallDialog } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
@@ -143,29 +143,50 @@ export default function OfferCandidateViewPage() {
         } finally { setBusy(false); }
     };
 
-    // C23 · Chào mừng gia nhập.
+    // C23 · Chào mừng gia nhập: dải xanh (icon tên lửa, lời chào), thẻ 3 cột + "Mang theo", nút căn giữa.
     if (offer.status === "ACCEPTED") {
+        const bring = ["CCCD", "Sổ bảo hiểm (nếu có)", "Thông tin tài khoản ngân hàng"];
         return (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 760 }}>
-                <Band
-                    eyebrow="CHÀO MỪNG"
-                    title={`Chào mừng ${firstName || "bạn"} đến với ${company || "công ty"}!`}
-                    subtitle={offer.jobTitle ?? ""}
-                />
-                <Panel>
-                    <Row label="Ngày đầu tiên" value={longDate(offer.startDate)} />
-                    {workplace && <Row label="Địa điểm" value={workplace} />}
-                    {offer.reportingManager && <Row label="Người đón bạn" value={offer.reportingManager} />}
-                    <Row label="Mang theo" value="CCCD · Sổ bảo hiểm (nếu có) · Thông tin tài khoản ngân hàng" />
-                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                        <Button icon={<CalendarOutlined />} onClick={() => downloadIcs({
-                            uid: `offer-${offer.id}`, title: `Ngày đầu tiên · ${offer.jobTitle ?? ""}`,
-                            start: dayjs(offer.startDate).hour(8).minute(30).toISOString(), durationMinutes: 60, location: workplace || null,
-                        })}>Thêm vào lịch</Button>
-                        <Button icon={<DownloadOutlined />} loading={downloading} onClick={downloadPdf}>Tải thư mời PDF</Button>
-                        <Button type="primary" onClick={() => navigate("/my-home")}>Về trang tổng quan</Button>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+                <div style={{
+                    width: "100%", borderRadius: 24, background: GRADIENTS.hero, color: COLORS.textOnDark, textAlign: "center",
+                    padding: "40px 24px 96px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
+                }}>
+                    <span style={{
+                        // Ô icon trên nền xanh đậm: trắng mờ 14% (một lần, cùng giá trị chip ở C03).
+                        width: 64, height: 64, borderRadius: 32, background: "rgba(255,255,255,0.14)",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 28,
+                    }}><RocketOutlined /></span>
+                    <b style={{ fontSize: 32, letterSpacing: "-0.01em" }}>Chào mừng {firstName || "bạn"} đến với {company || "công ty"}!</b>
+                    <span style={{ opacity: 0.85, fontSize: 15 }}>{offer.jobTitle ?? ""}</span>
+                </div>
+                <section style={{
+                    width: "calc(100% - 48px)", marginTop: -64, background: COLORS.cardBg, borderRadius: 20, padding: 24,
+                    display: "flex", flexDirection: "column", gap: 16, boxShadow: SHADOWS.dropdown,
+                }}>
+                    <div className="cand-2col" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
+                        <WelcomeFact icon={<CalendarOutlined />} label="Ngày đầu tiên" value={longDate(offer.startDate)} />
+                        {workplace && <WelcomeFact icon={<EnvironmentOutlined />} label="Địa điểm" value={workplace} />}
+                        {offer.reportingManager && <WelcomeFact icon={<UserOutlined />} label="Người đón bạn" value={offer.reportingManager} />}
                     </div>
-                </Panel>
+                    <div style={{ borderTop: `0.5px solid ${COLORS.border}` }} />
+                    <b>Mang theo</b>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {bring.map((x) => (
+                            <span key={x} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 14, background: COLORS.fill, fontSize: 13 }}>
+                                <CheckCircleOutlined style={{ color: COLORS.textSecondary }} />{x}
+                            </span>
+                        ))}
+                    </div>
+                </section>
+                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 20 }}>
+                    <Button size="large" icon={<CalendarOutlined />} onClick={() => downloadIcs({
+                        uid: `offer-${offer.id}`, title: `Ngày đầu tiên · ${offer.jobTitle ?? ""}`,
+                        start: dayjs(offer.startDate).hour(8).minute(30).toISOString(), durationMinutes: 60, location: workplace || null,
+                    })}>Thêm vào lịch</Button>
+                    <Button size="large" icon={<DownloadOutlined />} loading={downloading} onClick={downloadPdf}>Tải thư mời PDF</Button>
+                    <Button size="large" type="primary" onClick={() => navigate("/my-home")}>Về trang tổng quan</Button>
+                </div>
             </div>
         );
     }
@@ -255,17 +276,26 @@ export default function OfferCandidateViewPage() {
 
             <SmallDialog
                 open={acceptOpen}
-                title="Chấp nhận thư mời?"
+                title={(
+                    <span style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <span style={{
+                            width: 48, height: 48, borderRadius: 14, background: COLORS.successBg, color: COLORS.success,
+                            display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 22,
+                        }}><CheckCircleOutlined /></span>
+                        Chấp nhận thư mời?
+                    </span>
+                )}
                 okText="Chấp nhận"
                 okDisabled={!agree}
                 okLoading={busy}
                 onCancel={() => setAcceptOpen(false)}
                 onOk={accept}
             >
-                <div>
-                    <Row label="Vị trí" value={offer.jobTitle ?? "—"} />
-                    <Row label="Lương gộp" value={`${formatMoney(offer.salaryOffered)}${pay}`} />
-                    <Row label="Ngày bắt đầu" value={dayjs(offer.startDate).format("DD/MM/YYYY")} />
+                {/* C21: tóm tắt trong ô xám — nhãn trái, giá trị phải. */}
+                <div style={{ background: COLORS.fill, borderRadius: 14, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                    <Summary label="Vị trí" value={offer.jobTitle ?? "—"} />
+                    <Summary label="Lương gộp" value={`${formatMoney(offer.salaryOffered)}${pay}`} />
+                    <Summary label="Ngày bắt đầu" value={dayjs(offer.startDate).format("DD/MM/YYYY")} />
                 </div>
                 <Checkbox checked={agree} onChange={(e) => setAgree(e.target.checked)}>
                     Tôi đã đọc và đồng ý với điều khoản trong thư mời
@@ -328,11 +358,22 @@ function Term({ icon, label, value }: { icon: ReactNode; label: string; value: s
     );
 }
 
-function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+function WelcomeFact({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
     return (
-        <div style={{ display: "flex", gap: 16, padding: "9px 0", borderTop: `0.5px solid ${COLORS.border}` }}>
-            <span style={{ width: 150, flexShrink: 0, color: COLORS.textSecondary }}>{label}</span>
-            <span style={{ fontWeight: strong ? 700 : 500 }}>{value}</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 12, color: COLORS.textSecondary, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: COLORS.primary }}>{icon}</span>{label}
+            </span>
+            <b style={{ fontSize: 15 }}>{value}</b>
+        </div>
+    );
+}
+
+function Summary({ label, value }: { label: string; value: string }) {
+    return (
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13 }}>
+            <span style={{ color: COLORS.textSecondary }}>{label}</span>
+            <b style={{ textAlign: "right" }}>{value}</b>
         </div>
     );
 }

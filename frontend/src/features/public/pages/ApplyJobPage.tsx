@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { App, Button, Checkbox, Form, Input, Spin, Upload } from "antd";
 import StatusTag from "../../../components/ui/StatusTag";
-import { CheckCircleFilled, FilePdfOutlined, ShoppingOutlined, UploadOutlined } from "@ant-design/icons";
+import {
+    CalendarOutlined, CheckCircleOutlined, CheckOutlined, FilePdfOutlined, FileTextOutlined, SearchOutlined,
+    ShoppingOutlined, UploadOutlined,
+} from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs from "dayjs";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
@@ -19,7 +22,8 @@ import { InlineNotice } from "../../../components/ui/designKit";
 
 /**
  * C09 · Biểu mẫu ứng tuyển (ứng viên đã đăng nhập): dùng CV trong hồ sơ, "Tải CV khác (PDF, DOCX ≤ 5 MB)",
- * thông tin liên hệ, ô đồng ý xử lý dữ liệu → C10 · Ứng tuyển thành công với 3 bước "Tiếp theo".
+ * thông tin liên hệ, ô đồng ý xử lý dữ liệu → C10 · Ứng tuyển thành công với 3 bước "Tiếp theo" (bước phỏng vấn theo
+ * lịch 1 giờ cố định: đồng ý hoặc xin dời, không chọn khung giờ).
  * Nguồn ứng tuyển: tự gán "trang tuyển dụng / website" trong danh mục (HTML không hỏi ứng viên).
  * Khác HTML: chưa giữ dữ liệu đang nhập khi phiên đăng nhập hết hạn (C34).
  */
@@ -81,35 +85,42 @@ export default function ApplyJobPage() {
         </InlineNotice>;
     }
 
-    // C10 · Ứng tuyển thành công.
+    // C10 · Ứng tuyển thành công: vòng ✓ lớn, tiêu đề, thẻ "Tiếp theo" 3 bước có icon, hai nút căn giữa.
     if (doneAt) {
+        const steps = [
+            { t: "Đã nhận hồ sơ", h: `Hôm nay, ${dayjs(doneAt).format("HH:mm")}`, icon: <CheckCircleOutlined />, bg: COLORS.successBg, color: COLORS.success },
+            { t: "Sàng lọc hồ sơ", h: "Bộ phận tuyển dụng sẽ xem hồ sơ của bạn", icon: <SearchOutlined />, bg: COLORS.primarySoft, color: COLORS.primary },
+            // Lịch 1 giờ cố định (04/11/2026): ứng viên chỉ đồng ý hoặc từ chối lịch được gửi.
+            { t: "Mời phỏng vấn", h: "Bạn nhận lịch phỏng vấn và chỉ cần đồng ý hoặc xin dời", icon: <CalendarOutlined />, bg: COLORS.fill, color: COLORS.textSecondary },
+        ];
         return (
-            <div style={{ maxWidth: 640, margin: "0 auto", background: COLORS.cardBg, borderRadius: 20, padding: 32, display: "flex", flexDirection: "column", gap: 18 }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textAlign: "center" }}>
-                    <CheckCircleFilled style={{ fontSize: 44, color: COLORS.success }} />
-                    <b style={{ fontSize: 22 }}>Đã gửi hồ sơ thành công!</b>
-                    <span style={{ color: COLORS.textSecondary }}>{job.title}</span>
+            <div style={{ maxWidth: 600, margin: "24px auto 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}>
+                <span style={{
+                    width: 80, height: 80, borderRadius: 40, background: COLORS.successBg, color: COLORS.success,
+                    display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 36,
+                }}><CheckOutlined /></span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <b style={{ fontSize: 32, letterSpacing: "-0.01em" }}>Đã gửi hồ sơ thành công!</b>
+                    <span style={{ color: COLORS.textSecondary, fontSize: 15 }}>{job.title}</span>
                 </div>
-                <b>Tiếp theo</b>
-                {[
-                    { t: "Đã nhận hồ sơ", h: `Hôm nay, ${dayjs(doneAt).format("HH:mm")}`, done: true },
-                    { t: "Sàng lọc hồ sơ", h: "Bộ phận tuyển dụng sẽ xem hồ sơ của bạn", done: false },
-                    { t: "Mời phỏng vấn", h: "Bạn tự chọn giờ trong các khung được đề xuất", done: false },
-                ].map((s, i) => (
-                    <div key={s.t} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                        <span style={{
-                            width: 26, height: 26, borderRadius: 13, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 12, fontWeight: 700, background: s.done ? COLORS.success : COLORS.fill, color: s.done ? "#fff" : COLORS.textSecondary,
-                        }}>{i + 1}</span>
-                        <span style={{ display: "flex", flexDirection: "column" }}>
-                            <span style={{ fontWeight: 600 }}>{s.t}</span>
-                            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{s.h}</span>
-                        </span>
-                    </div>
-                ))}
-                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                    <Button type="primary" onClick={() => navigate("/my-applications")}>Theo dõi đơn ứng tuyển</Button>
-                    <Button onClick={() => navigate("/careers")}>Xem việc làm khác</Button>
+                <section style={{ width: "100%", background: COLORS.cardBg, borderRadius: 20, padding: 24, display: "flex", flexDirection: "column", gap: 14, textAlign: "left" }}>
+                    <b style={{ fontSize: 16 }}>Tiếp theo</b>
+                    {steps.map((st) => (
+                        <div key={st.t} style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                            <span style={{
+                                width: 32, height: 32, borderRadius: 16, flexShrink: 0, background: st.bg, color: st.color,
+                                display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 15,
+                            }}>{st.icon}</span>
+                            <span style={{ display: "flex", flexDirection: "column" }}>
+                                <span style={{ fontWeight: 600 }}>{st.t}</span>
+                                <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{st.h}</span>
+                            </span>
+                        </div>
+                    ))}
+                </section>
+                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                    <Button type="primary" size="large" icon={<FileTextOutlined />} onClick={() => navigate("/my-applications")}>Theo dõi đơn ứng tuyển</Button>
+                    <Button size="large" onClick={() => navigate("/careers")}>Xem việc làm khác</Button>
                 </div>
             </div>
         );

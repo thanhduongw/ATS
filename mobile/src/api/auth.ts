@@ -2,7 +2,9 @@ import { apiClient, requireTokens } from "./client";
 import type {
   ApiMessage,
   CandidateRegistrationRequest,
+  ChangePasswordRequest,
   CompanyResponse,
+  UpdateProfileRequest,
   LoginResponse,
   ResetPasswordRequest,
   UserProfileResponse,
@@ -40,6 +42,12 @@ export const authApi = {
     apiClient.post<ApiMessage>("/auth/reset-password", body).then((r) => r.data),
 
   me: () => apiClient.get<UserProfileResponse>("/auth/me").then((r) => r.data),
+  /** M10: sửa họ tên, số điện thoại của chính mình. */
+  updateProfile: (body: UpdateProfileRequest) =>
+    apiClient.put<UserProfileResponse>("/auth/profile", body).then((r) => r.data),
+  /** M10: đổi mật khẩu — xong phải đăng nhập lại (giống web). */
+  changePassword: (body: ChangePasswordRequest) =>
+    apiClient.post<ApiMessage>("/auth/change-password", body).then((r) => r.data),
   /** Thông tin công ty công khai (tên hiển thị ở UR10 "Chuyên viên tuyển dụng · <công ty>"). */
   publicCompany: () => apiClient.get<CompanyResponse>("/auth/public/company").then((r) => r.data),
 

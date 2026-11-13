@@ -1,5 +1,3 @@
-import { PlaceholderScreen } from "@/components/placeholder-screen";
+import { StaffSettingsScreen } from "@/features/staff/screens/settings-screen";
 
-export default function PendingSettingsTsx() {
-  return <PlaceholderScreen title="Tài khoản" back={true} />;
-}
+export default StaffSettingsScreen;

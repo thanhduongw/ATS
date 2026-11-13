@@ -746,6 +746,33 @@ export const STRINGS = {
       call: "Gọi ứng viên",
     },
 
+    /** M10 · Tài khoản & cài đặt (nhân viên). Sinh trắc học, thiết bị, thông báo đẩy: hoãn (D4) / backend chưa có. */
+    settings: {
+      title: "Tài khoản",
+      save: "Lưu",
+      saved: "Đã lưu thông tin",
+      personal: "Thông tin cá nhân",
+      fullName: "Họ và tên",
+      email: "Email công ty",
+      emailHint: "Liên hệ quản trị doanh nghiệp để đổi email",
+      phone: "Số điện thoại",
+      security: "Bảo mật",
+      changePassword: "Đổi mật khẩu",
+      changePasswordSub: "Sau khi đổi, bạn cần đăng nhập lại",
+      current: "Mật khẩu hiện tại",
+      next: "Mật khẩu mới",
+      confirm: "Nhập lại mật khẩu mới",
+      change: "Đổi mật khẩu",
+      changed: "Đã đổi mật khẩu. Vui lòng đăng nhập lại",
+      errName: "Nhập họ và tên",
+      errPhone: "Số điện thoại không hợp lệ",
+      errCurrent: "Nhập mật khẩu hiện tại",
+      errWrongCurrent: "Mật khẩu hiện tại không đúng",
+      errNew: "Tối thiểu 8 ký tự",
+      errMatch: "Mật khẩu nhập lại không khớp",
+      signOut: "Đăng xuất",
+    },
+
     /** UR10 / UH09 · Thêm. */
     more: {
       title: "Thêm",

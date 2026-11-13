@@ -17,6 +17,8 @@ import type { components as MasterDataC } from "./generated/masterdata";
 export type LoginResponse        = AuthC["schemas"]["LoginResponse"];
 export type UserProfileResponse  = AuthC["schemas"]["UserProfileResponse"];
 export type CompanyResponse      = AuthC["schemas"]["CompanyResponse"];
+export type UpdateProfileRequest = AuthC["schemas"]["UpdateProfileRequest"];
+export type ChangePasswordRequest = AuthC["schemas"]["ChangePasswordRequest"];
 export type JobPostingResponse   = RecruitmentC["schemas"]["JobPostingResponse"];
 export type RequisitionResponse  = RecruitmentC["schemas"]["JobRequisitionResponse"];
 export type RequisitionUpdateRequest = RecruitmentC["schemas"]["JobRequisitionUpdateRequest"];

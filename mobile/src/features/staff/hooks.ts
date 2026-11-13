@@ -50,6 +50,17 @@ export const useMe = () =>
     staleTime: 5 * 60_000,
   });
 
+/** M10: lưu họ tên / số điện thoại; làm mới hồ sơ ở mọi màn. */
+export function useUpdateProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: authApi.updateProfile,
+    onSuccess: (p) => qc.setQueryData(staffKeys.me(), p),
+  });
+}
+
+export const useChangePassword = () => useMutation({ mutationFn: authApi.changePassword });
+
 /** Tên công ty (UR10/UH09). */
 export const useCompanyName = () =>
   useQuery({

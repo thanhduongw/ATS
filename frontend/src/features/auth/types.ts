@@ -94,6 +94,7 @@ export interface UserProfileResponse {
     departmentId: number | null;
     status: UserStatus;
     emailVerified: boolean;
+    avatarUrl?: string | null;
 }
 
 export interface CompanyResponse extends CompanyProfileFields {
@@ -121,6 +122,7 @@ export interface AuthUser {
     role: UserRole;
     departmentId: number | null;
     fullName?: string;
+    avatarUrl?: string | null;
 }
 
 /** Internal-staff picker entry from GET /auth/users/directory. No email or account status. */

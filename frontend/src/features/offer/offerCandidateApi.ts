@@ -10,6 +10,10 @@ export const getMyOffers = (applicationId?: number) =>
                 : response.data,
         }));
 
+/** C16 · Thư mời PDF của chính ứng viên (backend `assertCanView`: đúng chủ thư, thư đã gửi). */
+export const getMyOfferPdf = (id: number) =>
+    axiosClient.get<Blob>(`/offer/offers/${id}/pdf`, { responseType: "blob" });
+
 export const getOfferById = (id: number) =>
     axiosClient.get<CandidateOfferResponse>(`/offer/offers/my/${id}`);
 

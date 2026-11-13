@@ -77,6 +77,7 @@ const authSlice = createSlice({
             state.user.fullName = action.payload.fullName;
             state.user.email = action.payload.email;
             state.user.departmentId = action.payload.departmentId;
+            state.user.avatarUrl = action.payload.avatarUrl ?? null;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         },
     },

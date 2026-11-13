@@ -178,16 +178,18 @@ export default function AppLayout() {
     const refreshToken = useAppSelector((state) => state.auth.refreshToken);
     const [loggingOut, setLoggingOut] = useState(false);
     const [companyName, setCompanyName] = useState<string | null>(null);
+    const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
     useEffect(() => {
-        if (user && !user.fullName) {
+        // Nạp tên + ảnh đại diện một lần mỗi phiên (ảnh có thể đổi ở thiết bị khác).
+        if (user && (!user.fullName || user.avatarUrl === undefined)) {
             getMyProfile().then((response) => dispatch(setUserProfile(response.data))).catch(() => undefined);
         }
     }, [dispatch, user]);
 
     // Tên công ty lấy từ API, không viết cứng (mục 0.1 của kế hoạch).
     useEffect(() => {
-        getPublicCompany().then((res) => setCompanyName(res.data?.name ?? null)).catch(() => undefined);
+        getPublicCompany().then((res) => { setCompanyName(res.data?.name ?? null); setLogoUrl(res.data?.logoUrl ?? null); }).catch(() => undefined);
     }, []);
 
     const isRecruiter = user?.role === "RECRUITER";
@@ -238,10 +240,12 @@ export default function AppLayout() {
                     <span
                         style={{
                             display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32,
-                            borderRadius: 10, background: COLORS.primary, color: "#FFFFFF", fontWeight: 800, flexShrink: 0,
+                            borderRadius: 10, background: logoUrl ? "transparent" : COLORS.primary, color: "#FFFFFF", fontWeight: 800, overflow: "hidden", flexShrink: 0,
                         }}
                     >
-                        {(companyName ?? "A").charAt(0).toUpperCase()}
+                        {logoUrl
+                            ? <img src={logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 10 }} />
+                            : (companyName ?? "A").charAt(0).toUpperCase()}
                     </span>
                     <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                         <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.textPrimary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -355,7 +359,7 @@ export default function AppLayout() {
                             }}
                         >
                             <span style={{ cursor: "pointer", display: "inline-flex" }} aria-label="Tài khoản">
-                                <Avatar name={user?.fullName || user?.email} colorKey={user?.userId ?? user?.email} size={34} />
+                                <Avatar name={user?.fullName || user?.email} colorKey={user?.userId ?? user?.email} size={34} src={user?.avatarUrl} />
                             </span>
                         </Dropdown>
                     </div>

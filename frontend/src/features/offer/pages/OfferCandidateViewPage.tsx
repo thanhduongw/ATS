@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { App, Button, Checkbox, Input, Radio, Result, Spin } from "antd";
-import { CalendarOutlined, CheckCircleFilled } from "@ant-design/icons";
+import { CalendarOutlined, CheckCircleFilled, DownloadOutlined } from "@ant-design/icons";
+import { saveAs } from "file-saver";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
-import { acceptOffer, declineOffer, getMyOffers, getOfferById } from "../offerCandidateApi";
+import { acceptOffer, declineOffer, getMyOfferPdf, getMyOffers, getOfferById } from "../offerCandidateApi";
 import type { ApiMessageResponse, CandidateOfferResponse } from "../types";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
@@ -22,7 +23,8 @@ import { PageBreadcrumb } from "../../../components/ui/PageHeader";
  * C22 từ chối kèm lý do · C23 chào mừng gia nhập sau khi chấp nhận.
  * Lý do từ chối: 5 lựa chọn theo HTML; gửi kèm mã lý do của danh mục "Lý do từ chối" nếu khớp tên
  * (lương, địa điểm), còn lại dùng "Ứng viên tự rút hồ sơ" và ghi lựa chọn vào ghi chú.
- * Khác HTML: chưa tải được PDF thư mời và chưa có giờ / địa chỉ cụ thể của ngày đầu tiên.
+ * Tải thư mời PDF ở khung "Phản hồi thư mời" và ở màn chào mừng.
+ * Khác HTML: chưa có giờ / địa chỉ cụ thể của ngày đầu tiên.
  */
 const WEEKDAY_FULL = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 const PAY_SUFFIX: Record<string, string> = { MONTHLY: " / tháng", YEARLY: " / năm" };
@@ -57,6 +59,7 @@ export default function OfferCandidateViewPage() {
     const [declineKey, setDeclineKey] = useState<DeclineKey | null>(null);
     const [note, setNote] = useState("");
     const [busy, setBusy] = useState(false);
+    const [downloading, setDownloading] = useState(false);
 
     const load = useCallback(async () => {
         if (!id) return;
@@ -92,6 +95,16 @@ export default function OfferCandidateViewPage() {
     const workplace = offer.workLocationId != null ? String(locations.find((l) => l.id === offer.workLocationId)?.name ?? "") : "";
     const pay = PAY_SUFFIX[offer.payFrequency ?? "MONTHLY"] ?? "";
     const benefits = (offer.benefits ?? "").split(/\n|;|,(?![^(]*\))/).map((s) => s.trim()).filter(Boolean);
+
+    const downloadPdf = async () => {
+        setDownloading(true);
+        try {
+            const res = await getMyOfferPdf(offer.id);
+            saveAs(res.data, `thu-moi-${(offer.jobTitle ?? "nhan-viec").replace(/[\\/:*?"<>|]/g, "-")}.pdf`);
+        } catch {
+            message.error("Không tải được thư mời PDF, vui lòng thử lại");
+        } finally { setDownloading(false); }
+    };
 
     const accept = async () => {
         setBusy(true);
@@ -146,6 +159,7 @@ export default function OfferCandidateViewPage() {
                             uid: `offer-${offer.id}`, title: `Ngày đầu tiên · ${offer.jobTitle ?? ""}`,
                             start: dayjs(offer.startDate).hour(8).minute(30).toISOString(), durationMinutes: 60, location: workplace || null,
                         })}>Thêm vào lịch</Button>
+                        <Button icon={<DownloadOutlined />} loading={downloading} onClick={downloadPdf}>Tải thư mời PDF</Button>
                         <Button type="primary" onClick={() => navigate("/my-home")}>Về trang tổng quan</Button>
                     </div>
                 </Panel>
@@ -216,6 +230,8 @@ export default function OfferCandidateViewPage() {
                             tone={offer.status === "DECLINED" ? "neutral" : "warning"}
                         />
                     )}
+                    <Button type="link" icon={<DownloadOutlined />} loading={downloading} onClick={downloadPdf}
+                        style={{ alignSelf: "center" }}>Tải thư mời (PDF)</Button>
                 </Panel>
             </div>
 

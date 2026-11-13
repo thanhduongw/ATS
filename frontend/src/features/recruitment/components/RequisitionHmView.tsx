@@ -81,6 +81,8 @@ export default function RequisitionHmView({ requisition: r, cat }: { requisition
     const counts: Partial<Record<FixedStage, number>> = {};
     apps.forEach((a) => { const s = toFixedStage(a.currentStageType); counts[s] = (counts[s] ?? 0) + 1; });
     const hired = counts.HIRED ?? 0;
+    const approved = r.status === "APPROVED";
+    const deadline = postings.map((p) => p.applicationDeadline).filter(Boolean).sort().pop() ?? null;
     const proposed = formatSalaryShort(r.expectedSalaryMin, r.expectedSalaryMax);
     const edit = () => navigate(`/recruitment/requisitions/${r.id}/edit`);
 
@@ -130,7 +132,7 @@ export default function RequisitionHmView({ requisition: r, cat }: { requisition
                         extra={postings.length > 0 && (
                             <Button onClick={() => navigate(`/applications?jobPostingId=${postings[0].id}`)}>Xem ứng viên</Button>
                         )}
-                        bodyGap={16}
+                        bodyGap={12}
                     >
                         {postings.length === 0 ? (
                             <span style={{ color: COLORS.textSecondary }}>Chuyên viên tuyển dụng chưa tạo việc làm từ yêu cầu này.</span>
@@ -140,13 +142,20 @@ export default function RequisitionHmView({ requisition: r, cat }: { requisition
                                     <Metric label="Đã tuyển" value={<>{hired} <span style={{ fontSize: 14, fontWeight: 400, color: COLORS.textSecondary }}>/ {r.quantity} người</span></>} />
                                     <Metric label="Ứng viên" value={apps.length} />
                                     <Metric label="Đang phỏng vấn" value={counts.INTERVIEW ?? 0} />
+                                    {deadline && <Metric label="Hạn nộp hồ sơ" value={<span style={{ fontSize: 18 }}>{fullDate(deadline)}</span>} />}
                                 </div>
-                                <div style={{ display: "grid", gridTemplateColumns: `repeat(${MAIN.length}, minmax(0, 1fr))`, gap: 8 }}>
+                                {/* H07: một thanh xếp chồng theo giai đoạn + chú thích (thay 5 ô). */}
+                                <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", background: COLORS.fill, gap: 2 }}>
+                                    {MAIN.filter((s) => (counts[s] ?? 0) > 0).map((s) => (
+                                        <span key={s} style={{ flex: counts[s], background: STAGE_COLORS[s].color }} />
+                                    ))}
+                                </div>
+                                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12, color: COLORS.textSecondary }}>
                                     {MAIN.map((s) => (
-                                        <div key={s} style={{ padding: "10px 12px", borderRadius: 12, background: STAGE_COLORS[s].bg }}>
-                                            <div style={{ fontSize: 12, color: COLORS.textSecondary }}>{FIXED_STAGE_LABEL[s]}</div>
-                                            <div style={{ fontSize: 18, fontWeight: 700, color: STAGE_COLORS[s].color }}>{counts[s] ?? 0}</div>
-                                        </div>
+                                        <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: 4, background: STAGE_COLORS[s].color }} />
+                                            {FIXED_STAGE_LABEL[s]} {counts[s] ?? 0}
+                                        </span>
                                     ))}
                                 </div>
                             </>
@@ -155,6 +164,19 @@ export default function RequisitionHmView({ requisition: r, cat }: { requisition
                 </>
             )}
 
+            {approved ? (
+            <Panel title="Nội dung yêu cầu" bodyGap={14}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16 }}>
+                    <Field label="Số lượng" value={`${r.quantity} người`} />
+                    <Field label="Cấp bậc" value={r.jobLevelId != null ? cat.jobLevelMap[r.jobLevelId] : null} />
+                    <Field label="Hình thức" value={r.workArrangement ? WORK_ARRANGEMENT_LABEL[r.workArrangement] : null} />
+                    <Field label="Ngày bắt đầu" value={r.expectedStartDate ? fullDate(r.expectedStartDate) : null} />
+                </div>
+                <TextBlock title="Mô tả công việc" text={r.description} />
+                <TextBlock title="Yêu cầu" text={r.requirements} />
+                <TextBlock title="Quyền lợi" text={r.benefits} />
+            </Panel>
+            ) : (
             <Panel title="Thông tin vị trí" bodyGap={16}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16 }}>
                     <Field label="Chức danh" value={cat.jobTitleMap[r.jobTitleId]} />
@@ -178,6 +200,7 @@ export default function RequisitionHmView({ requisition: r, cat }: { requisition
                 <TextBlock title="Yêu cầu" text={r.requirements} />
                 <TextBlock title="Quyền lợi" text={r.benefits} />
             </Panel>
+            )}
 
             <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
                 {requisitionCode(r.id)} · tạo ngày {fullDate(r.createdAt)} · người duyệt {r.approverName}

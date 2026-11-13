@@ -1,4 +1,5 @@
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { awaitsReply } from "@/features/interviews/rules";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useState } from "react";
@@ -78,7 +79,7 @@ export default function ApplicationDetailScreen() {
           }
         >
           {/* Việc cần làm ngay lên đầu (canvas N30). */}
-          {interview?.status === "HM_CONFIRMED" ? (
+          {interview && awaitsReply(interview, now) ? (
             <Card style={styles.actionCard}>
               <Text style={styles.actionTitle}>{S.confirmInvite}</Text>
               <Text style={styles.sub}>
@@ -103,7 +104,7 @@ export default function ApplicationDetailScreen() {
               />
               <ListRow icon={interview.format === "ONLINE" ? "video" : "home"} title={interviewPlace(interview, locations)} last />
               {/* Nút Đồng ý / Từ chối đã nằm ở thẻ hành động trên cùng — không lặp lại ở đây. */}
-              {interview.status !== "HM_CONFIRMED" ? <InterviewAction interview={interview} size="md" fullWidth /> : null}
+              {!awaitsReply(interview, now) ? <InterviewAction interview={interview} size="md" fullWidth /> : null}
             </Card>
           ) : null}
 

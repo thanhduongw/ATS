@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { awaitsReply } from "@/features/interviews/rules";
+import { useNow } from "@/lib/use-now";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useMyApplications } from "@/features/applications/hooks";
@@ -46,10 +48,11 @@ export default function ApplicationsScreen() {
     [query.data],
   );
 
+  const now = useNow();
   const todoFor = (appId?: number): Todo => {
     if (appId == null) return null;
     const iv = (interviews.data ?? []).find(
-      (i) => i.applicationId === appId && i.status === "HM_CONFIRMED",
+      (i) => i.applicationId === appId && awaitsReply(i, now),
     );
     return iv ? { kind: "confirm", interview: iv } : null;
   };

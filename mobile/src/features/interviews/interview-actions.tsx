@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { awaitsReply } from "./rules";
 import { Linking, StyleSheet, View } from "react-native";
 import { PillButton } from "@/components/ui/buttons";
 import { useSnackbar } from "@/components/ui/snackbar";
@@ -34,7 +35,7 @@ export function InterviewAction({
 
   const id = interview.id;
   const future = new Date(interview.scheduledAt ?? 0).getTime() > now;
-  const waiting = interview.status === "HM_CONFIRMED";
+  const waiting = awaitsReply(interview, now);
   const accepted = interview.status === "CANDIDATE_CONFIRMED";
   const link = accepted && interview.format === "ONLINE" ? interview.meetingLink : undefined;
   if (id == null || (!waiting && !(accepted && (future || link)))) return null;

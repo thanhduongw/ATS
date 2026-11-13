@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Pagination, Spin } from "antd";
-import { CalendarOutlined, CheckCircleOutlined, FileTextOutlined, MailOutlined, BellOutlined, SolutionOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { getNotifications, markAllAsRead, markAsRead } from "../notificationApi";
 import type { NotificationResponse } from "../types";
 import { resolveNotificationPath } from "../notificationRoutes";
+import { NotificationIcon } from "../components/NotificationIcon";
 import { useAppSelector } from "../../../app/hooks";
 import type { UserRole } from "../../auth/types";
 import { COLORS } from "../../../app/theme";
@@ -29,17 +29,6 @@ function actionLabel(n: NotificationResponse, role?: UserRole): string | null {
     if (t.includes("APPLICATION")) return candidate ? "Xem đơn" : "Xem hồ sơ";
     if (t.includes("REQUISITION")) return "Xem yêu cầu";
     return null;
-}
-
-/** Ô icon theo loại đối tượng (C19): lịch cam, thư mời xanh lá, hồ sơ xanh chính, còn lại xám. */
-function iconOf(n: NotificationResponse) {
-    const t = (n.resourceType ?? n.type ?? "").toUpperCase();
-    if (t.includes("INTERVIEW")) return { icon: <CalendarOutlined />, bg: COLORS.warningBg, color: COLORS.warning };
-    if (t.includes("OFFER")) return { icon: <MailOutlined />, bg: COLORS.successBg, color: COLORS.success };
-    if (t.includes("APPLICATION")) return { icon: <CheckCircleOutlined />, bg: COLORS.primarySoft, color: COLORS.primary };
-    if (t.includes("REQUISITION")) return { icon: <SolutionOutlined />, bg: COLORS.primarySoft, color: COLORS.primary };
-    if (t.includes("DOCUMENT") || t.includes("CV")) return { icon: <FileTextOutlined />, bg: COLORS.fill, color: COLORS.textSecondary };
-    return { icon: <BellOutlined />, bg: COLORS.fill, color: COLORS.textSecondary };
 }
 
 export default function NotificationsPage() {
@@ -112,7 +101,6 @@ export default function NotificationsPage() {
                 <div ref={listRef} style={{ padding: "4px 0" }}>
                     {shown.map((n, i) => {
                         const label = actionLabel(n, role);
-                        const ic = iconOf(n);
                         return (
                             <div
                                 key={n.id}
@@ -125,10 +113,7 @@ export default function NotificationsPage() {
                                     background: n.read ? undefined : COLORS.primarySoft,
                                 }}
                             >
-                                <span style={{
-                                    width: 40, height: 40, borderRadius: 12, flexShrink: 0, fontSize: 17,
-                                    display: "inline-flex", alignItems: "center", justifyContent: "center", background: ic.bg, color: ic.color,
-                                }}>{ic.icon}</span>
+                                <NotificationIcon n={n} />
                                 <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                                     <span style={{ fontWeight: n.read ? 500 : 600 }}>{n.title}</span>
                                     <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{n.message}</span>

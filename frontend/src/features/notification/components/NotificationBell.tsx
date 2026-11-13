@@ -5,8 +5,6 @@ import {
     Button,
     Empty,
     Typography,
-    Tag,
-    Space,
     App,
 } from "antd";
 import { BellOutlined } from "@ant-design/icons";
@@ -24,11 +22,12 @@ import {
 } from "../websocketClient";
 import type { NotificationResponse } from "../types";
 import {
-    NOTIFICATION_TYPE_LABEL,
     resolveNotificationPath,
 } from "../notificationRoutes";
 import type { UserRole } from "../../auth/types";
-import { COLORS } from "../../../app/theme";
+import { COLORS, SHADOWS } from "../../../app/theme";
+import { relativeTime } from "../../../app/datetime";
+import { NotificationIcon } from "./NotificationIcon";
 import { ensureFreshAccessToken } from "../../../services/axiosClient";
 
 const { Text } = Typography;
@@ -144,131 +143,43 @@ export default function NotificationBell() {
         navigate("/notifications");
     };
 
+    // C27: tiêu đề + "Đánh dấu đã đọc", mỗi dòng có ô icon theo loại, nền nhạt khi chưa đọc, "Xem tất cả" ở cuối.
     const dropdownRender = () => (
-        <div
-            style={{
-                width: 380,
-                maxWidth: "92vw",
-                background: "#fff",
-                borderRadius: 12,
-                boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
-                overflow: "hidden",
-            }}
-        >
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "12px 16px",
-                    borderBottom: "1px solid #1824311A",
-                    background: "#1824310C",
-                }}
-            >
-                <Space>
-                    <Text strong>Thông báo</Text>
-                    {unreadCount > 0 && (
-                        <Tag color="blue" style={{ margin: 0 }}>
-                            {unreadCount} mới
-                        </Tag>
-                    )}
-                </Space>
-                <Button
-                    type="link"
-                    size="small"
-                    disabled={unreadCount === 0}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        handleMarkAllAsRead();
-                    }}
-                >
-                    Đọc tất cả
+        <div style={{ width: 380, maxWidth: "92vw", background: COLORS.cardBg, borderRadius: 20, boxShadow: SHADOWS.dropdown, overflow: "hidden" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px 10px" }}>
+                <Text strong style={{ fontSize: 16 }}>Thông báo</Text>
+                <Button type="link" size="small" disabled={unreadCount === 0} style={{ padding: 0 }}
+                    onClick={(e) => { e.stopPropagation(); void handleMarkAllAsRead(); }}>
+                    Đánh dấu đã đọc
                 </Button>
             </div>
-
             {notifications.length === 0 ? (
-                <Empty
-                    description={loading ? "Đang tải..." : "Không có thông báo"}
-                    style={{ padding: 32 }}
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                />
+                <Empty description={loading ? "Đang tải..." : "Không có thông báo"} style={{ padding: 32 }} image={Empty.PRESENTED_IMAGE_SIMPLE} />
             ) : (
-                <div style={{ maxHeight: 420, overflowY: "auto" }}>
-                    {notifications.slice(0, 50).map((item) => (
+                <div style={{ maxHeight: 420, overflowY: "auto", padding: "0 8px", display: "flex", flexDirection: "column", gap: 4 }}>
+                    {notifications.slice(0, 8).map((item) => (
                         <div
                             key={item.id}
+                            className="row-clickable"
+                            onClick={() => void handleClickItem(item)}
                             style={{
-                                padding: "10px 16px",
-                                margin: 0,
-                                background: item.read ? "#fff" : "#F0F7FF",
-                                cursor: "pointer",
-                                borderBottom: "1px solid #1824311A",
+                                display: "flex", alignItems: "center", gap: 12, padding: "10px", borderRadius: 14, cursor: "pointer",
+                                background: item.read ? undefined : COLORS.primaryFaint,
                             }}
-                            onClick={() => handleClickItem(item)}
                         >
-                            <div
-                                style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    gap: 8,
-                                    alignItems: "flex-start",
-                                    marginBottom: 4,
-                                }}
-                            >
-                                <Text strong={!item.read} style={{ fontSize: 13 }}>
+                            <NotificationIcon n={item} size={36} />
+                            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                                <span style={{ fontSize: 14, fontWeight: item.read ? 500 : 600, color: item.read ? COLORS.textSecondary : COLORS.textPrimary }}>
                                     {item.title}
-                                </Text>
-                                {!item.read && (
-                                    <span
-                                        style={{
-                                            width: 8,
-                                            height: 8,
-                                            borderRadius: "50%",
-                                            background: COLORS.primary || "#0A59F7",
-                                            flexShrink: 0,
-                                            marginTop: 6,
-                                        }}
-                                    />
-                                )}
+                                </span>
+                                <span style={{ fontSize: 12, color: COLORS.textMuted }}>{relativeTime(item.createdAt)}</span>
                             </div>
-                            {item.type && (
-                                <Tag
-                                    style={{ marginBottom: 4, fontSize: 11 }}
-                                    color="default"
-                                >
-                                    {NOTIFICATION_TYPE_LABEL[item.type] ?? item.type}
-                                </Tag>
-                            )}
-                            <div
-                                style={{
-                                    fontSize: 12,
-                                    color: "#18243199",
-                                    lineHeight: 1.4,
-                                }}
-                            >
-                                {item.message}
-                            </div>
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                                {item.createdAt
-                                    ? new Date(item.createdAt).toLocaleString("vi-VN")
-                                    : ""}
-                            </Text>
                         </div>
                     ))}
                 </div>
             )}
-
-            <div
-                style={{
-                    borderTop: "1px solid #1824311A",
-                    padding: "8px 16px",
-                    textAlign: "center",
-                    background: "#1824310C",
-                }}
-            >
-                <Button type="link" onClick={handleViewAll} style={{ padding: 0 }}>
-                    Xem tất cả thông báo
-                </Button>
+            <div style={{ padding: "8px 16px 14px", textAlign: "center" }}>
+                <Button type="link" onClick={handleViewAll} style={{ padding: 0 }}>Xem tất cả</Button>
             </div>
         </div>
     );

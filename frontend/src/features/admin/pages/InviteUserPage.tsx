@@ -57,7 +57,7 @@ export default function InviteUserPage() {
             <ScreenTitle title="Mời người dùng" />
             <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
                 <Panel title="Thông tin người được mời" style={{ flex: "1 1 520px" }} bodyGap={4}>
-                    <Form form={form} layout="vertical" requiredMark={false} initialValues={{ role: "RECRUITER" }}>
+                    <Form form={form} layout="vertical" requiredMark={false} initialValues={{ role: "RECRUITER" }} className="compact-form">
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                             <Form.Item name="fullName" label="Họ và tên *" rules={[{ required: true, message: "Vui lòng nhập họ và tên" }]}>
                                 <Input />

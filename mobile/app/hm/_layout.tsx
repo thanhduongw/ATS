@@ -15,7 +15,8 @@ export default function HiringManagerLayout() {
   const screenOptions = useTabScreenOptions();
   const tasks = useStaffTaskCount();
   return (
-    <Tabs screenOptions={screenOptions}>
+    // "history": quay lại từ màn chi tiết về đúng màn trước (mặc định "firstRoute" luôn về tab đầu).
+    <Tabs screenOptions={screenOptions} backBehavior="history">
       <Tabs.Screen
         name="index"
         options={{

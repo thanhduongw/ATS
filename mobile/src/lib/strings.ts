@@ -789,6 +789,33 @@ export const STRINGS = {
       signOut: "Đăng xuất",
     },
 
+    /** UR15 · Chi tiết việc làm. */
+    job: {
+      title: "Việc làm",
+      share: "Chia sẻ liên kết tuyển dụng",
+      daysLeft: (n: number, date: string) => (n >= 0 ? `Còn ${n} ngày · hạn ${date}` : `Hết hạn ${date}`),
+      closedAt: (date: string) => `Đã đóng ${date}`,
+      owner: (name: string, head: number, hired: number) =>
+        [name, `tuyển ${head}`, `đã tuyển ${hired}`].filter(Boolean).join(" · "),
+      list: (stage: string, n: number) => `${stage} · ${n} ứng viên`,
+      compare: "So sánh trên máy tính",
+      emptyStage: "Không có ứng viên nào ở giai đoạn này.",
+    },
+
+    /** UR18 · Tìm kiếm (Chuyên viên tuyển dụng): ứng viên, việc làm, yêu cầu tuyển dụng. */
+    search: {
+      placeholder: "Tên ứng viên, việc làm, mã REQ",
+      recent: "Tìm gần đây",
+      candidates: (n: number) => `Ứng viên · ${n}`,
+      jobs: (n: number) => `Việc làm · ${n}`,
+      requisitions: (n: number) => `Yêu cầu tuyển dụng · ${n}`,
+      hintTitle: "Tìm nhanh",
+      hint: "Gõ tên ứng viên, tên việc làm hoặc mã yêu cầu (REQ-006).",
+      emptyTitle: "Không tìm thấy kết quả",
+      emptyMessage: (q: string) => `Không có ứng viên, việc làm hay yêu cầu nào khớp “${q}”.`,
+      closedOn: (date: string) => `Đã đóng ${date}`,
+    },
+
     /** UR10 / UH09 · Thêm. */
     more: {
       title: "Thêm",

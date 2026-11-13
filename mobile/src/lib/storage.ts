@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 
 const ACCESS = "ats.accessToken";
 const REFRESH = "ats.refreshToken";
+const RECENT_SEARCH = "ats.recentSearches";
 
 /**
  * Lưu token vào Android Keystore qua SecureStore.
@@ -61,6 +62,29 @@ export const tokenStorage = {
     await Promise.all([
       store.deleteItemAsync(ACCESS),
       store.deleteItemAsync(REFRESH),
+      // Từ khoá tìm gần đây có thể là tên ứng viên → xoá cùng phiên, người đăng nhập sau không thấy.
+      store.deleteItemAsync(RECENT_SEARCH),
     ]);
+  },
+};
+
+const RECENT_MAX = 5;
+
+/** UR18 · "Tìm gần đây": tối đa 5 từ khoá, mới nhất trước. Không nhạy cảm nhưng dùng chung kho cho gọn. */
+export const recentSearchStorage = {
+  async read(): Promise<string[]> {
+    try {
+      const raw = await store.getItemAsync(RECENT_SEARCH);
+      const list: unknown = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  },
+  async push(term: string): Promise<string[]> {
+    const t = term.trim();
+    const next = [t, ...(await this.read()).filter((x) => x.toLowerCase() !== t.toLowerCase())].slice(0, RECENT_MAX);
+    await store.setItemAsync(RECENT_SEARCH, JSON.stringify(next));
+    return next;
   },
 };

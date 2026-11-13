@@ -9,6 +9,7 @@ import { ScreenHeader } from "@/components/ui/screen-chrome";
 import {
   FilterChips,
   SearchField,
+  SearchLauncher,
   type ChipOption,
 } from "@/components/ui/search-and-filters";
 import { useUnreadCount } from "@/features/notifications/hooks";
@@ -204,11 +205,11 @@ export function StaffCandidatesScreen() {
         empty={{ title: C.emptyTitle, message: C.emptyMessage }}
         header={
           <View style={styles.header}>
-            <SearchField
-              value={keyword}
-              onChangeText={setKeyword}
-              placeholder={C.search}
-            />
+            {isHr ? (
+              <SearchLauncher placeholder={STRINGS.staff.search.placeholder} onPress={() => router.push("/hr/search")} />
+            ) : (
+              <SearchField value={keyword} onChangeText={setKeyword} placeholder={C.search} />
+            )}
             {isHr ? (
               <FilterChips
                 options={hrOptions}

@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import GuestRoute from "../components/GuestRoute";
 import ProtectedRoute from "../components/ProtectedRoute";
 import RoleRoute from "../components/RoleRoute";
-import AppLayout from "../layouts/AppLayout";
+import RoleShell from "../layouts/RoleShell";
 import PublicLayout from "../layouts/PublicLayout";
 import RegisterPage from "../features/auth/pages/RegisterPage";
 import VerifyEmailPage from "../features/auth/pages/VerifyEmailPage";
@@ -88,7 +88,7 @@ export default function AppRoutes() {
         </Route>
 
         <Route element={<ProtectedRoute />}>
-            <Route element={<AppLayout />}>
+            <Route element={<RoleShell />}>
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/settings" element={<AccountSettingsPage />} />
 
@@ -174,7 +174,7 @@ export default function AppRoutes() {
         </Route>
 
         {/* Đường dẫn mặc định (và đường dẫn lạ) luôn mở trang chủ công ty C01 — kể cả khi đã đăng nhập.
-            Sau khi đăng nhập vẫn vào trang chính của vai trò (GuestRoute → defaultRouteForRole). */}
+            Sau khi đăng nhập: ứng viên về C01, vai trò nội bộ vào trang chính (afterLoginRoute). */}
         <Route path="/" element={<Navigate to="/careers/home" replace />} />
         <Route path="*" element={<Navigate to="/careers/home" replace />} />
     </Routes>;

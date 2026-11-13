@@ -17,13 +17,8 @@ import { InlineNotice } from "../../../components/ui/designKit";
  * C03 · Chi tiết việc làm (công khai) · C29 đã ứng tuyển ("Bạn đã ứng tuyển … Xem đơn ứng tuyển") ·
  * C30 tin đã đóng / không tồn tại kèm "Việc làm tương tự".
  * "Ứng tuyển ngay": chưa đăng nhập → trang đăng nhập rồi quay lại (C04); ứng viên → biểu mẫu C09.
- * Khác HTML: chưa có "Hạn nộp", "Cấp bậc", nhãn "Tuyển gấp"; các bước tuyển dụng là các bước chung.
+ * Bỏ ô "Các bước tuyển dụng" của HTML (quyết định 13/11/2026).
  */
-const STEPS = [
-    { title: "Sàng lọc hồ sơ", hint: "Bộ phận tuyển dụng xem hồ sơ của bạn" },
-    { title: "Phỏng vấn", hint: "Bạn tự chọn giờ trong các khung được đề xuất" },
-    { title: "Nhận thư mời nhận việc", hint: "Phản hồi ngay trên cổng ứng viên" },
-];
 
 export default function JobDetailApplyPage() {
     const { jobId } = useParams<{ jobId: string }>();
@@ -104,21 +99,6 @@ export default function JobDetailApplyPage() {
                         ) : (
                             <Button size="large" type="primary" block onClick={apply}>Ứng tuyển ngay</Button>
                         )}
-                    </section>
-                    <section style={{ background: COLORS.cardBg, borderRadius: 20, padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-                        <b>Các bước tuyển dụng</b>
-                        {STEPS.map((s, i) => (
-                            <div key={s.title} style={{ display: "flex", gap: 10 }}>
-                                <span style={{
-                                    width: 24, height: 24, borderRadius: 12, flexShrink: 0, background: COLORS.primarySoft, color: COLORS.primary,
-                                    display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700,
-                                }}>{i + 1}</span>
-                                <span style={{ display: "flex", flexDirection: "column" }}>
-                                    <span style={{ fontWeight: 600, fontSize: 14 }}>{s.title}</span>
-                                    <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{s.hint}</span>
-                                </span>
-                            </div>
-                        ))}
                     </section>
                 </aside>
             </div>

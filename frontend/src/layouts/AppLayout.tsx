@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Dropdown, Layout } from "antd";
 import {
-    AppstoreOutlined,
-    HomeOutlined, AuditOutlined, BankOutlined, CalendarOutlined, CheckSquareOutlined,
+    AuditOutlined, BankOutlined, CalendarOutlined, CheckSquareOutlined,
     DashboardOutlined, DatabaseOutlined, FileDoneOutlined, FileTextOutlined, GlobalOutlined,
-    LogoutOutlined, PlusOutlined, SafetyOutlined, SettingOutlined, SolutionOutlined,
-    TeamOutlined, UserOutlined, BellOutlined, BarChartOutlined, RightOutlined,
+    LogoutOutlined, PlusOutlined, SettingOutlined, SolutionOutlined,
+    TeamOutlined, UserOutlined, BarChartOutlined, RightOutlined,
 } from "@ant-design/icons";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
@@ -72,18 +71,9 @@ function menuFor(role: UserRole): NavItem[] {
                 { key: "/admin/careers", label: "Trang tuyển dụng", icon: <GlobalOutlined /> },
                 { key: "/audit-logs", label: "Nhật ký hệ thống", icon: <AuditOutlined /> },
             ];
-        // C20 — cổng ứng viên
+        // Ứng viên không dùng khung này (RoleShell → CandidateLayout).
         default:
-            return [
-                { key: "/my-home", label: "Tổng quan", icon: <HomeOutlined /> },
-                { key: "/careers", label: "Việc làm", icon: <AppstoreOutlined /> },
-                { key: "/my-applications", label: "Đơn ứng tuyển", icon: <FileTextOutlined /> },
-                { key: "/my-interviews", label: "Lịch phỏng vấn", icon: <CalendarOutlined /> },
-                { key: "/my-offers", label: "Thư mời nhận việc", icon: <FileDoneOutlined /> },
-                { key: "/notifications", label: "Thông báo", icon: <BellOutlined /> },
-                { key: "/my-profile", label: "Hồ sơ của tôi", icon: <UserOutlined /> },
-                { key: "/settings", label: "Quyền riêng tư", icon: <SafetyOutlined /> },
-            ];
+            return [];
     }
 }
 

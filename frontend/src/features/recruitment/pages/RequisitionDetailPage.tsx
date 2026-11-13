@@ -3,7 +3,7 @@ import { Button, Spin } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRequisitionById } from "../recruitmentApi";
 import type { JobRequisitionResponse } from "../types";
-import RequisitionDetailModal from "../components/RequisitionDetailModal";
+import RequisitionReviewView from "../components/RequisitionReviewView";
 import RequisitionHmView from "../components/RequisitionHmView";
 import { useAppSelector } from "../../../app/hooks";
 import { useRecruitmentCatalogs } from "../useRecruitmentCatalogs";
@@ -11,7 +11,7 @@ import { InlineNotice } from "../../../components/ui/designKit";
 
 /**
  * R03 / H06 / H07 · Chi tiết yêu cầu tuyển dụng — trang riêng (DS06: không dùng ngăn kéo/modal
- * cho nội dung dài). Dùng lại toàn bộ thao tác Duyệt / Yêu cầu sửa / Từ chối của RequisitionDetailModal.
+ * cho nội dung dài). Chuyên viên tuyển dụng / Quản trị: RequisitionReviewView (R03–R05); Đại diện phòng ban: RequisitionHmView.
  */
 export default function RequisitionDetailPage() {
     const { id } = useParams();
@@ -47,15 +47,5 @@ export default function RequisitionDetailPage() {
 
     if (isHm) return <RequisitionHmView requisition={item} cat={cat} />;
 
-    return (
-            <RequisitionDetailModal
-                asPage
-                open
-                requisition={item}
-                {...cat}
-                onClose={() => void load()}
-                onChanged={() => void load()}
-                onEdit={(r) => navigate(`/recruitment/requisitions/${r.id}/edit`)}
-            />
-    );
+    return <RequisitionReviewView requisition={item} cat={cat} onChanged={() => void load()} />;
 }

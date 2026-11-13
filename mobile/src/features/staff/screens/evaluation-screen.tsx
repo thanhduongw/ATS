@@ -27,7 +27,7 @@ import {
   useStaffPosting,
   useSubmitEvaluation,
 } from "../hooks";
-import { areaOf } from "../tasks";
+import { areaOf, EVALUABLE } from "../tasks";
 
 const S = STRINGS.staff;
 const L = S.evaluation;
@@ -49,6 +49,8 @@ type Values = z.infer<typeof schema>;
 const digits = (s: string) => s.replace(/\D/g, "");
 const toNumber = (s: string) => (digits(s) ? Number(digits(s)) : undefined);
 const one = (n: number) => n.toFixed(1).replace(".", ",");
+/** "34000000" → "34.000.000" (ô lương UR09; `digits()` bỏ dấu chấm trước khi gửi). */
+const grouped = (s: string) => digits(s).replace(/^0+(?=\d)/, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
 function toBody(v: Values): EvaluationDraftRequest {
   return {
@@ -110,7 +112,7 @@ export function StaffEvaluationScreen() {
       scores, comments,
       recommendation: (mine.overallRecommendation as Rec | undefined) ?? null,
       generalComment: mine.generalComment ?? "",
-      salary: mine.salaryProposed != null ? String(mine.salaryProposed) : "",
+      salary: mine.salaryProposed != null ? grouped(String(Math.round(mine.salaryProposed))) : "",
       salaryNote: mine.salaryNote ?? "",
     });
   }, [evals.isSuccess, mine, reset]);
@@ -132,6 +134,12 @@ export function StaffEvaluationScreen() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirtyKey]);
+
+  // Ngăn nghìn ngay khi gõ (ô chỉ nhận số).
+  useEffect(() => {
+    const v = values.salary ?? "";
+    if (grouped(v) !== v) setValue("salary", grouped(v));
+  }, [values.salary, setValue]);
 
   const scored = Object.values(values.scores ?? {}).filter((s) => s > 0);
   const avg = scored.length ? scored.reduce((a, b) => a + b, 0) / scored.length : 0;
@@ -187,7 +195,10 @@ export function StaffEvaluationScreen() {
   };
 
   const subtitle = [d.candidateName, jobTitle].filter(Boolean).join(" · ");
-  const blocked = submitted ? L.alreadySubmitted : !isInterviewer ? L.notInterviewer : null;
+  const blocked = submitted ? L.alreadySubmitted
+    : !isInterviewer ? L.notInterviewer
+      : !EVALUABLE.has(d.status ?? "") ? L.notEvaluable
+        : null;
 
   return (
     <>
@@ -295,7 +306,7 @@ export function StaffEvaluationScreen() {
               <FormTextField
                 control={control}
                 name="salary"
-                label={L.salaryLabel}
+                label={`${L.salaryLabel} (₫)`}
                 keyboardType="number-pad"
                 hint={range ? L.salaryRange(range) : undefined}
               />

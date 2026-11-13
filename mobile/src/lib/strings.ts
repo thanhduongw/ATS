@@ -658,6 +658,7 @@ export const STRINGS = {
       done: "Đã nộp đánh giá",
       alreadySubmitted: "Bạn đã nộp đánh giá cho buổi này.",
       notInterviewer: "Bạn không phải người phỏng vấn của buổi này.",
+      notEvaluable: "Chỉ viết đánh giá được sau khi ứng viên đã xác nhận lịch phỏng vấn.",
       errScores: "Chấm điểm ít nhất 1 tiêu chí",
       errRecommendation: "Chọn kết luận",
       errGeneral: "Viết nhận xét chung",

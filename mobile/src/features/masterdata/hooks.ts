@@ -30,6 +30,18 @@ export const useEducationLevels = () =>
   });
 
 /** id → tên nơi làm việc; buổi phỏng vấn chỉ trả `workLocationId`. */
+/** id → tên phòng ban; yêu cầu tuyển dụng chỉ trả `departmentId` (UR11). */
+export const useDepartmentNames = () => {
+  const q = useQuery({
+    queryKey: ["masterdata", "departments"],
+    queryFn: masterdataApi.departments,
+    staleTime: STALE,
+  });
+  const map = new Map<number, string>();
+  for (const d of q.data ?? []) if (d.id != null && d.name) map.set(d.id, d.name);
+  return map;
+};
+
 export const useWorkLocationNames = () => {
   const q = useQuery({
     queryKey: ["masterdata", "work-locations"],

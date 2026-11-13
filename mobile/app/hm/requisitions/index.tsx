@@ -1,5 +1,3 @@
-import { PlaceholderScreen } from "@/components/placeholder-screen";
+import { StaffRequisitionsScreen } from "@/features/staff/screens/requisitions-screen";
 
-export default function PendingRequisitionsIndexTsx() {
-  return <PlaceholderScreen title="Yêu cầu tuyển dụng" back={true} />;
-}
+export default StaffRequisitionsScreen;

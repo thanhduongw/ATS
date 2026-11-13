@@ -38,9 +38,12 @@ export function ScreenHeader({
     return (
       <View style={[styles.compact, { paddingTop: insets.top + SPACING.sm2 }]}>
         {backButton}
-        <Text style={styles.compactTitle} numberOfLines={1} accessibilityRole="header">
-          {title}
-        </Text>
+        <View style={styles.compactText}>
+          <Text style={styles.compactTitle} numberOfLines={1} accessibilityRole="header">
+            {title}
+          </Text>
+          {subtitle ? <Text style={styles.compactSubtitle} numberOfLines={1}>{subtitle}</Text> : null}
+        </View>
         {actions ? <View style={styles.actions}>{actions}</View> : null}
       </View>
     );
@@ -102,7 +105,9 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.sm,
     backgroundColor: COLORS.body,
   },
-  compactTitle: { flex: 1, fontFamily: FONT.bold, fontSize: FONT_SIZE.h3, color: COLORS.textPrimary },
+  compactText: { flex: 1, gap: SPACING.xxs },
+  compactTitle: { fontFamily: FONT.bold, fontSize: FONT_SIZE.h3, color: COLORS.textPrimary },
+  compactSubtitle: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
 
   bottomBar: {
     position: "absolute",

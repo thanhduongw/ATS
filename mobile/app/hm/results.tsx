@@ -1,5 +1,3 @@
-import { PlaceholderScreen } from "@/components/placeholder-screen";
+import { StaffResultsScreen } from "@/features/staff/screens/results-screen";
 
-export default function PendingResultsTsx() {
-  return <PlaceholderScreen title="Kết quả tuyển dụng" back={true} />;
-}
+export default StaffResultsScreen;

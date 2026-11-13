@@ -49,6 +49,15 @@ export const useMe = () =>
     staleTime: 5 * 60_000,
   });
 
+/** Tên công ty (UR10/UH09). */
+export const useCompanyName = () =>
+  useQuery({
+    queryKey: [...staffKeys.all, "company"],
+    queryFn: authApi.publicCompany,
+    staleTime: 30 * 60_000,
+    select: (c) => c.name ?? "",
+  });
+
 export const useStaffApplications = () =>
   useQuery({
     queryKey: staffKeys.applications(),

@@ -52,8 +52,14 @@ export function AiScorePill({
 
 /* ── Ảnh đại diện (DS03): chữ cái đầu trên màu cố định theo người ── */
 export function Avatar({
-    name, colorKey, size = 34, style,
-}: { name?: string | null; colorKey?: string | number | null; size?: number; style?: CSSProperties }) {
+    name, colorKey, size = 34, style, src,
+}: { name?: string | null; colorKey?: string | number | null; size?: number; style?: CSSProperties; src?: string | null }) {
+    if (src) {
+        return (
+            <img src={src} alt={name ?? ""} width={size} height={size}
+                style={{ width: size, height: size, borderRadius: size / 2, objectFit: "cover", flexShrink: 0, ...style }} />
+        );
+    }
     return (
         <span
             aria-label={name ?? undefined}

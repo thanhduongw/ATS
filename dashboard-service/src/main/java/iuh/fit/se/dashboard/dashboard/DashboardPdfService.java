@@ -3,7 +3,6 @@ package iuh.fit.se.dashboard.dashboard;
 import com.lowagie.text.Document;
 import com.lowagie.text.Element;
 import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
 import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.pdf.PdfPCell;
@@ -31,11 +30,11 @@ public class DashboardPdfService {
             PdfWriter.getInstance(document, out);
             document.open();
 
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
-            Font headingFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-            Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 11);
-            Font tableHeaderFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
-            Font tableCellFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
+            Font titleFont = PdfFonts.bold(18);
+            Font headingFont = PdfFonts.bold(13);
+            Font bodyFont = PdfFonts.regular(11);
+            Font tableHeaderFont = PdfFonts.bold(10);
+            Font tableCellFont = PdfFonts.regular(10);
 
             Paragraph title = new Paragraph("BÁO CÁO TUYỂN DỤNG", titleFont);
             title.setAlignment(Element.ALIGN_CENTER);

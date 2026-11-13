@@ -34,6 +34,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final AuditEventPublisher auditEventPublisher;
     private final DepartmentDirectoryClient departmentDirectoryClient;
+    private final ImageStorageService imageStorageService;
 
     @Transactional(readOnly = true)
     public List<UserSummaryResponse> getUsers(String roleFilter) {
@@ -73,6 +74,18 @@ public class UserService {
         if (req.phone() != null) {
             user.setPhone(req.phone().trim());
         }
+        return toProfile(appUserRepository.save(user));
+    }
+
+    /** C17/R32: đặt hoặc gỡ (null) ảnh đại diện của chính mình. Chỉ nhận ảnh đã tải lên kho ảnh của hệ thống. */
+    @Transactional
+    public UserProfileResponse updateAvatar(Long userId, String avatarUrl) {
+        AppUser user = findUser(userId);
+        String url = avatarUrl == null || avatarUrl.isBlank() ? null : avatarUrl.trim();
+        if (url != null && !imageStorageService.isStoredImage(url, "avatars")) {
+            throw new BusinessException("Ảnh đại diện không hợp lệ");
+        }
+        user.setAvatarUrl(url);
         return toProfile(appUserRepository.save(user));
     }
 
@@ -181,7 +194,8 @@ public class UserService {
                 role.getName().name(),
                 user.getDepartmentId(),
                 user.getStatus().name(),
-                user.isEmailVerified()
+                user.isEmailVerified(),
+                user.getAvatarUrl()
         );
     }
 

@@ -7,7 +7,10 @@ import { useFitPageSize } from "./useFitPageSize";
  * Dùng thay `<Table>` trong các màn danh sách; `pagination` do bảng tự quản lý (bỏ qua prop truyền vào).
  * Hết dữ liệu trong 1 trang thì không hiện thanh phân trang.
  */
-export default function FitTable<T extends object>({ dataSource, pagination: _ignored, ...rest }: TableProps<T>) {
+export default function FitTable<T extends object>({ dataSource, pagination: _ignored, fitScope, ...rest }: TableProps<T> & {
+    /** Xem `FitOptions.scope` — dùng khi bảng nằm trong một cột của trang chia cột. */
+    fitScope?: string;
+}) {
     const ref = useRef<HTMLDivElement>(null);
     const [page, setPage] = useState(1);
     const total = dataSource?.length ?? 0;
@@ -16,6 +19,7 @@ export default function FitTable<T extends object>({ dataSource, pagination: _ig
         headerSelector: ".ant-table-thead",
         fallbackItem: 57,
         deps: [total, page],
+        scope: fitScope,
     });
     const pages = Math.max(1, Math.ceil(total / pageSize));
     const current = Math.min(page, pages);

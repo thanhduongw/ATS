@@ -19,10 +19,4 @@ export const publishCareersPage = () => axiosClient.post<CareersPageResponse>("/
 
 export const getPublicCareersPage = () => publicClient.get<CareersPageResponse>("/auth/public/careers-page");
 
-/** Tải một ảnh công khai lên S3 → trả đường dẫn. `folder`: careers · logo · avatars. */
-export const uploadImage = (file: File, folder: "careers" | "logo" | "avatars" = "careers") => {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("folder", folder);
-    return axiosClient.post<{ url: string }>("/auth/files/images", form, { headers: { "Content-Type": "multipart/form-data" } });
-};
+export { uploadImage } from "../../services/imageApi";

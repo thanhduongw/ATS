@@ -9,6 +9,9 @@ import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import type { ApiMessageResponse, CandidateSelfResponse, CandidateSelfUpdateRequest } from "../types";
 import { COLORS } from "../../../app/theme";
+import AvatarUploader from "../../auth/components/AvatarUploader";
+import { getMyProfile } from "../../auth/authApi";
+import type { UserProfileResponse } from "../../auth/types";
 import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
 
 /**
@@ -25,6 +28,7 @@ export default function CandidateProfilePage() {
     const { message } = App.useApp();
     const [form] = Form.useForm<ProfileForm>();
     const [profile, setProfile] = useState<CandidateSelfResponse | null>(null);
+    const [account, setAccount] = useState<UserProfileResponse | null>(null);
     const [educationLevels, setEducationLevels] = useState<CatalogItem[]>([]);
     const [skills, setSkills] = useState<CatalogItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -45,6 +49,10 @@ export default function CandidateProfilePage() {
             skillIds: value.skillIds,
         });
     }, [form]);
+
+    useEffect(() => {
+        getMyProfile().then((r) => setAccount(r.data)).catch(() => undefined);
+    }, []);
 
     useEffect(() => {
         Promise.all([
@@ -120,6 +128,7 @@ export default function CandidateProfilePage() {
                 />
 
                 <Panel title="Thông tin cá nhân">
+                    <div style={{ marginBottom: 16 }}><AvatarUploader profile={account} size={64} onChange={setAccount} /></div>
                     <div style={grid}>
                         <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true, whitespace: true, message: "Nhập họ và tên" }]}>
                             <Input maxLength={150} />

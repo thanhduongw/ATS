@@ -9,9 +9,10 @@ import { useAppDispatch, useAppSelector } from "../../../app/hooks";
 import { logout, setUserProfile } from "../authSlice";
 import { ROLE_LABELS } from "../../../app/roles";
 import { COLORS } from "../../../app/theme";
-import { Avatar, Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
+import { Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
 import { departmentLabel } from "../../overview/useCompanyOverview";
 import { requestOwnDataDeletion } from "../../candidate/candidateApi";
+import AvatarUploader from "../components/AvatarUploader";
 import { getPublicCompany } from "../../public/publicApi";
 
 /**
@@ -117,8 +118,8 @@ export default function AccountSettingsPage() {
 
             {!isCandidate && <Panel title="Thông tin cá nhân" bodyGap={16}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <Avatar name={profile?.fullName || profile?.email || "?"} colorKey={profile?.id ?? 0} size={56} />
-                    <div style={{ display: "flex", flexDirection: "column" }}>
+                    <AvatarUploader profile={profile} onChange={setProfile} />
+                    <div style={{ display: "flex", flexDirection: "column", marginLeft: "auto", textAlign: "right" }}>
                         <span style={{ fontWeight: 600, fontSize: 16 }}>{profile?.fullName}</span>
                         <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
                             {[roleText, deptName ? departmentLabel(deptName) : null].filter(Boolean).join(" · ")}

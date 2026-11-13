@@ -44,6 +44,12 @@ import type { CVExtractionResult, ExtractionProvenance, CVExtractionResponse } f
 import { getCvExtraction, reExtractCv } from "../../ai/aiApi";
 import StageTag from "../../../components/ui/StageTag";
 import { advanceSteps, planNextFixedStage } from "../stageAdvance";
+
+/**
+ * R14/H09 theo docs/UI: CV trái và tab phải cao bằng phần còn lại của màn hình (cuộn bên trong khung),
+ * trang không phải cuộn. 275px ≈ đầu trang + thẻ ứng viên + khoảng đệm dưới.
+ */
+const FIT_HEIGHT = "calc(100vh - 275px)";
 import { FIXED_STAGE_LABEL, stageTypeFilterOf, toFixedStage } from "../../../app/stages";
 
 const INTERVIEW_STAGE_TYPES = ["TECHNICAL_INTERVIEW", "HR_INTERVIEW", "FINAL_INTERVIEW"];
@@ -491,7 +497,7 @@ export default function CandidateApplicationDetailPage() {
     const cvPanel = (
                 <div style={{
                     border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, overflow: "hidden",
-                    background: "#1824310C", minHeight: 620, display: "flex", flexDirection: "column",
+                    background: "#1824310C", height: FIT_HEIGHT, minHeight: 380, display: "flex", flexDirection: "column",
                 }}>
                     <div style={{
                         background: "#1824311A", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`,
@@ -516,7 +522,7 @@ export default function CandidateApplicationDetailPage() {
                         <iframe
                             src={application.resumeUrl}
                             title="CV ứng viên"
-                            style={{ width: "100%", flex: 1, minHeight: 560, border: "none" }}
+                            style={{ width: "100%", flex: 1, minHeight: 0, border: "none" }}
                         />
                     ) : (
                         <div style={{
@@ -605,8 +611,6 @@ export default function CandidateApplicationDetailPage() {
                         <div
                             className="ai-result-scroll"
                             style={{
-                                maxHeight: "calc(100vh - 280px)",
-                                overflowY: "auto",
                                 paddingRight: 4,
                             }}
                         >
@@ -734,8 +738,9 @@ export default function CandidateApplicationDetailPage() {
             {/* ── CV trái · tab phải ── */}
             <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
                 <div style={{ flex: "1 1 460px", minWidth: 0 }}>{cvPanel}</div>
-                <Panel style={{ flex: "1 1 540px", minWidth: 0 }}>
+                <Panel style={{ flex: "1 1 540px", minWidth: 0, height: FIT_HEIGHT, minHeight: 380, overflowY: "auto" }}>
                     <Tabs
+                        className="sticky-tabs"
                         defaultActiveKey={activeTabKey}
                         size="small"
                         tabBarGutter={18}

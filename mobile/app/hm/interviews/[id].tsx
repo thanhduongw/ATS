@@ -1,5 +1,3 @@
-import { PlaceholderScreen } from "@/components/placeholder-screen";
+import { StaffInterviewScreen } from "@/features/staff/screens/interview-screen";
 
-export default function PendingInterviewsIdTsx() {
-  return <PlaceholderScreen title="Buổi phỏng vấn" back={true} />;
-}
+export default StaffInterviewScreen;

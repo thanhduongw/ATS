@@ -1,5 +1,3 @@
-import { PlaceholderScreen } from "@/components/placeholder-screen";
+import { StaffEvaluationScreen } from "@/features/staff/screens/evaluation-screen";
 
-export default function PendingEvaluationsIdTsx() {
-  return <PlaceholderScreen title="Đánh giá phỏng vấn" back={true} />;
-}
+export default StaffEvaluationScreen;

@@ -31,7 +31,7 @@ import { PageBreadcrumb } from "../../../components/ui/PageHeader";
  * R08 · Xem trước tin: giống trang công khai C03, chuyển máy tính / điện thoại.
  * "Gửi duyệt" = lưu rồi chuyển tin sang "Chờ đăng" (backend: DRAFT/EDITING → APPROVED), đăng ở trang việc làm.
  */
-const grid3 = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", columnGap: 12 } as const;
+const grid4 = { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", columnGap: 12 } as const;
 
 export default function PostingFormPage() {
     const { id } = useParams();
@@ -177,13 +177,13 @@ export default function PostingFormPage() {
             {locked && <InlineNotice tone="warning">Tin đang ở trạng thái đã duyệt / đang tuyển — chọn "Sửa lại" ở trang việc làm trước khi chỉnh nội dung.</InlineNotice>}
             {!editing && requisitions.length === 0 && <InlineNotice tone="warning">Chưa có yêu cầu tuyển dụng nào đã duyệt để tạo việc làm.</InlineNotice>}
 
-            <Form layout="vertical" requiredMark component="div" disabled={!!locked}>
+            <Form layout="vertical" requiredMark component="div" disabled={!!locked} className="compact-form">
                 <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 16, alignItems: "start" }}>
                     <Panel title="Nội dung tin" bodyGap={0}>
                         <Form.Item label="Tiêu đề tin" required {...field("title")}>
                             <Controller name="title" control={control} render={({ field: f }) => <Input {...f} maxLength={200} placeholder="Ví dụ: Lập trình viên Backend (Java/Spring)" />} />
                         </Form.Item>
-                        <div style={grid3}>
+                        <div style={grid4}>
                             <Form.Item label="Loại hình" required {...field("employmentTypeId")}>
                                 <Controller name="employmentTypeId" control={control} render={({ field: f }) => (
                                     <Select {...f} placeholder="Chọn" options={(cat.emp ?? []).map((x) => ({ value: x.id, label: String(x.name) }))} />)} />
@@ -200,23 +200,23 @@ export default function PostingFormPage() {
                                 <Controller name="applicationDeadline" control={control} render={({ field: f }) => (
                                     <DateField futureOnly value={f.value} onChange={f.onChange} />)} />
                             </Form.Item>
-                            <Form.Item label="Kinh nghiệm yêu cầu" style={{ gridColumn: "span 2" }}>
+                            <Form.Item label="Kinh nghiệm yêu cầu" style={{ gridColumn: "1 / -1" }}>
                                 <Controller name="experienceRequired" control={control} render={({ field: f }) => (
                                     <Input {...f} value={f.value ?? ""} maxLength={300} placeholder="Ví dụ: Từ 2 năm" />)} />
                             </Form.Item>
                         </div>
                         <Form.Item label="Mô tả công việc" required>
                             <Controller name="description" control={control} render={({ field: f }) => (
-                                <Input.TextArea {...f} value={f.value ?? ""} rows={7} maxLength={3000} showCount
+                                <Input.TextArea {...f} value={f.value ?? ""} autoSize={{ minRows: 4, maxRows: 14 }} maxLength={3000} showCount
                                     placeholder="Giới thiệu đội, rồi mỗi dòng một trách nhiệm chính…" />)} />
                         </Form.Item>
                         <Form.Item label="Yêu cầu" required>
                             <Controller name="requirements" control={control} render={({ field: f }) => (
-                                <Input.TextArea {...f} value={f.value ?? ""} rows={6} maxLength={3000} showCount placeholder="Mỗi dòng một yêu cầu…" />)} />
+                                <Input.TextArea {...f} value={f.value ?? ""} autoSize={{ minRows: 3, maxRows: 12 }} maxLength={3000} showCount placeholder="Mỗi dòng một yêu cầu…" />)} />
                         </Form.Item>
                         <Form.Item label="Quyền lợi">
                             <Controller name="benefits" control={control} render={({ field: f }) => (
-                                <Input.TextArea {...f} value={f.value ?? ""} rows={5} maxLength={3000} showCount placeholder="Mỗi dòng một quyền lợi…" />)} />
+                                <Input.TextArea {...f} value={f.value ?? ""} autoSize={{ minRows: 3, maxRows: 10 }} maxLength={3000} showCount placeholder="Mỗi dòng một quyền lợi…" />)} />
                         </Form.Item>
                         <Form.Item label="Kỹ năng yêu cầu" extra={SKILL_REQUIRED_HINT} style={{ marginBottom: 0 }}>
                             <Controller name="skillIds" control={control} render={({ field: f }) => (

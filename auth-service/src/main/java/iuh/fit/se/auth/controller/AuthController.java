@@ -175,6 +175,12 @@ public class AuthController {
         return ResponseEntity.ok(userService.updateProfile(CurrentUser.required().userId(), req));
     }
 
+    @PutMapping("/me/avatar")
+    public ResponseEntity<UserProfileResponse> updateAvatar(
+            @Valid @RequestBody iuh.fit.se.auth.dto.request.UpdateAvatarRequest req) {
+        return ResponseEntity.ok(userService.updateAvatar(CurrentUser.required().userId(), req.avatarUrl()));
+    }
+
     @GetMapping("/company")
     public ResponseEntity<CompanyResponse> getCompany() {
         return ResponseEntity.ok(companyService.getCompanyInfo());

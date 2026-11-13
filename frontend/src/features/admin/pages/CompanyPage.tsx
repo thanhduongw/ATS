@@ -8,6 +8,7 @@ import type { ApiMessageResponse, CompanyResponse, UpdateCompanyRequest, UserSum
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import { COLORS, RADIUS } from "../../../app/theme";
+import ImageUploadField from "../../../components/ui/ImageUploadField";
 import { Panel, ScreenTitle } from "../../../components/ui/designKit";
 
 interface Benefit { title: string; description?: string }
@@ -147,7 +148,7 @@ export default function CompanyPage() {
 
                     <Panel title="Nhận diện" bodyGap={0}>
                         <div>
-                            <Form.Item name="logoUrl" label="Logo" extra="PNG/SVG vuông, tối thiểu 256 px"><Input placeholder="Đường dẫn ảnh logo" /></Form.Item>
+                            <Form.Item name="logoUrl" label="Logo" extra="PNG/SVG vuông, tối thiểu 256 px · bấm Lưu để áp dụng"><ImageUploadField folder="logo" /></Form.Item>
                             <Form.Item
                                 name="brandColor"
                                 label="Màu thương hiệu"

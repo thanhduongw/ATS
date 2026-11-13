@@ -19,10 +19,11 @@ export default function PublicLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const [companyName, setCompanyName] = useState<string | null>(null);
+    const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const user = useAppSelector((st) => st.auth.user);
 
     useEffect(() => {
-        getPublicCompany().then((res) => setCompanyName(res.data?.name ?? null)).catch(() => undefined);
+        getPublicCompany().then((res) => { setCompanyName(res.data?.name ?? null); setLogoUrl(res.data?.logoUrl ?? null); }).catch(() => undefined);
     }, []);
 
     const navLink = (label: string, to: string) => {
@@ -72,10 +73,12 @@ export default function PublicLayout() {
                             aria-hidden="true"
                             style={{
                                 display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36,
-                                borderRadius: 10, background: COLORS.primary, color: "#FFFFFF", fontWeight: 800,
+                                borderRadius: 10, background: logoUrl ? "transparent" : COLORS.primary, color: "#FFFFFF", fontWeight: 800, overflow: "hidden",
                             }}
                         >
-                            {(companyName ?? "A").charAt(0).toUpperCase()}
+                            {logoUrl
+                                ? <img src={logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 10 }} />
+                                : (companyName ?? "A").charAt(0).toUpperCase()}
                         </span>
                         <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
                             <span style={{ fontSize: 18, fontWeight: 700, color: COLORS.textPrimary, letterSpacing: "-0.01em" }}>

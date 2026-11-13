@@ -21,6 +21,8 @@ import { relativeTime } from "../../../app/datetime";
 import { Avatar, InlineNotice, Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
+import type { ReactNode } from "react";
+import { CalendarOutlined, EditOutlined, MailOutlined, SolutionOutlined, TeamOutlined } from "@ant-design/icons";
 import { ROLE_NAME, USER_STATUS_VIEW } from "../adminLabels";
 
 /**
@@ -29,7 +31,7 @@ import { ROLE_NAME, USER_STATUS_VIEW } from "../adminLabels";
  * hộp xác nhận nhắc số việc còn dở.
  * Khác HTML: chưa đổi được vai trò / phòng ban (backend chưa có API), chưa có chức danh, số điện thoại, ngày tham gia.
  */
-interface Duty { label: string; count: number }
+interface Duty { label: string; count: number; icon: ReactNode }
 
 /** "Việc đang phụ trách" — chỉ đếm số, không hiện tên ứng viên. API nào lỗi thì bỏ dòng đó. */
 async function loadDuties(userId: number): Promise<Duty[]> {
@@ -44,26 +46,26 @@ async function loadDuties(userId: number): Promise<Duty[]> {
         iv.status !== "CANCELLED" && iv.status !== "CANDIDATE_DECLINED" && iv.interviewers.some((p) => p.interviewerId === userId));
     const list: (Duty | null)[] = [
         apps && {
-            label: "Ứng viên đang phụ trách",
+            label: "Ứng viên đang phụ trách", icon: <TeamOutlined />,
             count: apps.data.content.filter((a) =>
                 a.assignedRecruiterId === userId && !["HIRED", "REJECTED"].includes(toFixedStage(a.currentStageType))).length,
         },
         reqs && {
-            label: "Yêu cầu tuyển dụng chưa duyệt xong",
+            label: "Yêu cầu tuyển dụng chưa duyệt xong", icon: <SolutionOutlined />,
             count: reqs.data.content.filter((r) =>
                 r.requesterId === userId && ["DRAFT", "PENDING_APPROVAL", "CHANGES_REQUESTED"].includes(r.status)).length,
         },
         ivs && {
-            label: "Buổi phỏng vấn sắp tới (là người phỏng vấn)",
+            label: "Buổi phỏng vấn sắp tới (là người phỏng vấn)", icon: <CalendarOutlined />,
             count: mine.filter((iv) => dayjs(iv.scheduledAt).isAfter(now)).length,
         },
         ivs && {
-            label: "Đánh giá chưa nộp",
+            label: "Đánh giá chưa nộp", icon: <EditOutlined />,
             count: mine.filter((iv) => INTERVIEW_HELD.has(iv.status)
                 && iv.interviewers.some((p) => p.interviewerId === userId && !p.evaluationSubmitted)).length,
         },
         offers && {
-            label: "Thư mời nháp / đã gửi chờ phản hồi",
+            label: "Thư mời nháp / đã gửi chờ phản hồi", icon: <MailOutlined />,
             count: offers.data.content.filter((o) =>
                 o.requesterId === userId && ["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(o.status)).length,
         },
@@ -174,23 +176,39 @@ export default function UserDetailPage() {
                 </div>
             </Panel>
 
-            <Panel title="Vai trò & phòng ban">
-                <Row label="Vai trò" value={ROLE_NAME[user.role]} />
-                <Row label="Phòng ban" value={dept} />
-            </Panel>
+            {/* A05 theo docs/UI: vai trò bên trái, việc đang phụ trách bên phải; lịch sử chiếm cả chiều ngang. */}
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "stretch" }}>
+                <Panel title="Vai trò & phòng ban">
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16 }}>
+                        <Field label="Vai trò" value={ROLE_NAME[user.role]} />
+                        <Field label="Phòng ban" value={dept} />
+                    </div>
+                </Panel>
 
-            <Panel title="Việc đang phụ trách" subtitle="Cần chuyển giao trước khi khoá tài khoản">
-                {duties == null ? <Spin size="small" /> : duties.length === 0
-                    ? <span style={{ color: COLORS.textSecondary }}>Không tải được số liệu.</span>
-                    : duties.map((d) => <Row key={d.label} label={d.label} value={String(d.count)} wide />)}
-            </Panel>
+                <Panel title="Việc đang phụ trách" subtitle="Cần chuyển giao trước khi khoá tài khoản" bodyGap={6}>
+                    {duties == null ? <Spin size="small" /> : duties.length === 0
+                        ? <span style={{ color: COLORS.textSecondary }}>Không tải được số liệu.</span>
+                        : duties.map((d) => (
+                            <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <span style={{
+                                    width: 28, height: 28, borderRadius: 8, background: COLORS.primarySoft, color: COLORS.primary,
+                                    display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                                }}>{d.icon}</span>
+                                <span style={{ flex: 1, fontSize: 14 }}>{d.label}</span>
+                                <b style={{ color: d.count > 0 ? COLORS.textPrimary : COLORS.textMuted }}>{d.count}</b>
+                            </div>
+                        ))}
+                </Panel>
+            </div>
 
-            <Panel title="Lịch sử tài khoản" subtitle="Thao tác gần nhất trong nhật ký hệ thống">
+            <Panel title="Lịch sử tài khoản" subtitle="Thao tác gần nhất trong nhật ký hệ thống" bodyGap={4}>
                 {history == null ? <Spin size="small" /> : history.length === 0
                     ? <span style={{ color: COLORS.textSecondary }}>Chưa có thao tác nào được ghi lại.</span>
                     : history.map((h) => (
-                        <Row key={h.id} label={dayjs(h.createdAt).format("DD/MM/YYYY HH:mm")}
-                            value={AUDIT_ACTION_LABEL[h.action] ?? h.action} />
+                        <div key={h.id} style={{ display: "flex", gap: 16, fontSize: 13 }}>
+                            <span style={{ width: 120, color: COLORS.textSecondary }}>{dayjs(h.createdAt).format("DD/MM/YYYY HH:mm")}</span>
+                            <span>{AUDIT_ACTION_LABEL[h.action] ?? h.action}</span>
+                        </div>
                     ))}
             </Panel>
 
@@ -216,11 +234,11 @@ export default function UserDetailPage() {
     );
 }
 
-function Row({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+function Field({ label, value }: { label: string; value: string }) {
     return (
-        <div style={{ display: "flex", gap: 16, padding: "8px 0", borderTop: `0.5px solid ${COLORS.border}` }}>
-            <span style={{ width: wide ? 340 : 160, color: COLORS.textSecondary }}>{label}</span>
-            <span style={{ fontWeight: 500 }}>{value}</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{label}</span>
+            <span style={{ fontWeight: 600 }}>{value}</span>
         </div>
     );
 }

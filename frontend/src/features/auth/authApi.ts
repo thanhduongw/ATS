@@ -58,6 +58,10 @@ export const getMyProfile = () =>
 export const updateMyProfile = (data: UpdateProfileRequest) =>
     axiosClient.put<UserProfileResponse>("/auth/profile", data);
 
+/** C17/R32 · đặt (đường dẫn từ uploadImage "avatars") hoặc gỡ (null) ảnh đại diện. */
+export const updateMyAvatar = (avatarUrl: string | null) =>
+    axiosClient.put<UserProfileResponse>("/auth/me/avatar", { avatarUrl });
+
 export const getCompany = () =>
     axiosClient.get<CompanyResponse>("/auth/company");
 

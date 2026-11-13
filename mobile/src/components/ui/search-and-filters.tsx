@@ -11,10 +11,14 @@ export function SearchField({
   value,
   onChangeText,
   placeholder,
+  autoFocus,
+  onSubmitEditing,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   placeholder: string;
+  autoFocus?: boolean;
+  onSubmitEditing?: () => void;
 }) {
   return (
     <View style={styles.search}>
@@ -27,6 +31,8 @@ export function SearchField({
         placeholderTextColor={COLORS.textSecondary}
         selectionColor={COLORS.primary}
         returnKeyType="search"
+        autoFocus={autoFocus}
+        onSubmitEditing={onSubmitEditing}
         autoCorrect={false}
         style={styles.searchInput}
       />
@@ -135,6 +141,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.lg,
     color: COLORS.textPrimary,
   },
+  searchPlaceholder: { color: COLORS.textSecondary },
 
   chipScroller: { marginHorizontal: -SPACING.page, flexGrow: 0 },
   chipRow: { gap: SPACING.sm, paddingHorizontal: SPACING.page },
@@ -172,3 +179,13 @@ const styles = StyleSheet.create({
   segmentLabel: { fontFamily: FONT.medium, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },
   segmentLabelSelected: { color: COLORS.textPrimary },
 });
+
+/** Ô tìm kiếm chỉ để bấm: trông như `SearchField`, mở màn tìm kiếm riêng (UR02 → UR18). */
+export function SearchLauncher({ placeholder, onPress }: { placeholder: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="search" accessibilityLabel={placeholder} onPress={onPress} style={styles.search}>
+      <Icon name="search" size={SIZES.iconSm} color={COLORS.textSecondary} />
+      <Text style={[styles.searchInput, styles.searchPlaceholder]} numberOfLines={1}>{placeholder}</Text>
+    </Pressable>
+  );
+}

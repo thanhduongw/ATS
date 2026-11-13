@@ -169,7 +169,17 @@ export function StaffApplicationScreen() {
             <Avatar name={a.candidateName} />
             <View style={styles.flex}>
               <Text style={styles.name}>{a.candidateName}</Text>
-              <Text style={styles.sub}>{a.jobTitle}</Text>
+              {isHr && a.jobPostingId != null ? (
+                <Text
+                  accessibilityRole="link"
+                  onPress={() => router.push({ pathname: "/hr/jobs/[id]", params: { id: String(a.jobPostingId) } })}
+                  style={[styles.sub, styles.link]}
+                >
+                  {a.jobTitle}
+                </Text>
+              ) : (
+                <Text style={styles.sub}>{a.jobTitle}</Text>
+              )}
             </View>
             {a.aiScore != null ? (
               <AiScoreBadge score={Math.round(a.aiScore)} />
@@ -538,6 +548,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.h3,
     color: COLORS.textPrimary,
   },
+  link: { color: COLORS.primaryDark },
   sub: {
     fontFamily: FONT.regular,
     fontSize: FONT_SIZE.caption,

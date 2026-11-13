@@ -16,17 +16,22 @@ export function CandidateCard({
   app,
   note,
   area,
+  onOpen,
 }: {
   app: ApplicationResponse;
   note?: string;
   area: StaffArea;
+  /** Chạy trước khi mở hồ sơ (UR18 ghi "Tìm gần đây"). */
+  onOpen?: () => void;
 }) {
-  const open = () =>
-    app.id != null &&
+  const open = () => {
+    if (app.id == null) return;
+    onOpen?.();
     router.push({
       pathname: `/${area}/applications/[id]`,
       params: { id: String(app.id) },
     });
+  };
   return (
     <Card onPress={open} accessibilityLabel={app.candidateName}>
       <View style={styles.row}>

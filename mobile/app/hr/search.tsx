@@ -1,5 +1,1 @@
-import { PlaceholderScreen } from "@/components/placeholder-screen";
-
-export default function PendingSearchTsx() {
-  return <PlaceholderScreen title="Tìm kiếm" back={true} />;
-}
+export { StaffSearchScreen as default } from "@/features/staff/screens/search-screen";

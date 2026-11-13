@@ -20,6 +20,7 @@ import { COLORS, RADIUS } from "../../../app/theme";
 import { moneyFormatter, moneyParser } from "../../../app/money";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import DateField from "../../../components/ui/DateField";
+import { departmentLabel } from "../../overview/useCompanyOverview";
 import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
 
 /**
@@ -29,7 +30,6 @@ import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designK
  * Người duyệt không chọn trên form — tự gán cho một Chuyên viên tuyển dụng (giữ như bản modal cũ).
  */
 const grid3: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", columnGap: 16 };
-const grid2: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 16 };
 
 const EMPTY: Partial<RequisitionFormValues> = {
     title: "", quantity: 1, experienceRequired: "", priority: "NORMAL", note: "", budget: null,
@@ -60,6 +60,7 @@ export default function RequisitionFormPage() {
     const myDept = useAppSelector((s) => s.auth.user?.departmentId ?? null);
 
     const [departments, setDepartments] = useState<CatalogItem[]>([]);
+    const myDeptName = myDept != null ? String(departments.find((d) => d.id === myDept)?.name ?? "") || null : null;
     const [jobLevels, setJobLevels] = useState<CatalogItem[]>([]);
     const [employmentTypes, setEmploymentTypes] = useState<CatalogItem[]>([]);
     const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
@@ -187,27 +188,28 @@ export default function RequisitionFormPage() {
                 </InlineNotice>
             )}
 
-            <Form layout="vertical" requiredMark>
+            <Form layout="vertical" requiredMark className="compact-form">
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <Section no={1} title="Vị trí" hint="Thông tin chung của vị trí cần tuyển">
-                        <div style={grid2}>
-                            <Form.Item label="Tên vị trí" required {...err(errors.title)}>
-                                <Controller name="title" control={control}
-                                    render={({ field }) => <Input {...field} placeholder="Ví dụ: Lập trình viên di động" />} />
-                            </Form.Item>
-                            <Form.Item label="Phòng ban" required {...err(errors.departmentId)}>
-                                <Controller name="departmentId" control={control}
-                                    render={({ field }) => (
-                                        <Select {...field} placeholder="Chọn phòng ban"
-                                            options={departments.map((d) => ({ value: d.id, label: String(d.name) }))} />
-                                    )} />
-                            </Form.Item>
-                        </div>
+                    <Section no={1} title="Vị trí"
+                        hint={myDeptName ? `Thông tin chung của vị trí cần tuyển · ${departmentLabel(myDeptName)}` : "Thông tin chung của vị trí cần tuyển"}>
                         <div style={grid3}>
+                            <Form.Item label="Tên vị trí" required {...err(errors.title)} style={{ gridColumn: "span 2" }}>
+                                <Controller name="title" control={control}
+                                    render={({ field }) => <Input {...field} placeholder="Ví dụ: Lập trình viên di động (React Native)" />} />
+                            </Form.Item>
                             <Form.Item label="Chức danh" required {...err(errors.jobTitleId)}>
                                 <Controller name="jobTitleId" control={control}
                                     render={({ field }) => <JobTitleQuickAddSelect value={field.value} onChange={field.onChange} />} />
                             </Form.Item>
+                            {myDept == null && (
+                                <Form.Item label="Phòng ban" required {...err(errors.departmentId)}>
+                                    <Controller name="departmentId" control={control}
+                                        render={({ field }) => (
+                                            <Select {...field} placeholder="Chọn phòng ban"
+                                                options={departments.map((d) => ({ value: d.id, label: String(d.name) }))} />
+                                        )} />
+                                </Form.Item>
+                            )}
                             <Form.Item label="Cấp bậc" required {...err(errors.jobLevelId)}>
                                 <Controller name="jobLevelId" control={control}
                                     render={({ field }) => (
@@ -292,7 +294,7 @@ export default function RequisitionFormPage() {
                         <Form.Item label="Giải thích thêm" style={{ marginBottom: 0 }}>
                             <Controller name="note" control={control}
                                 render={({ field }) => (
-                                    <Input.TextArea {...field} value={field.value ?? ""} rows={3}
+                                    <Input.TextArea {...field} value={field.value ?? ""} autoSize={{ minRows: 2, maxRows: 6 }}
                                         placeholder="Vì sao cần tuyển, cần gấp đến đâu…" />
                                 )} />
                         </Form.Item>
@@ -327,7 +329,7 @@ export default function RequisitionFormPage() {
                             >
                                 <Controller name={name} control={control}
                                     render={({ field }) => (
-                                        <Input.TextArea {...field} value={field.value ?? ""} rows={5}
+                                        <Input.TextArea {...field} value={field.value ?? ""} autoSize={{ minRows: 3, maxRows: 10 }}
                                             style={{ borderRadius: RADIUS.md }}
                                             placeholder={name === "description" ? "Trách nhiệm chính, công việc hằng ngày…"
                                                 : name === "requirements" ? "Mỗi dòng một ý. Kỹ năng ưu tiên ghi kèm chữ 'Ưu tiên'."

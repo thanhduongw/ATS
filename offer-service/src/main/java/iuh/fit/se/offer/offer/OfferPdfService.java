@@ -3,7 +3,6 @@ package iuh.fit.se.offer.offer;
 import com.lowagie.text.Document;
 import com.lowagie.text.Element;
 import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
 import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.pdf.PdfWriter;
@@ -25,9 +24,9 @@ public class OfferPdfService {
             PdfWriter.getInstance(document, out);
             document.open();
 
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
-            Font headingFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-            Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 11);
+            Font titleFont = PdfFonts.bold(18);
+            Font headingFont = PdfFonts.bold(12);
+            Font bodyFont = PdfFonts.regular(11);
 
             Paragraph company = new Paragraph(companyName != null ? companyName : "Công ty", headingFont);
             company.setAlignment(Element.ALIGN_CENTER);

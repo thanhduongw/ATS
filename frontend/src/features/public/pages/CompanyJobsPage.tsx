@@ -7,7 +7,7 @@ import { getPublicCompany, getPublicJobs } from "../publicApi";
 import type { PublicCompanyResponse, PublicJobPosting } from "../types";
 import { arrangementLabel } from "../jobFormat";
 import { JobCard } from "../components/JobCard";
-import { COLORS } from "../../../app/theme";
+import { COLORS, GRADIENTS } from "../../../app/theme";
 import { InlineNotice } from "../../../components/ui/designKit";
 
 /**
@@ -84,18 +84,30 @@ export default function CompanyJobsPage() {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.01em" }}>Việc làm tại {company?.name ?? "chúng tôi"}</span>
-                <div style={{ display: "flex", gap: 8, maxWidth: 640 }}>
-                    <Input size="large" allowClear prefix={<SearchOutlined style={{ color: COLORS.textMuted }} />}
-                        placeholder="Tên vị trí, kỹ năng…" value={draft}
-                        onChange={(e) => { setDraft(e.target.value); if (!e.target.value) setParams({}); }}
-                        onPressEnter={search} />
-                    <Button size="large" type="primary" onClick={search}>Tìm kiếm</Button>
+            {/* Dải đầu C02: nền xanh đậm tràn hết chiều ngang, tiêu đề trắng, ô tìm kiếm dạng viên nhộng. */}
+            <div style={{
+                width: "100vw", marginLeft: "calc(50% - 50vw)", marginTop: -28, padding: "36px 24px 40px",
+                background: GRADIENTS.hero,
+            }}>
+                <div style={{ maxWidth: 1152, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
+                    <span style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.01em", color: COLORS.textOnDark }}>
+                        Việc làm tại {company?.name ?? "chúng tôi"}
+                    </span>
+                    <div style={{
+                        display: "flex", alignItems: "center", gap: 8, maxWidth: 820, padding: 6, paddingLeft: 18,
+                        borderRadius: 28, background: COLORS.cardBg,
+                    }}>
+                        <SearchOutlined style={{ color: COLORS.textMuted }} />
+                        <Input variant="borderless" allowClear placeholder="Tên vị trí, kỹ năng…" value={draft}
+                            style={{ flex: 1, fontSize: 15 }}
+                            onChange={(e) => { setDraft(e.target.value); if (!e.target.value) setParams({}); }}
+                            onPressEnter={search} />
+                        <Button size="large" type="primary" shape="round" onClick={search}>Tìm kiếm</Button>
+                    </div>
                 </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "240px minmax(0, 1fr)", gap: 24, alignItems: "start" }}>
+            <div className="cand-2col" style={{ display: "grid", gridTemplateColumns: "280px minmax(0, 1fr)", gap: 24, alignItems: "start" }}>
                 <aside style={{ background: COLORS.cardBg, borderRadius: 20, padding: 20, display: "flex", flexDirection: "column", gap: 18 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <b>Bộ lọc</b>

@@ -15,7 +15,8 @@ export default function PublicLayout() {
     return (
         <Layout style={{ minHeight: "100vh", background: COLORS.body }}>
             <SiteHeader />
-            <Content style={{ flex: 1 }}>
+            {/* overflowX clip: dải nền tràn ngang (C02 dùng 100vw) không sinh thanh cuộn ngang. */}
+            <Content style={{ flex: 1, overflowX: "clip" }}>
                 <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px 40px" }}>
                     <Outlet />
                 </div>

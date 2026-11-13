@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { ApartmentOutlined, ClockCircleOutlined, EnvironmentOutlined } from "@ant-design/icons";
+import StatusTag from "../../../components/ui/StatusTag";
 import { useNavigate } from "react-router-dom";
 import type { PublicJobPosting } from "../types";
 import { arrangementLabel, salaryText } from "../jobFormat";
@@ -13,31 +15,43 @@ export function Chip({ children }: { children: ReactNode }) {
     );
 }
 
-/** Thẻ việc làm dùng ở danh sách (C02), "Việc làm tương tự" (C03) và trang không có kết quả (C31). */
+/** Thẻ việc làm dùng ở danh sách (C02), "Việc làm tương tự" (C03) và trang không có kết quả (C31) — theo C02:
+ *  chip phòng ban (+ "Tuyển gấp") · tên việc làm · địa điểm / hình thức / loại hình kèm icon | lương xanh + ngày đăng. */
 export function JobCard({ job, compact = false }: { job: PublicJobPosting; compact?: boolean }) {
     const navigate = useNavigate();
-    const chips = [job.workLocationName, arrangementLabel(job), job.employmentTypeName].filter(Boolean) as string[];
+    type Meta = { icon: ReactNode; text: string };
+    const arrangement = arrangementLabel(job);
+    const meta: Meta[] = [];
+    if (job.workLocationName) meta.push({ icon: <EnvironmentOutlined />, text: job.workLocationName });
+    if (arrangement) meta.push({ icon: <ApartmentOutlined />, text: arrangement });
+    if (job.employmentTypeName) meta.push({ icon: <ClockCircleOutlined />, text: job.employmentTypeName });
     return (
         <div
             className="row-clickable"
             onClick={() => navigate(`/careers/jobs/${job.id}`)}
             style={{
-                display: "flex", flexDirection: "column", gap: 8, padding: compact ? 16 : 20, borderRadius: 20,
+                display: "flex", alignItems: "center", gap: 16, padding: compact ? 16 : "18px 22px", borderRadius: 20,
                 background: COLORS.cardBg, cursor: "pointer", boxShadow: compact ? `inset 0 0 0 1px ${COLORS.border}` : undefined,
             }}
         >
-            {(job.departmentName || job.urgent) && (
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {job.departmentName && <span style={{ fontSize: 12, color: COLORS.primary, fontWeight: 600 }}>{job.departmentName}</span>}
-                    {job.urgent && <span style={{ height: 20, padding: "0 8px", borderRadius: 10, background: "#FFE9DB", color: "#D45500", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center" }}>Tuyển gấp</span>}
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                {(job.departmentName || job.urgent) && (
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {job.departmentName && <StatusTag label={job.departmentName} tone="brand" />}
+                        {job.urgent && <StatusTag label="Tuyển gấp" tone="danger" />}
+                    </span>
+                )}
+                <span style={{ fontSize: compact ? 15 : 17, fontWeight: 700, color: COLORS.textPrimary }}>{job.title}</span>
+                <span style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13, color: COLORS.textSecondary }}>
+                    {meta.map((m) => (
+                        <span key={m.text} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>{m.icon}{m.text}</span>
+                    ))}
                 </span>
-            )}
-            <span style={{ fontSize: compact ? 15 : 17, fontWeight: 700, color: COLORS.textPrimary }}>{job.title}</span>
-            <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{chips.map((c) => <Chip key={c}>{c}</Chip>)}</span>
-            <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-                <b style={{ fontSize: 14 }}>{salaryText(job.salaryMin, job.salaryMax)}</b>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                <b style={{ fontSize: 16, color: COLORS.primary, whiteSpace: "nowrap" }}>{salaryText(job.salaryMin, job.salaryMax)}</b>
                 <span style={{ fontSize: 12, color: COLORS.textMuted }}>{relativeTime(job.publishedAt)}</span>
-            </span>
+            </div>
         </div>
     );
 }

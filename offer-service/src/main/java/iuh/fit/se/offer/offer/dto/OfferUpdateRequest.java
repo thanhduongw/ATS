@@ -1,5 +1,6 @@
 package iuh.fit.se.offer.offer.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,5 +25,5 @@ public record OfferUpdateRequest(
         String candidateVisibleNote,
         @NotNull(message = "Vui lòng chọn người duyệt") Long approverId,
         /** Giờ có mặt ngày đầu tiên (C23 "Thứ Hai, 16/11 · 08:30"); không bắt buộc. */
-        LocalTime startTime
+        @Schema(type = "string", format = "time", example = "08:30:00") LocalTime startTime
 ) {}

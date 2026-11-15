@@ -1,4 +1,6 @@
 import { Tabs } from "expo-router";
+import { awaitsReply } from "@/features/interviews/rules";
+import { useNow } from "@/lib/use-now";
 import { Icon } from "@/components/ui/icon";
 import { useTabScreenOptions } from "@/lib/tab-options";
 import { STRINGS } from "@/lib/strings";
@@ -17,11 +19,13 @@ export default function CandidateLayout() {
   const unread = useUnreadCount();
   const interviews = useMyInterviews();
   // Việc đang chờ ứng viên ở tab Lịch: buổi đã chốt giờ cần Đồng ý / Từ chối.
-  const todo = (interviews.data ?? []).filter((iv) => iv.status === "HM_CONFIRMED").length;
+  const now = useNow();
+  const todo = (interviews.data ?? []).filter((iv) => awaitsReply(iv, now)).length;
   const badge = (n: number) => (n > 0 ? (n > 9 ? "9+" : n) : undefined);
 
   return (
-    <Tabs screenOptions={screenOptions}>
+    // "history": quay lại từ màn chi tiết về đúng màn trước (mặc định "firstRoute" luôn về tab Việc làm).
+    <Tabs screenOptions={screenOptions} backBehavior="history">
       <Tabs.Screen
         name="jobs/index"
         options={{ title: T.jobs, tabBarIcon: ({ color }) => <Icon name="briefcase" color={color} /> }}

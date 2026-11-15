@@ -5,9 +5,9 @@ import { useNavigate } from "react-router-dom";
 import type { CandidateOfferResponse } from "../types";
 import { COLORS, type StatusTone } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
-import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
+import { Panel, ScreenTitle } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
-import EmptyState from "../../../components/ui/EmptyState";
+import { CandidateEmpty, CandidateLoadError } from "../../candidate/components/CandidateState";
 import { awaitingReply, useCandidatePortal } from "../../candidate/useCandidatePortal";
 
 /**
@@ -37,13 +37,9 @@ export default function CandidateOffersPage() {
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <ScreenTitle title="Thư mời nhận việc" />
-            {failed && (
-                <InlineNotice tone="danger" action={<Button onClick={reload}>Thử lại</Button>}>
-                    Không tải được dữ liệu. Kiểm tra kết nối mạng rồi thử lại.
-                </InlineNotice>
-            )}
+            {failed && <Panel><CandidateLoadError onRetry={reload} /></Panel>}
             {!failed && visible.length === 0 && (
-                <Panel><EmptyState title="Bạn chưa nhận được thư mời nhận việc nào" /></Panel>
+                <Panel><CandidateEmpty icon={<MailOutlined />} title="Bạn chưa nhận được thư mời nhận việc nào" /></Panel>
             )}
 
             {pending.map((o) => (

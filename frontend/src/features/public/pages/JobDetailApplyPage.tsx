@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Button, Spin } from "antd";
-import { ApartmentOutlined, ClockCircleOutlined, EnvironmentOutlined, LeftOutlined, ShoppingOutlined, TeamOutlined } from "@ant-design/icons";
+import { ApartmentOutlined, CheckCircleFilled, ClockCircleOutlined, EnvironmentOutlined, LeftOutlined, ShoppingOutlined, TeamOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
 import { getPublicJobById, getPublicJobs } from "../publicApi";
@@ -13,10 +13,11 @@ import type { CandidateApplicationResponse } from "../../candidate/types";
 import { useAppSelector } from "../../../app/hooks";
 import { COLORS, GRADIENTS } from "../../../app/theme";
 import { relativeTime } from "../../../app/datetime";
-import { InlineNotice } from "../../../components/ui/designKit";
+import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
+import { closedLabel } from "../../candidate/useCandidatePortal";
 
 /**
- * C03 · Chi tiết việc làm (công khai) · C29 đã ứng tuyển ("Bạn đã ứng tuyển … Xem đơn ứng tuyển") ·
+ * C03 · Chi tiết việc làm (công khai) · C29 đã ứng tuyển (ô xanh trong thẻ lương: ngày + vòng hiện tại, nút "Xem đơn ứng tuyển") ·
  * C30 tin đã đóng / không tồn tại kèm "Việc làm tương tự".
  * "Ứng tuyển ngay": chưa đăng nhập → trang đăng nhập rồi quay lại (C04); ứng viên → biểu mẫu C09.
  * Bỏ ô "Các bước tuyển dụng" của HTML (quyết định 13/11/2026).
@@ -55,10 +56,14 @@ export default function JobDetailApplyPage() {
     if (!job || job.status !== "OPEN") {
         return (
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                <div style={{ background: COLORS.cardBg, borderRadius: 20, padding: 40, textAlign: "center", display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+                <div style={{ background: COLORS.cardBg, borderRadius: 24, padding: "48px 24px", textAlign: "center", display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+                    <span style={{
+                        width: 64, height: 64, borderRadius: 18, background: COLORS.fill, fontSize: 28, marginBottom: 8,
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    }}><ShoppingOutlined style={{ color: COLORS.textSecondary }} /></span>
                     <b style={{ fontSize: 20 }}>{job ? "Tin tuyển dụng đã đóng" : "Không tìm thấy tin tuyển dụng"}</b>
                     <span style={{ color: COLORS.textSecondary }}>{job ? "Vị trí này không còn nhận hồ sơ." : "Tin có thể đã bị gỡ hoặc đường dẫn không đúng."}</span>
-                    <Button type="primary" onClick={() => navigate("/careers")}>Xem việc làm khác</Button>
+                    <Button type="primary" size="large" style={{ marginTop: 8 }} onClick={() => navigate("/careers")}>Xem việc làm khác</Button>
                 </div>
                 {similar.length > 0 && <SimilarJobs jobs={similar} />}
             </div>
@@ -100,12 +105,6 @@ export default function JobDetailApplyPage() {
 
             <div className="cand-2col" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 24, alignItems: "start" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    {mine && (
-                        <InlineNotice tone="success" action={<Button onClick={() => navigate(`/my-applications/${mine.id}`)}>Xem đơn ứng tuyển</Button>}>
-                            Bạn đã ứng tuyển vị trí này ngày {dayjs(mine.appliedAt).format("DD/MM/YYYY")}.
-                        </InlineNotice>
-                    )}
-
                     <JobContent job={job} header={false} />
                 </div>
 
@@ -116,8 +115,19 @@ export default function JobDetailApplyPage() {
                         {job.applicationDeadline && <Info label="Hạn nộp" value={dayjs(job.applicationDeadline).format("DD/MM/YYYY")} />}
                         {job.employmentTypeName && <Info label="Loại hình" value={job.employmentTypeName} />}
                         {expShort && <Info label="Kinh nghiệm" value={expShort} />}
-                        {mine ? (
-                            <Button size="large" block onClick={() => navigate(`/my-applications/${mine.id}`)}>Xem đơn ứng tuyển</Button>
+                        {mine ? (<>
+                            {/* C29: ô xanh lá "Bạn đã ứng tuyển · ngày · vòng hiện tại" + nút chính. */}
+                            <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", borderRadius: 14, background: COLORS.successBg, marginTop: 4 }}>
+                                <CheckCircleFilled style={{ color: COLORS.success, fontSize: 20, marginTop: 2 }} />
+                                <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                    <b style={{ color: COLORS.textPrimary }}>Bạn đã ứng tuyển</b>
+                                    <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                                        {dayjs(mine.appliedAt).format("DD/MM/YYYY")} · {closedLabel(mine)?.label ?? `Đang ở vòng ${FIXED_STAGE_LABEL[toFixedStage(mine.currentStageType)].toLowerCase()}`}
+                                    </span>
+                                </span>
+                            </div>
+                            <Button size="large" type="primary" block onClick={() => navigate(`/my-applications/${mine.id}`)}>Xem đơn ứng tuyển</Button>
+                        </>
                         ) : role && role !== "CANDIDATE" ? (
                             <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Đăng nhập bằng tài khoản ứng viên để ứng tuyển.</span>
                         ) : (

@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
@@ -58,6 +59,10 @@ public class Offer {
 
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
+
+    /** Giờ có mặt ngày đầu tiên — không bắt buộc (thư mời cũ để trống). */
+    @Column(name = "start_time")
+    private LocalTime startTime;
 
     @Column(name = "probation_months")
     private Integer probationMonths;

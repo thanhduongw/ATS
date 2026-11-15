@@ -4,6 +4,7 @@ import iuh.fit.se.offer.offer.OfferStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.LocalDateTime;
 
 public record CandidateOfferResponse(
@@ -32,5 +33,7 @@ public record CandidateOfferResponse(
         OfferStatus status,
         String declineReasonName,
         String declineNote,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        /** Giờ có mặt ngày đầu tiên (C23); null nếu HR chưa nhập. */
+        LocalTime startTime
 ) {}

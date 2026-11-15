@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { App, Button, Spin } from "antd";
-import { ArrowRightOutlined, CalendarOutlined, CheckOutlined, LeftOutlined, MailOutlined } from "@ant-design/icons";
+import { ArrowRightOutlined, CalendarOutlined, CheckOutlined, FilePdfOutlined, LeftOutlined, MailOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
@@ -9,14 +9,17 @@ import type { ApiMessageResponse, CandidateApplicationResponse } from "../types"
 import type { CandidateInterviewResponse } from "../../interview/types";
 import { COLORS, FIXED_STAGES, RADIUS, type FixedStage } from "../../../app/theme";
 import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
-import { InlineNotice, Panel, SmallDialog } from "../../../components/ui/designKit";
+import { Avatar, InlineNotice, Panel, SmallDialog } from "../../../components/ui/designKit";
+import { getPublicCompany } from "../../public/publicApi";
+import { cvFileName } from "../cvFile";
 import CandidateStageTag from "../components/CandidateStageTag";
 import { canWithdraw, closedLabel, needsConfirm, todoOf, useCandidatePortal } from "../useCandidatePortal";
 
 /**
  * C12 · Chi tiết đơn — "‹ Đơn ứng tuyển", thẻ đầu (giai đoạn, vị trí, ngày nộp, "Xem tin tuyển dụng"), việc cần làm
  * nổi bật (khung cam), tiến trình 5 bước nối dọc một màu xanh chính như HTML; nút "Rút đơn ứng tuyển" (UC06, B5).
- * Khác HTML: chưa hiện tên file CV đã nộp và người phụ trách (API phía ứng viên chưa trả về).
+ * Bên phải: "Hồ sơ đã nộp" (tên file CV kèm đơn, ngày nộp) và "Người phụ trách" (chuyên viên được phân công, chưa có thì
+ * "Bộ phận tuyển dụng"; email là email tuyển dụng chung của công ty — không lộ email cá nhân của nhân viên).
  */
 const STEPS: FixedStage[] = FIXED_STAGES.filter((s) => s !== "REJECTED");
 
@@ -27,6 +30,8 @@ export default function MyApplicationDetailPage() {
     const { loading, failed, applications, interviews, offers, reload } = useCandidatePortal();
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [busy, setBusy] = useState(false);
+    const [recruitingEmail, setRecruitingEmail] = useState<string | null>(null);
+    useEffect(() => { getPublicCompany().then((r) => setRecruitingEmail(r.data.recruitingEmail ?? null)).catch(() => undefined); }, []);
 
     if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
     if (failed) {
@@ -119,10 +124,30 @@ export default function MyApplicationDetailPage() {
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                     <Panel title="Hồ sơ đã nộp">
-                        <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
-                            Ngày nộp {dayjs(app.appliedAt).format("DD/MM/YYYY · HH:mm")}
+                        {app.resumeUrl && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 14, background: COLORS.fill }}>
+                                <FilePdfOutlined style={{ fontSize: 20, color: COLORS.primary }} />
+                                <span style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cvFileName(app.resumeUrl)}</span>
+                            </div>
+                        )}
+                        <span style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                            <span style={{ color: COLORS.textSecondary }}>Ngày nộp</span>
+                            <b>{dayjs(app.appliedAt).format("DD/MM/YYYY · HH:mm")}</b>
                         </span>
-                        <Button style={{ alignSelf: "flex-start" }} onClick={() => navigate("/my-profile")}>Xem hồ sơ của tôi</Button>
+                    </Panel>
+                    <Panel title="Người phụ trách">
+                        <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <Avatar name={app.recruiterName || "Tuyển dụng"} colorKey={app.recruiterName ?? "hr"} size={40} />
+                            <span style={{ display: "flex", flexDirection: "column" }}>
+                                <b>{app.recruiterName || "Bộ phận tuyển dụng"}</b>
+                                <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{app.recruiterName ? "Chuyên viên tuyển dụng" : app.departmentName ?? "Tuyển dụng"}</span>
+                            </span>
+                        </span>
+                        {recruitingEmail && (
+                            <a href={`mailto:${recruitingEmail}`} style={{ fontSize: 13, color: COLORS.textSecondary, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                                <MailOutlined /> {recruitingEmail}
+                            </a>
+                        )}
                     </Panel>
                     {canWithdraw(app) && (
                         <Panel title="Rút đơn">

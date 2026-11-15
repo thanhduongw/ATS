@@ -195,7 +195,7 @@ export default function OfferDetailPage() {
                         {!!offer.allowance && <Row label="Phụ cấp" value={`${formatMoney(offer.allowance)}${pay}`} />}
                         {offer.performanceBonus && <Row label="Thưởng hiệu suất" value={offer.performanceBonus} />}
                         {offer.benefits && <Row label="Phúc lợi" value={<span style={{ whiteSpace: "pre-line" }}>{offer.benefits}</span>} />}
-                        <Row label="Ngày bắt đầu" value={d(offer.startDate)} />
+                        <Row label="Ngày bắt đầu" value={`${d(offer.startDate)}${offer.startTime ? ` · ${offer.startTime.slice(0, 5)}` : ""}`} />
                         <Row label="Thử việc" value={`${offer.probationMonths ?? 0} tháng`} />
                         <Row label="Hợp đồng" value={offer.contractTypeName ?? "—"} />
                         {location && <Row label="Nơi làm việc" value={location} />}
@@ -215,7 +215,7 @@ export default function OfferDetailPage() {
                     <OfferLetterPreview data={{
                         company, location, candidateName: offer.candidateName, jobTitle: offer.jobTitle, deptName,
                         salaryOffered: offer.salaryOffered, allowance: offer.allowance, payFrequency: offer.payFrequency,
-                        startDate: offer.startDate, probationMonths: offer.probationMonths, contractTypeName: offer.contractTypeName,
+                        startDate: offer.startDate, startTime: offer.startTime, probationMonths: offer.probationMonths, contractTypeName: offer.contractTypeName,
                         annualLeaveDays: offer.annualLeaveDays, reportingManager: offer.reportingManager, benefits: offer.benefits,
                         candidateVisibleNote: offer.candidateVisibleNote, responseDeadline: offer.responseDeadline,
                         requesterName: offer.requesterName,

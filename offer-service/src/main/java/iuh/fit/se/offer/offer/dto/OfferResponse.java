@@ -4,6 +4,7 @@ import iuh.fit.se.offer.offer.OfferStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.LocalDateTime;
 
 public record OfferResponse(
@@ -45,5 +46,7 @@ public record OfferResponse(
         LocalDateTime expiredAt,
         LocalDateTime candidateRespondedAt,
         Integer candidateViewCount,
-        LocalDateTime candidateLastViewedAt
+        LocalDateTime candidateLastViewedAt,
+        /** Giờ có mặt ngày đầu tiên (R24 nhập, C23 hiện); null nếu chưa nhập. */
+        LocalTime startTime
 ) {}

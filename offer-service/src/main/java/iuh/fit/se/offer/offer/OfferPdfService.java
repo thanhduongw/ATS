@@ -49,7 +49,8 @@ public class OfferPdfService {
             document.add(bodyParagraph(bodyFont,
                     "Loại hợp đồng: " + nullToDash(contractTypeName), 0, 6));
             document.add(bodyParagraph(bodyFont,
-                    "Ngày bắt đầu dự kiến: " + (offer.getStartDate() != null ? offer.getStartDate().format(DATE_FMT) : "—"), 0, 6));
+                    "Ngày bắt đầu dự kiến: " + (offer.getStartDate() != null ? offer.getStartDate().format(DATE_FMT) : "—")
+                            + (offer.getStartTime() != null ? " · " + String.format("%02d:%02d", offer.getStartTime().getHour(), offer.getStartTime().getMinute()) : ""), 0, 6));
             document.add(bodyParagraph(bodyFont,
                     "Thời gian thử việc: " + (offer.getProbationMonths() != null ? offer.getProbationMonths() + " tháng" : "—"), 0, 6));
             if (offer.getAllowance() != null) {

@@ -52,6 +52,9 @@ interface Reference {
     rep: string | null;
 }
 
+/** Giờ có mặt ngày đầu tiên hay dùng (giờ hành chính). */
+const START_TIMES = ["07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "13:30"];
+
 export default function OfferCreatePage() {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -132,7 +135,7 @@ export default function OfferCreatePage() {
                 void loadReference(app, jd, o.id);
                 reset({
                     applicationId: o.applicationId, salaryOffered: o.salaryOffered, contractTypeId: o.contractTypeId,
-                    startDate: o.startDate, probationMonths: o.probationMonths ?? 0, reportingManager: o.reportingManager ?? "",
+                    startDate: o.startDate, startTime: o.startTime?.slice(0, 5) ?? "", probationMonths: o.probationMonths ?? 0, reportingManager: o.reportingManager ?? "",
                     workLocationId: o.workLocationId ?? null, currency: o.currency ?? "VND", payFrequency: o.payFrequency ?? "MONTHLY",
                     performanceBonus: o.performanceBonus ?? "", annualLeaveDays: o.annualLeaveDays ?? 12, benefits: o.benefits ?? "",
                     allowance: o.allowance ?? 0, note: o.note ?? "", candidateVisibleNote: o.candidateVisibleNote ?? "",
@@ -154,6 +157,7 @@ export default function OfferCreatePage() {
                 salaryOffered: jd?.salaryMin ?? 15_000_000,
                 contractTypeId: undefined as unknown as number,
                 startDate: "",
+                startTime: "08:30",
                 probationMonths: 2,
                 reportingManager: "",
                 workLocationId: jd?.workLocationId ?? null,
@@ -214,6 +218,7 @@ export default function OfferCreatePage() {
             salaryOffered: data.salaryOffered,
             contractTypeId: data.contractTypeId,
             startDate: data.startDate,
+            startTime: data.startTime || null,
             probationMonths: data.probationMonths,
             reportingManager: data.reportingManager || null,
             workLocationId: data.workLocationId ?? null,
@@ -332,10 +337,19 @@ export default function OfferCreatePage() {
                                             options={[{ value: "MONTHLY", label: "Hằng tháng" }, { value: "YEARLY", label: "Hằng năm" }]} />
                                     )} />
                                 </Field>
-                                <Field label="Ngày bắt đầu" required error={errors.startDate?.message}>
-                                    <Controller name="startDate" control={control} render={({ field }) => (
-                                        <DateField futureOnly value={field.value} onChange={field.onChange} />
-                                    )} />
+                                <Field label="Ngày bắt đầu · giờ có mặt" required error={errors.startDate?.message}>
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <Controller name="startDate" control={control} render={({ field }) => (
+                                                <DateField futureOnly value={field.value} onChange={field.onChange} />
+                                            )} />
+                                        </div>
+                                        {/* Giờ có mặt ngày đầu tiên — ứng viên thấy ở C16/C23; để trống thì chỉ hiện ngày. */}
+                                        <Controller name="startTime" control={control} render={({ field }) => (
+                                            <Select style={{ width: 86, flexShrink: 0 }} value={field.value ?? ""} onChange={field.onChange} aria-label="Giờ có mặt" popupMatchSelectWidth={false}
+                                                options={[{ value: "", label: "Chưa rõ" }, ...START_TIMES.map((t) => ({ value: t, label: t }))]} />
+                                        )} />
+                                    </div>
                                 </Field>
                                 <Field label="Thời gian thử việc">
                                     <Controller name="probationMonths" control={control} render={({ field }) => (
@@ -427,7 +441,7 @@ export default function OfferCreatePage() {
                             <OfferLetterPreview data={{
                                 company, location: locationName, candidateName, jobTitle: posting?.title ?? application?.jobTitle,
                                 deptName, salaryOffered: salary, allowance: draft.allowance, payFrequency: draft.payFrequency,
-                                startDate: draft.startDate, probationMonths: draft.probationMonths, contractTypeName: contractName,
+                                startDate: draft.startDate, startTime: draft.startTime, probationMonths: draft.probationMonths, contractTypeName: contractName,
                                 annualLeaveDays: draft.annualLeaveDays, reportingManager: draft.reportingManager, benefits: draft.benefits,
                                 candidateVisibleNote: draft.candidateVisibleNote, responseDeadline: draft.responseDeadline,
                                 requesterName: requesterName || me?.fullName,

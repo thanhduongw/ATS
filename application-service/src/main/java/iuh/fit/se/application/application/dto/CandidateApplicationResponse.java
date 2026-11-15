@@ -13,5 +13,9 @@ public record CandidateApplicationResponse(
         String currentStageType,
         String rejectionReasonName,
         LocalDateTime appliedAt,
-        LocalDateTime hiredAt
+        LocalDateTime hiredAt,
+        // C12: CV đã nộp kèm đơn và tên chuyên viên phụ trách (null nếu chưa phân công).
+        // Không trả email cá nhân của nhân viên — giao diện dùng email tuyển dụng công khai của công ty.
+        String resumeUrl,
+        String recruiterName
 ) {}

@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import type { UploadProps } from "antd";
 import { getMyCandidateProfile, updateMyCandidateProfile, uploadMyCandidateResume } from "../candidateApi";
+import { cvFileName } from "../cvFile";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import type { ApiMessageResponse, CandidateSelfResponse, CandidateSelfUpdateRequest } from "../types";
@@ -16,7 +17,7 @@ import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designK
 
 /**
  * C17 · Hồ sơ của tôi: thông tin cá nhân · kỹ năng · CV (chỉ 1 CV — "Tải CV mới" thay CV cũ, quyết định G7).
- * Ảnh đại diện: AvatarUploader. Khác HTML: chưa hiện tên file / ngày tải CV (API chỉ trả "đã có CV hay chưa").
+ * Ảnh đại diện: AvatarUploader. CV: tên file gốc (bỏ mã ngẫu nhiên) + ngày tải lên (CV cũ trước 16/11/2026 không có ngày).
  */
 type ProfileForm = Omit<CandidateSelfUpdateRequest, "dateOfBirth"> & {
     dateOfBirth?: ReturnType<typeof dayjs> | null;
@@ -181,9 +182,13 @@ export default function CandidateProfilePage() {
                         boxShadow: `inset 0 0 0 1px ${COLORS.border}`,
                     }}>
                         <FilePdfOutlined style={{ fontSize: 28, color: profile?.resumeUploaded ? COLORS.error : COLORS.textMuted }} />
-                        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                            <span style={{ fontWeight: 600 }}>{profile?.resumeUploaded ? "CV đã tải lên" : "Chưa có CV"}</span>
-                            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>PDF, DOC, DOCX · tối đa {MAX_CV_MB} MB</span>
+                        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                            <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {profile?.resumeUploaded ? (cvFileName(profile.resumeUrl) || "CV đã tải lên") : "Chưa có CV"}
+                            </span>
+                            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                                {profile?.resumeUploadedAt ? `Tải lên ${dayjs(profile.resumeUploadedAt).format("DD/MM/YYYY")}` : `PDF, DOC, DOCX · tối đa ${MAX_CV_MB} MB`}
+                            </span>
                             <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Tải CV mới sẽ thay CV cũ cho các lần ứng tuyển sau.</span>
                         </div>
                     </div>

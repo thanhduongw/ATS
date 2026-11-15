@@ -17,6 +17,8 @@ export interface OfferLetterData {
     allowance?: number | null;
     payFrequency?: string | null;
     startDate?: string | null;
+    /** Giờ có mặt ngày đầu tiên "HH:mm[:ss]". */
+    startTime?: string | null;
     probationMonths?: number | null;
     contractTypeName?: string | null;
     annualLeaveDays?: number | null;
@@ -57,7 +59,7 @@ export default function OfferLetterPreview({ data }: { data: OfferLetterData }) 
             <ul style={{ margin: "0 0 8px", paddingLeft: 18 }}>
                 <li>Lương gộp: <b>{data.salaryOffered ? `${money(data.salaryOffered)}${pay}` : "…"}</b></li>
                 {!!data.allowance && <li>Phụ cấp: {money(data.allowance)}{pay}</li>}
-                <li>Ngày bắt đầu: <b>{d(data.startDate)}</b>{data.probationMonths ? `, thử việc ${data.probationMonths} tháng` : ""}</li>
+                <li>Ngày bắt đầu: <b>{d(data.startDate)}{data.startTime ? ` · ${data.startTime.slice(0, 5)}` : ""}</b>{data.probationMonths ? `, thử việc ${data.probationMonths} tháng` : ""}</li>
                 <li>
                     Hợp đồng {(data.contractTypeName ?? "…").toLowerCase()}
                     {data.annualLeaveDays != null ? `, ${data.annualLeaveDays} ngày phép/năm` : ""}

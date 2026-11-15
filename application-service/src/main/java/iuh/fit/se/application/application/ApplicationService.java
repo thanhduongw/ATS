@@ -700,7 +700,22 @@ public class ApplicationService {
                 application.getRejectionReasonId() == null
                         ? null : reasonMap.get(application.getRejectionReasonId()),
                 application.getAppliedAt(),
-                application.getHiredAt());
+                application.getHiredAt(),
+                application.getResumeUrl(),
+                recruiterNameOf(application.getAssignedRecruiterId()));
+    }
+
+    /** Tên chuyên viên phụ trách cho trang đơn của ứng viên; lỗi gọi auth-service thì bỏ qua (khối hiện "Bộ phận tuyển dụng"). */
+    private String recruiterNameOf(Long recruiterId) {
+        if (recruiterId == null) return null;
+        try {
+            return authServiceClient.getUsers(null).stream()
+                    .filter(u -> recruiterId.equals(u.id()))
+                    .map(UserSummaryResponse::fullName)
+                    .findFirst().orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public void requireAccess(Long id, CurrentUser actor) {

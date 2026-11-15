@@ -222,6 +222,7 @@ public class CandidateService {
         String url = s3Service.uploadFile(
                 file, "candidates/" + candidate.getId());
         candidate.setCvFileUrl(url);
+        candidate.setCvUploadedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
         return toSelfResponse(candidate);
     }
@@ -345,6 +346,7 @@ public class CandidateService {
         Long id = candidate.getId();
         String url = s3Service.uploadFile(file, "candidates/" + id);
         candidate.setCvFileUrl(url);
+        candidate.setCvUploadedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
         return getById(id);
     }
@@ -561,7 +563,9 @@ public class CandidateService {
                 skillIds,
                 skillNames,
                 candidate.getCvFileUrl() != null,
-                candidate.getCvFileUrl());
+                candidate.getCvFileUrl(),
+                candidate.getCvUploadedAt(),
+                candidate.getConsentAt());
     }
 
     private String trimToNull(String value) {
@@ -671,6 +675,7 @@ public class CandidateService {
 
         String url = s3Service.uploadFile(file, "candidates/" + candidateId);
         candidate.setCvFileUrl(url);
+        candidate.setCvUploadedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
 
         return new CandidateSummaryResponse(

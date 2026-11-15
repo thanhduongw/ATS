@@ -3,6 +3,7 @@ package iuh.fit.se.offer.offer.dto;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.LocalDateTime;
 
 public record OfferCreateRequest(
@@ -22,5 +23,7 @@ public record OfferCreateRequest(
         BigDecimal allowance,
         String note,
         String candidateVisibleNote,
-        @NotNull(message = "Vui lòng chọn người duyệt") Long approverId
+        @NotNull(message = "Vui lòng chọn người duyệt") Long approverId,
+        /** Giờ có mặt ngày đầu tiên (C23 "Thứ Hai, 16/11 · 08:30"); không bắt buộc. */
+        LocalTime startTime
 ) {}

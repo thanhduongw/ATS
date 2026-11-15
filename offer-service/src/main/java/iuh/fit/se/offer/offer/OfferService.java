@@ -206,6 +206,7 @@ public class OfferService {
                 .salaryOffered(req.salaryOffered())
                 .contractTypeId(req.contractTypeId())
                 .startDate(req.startDate())
+                .startTime(req.startTime())
                 .probationMonths(req.probationMonths())
                 .reportingManager(req.reportingManager())
                 .workLocationId(req.workLocationId() != null
@@ -245,6 +246,7 @@ public class OfferService {
         offer.setSalaryOffered(req.salaryOffered());
         offer.setContractTypeId(req.contractTypeId());
         offer.setStartDate(req.startDate());
+        offer.setStartTime(req.startTime());
         offer.setProbationMonths(req.probationMonths());
         offer.setReportingManager(req.reportingManager());
         offer.setWorkLocationId(req.workLocationId());
@@ -627,7 +629,8 @@ public class OfferService {
                 offer.getDeclineReasonId() == null
                         ? null : reasonMap.get(offer.getDeclineReasonId()),
                 offer.getDeclineNote(),
-                offer.getCreatedAt());
+                offer.getCreatedAt(),
+                offer.getStartTime());
     }
 
     private Map<Long, String> buildCatalogMap(List<CatalogItemResponse> items) {
@@ -662,7 +665,7 @@ public class OfferService {
                 r.status(), r.rejectReason(), r.declineReasonName(), r.declineNote(),
                 r.createdAt(), r.submittedAt(), r.approvedAt(),
                 r.issuedAt(), r.expiredAt(), r.candidateRespondedAt(),
-                r.candidateViewCount(), r.candidateLastViewedAt());
+                r.candidateViewCount(), r.candidateLastViewedAt(), r.startTime());
     }
 
     private OfferResponse toResponse(
@@ -708,7 +711,8 @@ public class OfferService {
                 o.getExpiredAt(),
                 o.getCandidateRespondedAt(),
                 o.getCandidateViewCount(),
-                o.getCandidateLastViewedAt()
+                o.getCandidateLastViewedAt(),
+                o.getStartTime()
         );
     }
 }

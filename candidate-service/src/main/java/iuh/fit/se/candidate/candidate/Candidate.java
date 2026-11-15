@@ -43,6 +43,10 @@ public class Candidate {
     @Column(name = "cv_file_url")
     private String cvFileUrl;
 
+    /** Lúc tải CV hiện tại lên (C17 "Tải lên dd/MM/yyyy"); CV cũ trước khi có cột này để null. */
+    @Column(name = "cv_uploaded_at")
+    private LocalDateTime cvUploadedAt;
+
     /** Ghi chú nội bộ — chỉ HR/Manager thấy, không hiển thị cho candidate. */
     @Column(name = "internal_note", columnDefinition = "TEXT")
     private String internalNote;

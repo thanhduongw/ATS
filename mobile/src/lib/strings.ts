@@ -223,6 +223,8 @@ export const STRINGS = {
     openMeeting: "Mở phòng họp",
     offer: "Thư mời nhận việc",
     viewOffer: "Xem thư mời",
+    // Mobile.html UC05: khối "Hồ sơ đã nộp" — tên file CV gửi kèm đơn.
+    submitted: "Hồ sơ đã nộp",
     viewJob: "Xem tin tuyển dụng",
     // UC06
     withdraw: "Rút đơn ứng tuyển",
@@ -328,6 +330,7 @@ export const STRINGS = {
   profile: {
     title: "Tài khoản",
     cvInUse: "Đang dùng",
+    cvUploadedOn: (date: string) => `Đang dùng · tải lên ${date}`,
     privacy: "Dữ liệu & quyền riêng tư",
     deleteTitle: "Xóa hồ sơ ứng viên",
     deleteMessage:

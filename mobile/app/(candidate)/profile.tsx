@@ -2,12 +2,13 @@ import { useState } from "react";
 import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
-import { useMyProfile, useRequestDeletion, useUploadResume } from "@/features/profile/hooks";
+import { useMyAccount, useMyProfile, useRequestDeletion, useUploadResume } from "@/features/profile/hooks";
 import { EditProfileSheet } from "@/features/profile/edit-profile-sheet";
 import { useMyOffers } from "@/features/offers/hooks";
 import { apiErrorMessage } from "@/api/client";
 import { ScreenHeader } from "@/components/ui/screen-chrome";
 import { Card, CardTitle, IconTile, KeyValueRow } from "@/components/ui/surfaces";
+import { Avatar } from "@/components/ui/avatar";
 import { PillButton } from "@/components/ui/buttons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -85,12 +86,17 @@ function completion(p: CandidateSelf): number {
 
 function IdentityCard({ profile }: { profile: CandidateSelf }) {
   const pct = completion(profile);
+  const avatarUrl = useMyAccount().data?.avatarUrl;
   return (
     <Card>
       <View style={styles.identity}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials(profile.fullName)}</Text>
-        </View>
+        {avatarUrl ? (
+          <Avatar uri={avatarUrl} name={profile.fullName} size={AVATAR} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials(profile.fullName)}</Text>
+          </View>
+        )}
         <View style={styles.flex}>
           <Text style={styles.name}>{profile.fullName}</Text>
           <Text style={styles.sub}>{profile.email}</Text>
@@ -141,7 +147,9 @@ function CvCard({ profile }: { profile: CandidateSelf }) {
           <Text style={styles.cvName} numberOfLines={1}>
             {has ? cvFileName(profile.resumeUrl) : S.noCv}
           </Text>
-          <Text style={styles.sub}>{has ? S.cvInUse : S.noCvHint}</Text>
+          <Text style={styles.sub}>
+            {has ? (profile.resumeUploadedAt ? S.cvUploadedOn(formatDate(profile.resumeUploadedAt)) : S.cvInUse) : S.noCvHint}
+          </Text>
         </View>
         <PillButton
           label={has ? S.replaceCv : S.uploadCv}

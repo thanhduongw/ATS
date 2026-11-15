@@ -20,6 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateAvatar"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/company": {
         parameters: {
             query?: never;
@@ -29,6 +45,22 @@ export interface paths {
         };
         get: operations["getCompany_1"];
         put: operations["updateCompany"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/careers-page/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["saveDraft"];
         post?: never;
         delete?: never;
         options?: never;
@@ -196,6 +228,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/files/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/change-password": {
         parameters: {
             query?: never;
@@ -206,6 +254,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/careers-page/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publish"];
         delete?: never;
         options?: never;
         head?: never;
@@ -324,6 +388,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/public/careers-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCareersPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/oauth2/pre-login": {
         parameters: {
             query?: never;
@@ -372,6 +452,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/careers-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -391,6 +487,10 @@ export interface components {
             departmentId?: number;
             status?: string;
             emailVerified?: boolean;
+            avatarUrl?: string;
+        };
+        UpdateAvatarRequest: {
+            avatarUrl?: string;
         };
         UpdateCompanyRequest: {
             name: string;
@@ -441,6 +541,18 @@ export interface components {
             privacyPolicyUpdatedAt?: string;
             tagline?: string;
             benefits?: string;
+        };
+        CareersPageDraftRequest: {
+            config: string;
+        };
+        CareersPageResponse: {
+            draftConfig?: string;
+            publishedConfig?: string;
+            /** Format: date-time */
+            draftUpdatedAt?: string;
+            /** Format: date-time */
+            publishedAt?: string;
+            hasUnpublishedChanges?: boolean;
         };
         VerifyEmailRequest: {
             email: string;
@@ -579,6 +691,30 @@ export interface operations {
             };
         };
     };
+    updateAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAvatarRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["UserProfileResponse"];
+                };
+            };
+        };
+    };
     getCompany_1: {
         parameters: {
             query?: never;
@@ -619,6 +755,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["CompanyResponse"];
+                };
+            };
+        };
+    };
+    saveDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareersPageDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CareersPageResponse"];
                 };
             };
         };
@@ -865,6 +1025,37 @@ export interface operations {
             };
         };
     };
+    uploadImage: {
+        parameters: {
+            query?: {
+                folder?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
     changePassword: {
         parameters: {
             query?: never;
@@ -885,6 +1076,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiMessageResponse"];
+                };
+            };
+        };
+    };
+    publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CareersPageResponse"];
                 };
             };
         };
@@ -1049,6 +1260,26 @@ export interface operations {
             };
         };
     };
+    getCareersPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CareersPageResponse"];
+                };
+            };
+        };
+    };
     preLogin: {
         parameters: {
             query?: never;
@@ -1105,6 +1336,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["InvitationPreviewResponse"];
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CareersPageResponse"];
                 };
             };
         };

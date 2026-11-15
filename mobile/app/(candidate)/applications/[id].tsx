@@ -20,7 +20,7 @@ import { ErrorState, SkeletonList } from "@/components/ui/feedback";
 import { STRINGS } from "@/lib/strings";
 import { useNow } from "@/lib/use-now";
 import { applicationPhase, interviewStatus, offerStatus, stageStatus } from "@/lib/status";
-import { formatDate, formatLongDate, formatTimeRange } from "@/lib/format";
+import { cvFileName, formatDate, formatLongDate, formatTimeRange } from "@/lib/format";
 import { COLORS, FONT, FONT_SIZE, RADIUS, SIZES, SPACING } from "@/theme";
 import type { CandidateApplication, CandidateInterview } from "@/types/api";
 
@@ -116,6 +116,13 @@ export default function ApplicationDetailScreen() {
                 fullWidth
                 onPress={() => router.push({ pathname: "/offers/[id]", params: { id: String(offer.id) } })}
               />
+            </Card>
+          ) : null}
+
+          {app.data.resumeUrl ? (
+            <Card>
+              <CardTitle>{S.submitted}</CardTitle>
+              <ListRow icon="file" title={cvFileName(app.data.resumeUrl)} subtitle={formatDate(app.data.appliedAt)} last />
             </Card>
           ) : null}
 

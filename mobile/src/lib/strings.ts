@@ -123,7 +123,16 @@ export const STRINGS = {
   },
   jobs: {
     title: "Việc làm",
-    searchPlaceholder: "Tìm vị trí, phòng ban, nơi làm…",
+    // UC01
+    openAt: (n: number, company: string) => (company ? `${n} vị trí đang tuyển tại ${company}` : `${n} vị trí đang tuyển`),
+    appliedTag: "Đã ứng tuyển",
+    urgent: "Tuyển gấp",
+    // UC17 · Bộ lọc
+    filter: "Bộ lọc",
+    filterReset: "Đặt lại",
+    filterShow: (n: number) => `Xem ${n} việc làm`,
+    filterGroups: { location: "Địa điểm", arrangement: "Hình thức", type: "Loại công việc", experience: "Kinh nghiệm" },
+    searchPlaceholder: "Tìm vị trí, kỹ năng",
     all: "Tất cả",
     openCount: (n: number) => `${n} vị trí đang mở`,
     applied: "Đã nộp",
@@ -166,6 +175,11 @@ export const STRINGS = {
     failed: "Nộp đơn thất bại",
     uploadCv: "Tải CV",
     notOpen: "Tin này hiện không nhận hồ sơ.",
+    // UC02
+    about: "Về công việc",
+    deadline: "Hạn nộp",
+    applyNow: "Ứng tuyển ngay",
+    share: "Chia sẻ tin tuyển dụng",
   },
   apply: {
     title: "Ứng tuyển",

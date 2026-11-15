@@ -343,6 +343,10 @@ export interface components {
             skillNames?: string[];
             resumeUploaded?: boolean;
             resumeUrl?: string;
+            /** Format: date-time */
+            resumeUploadedAt?: string;
+            /** Format: date-time */
+            consentAt?: string;
         };
         CandidateCreateRequest: {
             fullName: string;

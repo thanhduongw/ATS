@@ -149,7 +149,11 @@ function OfferBody({ offer }: { offer: CandidateOffer }) {
         <View>
           <KeyValueRow label={S.salary} value={`${formatMoney(offer.salaryOffered)}${S.perMonth}`} />
           {offer.contractTypeName ? <KeyValueRow label={S.contract} value={offer.contractTypeName} /> : null}
-          <KeyValueRow label={S.startDate} value={formatDate(offer.startDate)} />
+          <KeyValueRow
+            label={S.startDate}
+            // Giờ có mặt ngày đầu tiên do HR nhập (không bắt buộc) — có thì ghép sau ngày.
+            value={offer.startTime ? `${formatDate(offer.startDate)} · ${offer.startTime.slice(0, 5)}` : formatDate(offer.startDate)}
+          />
           {offer.probationMonths != null ? (
             <KeyValueRow label={S.probation} value={S.probationMonths(offer.probationMonths)} />
           ) : null}

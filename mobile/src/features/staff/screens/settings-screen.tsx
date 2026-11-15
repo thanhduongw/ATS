@@ -101,7 +101,7 @@ export function StaffSettingsScreen() {
       <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="none">
         <Card>
           <View style={styles.person}>
-            <Avatar name={me.data.fullName} size={SIZES.iconTile + SPACING.sm} />
+            <Avatar name={me.data.fullName} uri={me.data.avatarUrl} size={SIZES.iconTile + SPACING.sm} />
             <View style={styles.flex}>
               <Text style={styles.name}>{me.data.fullName}</Text>
               <Text style={styles.sub}>{role ? STRINGS.roles[role] : ""}</Text>

@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+import { Icon, type IconName } from "./icon";
 import {
   AI_GRADIENT_STOPS, COLORS, FONT, FONT_SIZE, RADIUS, SIZES, SPACING, STATUS_TONES, type StatusTone,
 } from "@/theme";
@@ -13,6 +14,22 @@ export function StatusChip({ label, tone }: { label: string; tone: StatusTone })
   return (
     <View style={[styles.chip, { backgroundColor: t.bg }]}>
       <View style={[styles.dot, { backgroundColor: t.dot }]} />
+      <Text style={[styles.label, { color: t.text }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Nhãn màu không chấm (UC01, UC02: phòng ban xanh, "Tuyển gấp" đỏ, "✓ Đã ứng tuyển" xanh lá) — dùng tông của
+ * STATUS_TONES nhưng không phải trạng thái enum, nên màn tự chọn tone.
+ */
+export function ToneTag({ label, tone, icon }: { label: string; tone: StatusTone; icon?: IconName }) {
+  const t = STATUS_TONES[tone];
+  return (
+    <View style={[styles.chip, { backgroundColor: t.bg }]}>
+      {icon ? <Icon name={icon} size={SIZES.iconXs} color={t.text} strokeWidth={2} /> : null}
       <Text style={[styles.label, { color: t.text }]} numberOfLines={1}>
         {label}
       </Text>

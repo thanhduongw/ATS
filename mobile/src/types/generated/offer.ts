@@ -208,6 +208,11 @@ export interface components {
             candidateVisibleNote?: string;
             /** Format: int64 */
             approverId: number;
+            /**
+             * Format: time
+             * @example 08:30:00
+             */
+            startTime?: string;
         };
         OfferResponse: {
             /** Format: int64 */
@@ -267,6 +272,11 @@ export interface components {
             candidateViewCount?: number;
             /** Format: date-time */
             candidateLastViewedAt?: string;
+            /**
+             * Format: time
+             * @example 08:30:00
+             */
+            startTime?: string;
         };
         OfferCreateRequest: {
             /** Format: int64 */
@@ -294,6 +304,11 @@ export interface components {
             candidateVisibleNote?: string;
             /** Format: int64 */
             approverId: number;
+            /**
+             * Format: time
+             * @example 08:30:00
+             */
+            startTime?: string;
         };
         OfferRejectRequest: {
             reason: string;
@@ -337,6 +352,11 @@ export interface components {
             declineNote?: string;
             /** Format: date-time */
             createdAt?: string;
+            /**
+             * Format: time
+             * @example 08:30:00
+             */
+            startTime?: string;
         };
         PageResponseOfferResponse: {
             content?: components["schemas"]["OfferResponse"][];

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { PaperProvider } from "react-native-paper";
+import { PaperProvider, Portal } from "react-native-paper";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
@@ -75,8 +75,12 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <PaperProvider theme={paperTheme}>
         <SnackbarProvider>
-          <StatusBar style="dark" />
-          {fontsLoaded ? <AuthGate /> : <FullScreenLoader />}
+          {/* Lớp Portal riêng NẰM DƯỚI Snackbar: bottom sheet (Portal + Modal của Paper) vẽ vào đây, nên
+              thông báo bật lên khi sheet đang mở vẫn hiện trên sheet thay vì bị che. */}
+          <Portal.Host>
+            <StatusBar style="dark" />
+            {fontsLoaded ? <AuthGate /> : <FullScreenLoader />}
+          </Portal.Host>
         </SnackbarProvider>
       </PaperProvider>
     </QueryClientProvider>

@@ -57,7 +57,7 @@ export function StaffMoreScreen() {
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
         <Card>
           <View style={styles.profile}>
-            <Avatar name={profile.data?.fullName} size={SIZES.iconTile + SPACING.sm} />
+            <Avatar name={profile.data?.fullName} uri={profile.data?.avatarUrl} size={SIZES.iconTile + SPACING.sm} />
             <View style={styles.flex}>
               <Text style={styles.name}>{profile.data?.fullName ?? ""}</Text>
               <Text style={styles.sub}>{L.roleAt(roleName, isHr ? (company.data ?? "") : dept)}</Text>

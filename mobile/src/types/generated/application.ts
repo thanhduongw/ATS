@@ -340,6 +340,8 @@ export interface components {
             appliedAt?: string;
             /** Format: date-time */
             hiredAt?: string;
+            resumeUrl?: string;
+            recruiterName?: string;
         };
         BulkRejectRequest: {
             ids: number[];

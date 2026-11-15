@@ -1,5 +1,6 @@
 package iuh.fit.se.offer.offer.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import iuh.fit.se.offer.offer.OfferStatus;
 
 import java.math.BigDecimal;
@@ -35,5 +36,5 @@ public record CandidateOfferResponse(
         String declineNote,
         LocalDateTime createdAt,
         /** Giờ có mặt ngày đầu tiên (C23); null nếu HR chưa nhập. */
-        LocalTime startTime
+        @Schema(type = "string", format = "time", example = "08:30:00") LocalTime startTime
 ) {}

@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { Modal } from "antd";
+import { Button, Modal } from "antd";
 import {
     AI_GRADIENT, COLORS, RADIUS, SHADOWS, STAGE_COLORS, TONES, avatarColor,
     type FixedStage, type StatusTone,
@@ -211,7 +211,7 @@ export function Panel({
 /* ── Hộp thoại nhỏ (DS04): rộng 420, bo 28, chỉ cho xác nhận hoặc 1–3 trường ── */
 export function SmallDialog({
     open, title, subtitle, children, onCancel, onOk, okText, cancelText = "Huỷ",
-    danger = false, okLoading = false, okDisabled = false, width = 420,
+    danger = false, okLoading = false, okDisabled = false, width = 420, blockButtons = false,
 }: {
     open: boolean;
     title: ReactNode;
@@ -227,6 +227,8 @@ export function SmallDialog({
     okLoading?: boolean;
     okDisabled?: boolean;
     width?: number;
+    /** Hai nút chia đôi hết chiều ngang (C21/C22 của web ứng viên). */
+    blockButtons?: boolean;
 }) {
     return (
         <Modal
@@ -237,6 +239,12 @@ export function SmallDialog({
             cancelText={cancelText}
             okButtonProps={{ danger, loading: okLoading, disabled: okDisabled, size: "large" }}
             cancelButtonProps={{ size: "large" }}
+            footer={blockButtons ? (
+                <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                    <Button size="large" style={{ flex: 1 }} onClick={onCancel}>{cancelText}</Button>
+                    <Button size="large" style={{ flex: 1 }} type="primary" danger={danger} loading={okLoading} disabled={okDisabled} onClick={onOk}>{okText}</Button>
+                </div>
+            ) : undefined}
             width={width}
             centered
             destroyOnHidden

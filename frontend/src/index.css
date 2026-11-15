@@ -944,8 +944,8 @@ h6 {
 }
 
 /* C04–C08 · Khung đăng nhập / đăng ký 2 cột: ảnh trái, biểu mẫu phải. Màn hẹp chỉ còn biểu mẫu. */
-.auth-shell { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 100vh; background: #fff; }
-.auth-shell-art { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; padding: 40px; color: #fff; background-size: cover; background-position: center; }
+.auth-shell { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); min-height: 100vh; background: #fff; }
+.auth-shell-art { position: sticky; top: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 48px 56px; color: #fff; background: linear-gradient(165deg, #061A44, #0B2F78 60%, #1546B8); }
 .auth-shell-form { display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
 .auth-shell-form > div { width: 100%; max-width: 400px; }
 @media (max-width: 860px) {

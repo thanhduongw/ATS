@@ -20,6 +20,7 @@ import { COLORS, GRADIENTS, SHADOWS } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
 import { InlineNotice, Panel, SmallDialog } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
+import { useBareCandidatePage } from "../../../layouts/candidateShell";
 
 /**
  * C16 · Chi tiết thư mời (dải màu xanh đậm) · C21 chấp nhận kèm ô "Tôi đã đọc và đồng ý" ·
@@ -81,6 +82,8 @@ export default function OfferCandidateViewPage() {
     }, [id, location.pathname, message]);
 
     useEffect(() => { void load(); }, [load]);
+    // C23 toàn màn như HTML: ẩn menu trái của khung ứng viên.
+    useBareCandidatePage(offer?.status === "ACCEPTED");
     useEffect(() => {
         getPublicCompany().then((r) => setCompany(r.data.name)).catch(() => undefined);
         getCatalogItems("/masterdata/work-locations").then((r) => setLocations(r.data)).catch(() => undefined);
@@ -147,21 +150,21 @@ export default function OfferCandidateViewPage() {
     if (offer.status === "ACCEPTED") {
         const bring = ["CCCD", "Sổ bảo hiểm (nếu có)", "Thông tin tài khoản ngân hàng"];
         return (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0, paddingBottom: 48 }}>
                 <div style={{
-                    width: "100%", borderRadius: 24, background: GRADIENTS.hero, color: COLORS.textOnDark, textAlign: "center",
-                    padding: "40px 24px 96px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
+                    width: "100%", background: GRADIENTS.hero, color: COLORS.textOnDark, textAlign: "center",
+                    padding: "48px 24px 112px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
                 }}>
                     <span style={{
                         // Ô icon trên nền xanh đậm: trắng mờ 14% (một lần, cùng giá trị chip ở C03).
                         width: 64, height: 64, borderRadius: 32, background: "rgba(255,255,255,0.14)",
                         display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 28,
                     }}><RocketOutlined /></span>
-                    <b style={{ fontSize: 32, letterSpacing: "-0.01em" }}>Chào mừng {firstName || "bạn"} đến với {company || "công ty"}!</b>
+                    <b style={{ fontSize: 36, letterSpacing: "-0.01em", lineHeight: 1.2 }}>Chào mừng {firstName || "bạn"} đến với {company || "công ty"}!</b>
                     <span style={{ opacity: 0.85, fontSize: 15 }}>{offer.jobTitle ?? ""}</span>
                 </div>
                 <section style={{
-                    width: "calc(100% - 48px)", marginTop: -64, background: COLORS.cardBg, borderRadius: 20, padding: 24,
+                    width: "calc(100% - 32px)", maxWidth: 960, marginTop: -72, background: COLORS.cardBg, borderRadius: 24, padding: 28,
                     display: "flex", flexDirection: "column", gap: 16, boxShadow: SHADOWS.dropdown,
                 }}>
                     <div className="cand-2col" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
@@ -262,7 +265,7 @@ export default function OfferCandidateViewPage() {
                     {pending ? (<>
                         <Button type="primary" size="large" block icon={<CheckOutlined />} onClick={() => { setAgree(false); setAcceptOpen(true); }}>Chấp nhận thư mời</Button>
                         <Button size="large" block style={{ background: COLORS.errorBg, color: COLORS.error, border: 0 }}
-                            onClick={() => { setDeclineKey(null); setNote(""); setDeclineOpen(true); }}>Từ chối</Button>
+                            onClick={() => { setDeclineKey(DECLINE_CHOICES[0].key); setNote(""); setDeclineOpen(true); }}>Từ chối</Button>
                     </>) : (
                         <StatusTag
                             label={offer.status === "DECLINED" ? "Đã từ chối" : expired ? "Đã hết hạn" : "Chưa sẵn sàng"}
@@ -279,20 +282,22 @@ export default function OfferCandidateViewPage() {
                 title={(
                     <span style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                         <span style={{
-                            width: 48, height: 48, borderRadius: 14, background: COLORS.successBg, color: COLORS.success,
-                            display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 22,
+                            width: 64, height: 64, borderRadius: 18, background: COLORS.successBg, color: COLORS.success,
+                            display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 28,
                         }}><CheckCircleOutlined /></span>
                         Chấp nhận thư mời?
                     </span>
                 )}
                 okText="Chấp nhận"
+                width={480}
+                blockButtons
                 okDisabled={!agree}
                 okLoading={busy}
                 onCancel={() => setAcceptOpen(false)}
                 onOk={accept}
             >
                 {/* C21: tóm tắt trong ô xám — nhãn trái, giá trị phải. */}
-                <div style={{ background: COLORS.fill, borderRadius: 14, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ background: COLORS.fill, borderRadius: 14, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, margin: "4px 0 12px" }}>
                     <Summary label="Vị trí" value={offer.jobTitle ?? "—"} />
                     <Summary label="Lương gộp" value={`${formatMoney(offer.salaryOffered)}${pay}`} />
                     <Summary label="Ngày bắt đầu" value={dayjs(offer.startDate).format("DD/MM/YYYY")} />
@@ -307,17 +312,21 @@ export default function OfferCandidateViewPage() {
                 title="Từ chối thư mời"
                 okText="Xác nhận từ chối"
                 danger
+                width={480}
+                blockButtons
                 okDisabled={!declineKey}
                 okLoading={busy}
                 onCancel={() => setDeclineOpen(false)}
                 onOk={decline}
             >
-                <span style={{ fontSize: 13, fontWeight: 600 }}>Lý do</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>Lý do</span>
                 <Radio.Group value={declineKey} onChange={(e) => setDeclineKey(e.target.value)}
-                    style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                    style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 15 }}
                     options={DECLINE_CHOICES.map((c) => ({ value: c.key, label: c.label }))} />
-                <span style={{ fontSize: 13, fontWeight: 600 }}>Ghi chú (không bắt buộc)</span>
+                <span style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 6 }}>Ghi chú (không bắt buộc)</span>
                 <Input.TextArea rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+                </div>
             </SmallDialog>
         </div>
     );

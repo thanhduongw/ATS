@@ -94,21 +94,21 @@ export default function ApplyJobPage() {
             { t: "Mời phỏng vấn", h: "Bạn nhận lịch phỏng vấn và chỉ cần đồng ý hoặc xin dời", icon: <CalendarOutlined />, bg: COLORS.fill, color: COLORS.textSecondary },
         ];
         return (
-            <div style={{ maxWidth: 600, margin: "24px auto 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}>
+            <div style={{ maxWidth: 720, margin: "24px auto 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 24, textAlign: "center" }}>
                 <span style={{
-                    width: 80, height: 80, borderRadius: 40, background: COLORS.successBg, color: COLORS.success,
-                    display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 36,
+                    width: 96, height: 96, borderRadius: 48, background: COLORS.successBg, color: COLORS.success,
+                    display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 42,
                 }}><CheckOutlined /></span>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <b style={{ fontSize: 32, letterSpacing: "-0.01em" }}>Đã gửi hồ sơ thành công!</b>
-                    <span style={{ color: COLORS.textSecondary, fontSize: 15 }}>{job.title}</span>
+                    <b style={{ fontSize: 36, letterSpacing: "-0.01em", lineHeight: 1.2 }}>Đã gửi hồ sơ thành công!</b>
+                    <span style={{ color: COLORS.textSecondary, fontSize: 16 }}>{job.title}</span>
                 </div>
-                <section style={{ width: "100%", background: COLORS.cardBg, borderRadius: 20, padding: 24, display: "flex", flexDirection: "column", gap: 14, textAlign: "left" }}>
-                    <b style={{ fontSize: 16 }}>Tiếp theo</b>
+                <section style={{ width: "100%", background: COLORS.cardBg, borderRadius: 24, padding: 28, display: "flex", flexDirection: "column", gap: 16, textAlign: "left" }}>
+                    <b style={{ fontSize: 17 }}>Tiếp theo</b>
                     {steps.map((st) => (
                         <div key={st.t} style={{ display: "flex", gap: 12, alignItems: "center" }}>
                             <span style={{
-                                width: 32, height: 32, borderRadius: 16, flexShrink: 0, background: st.bg, color: st.color,
+                                width: 36, height: 36, borderRadius: 18, flexShrink: 0, background: st.bg, color: st.color,
                                 display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 15,
                             }}>{st.icon}</span>
                             <span style={{ display: "flex", flexDirection: "column" }}>
@@ -120,7 +120,7 @@ export default function ApplyJobPage() {
                 </section>
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                     <Button type="primary" size="large" icon={<FileTextOutlined />} onClick={() => navigate("/my-applications")}>Theo dõi đơn ứng tuyển</Button>
-                    <Button size="large" onClick={() => navigate("/careers")}>Xem việc làm khác</Button>
+                    <Button size="large" style={{ color: COLORS.primary }} onClick={() => navigate("/careers")}>Xem việc làm khác</Button>
                 </div>
             </div>
         );

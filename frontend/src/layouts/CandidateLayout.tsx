@@ -30,10 +30,11 @@ export default function CandidateLayout() {
     const { pathname } = useLocation();
     const user = useAppSelector((s) => s.auth.user);
     // Số trên menu đổi sau khi ứng viên trả lời lịch / thư mời → tải lại mỗi lần đổi trang.
-    const { interviews, offers } = useCandidatePortal(pathname);
+    const [badgeTick, setBadgeTick] = useState(0);
+    const { interviews, offers } = useCandidatePortal(`${pathname}#${badgeTick}`);
     // Trang con bật "trần" (useBareCandidatePage) → chỉ header website, nội dung trải hết chiều ngang.
     const [bare, setBare] = useState(false);
-    const shell = useMemo<CandidateShellContext>(() => ({ setBare }), []);
+    const shell = useMemo<CandidateShellContext>(() => ({ setBare, refreshBadges: () => setBadgeTick((t) => t + 1) }), []);
 
     const items: Item[] = [
         { to: "/my-home", label: "Tổng quan", icon: <AppstoreOutlined /> },

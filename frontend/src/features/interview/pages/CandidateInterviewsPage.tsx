@@ -1,23 +1,26 @@
 import { useState } from "react";
 import { App, Button, Spin } from "antd";
-import { CalendarOutlined, EnvironmentOutlined, TeamOutlined, VideoCameraOutlined } from "@ant-design/icons";
+import { CalendarOutlined, CheckCircleOutlined, DownloadOutlined, EnvironmentOutlined, LeftOutlined, TeamOutlined, VideoCameraOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs, { type Dayjs } from "dayjs";
 import { confirmInterview } from "../interviewApi";
 import type { ApiMessageResponse, CandidateInterviewResponse } from "../types";
 import { downloadIcs } from "../ics";
 import { COLORS, type StatusTone } from "../../../app/theme";
-import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
+import { Panel, ScreenTitle } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
-import EmptyState from "../../../components/ui/EmptyState";
+import { CandidateEmpty, CandidateLoadError } from "../../candidate/components/CandidateState";
 import { canDecline, needsConfirm, useCandidatePortal } from "../../candidate/useCandidatePortal";
 import CandidateDeclineDialog from "../components/CandidateDeclineDialog";
+import { useCandidateShell } from "../../../layouts/candidateShell";
 
 /**
  * C14 · Lịch phỏng vấn — danh sách (Sắp tới · Đã diễn ra). Bỏ C26 dạng tháng (quyết định 13/11/2026).
  * Lịch 1 giờ cố định (04/11/2026): ứng viên chỉ "Đồng ý" hoặc "Từ chối" (xin dời lịch kèm lý do / không tham
  * gia nữa = rút đơn) — không chọn khung giờ, không tự đề xuất giờ.
  * Nút "Thêm vào lịch" tải file .ics; "Vào phòng họp" chỉ hiện với buổi trực tuyến đã xác nhận.
+ * C24 · Đồng ý xong hiện màn "Đã xác nhận lịch phỏng vấn" (giờ, hình thức, người phỏng vấn, .ics) thay cho danh sách.
+ * C13/C25 (ứng viên chọn khung giờ, hết hạn chọn giờ) không làm — lịch cố định.
  */
 const UPCOMING_STATUS: Record<string, { label: string; tone: StatusTone }> = {
     SCHEDULED: { label: "Chờ chốt giờ", tone: "warning" },
@@ -38,6 +41,9 @@ export default function CandidateInterviewsPage() {
     const { loading, failed, applications, interviews, reload } = useCandidatePortal();
     const [confirmingId, setConfirmingId] = useState<number>();
     const [declining, setDeclining] = useState<CandidateInterviewResponse | null>(null);
+    const [confirmed, setConfirmed] = useState<CandidateInterviewResponse | null>(null);
+    const shell = useCandidateShell();
+    const reloadAll = () => { reload(); shell?.refreshBadges(); };
 
     if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
 
@@ -51,12 +57,13 @@ export default function CandidateInterviewsPage() {
         .filter((iv) => !upcoming.includes(iv))
         .sort((a, b) => dayjs(b.scheduledAt).valueOf() - dayjs(a.scheduledAt).valueOf());
 
-    const confirm = async (id: number) => {
-        setConfirmingId(id);
+    const confirm = async (iv: CandidateInterviewResponse) => {
+        setConfirmingId(iv.id);
         try {
-            await confirmInterview(id);
-            message.success("Đã đồng ý lịch phỏng vấn");
-            reload();
+            await confirmInterview(iv.id);
+            setConfirmed(iv);
+            window.scrollTo({ top: 0 });
+            reloadAll();
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
             message.error(e.response?.data?.message ?? "Không xác nhận được lịch phỏng vấn");
@@ -71,16 +78,51 @@ export default function CandidateInterviewsPage() {
     });
 
     const empty = !failed && upcoming.length === 0 && past.length === 0;
+    // Lỗi tải: chỉ báo lỗi, không vẽ danh sách rỗng (C33).
+
+    // C24 · Đã xác nhận lịch phỏng vấn.
+    if (confirmed) {
+        const d = dayjs(confirmed.scheduledAt);
+        const online = confirmed.format === "ONLINE";
+        const fact = (icon: React.ReactNode, text: string) => (
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ color: COLORS.primary, display: "inline-flex" }}>{icon}</span>{text}</span>
+        );
+        return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <a onClick={() => setConfirmed(null)} style={{ alignSelf: "flex-start", fontSize: 14, color: COLORS.textSecondary, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <LeftOutlined style={{ fontSize: 11 }} /> Lịch phỏng vấn
+                </a>
+                <Panel>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20, padding: "32px 0", textAlign: "center" }}>
+                        <span style={{
+                            width: 80, height: 80, borderRadius: 24, background: COLORS.successBg, color: COLORS.success,
+                            display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 36,
+                        }}><CheckCircleOutlined /></span>
+                        <b style={{ fontSize: 26, letterSpacing: "-0.01em" }}>Đã xác nhận lịch phỏng vấn</b>
+                        <div style={{
+                            width: "100%", maxWidth: 480, background: COLORS.fill, borderRadius: 16, padding: "16px 20px",
+                            display: "flex", flexDirection: "column", gap: 10, textAlign: "left", fontSize: 15,
+                        }}>
+                            {fact(<CalendarOutlined />, `${["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"][d.day()]}, ${d.format("DD/MM/YYYY")} · ${d.format("HH:mm")} – ${endOf(confirmed).format("HH:mm")}`)}
+                            {fact(online ? <VideoCameraOutlined /> : <EnvironmentOutlined />, online ? "Trực tuyến" : "Tại văn phòng")}
+                            {confirmed.interviewerNames.length > 0 && fact(<TeamOutlined />, confirmed.interviewerNames.join(", "))}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                            <Button size="large" icon={<DownloadOutlined />} onClick={() => ics(confirmed)} style={{ color: COLORS.primary }}>Thêm vào lịch (.ics)</Button>
+                            <Button size="large" type="primary" onClick={() => setConfirmed(null)}>Về lịch phỏng vấn</Button>
+                        </div>
+                    </div>
+                </Panel>
+            </div>
+        );
+    }
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <ScreenTitle title="Lịch phỏng vấn" />
-            {failed && (
-                <InlineNotice tone="danger" action={<Button onClick={reload}>Thử lại</Button>}>
-                    Không tải được dữ liệu. Kiểm tra kết nối mạng rồi thử lại.
-                </InlineNotice>
-            )}
-            {empty && <Panel><EmptyState title="Bạn chưa có lịch phỏng vấn nào" /></Panel>}
+            {failed && <Panel><CandidateLoadError onRetry={reload} /></Panel>}
+            {empty && <Panel><CandidateEmpty icon={<CalendarOutlined />} title="Bạn chưa có lịch phỏng vấn nào"
+                description="Khi bộ phận tuyển dụng gửi lịch, bạn sẽ thấy ở đây và nhận thông báo." /></Panel>}
 
             {!empty && (<>
                 {upcoming.length > 0 && <SectionTitle>Sắp tới</SectionTitle>}
@@ -117,7 +159,7 @@ export default function CandidateInterviewsPage() {
                                         <Button danger onClick={() => setDeclining(iv)}>Từ chối</Button>
                                     )}
                                     {needsConfirm(iv) && (
-                                        <Button type="primary" loading={confirmingId === iv.id} onClick={() => confirm(iv.id)}>Đồng ý</Button>
+                                        <Button type="primary" loading={confirmingId === iv.id} onClick={() => confirm(iv)}>Đồng ý</Button>
                                     )}
                                     {iv.status === "CANDIDATE_CONFIRMED" && iv.format === "ONLINE" && iv.meetingLink && (
                                         <Button type="primary" href={iv.meetingLink} target="_blank" rel="noreferrer">Vào phòng họp</Button>
@@ -158,7 +200,7 @@ export default function CandidateInterviewsPage() {
                     jobTitle={titleOf(declining.applicationId)}
                     when={dayjs(declining.scheduledAt).format("HH:mm, DD/MM/YYYY")}
                     onClose={() => setDeclining(null)}
-                    onDone={reload}
+                    onDone={reloadAll}
                 />
             )}
 

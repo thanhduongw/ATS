@@ -6,7 +6,8 @@ import { useNavigate } from "react-router-dom";
 import type { CandidateApplicationResponse } from "../types";
 import { COLORS } from "../../../app/theme";
 import ListPage, { StatusTabs } from "../../../components/ui/listKit";
-import EmptyState from "../../../components/ui/EmptyState";
+import { SearchOutlined, FileTextOutlined } from "@ant-design/icons";
+import { CandidateEmpty, CandidateLoadError } from "../components/CandidateState";
 import CandidateStageTag from "../components/CandidateStageTag";
 import StageProgress from "../components/StageProgress";
 import { groupOf, todoOf, useCandidatePortal, type AppGroup } from "../useCandidatePortal";
@@ -28,8 +29,7 @@ export default function MyApplicationsPage() {
     if (failed) {
         return (
             <ListPage title="Đơn ứng tuyển">
-                <EmptyState title="Không tải được dữ liệu" description="Kiểm tra kết nối mạng rồi thử lại."
-                    action={<Button type="primary" onClick={reload}>Thử lại</Button>} />
+                <CandidateLoadError onRetry={reload} />
             </ListPage>
         );
     }
@@ -37,8 +37,8 @@ export default function MyApplicationsPage() {
     if (applications.length === 0) {
         return (
             <ListPage title="Đơn ứng tuyển">
-                <EmptyState title="Bạn chưa ứng tuyển vị trí nào"
-                    action={<Button type="primary" onClick={() => navigate("/careers")}>Tìm việc làm</Button>} />
+                <CandidateEmpty icon={<FileTextOutlined />} title="Bạn chưa ứng tuyển vị trí nào"
+                    action={<Button type="primary" size="large" icon={<SearchOutlined />} onClick={() => navigate("/careers")}>Tìm việc làm</Button>} />
             </ListPage>
         );
     }

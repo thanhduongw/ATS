@@ -20,7 +20,7 @@ import { COLORS, GRADIENTS, SHADOWS } from "../../../app/theme";
 import { formatMoney } from "../../../app/money";
 import { InlineNotice, Panel, SmallDialog } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
-import { useBareCandidatePage } from "../../../layouts/candidateShell";
+import { useBareCandidatePage, useCandidateShell } from "../../../layouts/candidateShell";
 
 /**
  * C16 · Chi tiết thư mời (dải màu xanh đậm) · C21 chấp nhận kèm ô "Tôi đã đọc và đồng ý" ·
@@ -84,6 +84,7 @@ export default function OfferCandidateViewPage() {
     useEffect(() => { void load(); }, [load]);
     // C23 toàn màn như HTML: ẩn menu trái của khung ứng viên.
     useBareCandidatePage(offer?.status === "ACCEPTED");
+    const shell = useCandidateShell();
     useEffect(() => {
         getPublicCompany().then((r) => setCompany(r.data.name)).catch(() => undefined);
         getCatalogItems("/masterdata/work-locations").then((r) => setLocations(r.data)).catch(() => undefined);
@@ -118,6 +119,7 @@ export default function OfferCandidateViewPage() {
             await acceptOffer(offer.id);
             setAcceptOpen(false);
             await load();
+            shell?.refreshBadges();
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
             message.error(e.response?.data?.message ?? "Không chấp nhận được thư mời");
@@ -140,6 +142,7 @@ export default function OfferCandidateViewPage() {
             setDeclineOpen(false);
             message.success("Đã gửi phản hồi từ chối");
             await load();
+            shell?.refreshBadges();
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
             message.error(e.response?.data?.message ?? "Không từ chối được thư mời");

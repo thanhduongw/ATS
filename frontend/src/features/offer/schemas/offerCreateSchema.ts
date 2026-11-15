@@ -13,6 +13,9 @@ export const offerCreateSchema = z.object({
 
   startDate: z.string().min(1, "Vui lòng chọn ngày bắt đầu"),
 
+  /** Giờ có mặt ngày đầu tiên "HH:mm" — không bắt buộc, ứng viên thấy ở thư mời và trang chào mừng (C16, C23). */
+  startTime: z.string().optional().nullable(),
+
   probationMonths: z.number().min(0, "Số tháng thử việc phải >= 0"),
 
   /** Người quản lý trực tiếp của vị trí — in trên thư mời. */

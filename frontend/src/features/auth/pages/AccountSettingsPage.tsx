@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
 import { changePassword, getMyProfile, logoutRequest, updateMyProfile } from "../authApi";
+import { getMyCandidateProfile } from "../../candidate/candidateApi";
 import type { ApiMessageResponse, UserProfileResponse } from "../types";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { useAppDispatch, useAppSelector } from "../../../app/hooks";
@@ -23,8 +24,7 @@ import { getPublicCompany } from "../../public/publicApi";
  *
  * C18 · Quyền riêng tư & bảo mật (ứng viên, cùng đường dẫn /settings): đổi mật khẩu · thời gian lưu dữ liệu ·
  * xoá tài khoản và dữ liệu (gõ "XOA DU LIEU" để xác nhận). Thông tin cá nhân của ứng viên sửa ở "Hồ sơ của tôi".
- * "Xem chính sách" mở chính sách bảo vệ dữ liệu soạn ở A08. Khác HTML: chưa có ngày đồng ý xử lý dữ liệu
- * (backend chưa lưu ngày đồng ý).
+ * "Xem chính sách" mở chính sách bảo vệ dữ liệu soạn ở A08; ngày đồng ý xử lý dữ liệu lấy từ hồ sơ ứng viên (consentAt).
  */
 const DELETE_PHRASE = "XOA DU LIEU";
 type PasswordForm = { currentPassword: string; newPassword: string; confirm: string };
@@ -47,6 +47,7 @@ export default function AccountSettingsPage() {
     const [retentionMonths, setRetentionMonths] = useState<number | null>(null);
     const [policy, setPolicy] = useState<{ text: string; updatedAt: string | null } | null>(null);
     const [policyOpen, setPolicyOpen] = useState(false);
+    const [consentAt, setConsentAt] = useState<string | null>(null);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleteText, setDeleteText] = useState("");
     const [deleting, setDeleting] = useState(false);
@@ -58,6 +59,7 @@ export default function AccountSettingsPage() {
             const text = r.data.privacyPolicy?.trim();
             setPolicy(text ? { text, updatedAt: r.data.privacyPolicyUpdatedAt ?? null } : null);
         }).catch(() => undefined);
+        getMyCandidateProfile().then((r) => setConsentAt(r.data.consentAt ?? null)).catch(() => undefined);
     }, [isCandidate]);
 
     const deleteMyData = async () => {
@@ -187,7 +189,9 @@ export default function AccountSettingsPage() {
                     <span style={{ fontSize: 14, display: "flex", alignItems: "flex-start", gap: 8 }}>
                         <CheckCircleOutlined style={{ color: COLORS.success, marginTop: 3 }} />
                         <span>
-                            Bạn đã đồng ý cho doanh nghiệp xử lý hồ sơ khi đăng ký tài khoản.
+                            {consentAt
+                                ? `Bạn đã đồng ý cho doanh nghiệp xử lý hồ sơ ngày ${dayjs(consentAt).format("DD/MM/YYYY")}.`
+                                : "Bạn đã đồng ý cho doanh nghiệp xử lý hồ sơ khi đăng ký tài khoản."}
                             {retentionMonths ? ` Hồ sơ được lưu tối đa ${retentionMonths} tháng kể từ lần ứng tuyển gần nhất, sau đó tự ẩn danh.` : ""}
                         </span>
                     </span>

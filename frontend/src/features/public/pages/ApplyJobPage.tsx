@@ -7,6 +7,7 @@ import {
 } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs from "dayjs";
+import { cvFileName } from "../../candidate/cvFile";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { getPublicCompany, getPublicJobById } from "../publicApi";
 import type { PublicJobPosting } from "../types";
@@ -25,12 +26,11 @@ import { InlineNotice } from "../../../components/ui/designKit";
  * thông tin liên hệ, ô đồng ý xử lý dữ liệu → C10 · Ứng tuyển thành công với 3 bước "Tiếp theo" (bước phỏng vấn theo
  * lịch 1 giờ cố định: đồng ý hoặc xin dời, không chọn khung giờ).
  * Nguồn ứng tuyển: tự gán "trang tuyển dụng / website" trong danh mục (HTML không hỏi ứng viên).
- * Khác HTML: chưa giữ dữ liệu đang nhập khi phiên đăng nhập hết hạn (C34).
+ * C34: phiên hết hạn lúc đang điền → hộp "Đăng nhập lại" (SessionExpiredDialog) giữ nguyên trang, dữ liệu đang nhập còn nguyên.
  */
 const MAX_CV_MB = 5;
 type ContactForm = { fullName: string; phone: string; currentPosition?: string };
 
-const fileNameOf = (url: string | null) => (url ? decodeURIComponent(url.split("?")[0].split("/").pop() ?? "") : "");
 
 export default function ApplyJobPage() {
     const { jobId } = useParams<{ jobId: string }>();
@@ -172,7 +172,7 @@ export default function ApplyJobPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, boxShadow: `inset 0 0 0 1px ${COLORS.border}` }}>
                     <FilePdfOutlined style={{ fontSize: 26, color: profile?.resumeUploaded ? COLORS.error : COLORS.textMuted }} />
                     <span style={{ flex: 1, fontWeight: 500, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {profile?.resumeUploaded ? (fileNameOf(profile.resumeUrl) || "CV trong hồ sơ của bạn") : "Bạn chưa có CV"}
+                        {profile?.resumeUploaded ? (cvFileName(profile.resumeUrl) || "CV trong hồ sơ của bạn") : "Bạn chưa có CV"}
                     </span>
                 </div>
                 <Upload accept=".pdf,.doc,.docx" maxCount={1} showUploadList={false} beforeUpload={async (file) => {

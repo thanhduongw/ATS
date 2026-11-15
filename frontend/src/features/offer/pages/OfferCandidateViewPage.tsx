@@ -28,7 +28,7 @@ import { useBareCandidatePage, useCandidateShell } from "../../../layouts/candid
  * Lý do từ chối: 5 lựa chọn theo HTML; gửi kèm mã lý do của danh mục "Lý do từ chối" nếu khớp tên
  * (lương, địa điểm), còn lại dùng "Ứng viên tự rút hồ sơ" và ghi lựa chọn vào ghi chú.
  * Tải thư mời PDF ở khung "Phản hồi thư mời" và ở màn chào mừng.
- * Khác HTML: chưa có giờ / địa chỉ cụ thể của ngày đầu tiên.
+ * Giờ có mặt ngày đầu tiên (startTime) do HR nhập ở R24; chưa nhập thì chỉ hiện ngày (lịch .ics mặc định 08:30).
  */
 const WEEKDAY_FULL = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 const PAY_SUFFIX: Record<string, string> = { MONTHLY: " / tháng", YEARLY: " / năm" };
@@ -42,6 +42,8 @@ const DECLINE_CHOICES = [
 type DeclineKey = (typeof DECLINE_CHOICES)[number]["key"];
 
 const longDate = (v: string) => `${WEEKDAY_FULL[dayjs(v).day()]}, ${dayjs(v).format("DD/MM/YYYY")}`;
+/** "Thứ Hai, 16/11/2026 · 08:30" — giờ có mặt chỉ hiện khi HR đã nhập (startTime). */
+const firstDay = (date: string, time?: string | null) => `${longDate(date)}${time ? ` · ${time.slice(0, 5)}` : ""}`;
 
 export default function OfferCandidateViewPage() {
     const { id } = useParams();
@@ -171,7 +173,7 @@ export default function OfferCandidateViewPage() {
                     display: "flex", flexDirection: "column", gap: 16, boxShadow: SHADOWS.dropdown,
                 }}>
                     <div className="cand-2col" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
-                        <WelcomeFact icon={<CalendarOutlined />} label="Ngày đầu tiên" value={longDate(offer.startDate)} />
+                        <WelcomeFact icon={<CalendarOutlined />} label="Ngày đầu tiên" value={firstDay(offer.startDate, offer.startTime)} />
                         {workplace && <WelcomeFact icon={<EnvironmentOutlined />} label="Địa điểm" value={workplace} />}
                         {offer.reportingManager && <WelcomeFact icon={<UserOutlined />} label="Người đón bạn" value={offer.reportingManager} />}
                     </div>
@@ -188,7 +190,7 @@ export default function OfferCandidateViewPage() {
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 20 }}>
                     <Button size="large" icon={<CalendarOutlined />} onClick={() => downloadIcs({
                         uid: `offer-${offer.id}`, title: `Ngày đầu tiên · ${offer.jobTitle ?? ""}`,
-                        start: dayjs(offer.startDate).hour(8).minute(30).toISOString(), durationMinutes: 60, location: workplace || null,
+                        start: dayjs(`${offer.startDate}T${(offer.startTime ?? "08:30").slice(0, 5)}`).toISOString(), durationMinutes: 60, location: workplace || null,
                     })}>Thêm vào lịch</Button>
                     <Button size="large" icon={<DownloadOutlined />} loading={downloading} onClick={downloadPdf}>Tải thư mời PDF</Button>
                     <Button size="large" type="primary" onClick={() => navigate("/my-home")}>Về trang tổng quan</Button>
@@ -238,7 +240,7 @@ export default function OfferCandidateViewPage() {
                             <Term icon={<WalletOutlined />} label="Lương gộp" value={`${formatMoney(offer.salaryOffered)}${pay}`} />
                             {offer.allowance != null && <Term icon={<CreditCardOutlined />} label="Phụ cấp" value={`${formatMoney(offer.allowance)}${pay}`} />}
                             {offer.performanceBonus && <Term icon={<RiseOutlined />} label="Thưởng hiệu suất" value={offer.performanceBonus} />}
-                            <Term icon={<CalendarOutlined />} label="Ngày bắt đầu" value={longDate(offer.startDate)} />
+                            <Term icon={<CalendarOutlined />} label="Ngày bắt đầu" value={firstDay(offer.startDate, offer.startTime)} />
                             <Term icon={<ClockCircleOutlined />} label="Thử việc" value={`${offer.probationMonths} tháng`} />
                             <Term icon={<FileTextOutlined />} label="Loại hợp đồng" value={offer.contractTypeName} />
                             {workplace && <Term icon={<EnvironmentOutlined />} label="Nơi làm việc" value={workplace} />}

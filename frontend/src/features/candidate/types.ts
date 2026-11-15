@@ -35,6 +35,10 @@ export interface CandidateSelfResponse {
   skillNames: string[];
   resumeUploaded: boolean;
   resumeUrl: string | null;
+  /** C17: lúc tải CV hiện tại (null với CV cũ). */
+  resumeUploadedAt?: string | null;
+  /** C18: lúc đồng ý xử lý dữ liệu. */
+  consentAt?: string | null;
 }
 
 export interface CandidateSelfUpdateRequest {
@@ -60,6 +64,10 @@ export interface CandidateApplicationResponse {
   rejectionReasonName: string | null;
   appliedAt: string;
   hiredAt: string | null;
+  /** C12: CV đã nộp kèm đơn. */
+  resumeUrl?: string | null;
+  /** C12: chuyên viên phụ trách; null nếu chưa phân công. */
+  recruiterName?: string | null;
 }
 
 export interface CandidateTag {

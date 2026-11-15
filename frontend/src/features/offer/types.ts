@@ -59,6 +59,8 @@ export interface OfferResponse {
   /** Số lần ứng viên mở thư đang chờ phản hồi (R43, UR17). */
   candidateViewCount?: number | null;
   candidateLastViewedAt?: string | null;
+  /** Giờ có mặt ngày đầu tiên "HH:mm:ss" (không bắt buộc). */
+  startTime?: string | null;
 }
 
 export interface OfferCreateRequest {
@@ -79,6 +81,8 @@ export interface OfferCreateRequest {
   candidateVisibleNote?: string | null;
   approverId: number;
   responseDeadline?: string | null;
+  /** Giờ có mặt ngày đầu tiên "HH:mm" (không bắt buộc). */
+  startTime?: string | null;
 }
 
 export interface OfferUpdateRequest {
@@ -98,6 +102,8 @@ export interface OfferUpdateRequest {
   candidateVisibleNote?: string | null;
   approverId: number;
   responseDeadline?: string | null;
+  /** Giờ có mặt ngày đầu tiên "HH:mm" (không bắt buộc). */
+  startTime?: string | null;
 }
 
 export interface OfferRejectRequest {
@@ -139,4 +145,6 @@ export interface CandidateOfferResponse {
   declineReasonName: string | null;
   declineNote: string | null;
   createdAt: string;
+  /** Giờ có mặt ngày đầu tiên "HH:mm:ss" (C23). */
+  startTime?: string | null;
 }

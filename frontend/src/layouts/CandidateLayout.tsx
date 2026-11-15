@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Layout } from "antd";
 import { AppstoreOutlined, CalendarOutlined, FileTextOutlined, MailOutlined, UserOutlined } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -8,6 +8,7 @@ import { Avatar } from "../components/ui/designKit";
 import { awaitingReply, needsConfirm, useCandidatePortal } from "../features/candidate/useCandidatePortal";
 import SiteHeader from "./SiteHeader";
 import { SITE_HEADER_HEIGHT } from "./siteBrand";
+import type { CandidateShellContext } from "./candidateShell";
 
 const { Content } = Layout;
 
@@ -30,6 +31,9 @@ export default function CandidateLayout() {
     const user = useAppSelector((s) => s.auth.user);
     // Số trên menu đổi sau khi ứng viên trả lời lịch / thư mời → tải lại mỗi lần đổi trang.
     const { interviews, offers } = useCandidatePortal(pathname);
+    // Trang con bật "trần" (useBareCandidatePage) → chỉ header website, nội dung trải hết chiều ngang.
+    const [bare, setBare] = useState(false);
+    const shell = useMemo<CandidateShellContext>(() => ({ setBare }), []);
 
     const items: Item[] = [
         { to: "/my-home", label: "Tổng quan", icon: <AppstoreOutlined /> },
@@ -43,9 +47,10 @@ export default function CandidateLayout() {
     return (
         <Layout style={{ minHeight: "100vh", background: COLORS.body }}>
             <SiteHeader />
-            <Content>
-                <div className="candidate-shell">
-                    <aside
+            {/* Một cây duy nhất: đổi "trần" chỉ ẩn menu, không dựng lại trang con (tránh tải lại vòng lặp). */}
+            <Content style={bare ? { overflowX: "clip" } : undefined}>
+                <div className={bare ? undefined : "candidate-shell"}>
+                    {bare ? null : <aside
                         className="candidate-side"
                         style={{
                             position: "sticky", top: SITE_HEADER_HEIGHT + 28, background: COLORS.cardBg, borderRadius: RADIUS.lg,
@@ -97,9 +102,9 @@ export default function CandidateLayout() {
                                 );
                             })}
                         </nav>
-                    </aside>
+                    </aside>}
                     <main style={{ minWidth: 0 }}>
-                        <Outlet />
+                        <Outlet context={shell} />
                     </main>
                 </div>
             </Content>

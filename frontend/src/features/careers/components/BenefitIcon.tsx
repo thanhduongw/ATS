@@ -12,13 +12,15 @@ const ICONS: Record<BenefitIconKey, ComponentType<{ style?: React.CSSProperties 
     gift: GiftOutlined, heart: HeartOutlined,
 };
 
-/** Biểu tượng phúc lợi trong ô tròn nền thương hiệu (A10, C01). */
-export default function BenefitIcon({ icon, size = 40 }: { icon: BenefitIconKey; size?: number }) {
+/** Biểu tượng phúc lợi trong ô bo góc nền thương hiệu (A10, C01). */
+export default function BenefitIcon({ icon, size = 40, onDark = false }: { icon: BenefitIconKey; size?: number; onDark?: boolean }) {
     const Icon = ICONS[icon] ?? GiftOutlined;
     return (
         <span style={{
             width: size, height: size, borderRadius: 12, flexShrink: 0, display: "inline-flex", alignItems: "center",
-            justifyContent: "center", background: COLORS.primarySoft, color: COLORS.primary,
+            justifyContent: "center",
+            // Trên dải xanh đậm (C01 · Phúc lợi): nền trắng mờ, icon trắng.
+            background: onDark ? "rgba(255,255,255,0.12)" : COLORS.primarySoft, color: onDark ? "#fff" : COLORS.primary,
         }}>
             <Icon style={{ fontSize: Math.round(size * 0.45) }} />
         </span>

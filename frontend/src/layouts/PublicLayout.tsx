@@ -1,5 +1,5 @@
 import { Layout } from "antd";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { COLORS } from "../app/theme";
 import SiteHeader from "./SiteHeader";
 import { useCompanyBrand } from "./siteBrand";
@@ -12,6 +12,8 @@ const { Content, Footer } = Layout;
  */
 export default function PublicLayout() {
     const { name } = useCompanyBrand();
+    // C01 có chân trang xanh đậm riêng (CareersBlocks) → không vẽ thêm dòng © ở đây.
+    const ownFooter = useLocation().pathname === "/careers/home";
     return (
         <Layout style={{ minHeight: "100vh", background: COLORS.body }}>
             <SiteHeader />
@@ -21,9 +23,9 @@ export default function PublicLayout() {
                     <Outlet />
                 </div>
             </Content>
-            <Footer style={{ textAlign: "center", color: COLORS.textSecondary, background: COLORS.cardBg, fontSize: 13 }}>
+            {!ownFooter && <Footer style={{ textAlign: "center", color: COLORS.textSecondary, background: COLORS.cardBg, fontSize: 13 }}>
                 © {new Date().getFullYear()} {name ?? "ATS"}
-            </Footer>
+            </Footer>}
         </Layout>
     );
 }

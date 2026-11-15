@@ -34,7 +34,8 @@ export default function CompanyJobsPage() {
     const [loading, setLoading] = useState(true);
     const [failed, setFailed] = useState(false);
     const [draft, setDraft] = useState(params.get("q") ?? "");
-    const [selected, setSelected] = useState<Record<GroupKey, string[]>>(EMPTY);
+    // ?loc= từ ô "Mọi nơi" ở trang chủ (C01) → lọc sẵn địa điểm.
+    const [selected, setSelected] = useState<Record<GroupKey, string[]>>(() => ({ ...EMPTY, loc: params.get("loc") ? [params.get("loc")!] : [] }));
     const [sort, setSort] = useState<Sort>("NEWEST");
     const keyword = (params.get("q") ?? "").trim().toLowerCase();
 
@@ -151,7 +152,11 @@ export default function CompanyJobsPage() {
 
                     {results.length === 0 ? (
                         <>
-                            <div style={{ background: COLORS.cardBg, borderRadius: 20, padding: 32, textAlign: "center", display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+                            <div style={{ background: COLORS.cardBg, borderRadius: 20, padding: "40px 24px", textAlign: "center", display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+                                <span style={{
+                                    width: 64, height: 64, borderRadius: 18, background: COLORS.primarySoft, color: COLORS.primary, fontSize: 26, marginBottom: 8,
+                                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                }}><SearchOutlined /></span>
                                 <b style={{ fontSize: 16 }}>{jobs.length === 0 ? "Hiện chưa có vị trí đang tuyển" : "Không tìm thấy việc làm phù hợp"}</b>
                                 {jobs.length > 0 && <span style={{ color: COLORS.textSecondary }}>Thử từ khoá khác hoặc bỏ bớt bộ lọc.</span>}
                                 {hasFilter && <Button onClick={clearAll}>Xoá bộ lọc</Button>}

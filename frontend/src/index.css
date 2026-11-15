@@ -989,3 +989,18 @@ h6 {
 @media (max-width: 900px) {
     .cand-2col { grid-template-columns: minmax(0, 1fr) !important; }
 }
+
+/* C01 trang chủ công ty (CareersBlocks): màn hẹp thì dải đầu, lưới ảnh, phúc lợi, chân trang xếp 1 cột. */
+@media (max-width: 900px) {
+    .careers-hero { grid-template-columns: minmax(0, 1fr) !important; padding: 40px 16px 48px !important; }
+    .careers-hero h1 { font-size: 36px !important; }
+    .careers-hero-art { height: 300px !important; }
+    .careers-life { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; grid-auto-rows: 160px !important; }
+    .careers-life > :first-child { grid-row: auto !important; grid-column: span 2; }
+    .careers-benefits { grid-template-columns: minmax(0, 1fr) !important; padding: 32px 24px !important; gap: 24px !important; }
+    .careers-footer { grid-template-columns: minmax(0, 1fr) !important; }
+}
+@media (max-width: 600px) {
+    .careers-benefits > div:last-child { grid-template-columns: minmax(0, 1fr) !important; }
+    .careers-search-loc { display: none !important; }
+}

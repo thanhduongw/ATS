@@ -37,6 +37,7 @@ import { rowArrowColumn, useStatusCounts } from "../../../components/ui/listHelp
 import { Avatar } from "../../../components/ui/designKit";
 import { fullDate } from "../../../app/datetime";
 import CandidateFormModal from "../components/CandidateFormModal";
+import ApplicationCreateModal from "../components/ApplicationCreateModal";
 import { useMyInterviewStatus } from "../useMyInterviewStatus";
 import StatusTag from "../../../components/ui/StatusTag";
 import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
@@ -125,6 +126,7 @@ export default function ApplicationsPage() {
 
     // Them ung vien thu cong, hoac de AI doc CV roi dien san vao chinh form do.
     const [candidateFormOpen, setCandidateFormOpen] = useState(false);
+    const [attachCandidateId, setAttachCandidateId] = useState<number | null>(null);
     const [aiUploadOpen, setAiUploadOpen] = useState(false);
     const [aiPrefill, setAiPrefill] = useState<Partial<CandidateFormValues> | null>(null);
     const [aiPrefillFile, setAiPrefillFile] = useState<File | null>(null);
@@ -559,6 +561,15 @@ export default function ApplicationsPage() {
                     setAiPrefill(null);
                     setAiPrefillFile(null);
                 }}
+                onSuccess={load}
+                onCreated={(id) => setAttachCandidateId(id)}
+            />
+
+            {/* 3.10: trang này liệt kê theo ĐƠN ứng tuyển, nên ứng viên vừa tạo phải được gắn vào một tin thì mới hiện. */}
+            <ApplicationCreateModal
+                open={attachCandidateId != null}
+                presetCandidateId={attachCandidateId ?? undefined}
+                onClose={() => setAttachCandidateId(null)}
                 onSuccess={load}
             />
 

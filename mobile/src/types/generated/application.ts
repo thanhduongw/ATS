@@ -259,6 +259,7 @@ export interface components {
             assignedRecruiterId?: number;
             resumeUrl?: string;
             note?: string;
+            consentAccepted?: boolean;
         };
         ApplicationCommentCreateRequest: {
             content: string;
@@ -314,6 +315,8 @@ export interface components {
             aiScore?: number;
             aiTier?: string;
             aiStatus?: string;
+            aiInjectionDetected?: boolean;
+            closedReason?: string;
         };
         ApplicationAssignRecruiterRequest: {
             /** Format: int64 */

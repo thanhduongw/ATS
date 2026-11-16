@@ -280,7 +280,7 @@ export interface components {
             benefits?: string;
             skillIds?: number[];
             /** Format: int64 */
-            approverId: number;
+            approverId?: number;
         };
         JobRequisitionResponse: {
             /** Format: int64 */
@@ -433,7 +433,7 @@ export interface components {
             benefits?: string;
             skillIds?: number[];
             /** Format: int64 */
-            approverId: number;
+            approverId?: number;
         };
         JobRequisitionRequestChangesRequest: {
             note: string;

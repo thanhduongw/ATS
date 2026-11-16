@@ -89,33 +89,33 @@ public class RegisterService {
         String email = normalizeEmail(req.email());
         EmailVerification verification = emailVerificationRepository
                 .findTopByEmailIgnoreCaseOrderByIdDesc(email)
-                .orElseThrow(() -> new BusinessException("OTP khong hop le hoac da het han"));
+                .orElseThrow(() -> new BusinessException("Mã xác minh không đúng hoặc đã hết hạn"));
 
         if (verification.isVerified()) {
-            throw new BusinessException("Email da duoc xac thuc");
+            throw new BusinessException("Email này đã được xác minh");
         }
         if (verification.getExpiryDate() == null
                 || !verification.getExpiryDate().isAfter(LocalDateTime.now())) {
-            throw new BusinessException("OTP khong hop le hoac da het han");
+            throw new BusinessException("Mã xác minh không đúng hoặc đã hết hạn");
         }
         if (verification.getFailedAttempts() >= MAX_OTP_ATTEMPTS) {
-            throw new BusinessException("OTP da bi khoa, vui long yeu cau gui lai");
+            throw new BusinessException("Bạn đã nhập sai quá nhiều lần. Hãy yêu cầu gửi lại mã.");
         }
         if (!passwordEncoder.matches(req.otpCode(), verification.getOtpHash())) {
             verification.setFailedAttempts(verification.getFailedAttempts() + 1);
             emailVerificationRepository.save(verification);
             throw new BusinessException(verification.getFailedAttempts() >= MAX_OTP_ATTEMPTS
-                    ? "OTP da bi khoa, vui long yeu cau gui lai"
-                    : "OTP khong hop le hoac da het han");
+                    ? "Bạn đã nhập sai quá nhiều lần. Hãy yêu cầu gửi lại mã."
+                    : "Mã xác minh không đúng hoặc đã hết hạn");
         }
 
         AppUser user = appUserRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new BusinessException("OTP khong hop le hoac da het han"));
+                .orElseThrow(() -> new BusinessException("Mã xác minh không đúng hoặc đã hết hạn"));
         Role role = roleRepository.findById(user.getRoleId())
-                .orElseThrow(() -> new BusinessException("Vai tro khong hop le"));
+                .orElseThrow(() -> new BusinessException("Vai trò không hợp lệ"));
         if (role.getName() != RoleName.CANDIDATE
                 || user.getStatus() != UserStatus.PENDING_VERIFICATION) {
-            throw new BusinessException("Tai khoan khong cho xac thuc qua luong candidate");
+            throw new BusinessException("Tài khoản này không xác minh bằng mã gửi cho ứng viên");
         }
 
         verification.setVerified(true);

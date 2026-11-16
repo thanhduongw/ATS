@@ -519,7 +519,7 @@ public class CandidateService {
     private Candidate findByUserId(Long userId) {
         return candidateRepository.findByUserIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new BusinessException(
-                        "Khong tim thay ho so ung vien gan voi tai khoan"));
+                        "Không tìm thấy hồ sơ ứng viên gắn với tài khoản"));
     }
 
     private void validateResume(MultipartFile file) {
@@ -579,7 +579,7 @@ public class CandidateService {
         } catch (AccessDeniedException exception) {
             throw exception;
         } catch (RuntimeException exception) {
-            throw new AccessDeniedException("Cannot verify candidate department scope", exception);
+            throw new AccessDeniedException("Không kiểm tra được phạm vi phòng ban của ứng viên", exception);
         }
     }
 

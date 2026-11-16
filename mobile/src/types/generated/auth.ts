@@ -575,6 +575,7 @@ export interface components {
             password: string;
             confirmPassword: string;
             phone?: string;
+            consentAccepted: boolean;
         };
         RefreshTokenRequest: {
             refreshToken: string;
@@ -645,6 +646,7 @@ export interface components {
             role?: string;
             /** Format: int64 */
             departmentId?: number;
+            status?: string;
         };
         InvitationPreviewResponse: {
             email?: string;

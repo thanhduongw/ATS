@@ -54,6 +54,25 @@ Bắt đầu: 16/11/2026, nhánh `dev`. Thứ tự: mục 3 (A → B → C) → 
 Mục 4 (màu thương hiệu, hero, nhắc lịch qua email, tìm không dấu — riêng email bất đồng bộ của auth đã xong),
 mục 5, mục 6 (reset + dữ liệu demo), mục 7 (kiểm tra giao diện), nhóm D, mục 9 (bàn giao).
 
+## Cập nhật 16/11 (tối) — sau khi chạy lại test
+
+- Test `mvnw.cmd -q test` **pass ở cả 9 service** (auth, candidate, application, interview, offer, masterdata, recruitment,
+  notification, dashboard); 288 test chấm điểm của ai-service pass; `tsc` web sạch; mobile `typecheck` + `lint` sạch (0 lỗi).
+- Cả 11 service đã khởi động lại bằng mã mới (`scripts/dev/svc.sh`).
+- Đã kiểm qua API (curl qua gateway): đăng nhập sai → 401; JSON hỏng → 400 "Dữ liệu gửi lên không hợp lệ"; đường dẫn lạ → 404;
+  thư mời không tồn tại → 404; đăng ký thiếu đồng ý → 400; trưởng bộ phận tạo kỹ năng / chức danh → 403; danh bạ có `status`.
+- 1.5 đã xác nhận: ai-service bản mới có consumer trên `ai.application-created.queue`, đơn #26 kẹt trong hàng đợi đã được nhận.
+- Mobile đã làm xong: ô đồng ý ở đăng ký + ứng tuyển (2.6), nhãn "Hết hạn" (3.8), "Đã rút đơn" (3.2), cảnh báo CV bất thường (1.7),
+  người phỏng vấn là HR xác nhận được giờ (1.2), chặn Admin (2.4). Đã `gen:types`.
+- Thêm ở web: 3.10 (tạo ứng viên xong mở luôn bước thêm vào tin), 3.12 (quý nằm trên URL `?quarter=`, bảng phòng ban theo quý,
+  một công thức "thời gian tuyển" = từ ứng tuyển đến nhận việc cho mọi màn).
+- 4.1: Việt hoá các câu thông báo còn tiếng Anh / không dấu ở backend (auth, candidate, offer…).
+- Danh mục mặc định của masterdata (`DefaultDataSeeder`) chuyển sang lĩnh vực IT (phòng ban, chức danh, cấp bậc, kỹ năng,
+  nguồn, lý do từ chối, tiêu chí đánh giá, 3 văn phòng) — có hiệu lực với DB mới / sau khi reset.
+
+**Còn lại của nhóm C:** 3.3 (sửa tin đang tuyển), 3.11 (audit còn thiếu + hiển thị lịch sử), 3.14 (đổi vai trò / phòng ban),
+3.19 (kéo thả vào ô từ chối — cần thử bằng chuột). **Chưa kiểm mục nào trên giao diện.**
+
 ## Việc dở dang — đọc trước khi "làm tiếp"
 
 1. **Chạy lại test 9 service** (`mvnw.cmd -q test` từng service). Lần chạy tối 16/11 bị dừng giữa chừng vì máy hết RAM

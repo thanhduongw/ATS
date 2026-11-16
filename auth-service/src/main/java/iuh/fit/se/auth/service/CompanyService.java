@@ -53,7 +53,7 @@ public class CompanyService {
 
     private Company requireCompany() {
         return companyRepository.findFirstByOrderByIdAsc()
-                .orElseThrow(() -> new BusinessException("Company profile was not found"));
+                .orElseThrow(() -> new BusinessException("Không tìm thấy thông tin doanh nghiệp"));
     }
 
     private CompanyResponse toResponse(Company company) {

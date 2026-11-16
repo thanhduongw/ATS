@@ -26,6 +26,8 @@ const BY_TYPE: Record<string, FixedStage> = {
 /** stageType gốc → 1 trong 6 nhóm. CUSTOM và giá trị lạ xếp vào Sàng lọc (T1.4). */
 export function toFixedStage(stageType?: string | null): FixedStage {
   if (!stageType) return "APPLIED";
+  // "Đã rút đơn" thuộc nhóm kết thúc; nhãn riêng xem fixedStageView.
+  if (stageType === "WITHDRAWN") return "REJECTED";
   const g = BY_TYPE[stageType];
   if (g) return g;
   if (stageType.includes("INTERVIEW")) return "INTERVIEW";
@@ -43,6 +45,7 @@ const TONE: Record<FixedStage, StatusTone> = {
 };
 
 export const fixedStageView = (stageType?: string | null) => {
+  if (stageType === "WITHDRAWN") return { label: STRINGS.applications.withdrawnChip, tone: "neutral" as StatusTone };
   const g = toFixedStage(stageType);
   return { label: STRINGS.staff.stage[g], tone: TONE[g] };
 };

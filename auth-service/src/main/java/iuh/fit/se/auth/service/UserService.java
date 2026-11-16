@@ -96,13 +96,13 @@ public class UserService {
 
         String email = normalizeEmail(req.email());
         if (appUserRepository.existsByEmailIgnoreCase(email)) {
-            throw new BusinessException("Email da ton tai trong he thong");
+            throw new BusinessException("Email này đã có trong hệ thống");
         }
 
         validateInternalRole(actor, req);
 
         Role role = roleRepository.findByName(req.role())
-                .orElseThrow(() -> new BusinessException("Vai tro khong hop le"));
+                .orElseThrow(() -> new BusinessException("Vai trò không hợp lệ"));
 
         AppUser savedUser = appUserRepository.save(
                 AppUser.builder()
@@ -135,7 +135,7 @@ public class UserService {
         AppUser user = findUser(targetUserId);
 
         if (user.getId().equals(actorUserId)) {
-            throw new BusinessException("Khong the tu thay doi trang thai cua chinh minh");
+            throw new BusinessException("Bạn không thể tự đổi trạng thái tài khoản của mình");
         }
 
         user.setStatus(req.status());
@@ -152,22 +152,22 @@ public class UserService {
 
     private void validateInternalRole(CurrentUser actor, CreateUserRequest req) {
         if (req.role() == RoleName.CANDIDATE) {
-            throw new BusinessException("Candidate phai dang ky qua luong candidate");
+            throw new BusinessException("Tài khoản ứng viên phải tự đăng ký ở cổng ứng viên");
         }
         if (req.status() != UserStatus.ACTIVE && req.status() != UserStatus.INACTIVE) {
-            throw new BusinessException("Trang thai khoi tao phai la ACTIVE hoac INACTIVE");
+            throw new BusinessException("Trạng thái khởi tạo phải là Hoạt động hoặc Ngừng hoạt động");
         }
         boolean departmentRequired = req.role() == RoleName.RECRUITER
                 || req.role() == RoleName.HIRING_MANAGER;
         if (departmentRequired && req.departmentId() == null) {
-            throw new BusinessException("Department la bat buoc cho nhan vien noi bo");
+            throw new BusinessException("Vui lòng chọn phòng ban cho nhân viên nội bộ");
         }
         if (req.departmentId() != null) {
             if (req.departmentId() <= 0) {
-                throw new BusinessException("Department khong hop le");
+                throw new BusinessException("Phòng ban không hợp lệ");
             }
             if (!departmentDirectoryClient.existsActive(req.departmentId(), actor)) {
-                throw new BusinessException("Department khong ton tai hoac khong hoat dong");
+                throw new BusinessException("Phòng ban không tồn tại hoặc đã ngừng hoạt động");
             }
         }
     }
@@ -202,12 +202,12 @@ public class UserService {
 
     private AppUser findUser(Long userId) {
         return appUserRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("Khong tim thay nguoi dung"));
+                .orElseThrow(() -> new BusinessException("Không tìm thấy người dùng"));
     }
 
     private Role findRole(Long roleId) {
         return roleRepository.findById(roleId)
-                .orElseThrow(() -> new BusinessException("Vai tro khong hop le"));
+                .orElseThrow(() -> new BusinessException("Vai trò không hợp lệ"));
     }
 
     private String normalizeEmail(String email) {

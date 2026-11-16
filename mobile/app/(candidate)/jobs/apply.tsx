@@ -15,6 +15,7 @@ import { BOTTOM_BAR_SPACE, BottomActionBar, ScreenHeader } from "@/components/ui
 import { IconTile } from "@/components/ui/surfaces";
 import { PillButton } from "@/components/ui/buttons";
 import { Icon } from "@/components/ui/icon";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useSnackbar } from "@/components/ui/snackbar";
 import { FormTextField } from "@/components/form-text-field";
 import { STRINGS } from "@/lib/strings";
@@ -27,6 +28,8 @@ const D = STRINGS.jobDetail;
 const schema = z.object({
   recruitmentSourceId: z.number({ error: D.sourceRequired }).int().positive(D.sourceRequired),
   note: z.string().trim().max(1000).optional(),
+  // Backend bắt buộc ứng viên đồng ý xử lý dữ liệu cá nhân khi tự nộp đơn (giống web).
+  consent: z.boolean().refine((v) => v, S.consentRequired),
 });
 type Values = z.infer<typeof schema>;
 
@@ -49,8 +52,9 @@ export default function ApplyScreen() {
 
   const { control, handleSubmit, setValue, formState } = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { note: "" },
+    defaultValues: { note: "", consent: false },
   });
+  const consent = useWatch({ control, name: "consent" });
   const sourceId = useWatch({ control, name: "recruitmentSourceId" });
   const sourceName = sources.data?.find((s) => s.id === sourceId)?.name;
   const hasCv = !!profile.data?.resumeUploaded;
@@ -59,7 +63,12 @@ export default function ApplyScreen() {
   const onSubmit = handleSubmit(
     (v) =>
       apply.mutate(
-        { jobPostingId: jobId, recruitmentSourceId: v.recruitmentSourceId, note: v.note || undefined },
+        {
+          jobPostingId: jobId,
+          recruitmentSourceId: v.recruitmentSourceId,
+          note: v.note || undefined,
+          consentAccepted: v.consent,
+        },
         {
           onSuccess: () => {
             notify(D.success);
@@ -73,8 +82,11 @@ export default function ApplyScreen() {
           },
         }
       ),
-    // Chưa chọn nguồn → mở luôn sheet chọn nguồn thay vì chỉ báo lỗi.
-    () => setSheetOpen(true)
+    // Chưa chọn nguồn → mở luôn sheet chọn nguồn thay vì chỉ báo lỗi; thiếu đồng ý → nhắc bằng snackbar.
+    (errs) => {
+      if (errs.recruitmentSourceId) setSheetOpen(true);
+      else if (errs.consent) notify(S.consentRequired);
+    }
   );
 
   return (
@@ -127,6 +139,12 @@ export default function ApplyScreen() {
           </View>
 
           <FormTextField control={control} name="note" label={S.note} multiline maxLength={1000} />
+
+          <Checkbox
+            checked={!!consent}
+            onChange={(next) => setValue("consent", next, { shouldValidate: formState.isSubmitted })}
+            label={S.consent}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
 

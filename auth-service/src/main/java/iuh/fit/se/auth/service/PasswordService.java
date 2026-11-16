@@ -63,25 +63,25 @@ public class PasswordService {
         String normalizedEmail = normalizeEmail(req.email());
         PasswordResetToken resetToken = resetTokenRepository
                 .findTopByEmailIgnoreCaseOrderByIdDesc(normalizedEmail)
-                .orElseThrow(() -> new BusinessException("OTP khong hop le hoac da het han"));
+                .orElseThrow(() -> new BusinessException("Mã xác minh không đúng hoặc đã hết hạn"));
 
         if (resetToken.isUsed() || resetToken.getExpiryDate() == null
                 || !resetToken.getExpiryDate().isAfter(LocalDateTime.now())) {
-            throw new BusinessException("OTP khong hop le hoac da het han");
+            throw new BusinessException("Mã xác minh không đúng hoặc đã hết hạn");
         }
         if (resetToken.getFailedAttempts() >= MAX_OTP_ATTEMPTS) {
-            throw new BusinessException("OTP da bi khoa, vui long tao yeu cau moi");
+            throw new BusinessException("Bạn đã nhập sai quá nhiều lần. Hãy tạo yêu cầu đặt lại mật khẩu mới.");
         }
         if (!passwordEncoder.matches(req.otpCode(), resetToken.getOtpHash())) {
             resetToken.setFailedAttempts(resetToken.getFailedAttempts() + 1);
             resetTokenRepository.save(resetToken);
             throw new BusinessException(resetToken.getFailedAttempts() >= MAX_OTP_ATTEMPTS
-                    ? "OTP da bi khoa, vui long tao yeu cau moi"
-                    : "OTP khong hop le hoac da het han");
+                    ? "Bạn đã nhập sai quá nhiều lần. Hãy tạo yêu cầu đặt lại mật khẩu mới."
+                    : "Mã xác minh không đúng hoặc đã hết hạn");
         }
 
         AppUser user = userRepository.findByEmailIgnoreCase(normalizedEmail)
-                .orElseThrow(() -> new BusinessException("OTP khong hop le hoac da het han"));
+                .orElseThrow(() -> new BusinessException("Mã xác minh không đúng hoặc đã hết hạn"));
         user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
         userRepository.save(user);
         resetToken.setUsed(true);
@@ -93,9 +93,9 @@ public class PasswordService {
     @Transactional
     public void changePassword(Long userId, ChangePasswordRequest req) {
         AppUser user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("User was not found"));
+                .orElseThrow(() -> new BusinessException("Không tìm thấy tài khoản"));
         if (!passwordEncoder.matches(req.currentPassword(), user.getPasswordHash())) {
-            throw new BusinessException("Current password is invalid");
+            throw new BusinessException("Mật khẩu hiện tại không đúng");
         }
         user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
         userRepository.save(user);

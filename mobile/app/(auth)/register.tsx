@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { StyleSheet, Text } from "react-native";
 import { Snackbar } from "react-native-paper";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { router } from "expo-router";
@@ -9,6 +10,8 @@ import { apiErrorMessage } from "@/api/client";
 import { AuthScaffold, PromptLink } from "@/components/auth-scaffold";
 import { FormTextField } from "@/components/form-text-field";
 import { PillButton } from "@/components/ui/buttons";
+import { Checkbox } from "@/components/ui/checkbox";
+import { COLORS, FONT, FONT_SIZE } from "@/theme";
 import { STRINGS } from "@/lib/strings";
 
 const S = STRINGS.auth.register;
@@ -23,6 +26,7 @@ const schema = z
     phone: z.string().trim().optional(),
     password: z.string().min(8, V.passwordMin).max(72, V.passwordMax),
     confirmPassword: z.string().min(1, V.confirmRequired),
+    consent: z.boolean().refine((v) => v, S.consentRequired),
   })
   .refine((v) => v.password === v.confirmPassword, {
     message: V.confirmMismatch,
@@ -39,11 +43,13 @@ export default function RegisterScreen() {
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { fullName: "", email: "", phone: "", password: "", confirmPassword: "" },
+    defaultValues: { fullName: "", email: "", phone: "", password: "", confirmPassword: "", consent: false },
   });
+  const consent = useWatch({ control, name: "consent" });
 
   const onSubmit = async (values: FormValues) => {
     setSubmitting(true);
@@ -55,6 +61,7 @@ export default function RegisterScreen() {
         email,
         password: values.password,
         confirmPassword: values.confirmPassword,
+        consentAccepted: values.consent,
         ...(phone ? { phone } : {}),
       });
       router.push({ pathname: "/(auth)/verify-email", params: { email } });
@@ -127,6 +134,13 @@ export default function RegisterScreen() {
           onSubmitEditing={handleSubmit(onSubmit)}
         />
 
+        <Checkbox
+          checked={!!consent}
+          onChange={(next) => setValue("consent", next, { shouldValidate: true })}
+          label={S.consent}
+        />
+        {errors.consent?.message ? <Text style={styles.consentError}>{errors.consent.message}</Text> : null}
+
         <PillButton label={S.submit} fullWidth loading={submitting} onPress={handleSubmit(onSubmit)} />
       </AuthScaffold>
 
@@ -136,3 +150,7 @@ export default function RegisterScreen() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  consentError: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.errorText },
+});

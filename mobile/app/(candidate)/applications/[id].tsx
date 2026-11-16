@@ -203,8 +203,8 @@ function ProgressCard({ app, interview }: { app: CandidateApplication; interview
     ? [
         { title: P[0]!, subtitle: formatDate(app.appliedAt), state: "done" },
         {
-          title: S.rejectedTitle,
-          subtitle: app.rejectionReasonName ?? app.currentStageName ?? "",
+          title: phase.withdrawn ? S.withdrawnTitle : S.rejectedTitle,
+          subtitle: phase.withdrawn ? S.withdrawnNote : (app.rejectionReasonName ?? app.currentStageName ?? ""),
           state: "stopped",
         },
       ]

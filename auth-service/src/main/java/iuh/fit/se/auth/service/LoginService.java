@@ -56,7 +56,7 @@ public class LoginService {
     public LoginResponse loginWithGoogle(String email) {
         AppUser user = appUserRepository.findByEmailIgnoreCase(normalizeEmail(email))
                 .orElseThrow(() -> new BusinessException(
-                        "Tai khoan chua duoc dang ky. Vui long lien he quan tri vien."));
+                        "Tài khoản chưa được đăng ký. Vui lòng liên hệ quản trị viên."));
         requireActive(user);
         Role role = requiredRole(user);
         LoginResponse response = issueTokens(user, role.getName().name());

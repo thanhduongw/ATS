@@ -83,12 +83,12 @@ export default function ApplicationCreateModal({
   const onSubmit = async (data: ApplicationCreateFormValues) => {
     try {
       await createApplication(data);
-      message.success("Ứng tuyển thành công");
+      message.success("Đã thêm ứng viên vào tin tuyển dụng");
       onSuccess();
       onClose();
     } catch (err) {
       const axiosErr = err as AxiosError<ApiMessageResponse>;
-      message.error(axiosErr.response?.data?.message ?? "Ứng tuyển thất bại");
+      message.error(axiosErr.response?.data?.message ?? "Không thêm được ứng viên vào tin tuyển dụng");
     }
   };
 

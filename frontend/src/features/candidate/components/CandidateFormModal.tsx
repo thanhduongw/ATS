@@ -49,9 +49,11 @@ interface Props {
   initialFile?: File | null;
   onClose: () => void;
   onSuccess: () => void;
+  /** Gọi sau khi TẠO MỚI xong (kèm CV đã tải lên) — trang Ứng viên dùng để mở bước "thêm vào tin tuyển dụng". */
+  onCreated?: (candidateId: number) => void;
 }
 
-export default function CandidateFormModal({ open, editingItem, initialValues, initialFile, onClose, onSuccess }: Props) {
+export default function CandidateFormModal({ open, editingItem, initialValues, initialFile, onClose, onSuccess, onCreated }: Props) {
   const [educationLevels, setEducationLevels] = useState<CatalogItem[]>([]);
   const [skills, setSkills] = useState<CatalogItem[]>([]);
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([]);
@@ -146,9 +148,10 @@ export default function CandidateFormModal({ open, editingItem, initialValues, i
           return;
         }
       }
-      message.success(editingItem ? "Cập nhật thành công" : "Tạo ứng viên thành công");
+      message.success(editingItem ? "Đã cập nhật hồ sơ" : "Đã tạo hồ sơ ứng viên");
       onSuccess();
       onClose();
+      if (!editingItem) onCreated?.(candidateId);
     } catch (err) {
       const axiosErr = err as AxiosError<ApiMessageResponse & { error?: string }>;
       const msg = axiosErr.response?.data?.message || axiosErr.response?.data?.error || axiosErr.message || "Thao tác thất bại";

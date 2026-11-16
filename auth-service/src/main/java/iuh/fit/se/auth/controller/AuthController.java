@@ -64,19 +64,19 @@ public class AuthController {
             @Valid @RequestBody CandidateRegistrationRequest req) {
         registerService.registerCandidate(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(new ApiMessageResponse(
-                "Candidate account created. Check your email for the verification OTP."));
+                "Đã tạo tài khoản. Hãy nhập mã xác minh gửi tới email của bạn."));
     }
 
     @PostMapping("/verify-email")
     public ResponseEntity<ApiMessageResponse> verify(@Valid @RequestBody VerifyEmailRequest req) {
         registerService.verifyEmail(req);
-        return ResponseEntity.ok(new ApiMessageResponse("Email verified successfully"));
+        return ResponseEntity.ok(new ApiMessageResponse("Đã xác minh email"));
     }
 
     @PostMapping("/resend-otp")
     public ResponseEntity<ApiMessageResponse> resendOtp(@Valid @RequestBody ResendOtpRequest req) {
         registerService.resendOtp(req);
-        return ResponseEntity.ok(new ApiMessageResponse("A new OTP has been sent to your email"));
+        return ResponseEntity.ok(new ApiMessageResponse("Đã gửi lại mã xác minh tới email của bạn"));
     }
 
     @PostMapping("/login")
@@ -92,7 +92,7 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<ApiMessageResponse> logout(@Valid @RequestBody RefreshTokenRequest req) {
         loginService.logout(req.refreshToken());
-        return ResponseEntity.ok(new ApiMessageResponse("Logged out successfully"));
+        return ResponseEntity.ok(new ApiMessageResponse("Đã đăng xuất"));
     }
 
     @PostMapping("/oauth2/exchange")
@@ -100,7 +100,7 @@ public class AuthController {
             @Valid @RequestBody OAuth2ExchangeRequest req) {
         LoginResponse tokens = oAuth2TokenExchangeStore.consume(req.code());
         if (tokens == null) {
-            throw new BusinessException("The login code is invalid or expired");
+            throw new BusinessException("Mã đăng nhập không hợp lệ hoặc đã hết hạn");
         }
         return ResponseEntity.ok(tokens);
     }
@@ -110,14 +110,14 @@ public class AuthController {
             @Valid @RequestBody ForgotPasswordRequest req) {
         passwordService.forgotPassword(req);
         return ResponseEntity.ok(new ApiMessageResponse(
-                "If the email exists, a password reset OTP has been sent"));
+                "Nếu email tồn tại, mã đặt lại mật khẩu đã được gửi"));
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<ApiMessageResponse> resetPassword(
             @Valid @RequestBody ResetPasswordRequest req) {
         passwordService.resetPassword(req);
-        return ResponseEntity.ok(new ApiMessageResponse("Password reset successfully"));
+        return ResponseEntity.ok(new ApiMessageResponse("Đã đặt lại mật khẩu"));
     }
 
     @PostMapping("/change-password")
@@ -125,7 +125,7 @@ public class AuthController {
             @Valid @RequestBody ChangePasswordRequest req) {
         CurrentUser actor = CurrentUser.required();
         passwordService.changePassword(actor.userId(), req);
-        return ResponseEntity.ok(new ApiMessageResponse("Password changed successfully"));
+        return ResponseEntity.ok(new ApiMessageResponse("Đã đổi mật khẩu"));
     }
 
     /** Danh bạ đầy đủ gồm tài khoản ứng viên, email và trạng thái: quản trị viên hoặc tác vụ nội bộ. */
@@ -151,7 +151,7 @@ public class AuthController {
             @Valid @RequestBody CreateUserRequest req) {
         userService.createUser(CurrentUser.required(), req);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new ApiMessageResponse("Internal user account created"));
+                .body(new ApiMessageResponse("Đã tạo tài khoản nội bộ"));
     }
 
     @PatchMapping("/users/{id}/status")
@@ -161,7 +161,7 @@ public class AuthController {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireAdmin(actor);
         userService.updateUserStatus(actor.userId(), id, req);
-        return ResponseEntity.ok(new ApiMessageResponse("Account status updated"));
+        return ResponseEntity.ok(new ApiMessageResponse("Đã cập nhật trạng thái tài khoản"));
     }
 
     @GetMapping("/me")

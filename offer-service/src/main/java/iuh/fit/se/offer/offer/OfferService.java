@@ -513,7 +513,7 @@ public class OfferService {
 
     private void requireCandidateVisible(Offer offer) {
         if (!CANDIDATE_VISIBLE_STATUSES.contains(offer.getStatus())) {
-            throw new AccessDeniedException("Offer chua duoc cong bo cho ung vien");
+            throw new AccessDeniedException("Thư mời chưa được gửi cho ứng viên");
         }
     }
 

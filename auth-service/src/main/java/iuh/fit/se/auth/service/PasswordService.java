@@ -34,6 +34,7 @@ public class PasswordService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
+    private final iuh.fit.se.auth.event.AuditEventPublisher auditEventPublisher;
 
     /** Always returns normally so callers cannot enumerate registered email addresses. */
     @Transactional
@@ -87,6 +88,8 @@ public class PasswordService {
         resetToken.setUsed(true);
         resetTokenRepository.save(resetToken);
         refreshTokenRepository.revokeAllActiveByUserId(user.getId());
+        auditEventPublisher.publishSingleCompany(user.getId(), "PASSWORD_RESET", "USER", user.getId(),
+                "Đặt lại mật khẩu bằng mã gửi qua email");
         log.info("Password reset completed for user {}", user.getId());
     }
 
@@ -100,6 +103,7 @@ public class PasswordService {
         user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
         userRepository.save(user);
         refreshTokenRepository.revokeAllActiveByUserId(user.getId());
+        auditEventPublisher.publishSingleCompany(user.getId(), "PASSWORD_CHANGED", "USER", user.getId(), null);
     }
 
     private String normalizeEmail(String email) {

@@ -19,6 +19,7 @@ public class CareersPageService {
 
     private static final long ID = 1L;
     private final CareersPageRepository repository;
+    private final iuh.fit.se.auth.event.AuditEventPublisher auditEventPublisher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private CareersPage page() {
@@ -63,6 +64,9 @@ public class CareersPageService {
         p.setPublishedConfig(p.getDraftConfig());
         p.setPublishedAt(LocalDateTime.now());
         p.setPublishedBy(userId);
-        return toResponse(repository.save(p), true);
+        CareersPage saved = repository.save(p);
+        auditEventPublisher.publishSingleCompany(userId, "CAREERS_PAGE_PUBLISHED", "CAREERS_PAGE", saved.getId(),
+                "Xuất bản trang tuyển dụng");
+        return toResponse(saved, true);
     }
 }

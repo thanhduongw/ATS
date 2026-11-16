@@ -166,6 +166,12 @@ public class JobPostingService {
         if (posting.getStatus() == PostingStatus.CLOSED) {
             throw new BusinessException("Không thể sửa tin đã đóng");
         }
+        if (posting.getStatus() == PostingStatus.APPROVED) {
+            throw new BusinessException("Tin đang chờ đăng — chọn \"Sửa lại\" ở trang việc làm trước khi chỉnh nội dung");
+        }
+        if (posting.getStatus() == PostingStatus.OPEN || posting.getStatus() == PostingStatus.PAUSED) {
+            return updateLive(posting, actor, req);
+        }
 
         validateEmploymentType(req.employmentTypeId());
         validateWorkLocation(req.workLocationId());
@@ -192,6 +198,62 @@ public class JobPostingService {
         return toResponse(repository.save(posting));
     }
 
+    /**
+     * Sửa trực tiếp tin ĐANG TUYỂN / TẠM DỪNG mà không đổi trạng thái (quyết định 16/11/2026): chỉ các phần không
+     * làm đổi bản chất vị trí — mô tả, yêu cầu, quyền lợi, hạn nộp, lương hiển thị (trong khung đã duyệt), nhãn
+     * "Tuyển gấp". Tiêu đề, loại hình, địa điểm, kỹ năng… giữ nguyên dù client có gửi giá trị khác.
+     * Mỗi lần sửa ghi một dòng nhật ký nêu rõ phần nào đổi.
+     */
+    private JobPostingResponse updateLive(JobPosting posting, CurrentUser actor, JobPostingUpdateRequest req) {
+        JobRequisition requisition = posting.getRequisition();
+        BigDecimal floor = requisition.getApprovedSalaryMin() != null
+                ? requisition.getApprovedSalaryMin() : requisition.getExpectedSalaryMin();
+        BigDecimal ceiling = requisition.getApprovedSalaryMax() != null
+                ? requisition.getApprovedSalaryMax() : requisition.getExpectedSalaryMax();
+        if (req.salaryMin() != null && req.salaryMax() != null && req.salaryMin().compareTo(req.salaryMax()) > 0) {
+            throw new BusinessException("Lương tối thiểu không được lớn hơn lương tối đa");
+        }
+        if ((req.salaryMin() != null && floor != null && req.salaryMin().compareTo(floor) < 0)
+                || (req.salaryMax() != null && ceiling != null && req.salaryMax().compareTo(ceiling) > 0)) {
+            throw new BusinessException("Mức lương phải nằm trong khung đã duyệt của yêu cầu tuyển dụng");
+        }
+        if (req.applicationDeadline() != null && req.applicationDeadline().isBefore(java.time.LocalDate.now())
+                && !req.applicationDeadline().equals(posting.getApplicationDeadline())) {
+            throw new BusinessException("Hạn nộp hồ sơ không được ở trong quá khứ");
+        }
+
+        java.util.List<String> changed = new java.util.ArrayList<>();
+        if (!java.util.Objects.equals(posting.getDescription(), req.description())) changed.add("mô tả");
+        if (!java.util.Objects.equals(posting.getRequirements(), req.requirements())) changed.add("yêu cầu");
+        if (!java.util.Objects.equals(posting.getBenefits(), req.benefits())) changed.add("quyền lợi");
+        if (!java.util.Objects.equals(posting.getApplicationDeadline(), req.applicationDeadline())) changed.add("hạn nộp");
+        boolean salaryChanged = !sameAmount(posting.getSalaryMin(), req.salaryMin())
+                || !sameAmount(posting.getSalaryMax(), req.salaryMax())
+                || posting.isShowSalary() != (req.showSalary() == null || req.showSalary());
+        if (salaryChanged) changed.add("lương hiển thị");
+        if (posting.isUrgent() != Boolean.TRUE.equals(req.urgent())) changed.add("nhãn tuyển gấp");
+
+        posting.setDescription(req.description());
+        posting.setRequirements(req.requirements());
+        posting.setBenefits(req.benefits());
+        posting.setApplicationDeadline(req.applicationDeadline());
+        posting.setSalaryMin(req.salaryMin());
+        posting.setSalaryMax(req.salaryMax());
+        posting.setShowSalary(req.showSalary() == null || req.showSalary());
+        posting.setUrgent(Boolean.TRUE.equals(req.urgent()));
+        JobPosting saved = repository.save(posting);
+
+        if (!changed.isEmpty()) {
+            auditEventPublisher.publish(actor.userId(), "POSTING_UPDATED", "JOB_POSTING", saved.getId(),
+                    "Sửa khi đang tuyển: " + String.join(", ", changed));
+        }
+        return toResponse(saved);
+    }
+
+    private static boolean sameAmount(BigDecimal a, BigDecimal b) {
+        return a == null ? b == null : b != null && a.compareTo(b) == 0;
+    }
+
     @Transactional
     public JobPostingResponse changeStatus(Long id, CurrentUser actor, JobPostingStatusRequest req) {
         JobPosting posting = findById(id);
@@ -208,11 +270,15 @@ public class JobPostingService {
             throw new BusinessException("Không thể chuyển từ trạng thái hiện tại sang trạng thái này");
         }
 
+        PostingStatus from = posting.getStatus();
         posting.setStatus(req.status());
         if (req.status() == PostingStatus.CLOSED) {
             posting.setClosedAt(LocalDateTime.now());
         }
-        return toResponse(repository.save(posting));
+        JobPosting saved = repository.save(posting);
+        auditEventPublisher.publish(actor.userId(), "POSTING_STATUS_CHANGED", "JOB_POSTING", saved.getId(),
+                statusLabel(from) + " → " + statusLabel(req.status()));
+        return toResponse(saved);
     }
 
     /** DRAFT/EDITING → APPROVED. HR tự xác nhận nội dung đã sẵn sàng (không có role duyệt thứ 2). */
@@ -308,6 +374,17 @@ public class JobPostingService {
     private JobPosting findById(Long id) {
         return repository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy tin tuyển dụng"));
+    }
+
+    private static String statusLabel(PostingStatus status) {
+        return switch (status) {
+            case DRAFT -> "Bản nháp";
+            case EDITING -> "Đang chỉnh sửa";
+            case APPROVED -> "Chờ đăng";
+            case OPEN -> "Đang tuyển";
+            case PAUSED -> "Tạm dừng";
+            case CLOSED -> "Đã đóng";
+        };
     }
 
     private void requireCanManage(CurrentUser actor, JobPosting posting) {

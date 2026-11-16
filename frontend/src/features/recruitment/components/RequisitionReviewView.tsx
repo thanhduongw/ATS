@@ -16,6 +16,7 @@ import { COLORS, type StatusTone } from "../../../app/theme";
 import { formatMoney, formatSalaryShort, moneyFormatter, moneyParser } from "../../../app/money";
 import { fullDate } from "../../../app/datetime";
 import dayjs from "dayjs";
+import RequisitionHistory from "./RequisitionHistory";
 import StatusTag from "../../../components/ui/StatusTag";
 import { Avatar, Panel, SmallDialog } from "../../../components/ui/designKit";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
@@ -195,12 +196,7 @@ export default function RequisitionReviewView({ requisition: r, cat, onChanged }
                     {r.status === "APPROVED" && r.hrNote && (
                         <Panel title="Ghi chú khi duyệt" bodyGap={6}>{text(r.hrNote)}</Panel>
                     )}
-                    <Panel title="Lịch sử" bodyGap={8}>
-                        <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                            <Avatar name={r.requesterName} colorKey={r.requesterId} size={22} />
-                            <span>{r.requesterName} tạo yêu cầu · {dayjs(r.createdAt).format("DD/MM HH:mm")}</span>
-                        </span>
-                    </Panel>
+                    <RequisitionHistory requisition={r} />
                 </div>
             </div>
 

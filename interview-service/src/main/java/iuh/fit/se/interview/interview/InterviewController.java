@@ -93,7 +93,10 @@ public class InterviewController {
             @Valid @RequestBody InterviewCreateRequest req) {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireHr(actor);
-        return ResponseEntity.ok(service.create(actor, req));
+        InterviewResponse created = service.create(actor, req);
+        service.recordAudit(actor.userId(), "INTERVIEW_SCHEDULED", created,
+                req.replaceInterviewId() != null ? "Đặt lịch mới thay buổi cũ" : "Đặt lịch phỏng vấn");
+        return ResponseEntity.ok(created);
     }
 
     /** Chỉ HR — dời lịch tại chỗ (giờ, thời lượng, hình thức, địa điểm). */
@@ -103,14 +106,19 @@ public class InterviewController {
             @Valid @RequestBody InterviewUpdateRequest req) {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireHr(actor);
-        return ResponseEntity.ok(service.update(actor, id, req));
+        InterviewResponse updated = service.update(actor, id, req);
+        service.recordAudit(actor.userId(), "INTERVIEW_RESCHEDULED", updated, "Đổi lịch phỏng vấn");
+        return ResponseEntity.ok(updated);
     }
 
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<InterviewResponse> cancel(
             @PathVariable Long id) {
-        AuthorizationPolicy.requireHr(CurrentUser.required());
-        return ResponseEntity.ok(service.cancel(id));
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireHr(actor);
+        InterviewResponse cancelled = service.cancel(id);
+        service.recordAudit(actor.userId(), "INTERVIEW_CANCELLED", cancelled, "Huỷ lịch phỏng vấn");
+        return ResponseEntity.ok(cancelled);
     }
 
     /** Phòng ban chốt giờ — mốc duy nhất ứng viên được thông báo. */
@@ -160,7 +168,9 @@ public class InterviewController {
             @PathVariable Long id) {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireInternal(actor);
-        return ResponseEntity.ok(service.markNoShow(actor, id));
+        InterviewResponse noShow = service.markNoShow(actor, id);
+        service.recordAudit(actor.userId(), "INTERVIEW_NO_SHOW", noShow, "Ghi nhận ứng viên vắng mặt");
+        return ResponseEntity.ok(noShow);
     }
 
     /** Ứng viên xin dời lịch (kèm lý do) — lịch 1 giờ cố định, ứng viên không tự đề xuất giờ. */

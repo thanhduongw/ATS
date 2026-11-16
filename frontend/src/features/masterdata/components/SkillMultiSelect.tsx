@@ -10,10 +10,11 @@ interface SkillMultiSelectProps {
     value: number[];
     onChange: (ids: number[]) => void;
     placeholder?: string;
+    disabled?: boolean;
 }
 
 /** Chọn nhiều kỹ năng, cho phép thêm nhanh kỹ năng mới nếu bộ kỹ năng có sẵn chưa đủ. */
-export default function SkillMultiSelect({ value, onChange, placeholder }: SkillMultiSelectProps) {
+export default function SkillMultiSelect({ value, onChange, placeholder, disabled }: SkillMultiSelectProps) {
     const { message } = App.useApp();
     const [skills, setSkills] = useState<CatalogItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -62,6 +63,7 @@ export default function SkillMultiSelect({ value, onChange, placeholder }: Skill
             allowClear
             showSearch
             loading={loading}
+            disabled={disabled || undefined}
             placeholder={placeholder ?? "Chọn hoặc thêm kỹ năng yêu cầu..."}
             value={value}
             onChange={onChange}

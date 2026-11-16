@@ -95,5 +95,9 @@ export const getUserDirectory = (role?: string) =>
 export const createInternalUser = (data: CreateUserRequest) =>
     axiosClient.post<ApiMessageResponse>("/auth/admin/users", data);
 
+/** A05: đổi vai trò / phòng ban của tài khoản nội bộ (chỉ Quản trị doanh nghiệp). */
+export const updateUserRole = (userId: number, data: { role: string; departmentId: number | null }) =>
+    axiosClient.patch<ApiMessageResponse>(`/auth/users/${userId}/role`, data);
+
 export const updateUserStatus = (userId: number, data: UpdateUserStatusRequest) =>
     axiosClient.patch<ApiMessageResponse>(`/auth/users/${userId}/status`, data);

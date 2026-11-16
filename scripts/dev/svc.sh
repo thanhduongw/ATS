@@ -16,7 +16,11 @@ pid_of() { netstat -ano | grep LISTENING | grep -E "[:.]$1 " | awk '{print $5}' 
 
 stop_one() {
   local pid; pid="$(pid_of "${PORT[$1]}")"
-  if [ -n "$pid" ]; then taskkill //F //T //PID "$pid" > /dev/null 2>&1; echo "da dung $1 (pid $pid)"; fi
+  if [ -n "$pid" ]; then
+    taskkill //F //T //PID "$pid" > /dev/null 2>&1; echo "da dung $1 (pid $pid)"
+    # Cho tien trinh cu nha file log: khoi dong ngay se khong mo duoc logs/<service>.log va service khong len.
+    sleep 3
+  fi
 }
 
 start_one() {

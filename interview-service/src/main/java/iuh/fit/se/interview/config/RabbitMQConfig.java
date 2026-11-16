@@ -12,6 +12,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
     public static final String ATS_EXCHANGE = "ats.events";
+    /** Nhật ký hệ thống — notification-service gom về bảng audit_log. */
+    public static final String AUDIT_LOG_ROUTING_KEY = "audit.log";
     public static final String INTERVIEW_SCHEDULED_ROUTING_KEY = "interview.scheduled";
     public static final String INTERVIEW_HM_CONFIRMED_ROUTING_KEY = "interview.hm-confirmed";
     public static final String INTERVIEW_CONFIRMED_ROUTING_KEY = "interview.confirmed";

@@ -678,6 +678,21 @@ public class InterviewService {
         return cancelled;
     }
 
+    private static final java.time.format.DateTimeFormatter AUDIT_TIME =
+            java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+
+    /** 3.11: controller gọi sau khi thao tác thành công để ghi nhật ký hệ thống. */
+    public void recordAudit(Long actorUserId, String action, InterviewResponse interview, String prefix) {
+        if (interview == null) return;
+        String who = interview.candidateName() == null ? "" : " — " + interview.candidateName();
+        String when = interview.scheduledAt() == null ? "" : " (" + interview.scheduledAt().format(AUDIT_TIME) + ")";
+        eventPublisher.publishAudit(actorUserId, action, "INTERVIEW", interview.id(), prefix + who + when);
+    }
+
+    public void recordEvaluationAudit(Long actorUserId, String action, Long resourceId, String resourceType, String detail) {
+        eventPublisher.publishAudit(actorUserId, action, resourceType, resourceId, detail);
+    }
+
     @Transactional
     public InterviewResponse cancel(Long id) {
         Interview interview = findById(id);

@@ -164,6 +164,17 @@ public class AuthController {
         return ResponseEntity.ok(new ApiMessageResponse("Đã cập nhật trạng thái tài khoản"));
     }
 
+    /** A05: đổi vai trò / phòng ban của tài khoản nội bộ — chỉ Quản trị doanh nghiệp. */
+    @PatchMapping("/users/{id}/role")
+    public ResponseEntity<ApiMessageResponse> updateUserRole(
+            @PathVariable Long id,
+            @Valid @RequestBody iuh.fit.se.auth.dto.request.UpdateUserRoleRequest req) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireAdmin(actor);
+        userService.updateUserRole(actor, id, req);
+        return ResponseEntity.ok(new ApiMessageResponse("Đã cập nhật vai trò và phòng ban"));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> getMyProfile() {
         return ResponseEntity.ok(userService.getProfile(CurrentUser.required().userId()));
@@ -189,7 +200,8 @@ public class AuthController {
     @PutMapping("/company")
     public ResponseEntity<CompanyResponse> updateCompany(
             @Valid @RequestBody UpdateCompanyRequest req) {
-        AuthorizationPolicy.requireAdmin(CurrentUser.required());
-        return ResponseEntity.ok(companyService.updateCompanyInfo(req));
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireAdmin(actor);
+        return ResponseEntity.ok(companyService.updateCompanyInfo(req, actor.userId()));
     }
 }

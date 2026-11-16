@@ -47,7 +47,7 @@ Bắt đầu: 16/11/2026, nhánh `dev`. Thứ tự: mục 3 (A → B → C) → 
 | 3.16 | code xong | chưa type-check lại | Chặn bấm đúp bằng ref |
 | 3.17 | code xong | test notification-service | Thông báo có tên vị trí; bỏ "Offer #", "application #" |
 | 3.18 | code xong | chưa type-check lại | Sự kiện `ats:notifications-changed` |
-| 3.3, 3.10, 3.11 (phần còn lại), 3.12, 3.14, 3.19 | **chưa làm** | | |
+| 3.3, 3.11, 3.14, 3.19 | xem bảng "Cập nhật 17/11" bên dưới | | |
 
 ## Chưa bắt đầu
 
@@ -70,20 +70,36 @@ mục 5, mục 6 (reset + dữ liệu demo), mục 7 (kiểm tra giao diện), n
 - Danh mục mặc định của masterdata (`DefaultDataSeeder`) chuyển sang lĩnh vực IT (phòng ban, chức danh, cấp bậc, kỹ năng,
   nguồn, lý do từ chối, tiêu chí đánh giá, 3 văn phòng) — có hiệu lực với DB mới / sau khi reset.
 
-**Còn lại của nhóm C:** 3.3 (sửa tin đang tuyển), 3.11 (audit còn thiếu + hiển thị lịch sử), 3.14 (đổi vai trò / phòng ban),
-3.19 (kéo thả vào ô từ chối — cần thử bằng chuột). **Chưa kiểm mục nào trên giao diện.**
+## Cập nhật 17/11 — xong phần mã của nhóm C
+
+| Mã | Trạng thái | Đã kiểm bằng gì | Ghi chú |
+|---|---|---|---|
+| 3.3 | code xong | test recruitment-service, tsc web | Tin Đang tuyển / Tạm dừng sửa tại chỗ: chỉ mô tả, yêu cầu, quyền lợi, hạn nộp, lương hiển thị (trong khung đã duyệt), nhãn Tuyển gấp. Mỗi lần sửa ghi nhật ký `POSTING_UPDATED` nêu phần nào đổi. Form khoá các ô còn lại, chỉ còn nút "Lưu thay đổi". Tin Chờ đăng phải bấm "Sửa lại" trước |
+| 3.11 | code xong | test auth / interview / masterdata / notification, tsc web | Thêm nhật ký: sửa thông tin doanh nghiệp, xuất bản trang tuyển dụng, đổi / đặt lại mật khẩu, đổi vai trò, đặt / đổi / huỷ lịch, vắng mặt, nộp đánh giá, mọi thao tác ghi trên danh mục (một interceptor ở masterdata), đổi trạng thái tin. API mới `GET /notification/audit-logs/resource` cho nhân viên nội bộ; khối "Lịch sử" của yêu cầu tuyển dụng và tab "Hoạt động" của hồ sơ đọc từ đó. Trang Nhật ký hiện tên người thay cho "Người dùng #14" |
+| 3.14 | code xong | test auth-service, tsc web | `PATCH /auth/users/{id}/role` (chỉ Quản trị; không tự đổi mình; không đổi qua lại với ứng viên; thu hồi phiên cũ). Trang chi tiết người dùng có nút "Đổi vai trò / phòng ban", nhắc số việc đang phụ trách |
+| 3.19 | chưa kiểm | — | Mã kéo thả vào dải từ chối nhìn đúng; cần thử bằng chuột ở mục 7 |
+
+Phụ: khoá / vô hiệu hoá tài khoản thì thu hồi luôn phiên đăng nhập; `scripts/dev/svc.sh` chờ 3 giây sau khi dừng service
+(trước đó khởi động lại nhiều service một lúc có cái không lên vì file log còn bị giữ).
+
+## Mục 6 — đang làm
+
+Bộ script ở `scripts/demo-data/` (chạy bằng Python của ai-service):
+
+- `reset_db.py` — xoá mọi bảng của mọi DB `ats_*` (giữ `flyway_schema_history` và bảng `role`), tạo lại dòng công ty +
+  quản trị viên đầu tiên, khởi động lại masterdata-service để nạp danh mục IT mặc định.
+- `seed.py` — reset rồi tạo lại dữ liệu qua API thật (công ty Mộc Lam Software, 9 tài khoản nội bộ, 10 yêu cầu tuyển dụng,
+  6 tin, 33 ứng viên có CV PDF sinh bằng PyMuPDF, 41 đơn, ~20 buổi phỏng vấn, 7 thư mời, 2 CV chèn lệnh).
+  Các chỗ chỉnh DB có kiểm soát được liệt kê ở đầu file.
+- `jobs.py`, `people.py` (dữ liệu), `cv_pdf.py`, `images.py` (logo chữ + 3 áp phích), `lib.py` (API, psql, đồng hồ giả lập).
+
+**Chưa chạy lần nào** — bước kế tiếp là chạy `seed.py`, sửa lỗi phát sinh, rồi kiểm số liệu.
 
 ## Việc dở dang — đọc trước khi "làm tiếp"
 
-1. **Chạy lại test 9 service** (`mvnw.cmd -q test` từng service). Lần chạy tối 16/11 bị dừng giữa chừng vì máy hết RAM
-   (30 tiến trình java, phần lớn là tiến trình Maven mồ côi của các cửa sổ cũ). auth và candidate đã lỗi 4 ca do test cũ,
-   đã sửa test nhưng chưa chạy lại; 7 service còn lại chưa chạy sau khi đổi `GlobalExceptionHandler`.
-2. **Khởi động lại service** bằng `scripts/dev/svc.sh restart <tên>` (log ở `logs/`). Các service đang chạy mang mã của
-   khoảng 17:20 ngày 16/11 (trước nhóm B) — riêng recruitment / notification / offer / masterdata / ai mới hơn một chút.
-3. **Mobile**: chạy `npm run gen:types` sau khi backend lên bản mới, rồi làm: checkbox đồng ý ở đăng ký + ứng tuyển (2.6),
-   nhãn `EXPIRED` (3.8), "Đã rút đơn" (3.2), banner CV bất thường (1.7), link họp / địa điểm (3.9).
-4. Chưa kiểm bất kỳ mục nào trên giao diện.
-5. Đơn #26 còn nằm trong hàng đợi RabbitMQ; ai-service bản mới sẽ tự nhận và chấm khi khởi động.
+1. Chạy `ai-service/.venv/Scripts/python.exe scripts/demo-data/seed.py` (mất 30–45 phút vì AI chấm thật từng đơn).
+2. Mục 7: kiểm trên giao diện web + mobile — **chưa kiểm mục nào**, kể cả các mục nhóm A / B / C ở trên.
+3. Mục 4 (màu thương hiệu, hero, nhắc lịch qua email, tìm không dấu), mục 5, nhóm D, mục 9.
 
 ## Công cụ đã thêm
 

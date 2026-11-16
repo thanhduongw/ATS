@@ -35,6 +35,7 @@ public class UserService {
     private final AuditEventPublisher auditEventPublisher;
     private final DepartmentDirectoryClient departmentDirectoryClient;
     private final ImageStorageService imageStorageService;
+    private final iuh.fit.se.auth.repository.RefreshTokenRepository refreshTokenRepository;
 
     @Transactional(readOnly = true)
     public List<UserSummaryResponse> getUsers(String roleFilter) {
@@ -146,8 +147,74 @@ public class UserService {
                 "USER_STATUS_UPDATED",
                 "USER",
                 targetUserId,
-                "New status: " + req.status().name()
+                "Trạng thái mới: " + statusLabel(req.status())
         );
+        if (req.status() != UserStatus.ACTIVE) {
+            // Khoá / vô hiệu hoá thì phiên đang đăng nhập cũng phải hết hiệu lực.
+            refreshTokenRepository.revokeAllActiveByUserId(targetUserId);
+        }
+    }
+
+    private static String statusLabel(UserStatus status) {
+        return switch (status) {
+            case ACTIVE -> "Hoạt động";
+            case LOCKED -> "Đã khoá";
+            case INACTIVE -> "Ngừng hoạt động";
+            case PENDING_VERIFICATION -> "Chờ kích hoạt";
+        };
+    }
+
+    private static String roleLabel(RoleName role) {
+        return switch (role) {
+            case COMPANY_ADMIN -> "Quản trị doanh nghiệp";
+            case RECRUITER -> "Chuyên viên tuyển dụng";
+            case HIRING_MANAGER -> "Đại diện phòng ban";
+            case CANDIDATE -> "Ứng viên";
+        };
+    }
+
+    /**
+     * A05 / 3.14: Quản trị doanh nghiệp đổi vai trò, phòng ban của tài khoản nội bộ. Không tự đổi của mình, không
+     * đổi tài khoản ứng viên, không biến ai thành ứng viên. Phiên đăng nhập cũ bị thu hồi để quyền mới có hiệu lực
+     * ngay ở lần đăng nhập kế tiếp (role nằm trong access token).
+     */
+    @Transactional
+    public void updateUserRole(CurrentUser actor, Long targetUserId, iuh.fit.se.auth.dto.request.UpdateUserRoleRequest req) {
+        AppUser user = findUser(targetUserId);
+        if (user.getId().equals(actor.userId())) {
+            throw new BusinessException("Bạn không thể tự đổi vai trò của mình");
+        }
+        RoleName current = findRole(user.getRoleId()).getName();
+        if (current == RoleName.CANDIDATE || req.role() == RoleName.CANDIDATE) {
+            throw new BusinessException("Không đổi vai trò giữa ứng viên và nhân viên nội bộ");
+        }
+        Long departmentId = req.role() == RoleName.COMPANY_ADMIN ? null : req.departmentId();
+        if (req.role() != RoleName.COMPANY_ADMIN) {
+            if (departmentId == null) {
+                throw new BusinessException("Vui lòng chọn phòng ban cho nhân viên nội bộ");
+            }
+            if (departmentId <= 0 || !departmentDirectoryClient.existsActive(departmentId, actor)) {
+                throw new BusinessException("Phòng ban không tồn tại hoặc đã ngừng hoạt động");
+            }
+        }
+        Role newRole = roleRepository.findByName(req.role())
+                .orElseThrow(() -> new BusinessException("Vai trò không hợp lệ"));
+        boolean roleChanged = current != req.role();
+        boolean departmentChanged = !java.util.Objects.equals(user.getDepartmentId(), departmentId);
+        if (!roleChanged && !departmentChanged) return;
+
+        user.setRoleId(newRole.getId());
+        user.setDepartmentId(departmentId);
+        appUserRepository.save(user);
+        refreshTokenRepository.revokeAllActiveByUserId(targetUserId);
+
+        StringBuilder detail = new StringBuilder();
+        if (roleChanged) detail.append("Vai trò: ").append(roleLabel(current)).append(" → ").append(roleLabel(req.role()));
+        if (departmentChanged) {
+            if (detail.length() > 0) detail.append("; ");
+            detail.append("đổi phòng ban");
+        }
+        auditEventPublisher.publishSingleCompany(actor.userId(), "USER_ROLE_UPDATED", "USER", targetUserId, detail.toString());
     }
 
     private void validateInternalRole(CurrentUser actor, CreateUserRequest req) {

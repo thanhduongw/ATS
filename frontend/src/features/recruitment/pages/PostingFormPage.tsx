@@ -108,7 +108,9 @@ export default function PostingFormPage() {
     }, [req, editingId, setValue]);
 
     if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
-    const locked = editing && !["DRAFT", "EDITING"].includes(editing.status);
+    // 3.3: tin Đang tuyển / Tạm dừng sửa tại chỗ được, nhưng chỉ phần nội dung (backend cũng chỉ nhận các phần này).
+    const live = !!editing && (editing.status === "OPEN" || editing.status === "PAUSED");
+    const locked = editing && !live && !["DRAFT", "EDITING"].includes(editing.status);
     const nameOf = (k: string, v: number | null | undefined) => String(cat[k]?.find((x) => x.id === v)?.name ?? "—");
     const approvedMin = req?.approvedSalaryMin ?? req?.expectedSalaryMin ?? null;
     const approvedMax = req?.approvedSalaryMax ?? req?.expectedSalaryMax ?? null;
@@ -125,7 +127,9 @@ export default function PostingFormPage() {
             } else {
                 saved = (await createPosting(data)).data;
             }
-            if (then === "submit") {
+            if (live) {
+                message.success("Đã lưu thay đổi — tin trên trang tuyển dụng đã cập nhật");
+            } else if (then === "submit") {
                 await submitPostingForReview(saved.id);
                 message.success("Đã gửi duyệt — tin ở trạng thái Chờ duyệt");
             } else {
@@ -167,34 +171,43 @@ export default function PostingFormPage() {
                 <PageBreadcrumb crumb={editing ? editing.title : "Tạo mới"} />
                 <ScreenTitle
                     title={editing ? "Sửa việc làm" : "Tạo việc làm"}
-                    actions={<>
+                    actions={live ? <>
+                        <Button onClick={() => setPreview("desktop")}>Xem trước</Button>
+                        <Button type="primary" loading={saving === "draft"} onClick={handleSubmit((d) => save(d, "draft"), onInvalid)}>Lưu thay đổi</Button>
+                    </> : <>
                         <Button disabled={!!locked} loading={saving === "draft"} onClick={handleSubmit((d) => save(d, "draft"), onInvalid)}>Lưu nháp</Button>
                         <Button onClick={() => setPreview("desktop")}>Xem trước</Button>
                         <Button type="primary" disabled={!!locked} loading={saving === "submit"} onClick={handleSubmit((d) => save(d, "submit"), onInvalid)}>Gửi duyệt</Button>
                     </>}
                 />
             </div>
-            {locked && <InlineNotice tone="warning">Tin đang ở trạng thái đã duyệt / đang tuyển — chọn "Sửa lại" ở trang việc làm trước khi chỉnh nội dung.</InlineNotice>}
+            {locked && <InlineNotice tone="warning">{editing?.status === "CLOSED"
+                ? "Tin đã đóng nên không sửa được nữa."
+                : "Tin đang chờ đăng — chọn \"Sửa lại\" ở trang việc làm trước khi chỉnh nội dung."}</InlineNotice>}
+            {live && <InlineNotice>
+                Tin đang hiển thị với ứng viên. Bạn sửa được mô tả, yêu cầu, quyền lợi, hạn nộp, mức lương hiển thị và nhãn Tuyển gấp;
+                thay đổi có hiệu lực ngay và được ghi vào nhật ký. Tiêu đề, loại hình, địa điểm, kỹ năng giữ nguyên.
+            </InlineNotice>}
             {!editing && requisitions.length === 0 && <InlineNotice tone="warning">Chưa có yêu cầu tuyển dụng nào đã duyệt để tạo việc làm.</InlineNotice>}
 
             <Form layout="vertical" requiredMark component="div" disabled={!!locked} className="compact-form">
                 <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 16, alignItems: "start" }}>
                     <Panel title="Nội dung tin" bodyGap={0}>
                         <Form.Item label="Tiêu đề tin" required {...field("title")}>
-                            <Controller name="title" control={control} render={({ field: f }) => <Input {...f} maxLength={200} placeholder="Ví dụ: Lập trình viên Backend (Java/Spring)" />} />
+                            <Controller name="title" control={control} render={({ field: f }) => <Input {...f} disabled={live || undefined} maxLength={200} placeholder="Ví dụ: Lập trình viên Backend (Java/Spring)" />} />
                         </Form.Item>
                         <div style={grid4}>
                             <Form.Item label="Loại hình" required {...field("employmentTypeId")}>
                                 <Controller name="employmentTypeId" control={control} render={({ field: f }) => (
-                                    <Select {...f} placeholder="Chọn" options={(cat.emp ?? []).map((x) => ({ value: x.id, label: String(x.name) }))} />)} />
+                                    <Select {...f} disabled={live || undefined} placeholder="Chọn" options={(cat.emp ?? []).map((x) => ({ value: x.id, label: String(x.name) }))} />)} />
                             </Form.Item>
                             <Form.Item label="Hình thức" required {...field("workArrangement")}>
                                 <Controller name="workArrangement" control={control} render={({ field: f }) => (
-                                    <Select {...f} placeholder="Chọn" options={WORK_ARRANGEMENT_OPTIONS} />)} />
+                                    <Select {...f} disabled={live || undefined} placeholder="Chọn" options={WORK_ARRANGEMENT_OPTIONS} />)} />
                             </Form.Item>
                             <Form.Item label="Địa điểm" required {...field("workLocationId")}>
                                 <Controller name="workLocationId" control={control} render={({ field: f }) => (
-                                    <Select {...f} placeholder="Chọn" options={(cat.loc ?? []).map((x) => ({ value: x.id, label: String(x.name) }))} />)} />
+                                    <Select {...f} disabled={live || undefined} placeholder="Chọn" options={(cat.loc ?? []).map((x) => ({ value: x.id, label: String(x.name) }))} />)} />
                             </Form.Item>
                             <Form.Item label="Hạn nộp hồ sơ" required {...field("applicationDeadline")}>
                                 <Controller name="applicationDeadline" control={control} render={({ field: f }) => (
@@ -202,7 +215,7 @@ export default function PostingFormPage() {
                             </Form.Item>
                             <Form.Item label="Kinh nghiệm yêu cầu" style={{ gridColumn: "1 / -1" }}>
                                 <Controller name="experienceRequired" control={control} render={({ field: f }) => (
-                                    <Input {...f} value={f.value ?? ""} maxLength={300} placeholder="Ví dụ: Từ 2 năm" />)} />
+                                    <Input {...f} disabled={live || undefined} value={f.value ?? ""} maxLength={300} placeholder="Ví dụ: Từ 2 năm" />)} />
                             </Form.Item>
                         </div>
                         <Form.Item label="Mô tả công việc" required>
@@ -218,9 +231,9 @@ export default function PostingFormPage() {
                             <Controller name="benefits" control={control} render={({ field: f }) => (
                                 <Input.TextArea {...f} value={f.value ?? ""} autoSize={{ minRows: 3, maxRows: 10 }} maxLength={3000} showCount placeholder="Mỗi dòng một quyền lợi…" />)} />
                         </Form.Item>
-                        <Form.Item label="Kỹ năng yêu cầu" extra={SKILL_REQUIRED_HINT} style={{ marginBottom: 0 }}>
+                        <Form.Item label="Kỹ năng yêu cầu" extra={live ? "Không đổi được khi tin đang tuyển." : SKILL_REQUIRED_HINT} style={{ marginBottom: 0 }}>
                             <Controller name="skillIds" control={control} render={({ field: f }) => (
-                                <SkillMultiSelect value={f.value ?? []} onChange={f.onChange} />)} />
+                                <SkillMultiSelect value={f.value ?? []} onChange={f.onChange} disabled={live} />)} />
                         </Form.Item>
                     </Panel>
 

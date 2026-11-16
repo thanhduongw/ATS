@@ -28,7 +28,11 @@ import { getApplicationEvaluations, getInterviews, cancelInterview } from "../..
 import { INTERVIEW_CANCELLABLE, type InterviewResponse } from "../../interview/types";
 import ApplicationEvaluationPanel from "../components/ApplicationEvaluationPanel";
 import { COLORS, FIXED_STAGES } from "../../../app/theme";
-import { OFFER_STATUS, genderLabel, interviewStatusMeta, statusMeta } from "../../../app/statusLabels";
+import { AUDIT_ACTION_LABEL, OFFER_STATUS, genderLabel, interviewStatusMeta, statusMeta } from "../../../app/statusLabels";
+import { useResourceHistory } from "../../auditlog/useResourceHistory";
+
+/** Đã có trong lịch sử chuyển giai đoạn nên không lặp lại ở dòng thời gian. */
+const ACTIVITY_SKIP = new Set(["APPLICATION_STAGE_CHANGED", "APPLICATION_CREATED", "APPLICATION_REJECTED"]);
 import StatusTag from "../../../components/ui/StatusTag";
 import { INTERVIEW_HELD } from "../../interview/types";
 import { AiScorePill, Avatar, Panel } from "../../../components/ui/designKit";
@@ -269,6 +273,13 @@ export default function CandidateApplicationDetailPage() {
     };
 
     // Con thieu bat ky manh du lieu nao ma van dang tai thi quay vong, chua ket luan gi.
+    // 3.11: tab Hoạt động ghép thêm nhật ký của hồ sơ, các buổi phỏng vấn và thư mời của nó (chỉ nhân viên nội bộ).
+    const auditTrail = useResourceHistory([
+        { type: "APPLICATION", ids: application ? [application.id] : [] },
+        { type: "INTERVIEW", ids: interviews.map((iv) => iv.id) },
+        { type: "OFFER", ids: offers.map((o) => o.id) },
+    ], role !== "CANDIDATE");
+
     if (loading && (!application || !candidate)) {
         return (
             <div className="page-container" style={{ display: "flex", justifyContent: "center", padding: 80 }}>
@@ -319,6 +330,11 @@ export default function CandidateApplicationDetailPage() {
         return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     };
     const activity = [
+        ...auditTrail.filter((l) => !ACTIVITY_SKIP.has(l.action)).map((l) => ({
+            key: `a-${l.id}`, at: l.createdAt, who: l.who ?? candidate.fullName, whoId: l.actorUserId,
+            what: (AUDIT_ACTION_LABEL[l.action] ?? l.action).toLowerCase(),
+            body: l.resourceType === "APPLICATION" ? null : l.metadata,
+        })),
         ...history.map((h) => ({
             key: `h-${h.id}`, at: h.changedAt, who: h.changedByUserName, whoId: h.changedByUserId,
             what: h.fromStageName ? `chuyển sang ${h.toStageName}` : `nộp hồ sơ · ${h.toStageName}`,

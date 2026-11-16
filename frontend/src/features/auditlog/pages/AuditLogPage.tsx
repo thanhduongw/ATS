@@ -77,9 +77,18 @@ export default function AuditLogPage() {
         },
         {
             title: "Đối tượng", key: "resource", width: 180,
-            render: (_, l) => l.resourceType
-                ? `${RESOURCE_TYPE_LABEL[l.resourceType] ?? l.resourceType}${l.resourceId != null ? ` #${l.resourceId}` : ""}`
-                : "—",
+            render: (_, l) => {
+                if (!l.resourceType) return "—";
+                const label = RESOURCE_TYPE_LABEL[l.resourceType] ?? l.resourceType;
+                if (l.resourceId == null) return label;
+                // Tài khoản thì hiện tên người thay cho mã số.
+                if (l.resourceType === "USER") {
+                    const u = users.find((x) => x.id === l.resourceId);
+                    return u ? `${label} · ${u.fullName || u.email}` : label;
+                }
+                if (l.resourceType === "COMPANY" || l.resourceType === "CAREERS_PAGE" || l.resourceType === "CATALOG") return label;
+                return `${label} #${l.resourceId}`;
+            },
         },
         {
             title: "Chi tiết", dataIndex: "metadata", ellipsis: { showTitle: false },

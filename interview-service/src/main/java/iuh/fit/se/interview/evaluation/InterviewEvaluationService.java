@@ -109,6 +109,12 @@ public class InterviewEvaluationService {
         return toResponse(evaluation, interview, buildCriteriaNameMap(), true, true);
     }
 
+    /** 3.11: ghi nhật ký khi một phiếu đánh giá được nộp. */
+    public void recordSubmitAudit(Long actorUserId, Long resourceId, String resourceType) {
+        interviewService.recordEvaluationAudit(actorUserId, "EVALUATION_SUBMITTED", resourceId, resourceType,
+                "Nộp phiếu đánh giá phỏng vấn");
+    }
+
     public List<EvaluationResponse> getByInterview(
             Long interviewId, CurrentUser actor) {
 

@@ -46,6 +46,20 @@ public class InterviewEventPublisher {
                 new InterviewConfirmedEvent(interviewId, applicationId, scheduledAt, candidateName)));
     }
 
+    /** 3.11: ghi nhật ký hệ thống cho thao tác với lịch phỏng vấn / phiếu đánh giá. Lỗi gửi không làm hỏng thao tác. */
+    public void publishAudit(Long actorUserId, String action, String resourceType, Long resourceId, String metadata) {
+        publishAfterCommit(() -> {
+            try {
+                rabbitTemplate.convertAndSend(
+                        RabbitMQConfig.ATS_EXCHANGE,
+                        RabbitMQConfig.AUDIT_LOG_ROUTING_KEY,
+                        new AuditEvent(actorUserId, action, resourceType, resourceId, metadata, LocalDateTime.now()));
+            } catch (RuntimeException ignored) {
+                // nhật ký là phụ, không chặn nghiệp vụ
+            }
+        });
+    }
+
     /** Chỉ phát sự kiện khi dữ liệu đã ghi thành công để listener luôn đọc được bản ghi mới. */
     private void publishAfterCommit(Runnable publishAction) {
         if (TransactionSynchronizationManager.isActualTransactionActive()

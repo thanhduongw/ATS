@@ -9,7 +9,7 @@ import {
     approveHmProposal, cancelInterview, confirmInterviewByHm, getInterviewById, getInterviewIcs, getInterviews,
     markInterviewNoShow, rejectHmProposal, rejectInterviewByHm, updateInterview, updateInterviewers,
 } from "../interviewApi";
-import { INTERVIEW_HELD, type ApiMessageResponse, type InterviewResponse } from "../types";
+import { INTERVIEW_HELD, INTERVIEW_RESCHEDULABLE, type ApiMessageResponse, type InterviewResponse } from "../types";
 import { getUserDirectory } from "../../auth/authApi";
 import type { UserDirectoryResponse } from "../../auth/types";
 import { getPostingById } from "../../recruitment/recruitmentApi";
@@ -38,6 +38,7 @@ const STATUS_VIEW: Record<string, { label: string; tone: StatusTone }> = {
     NO_SHOW: { label: "Ứng viên vắng mặt", tone: "danger" },
     CANCELLED: { label: "Đã huỷ", tone: "neutral" },
     CANDIDATE_DECLINED: { label: "Ứng viên xin dời", tone: "warning" },
+    EXPIRED: { label: "Hết hạn", tone: "neutral" },
 };
 const BLOCKING = new Set(["SCHEDULED", "HM_CONFIRMED", "HM_RESCHEDULE_PROPOSED", "CANDIDATE_CONFIRMED"]);
 const when = (v: string | Dayjs) => { const d = dayjs(v); return `${WEEKDAY[d.day()]} ${d.format("DD/MM")} · ${d.format("HH:mm")}`; };
@@ -108,7 +109,7 @@ export default function InterviewDetailPage() {
     const st = STATUS_VIEW[iv.status] ?? { label: iv.status, tone: "neutral" as StatusTone };
     const amInterviewer = myId != null && iv.interviewers.some((p) => p.interviewerId === myId);
     const proposer = iv.proposedBy ? iv.interviewers.find((p) => p.interviewerId === iv.proposedBy)?.fullName ?? person(iv.proposedBy)?.fullName : null;
-    const ended = iv.status === "CANCELLED" || iv.status === "COMPLETED" || iv.status === "NO_SHOW";
+    const ended = iv.status === "CANCELLED" || iv.status === "COMPLETED" || iv.status === "NO_SHOW" || iv.status === "EXPIRED";
     const location = iv.workLocationId != null ? String(locations.find((l) => l.id === iv.workLocationId)?.name ?? "") : "";
     const profilePath = iv.candidateId ? `/candidates/${iv.candidateId}/applications/${iv.applicationId}` : null;
 
@@ -143,11 +144,13 @@ export default function InterviewDetailPage() {
     const actions: ReactNode[] = [];
     if (isHr && !ended) {
         actions.push(<Button key="ppl" onClick={() => { setPickedPeople(iv.interviewers.map((p) => p.interviewerId)); setDialog("interviewers"); }}>Thêm người phỏng vấn</Button>);
-        actions.push(<Button key="time" onClick={() => { setNewTime(start); setNewDuration(iv.durationMinutes ?? 60); setDialog("reschedule"); }}>Đổi giờ</Button>);
+        if (INTERVIEW_RESCHEDULABLE.has(iv.status)) {
+            actions.push(<Button key="time" onClick={() => { setNewTime(start.isAfter(dayjs()) && iv.status !== "CANDIDATE_DECLINED" ? start : null); setNewDuration(iv.durationMinutes ?? 60); setDialog("reschedule"); }}>Đổi giờ</Button>);
+        }
         if (INTERVIEW_HELD.has(iv.status) && start.isBefore(dayjs())) actions.push(<Button key="ns" onClick={() => setDialog("noshow")}>Ứng viên vắng mặt</Button>);
-        actions.push(<Button key="cancel" danger onClick={() => setDialog("cancel")}>Huỷ buổi</Button>);
+        if (iv.status !== "CANDIDATE_DECLINED") actions.push(<Button key="cancel" danger onClick={() => setDialog("cancel")}>Huỷ buổi</Button>);
     }
-    if (!isHr && amInterviewer && iv.status === "SCHEDULED") {
+    if (amInterviewer && iv.status === "SCHEDULED" && start.isAfter(dayjs())) {
         actions.push(<Button key="prop" onClick={() => { setNewTime(null); setProposeNote(""); setDialog("propose"); }}>Đề xuất giờ khác</Button>);
         actions.push(<Button key="ok" type="primary" loading={busy} onClick={() => run(() => confirmInterviewByHm(iv.id), "Đã xác nhận giờ phỏng vấn")}>Xác nhận</Button>);
     }
@@ -185,7 +188,7 @@ export default function InterviewDetailPage() {
 
             {iv.status === "CANDIDATE_DECLINED" && (
                 <InlineNotice tone="warning" action={isHr ? (
-                    <Button type="primary" onClick={() => navigate(`/interviews/schedule/${iv.applicationId}`)}>Đặt lịch mới</Button>
+                    <Button type="primary" onClick={() => navigate(`/interviews/schedule/${iv.applicationId}?replaceInterviewId=${iv.id}`)}>Đặt lịch mới</Button>
                 ) : undefined}>
                     <b>{iv.candidateName}</b> xin dời lịch{iv.candidateDeclinedAt ? ` lúc ${dayjs(iv.candidateDeclinedAt).format("HH:mm DD/MM")}` : ""}
                     {iv.candidateDeclineReason ? <> — “{iv.candidateDeclineReason}”</> : null}
@@ -270,7 +273,8 @@ export default function InterviewDetailPage() {
             <SmallDialog open={dialog === "interviewers"} title="Người phỏng vấn" okText="Lưu" okLoading={busy} okDisabled={pickedPeople.length === 0}
                 onCancel={() => setDialog(null)} onOk={() => run(() => updateInterviewers(iv.id, pickedPeople), "Đã cập nhật người phỏng vấn")}>
                 <Select mode="multiple" value={pickedPeople} onChange={setPickedPeople} style={{ width: "100%" }} optionFilterProp="label"
-                    options={people.filter((p) => p.role === "HIRING_MANAGER" || p.role === "RECRUITER")
+                    options={people.filter((p) => (p.role === "HIRING_MANAGER" || p.role === "RECRUITER")
+                        && ((p.status ?? "ACTIVE") === "ACTIVE" || iv.interviewers.some((q) => q.interviewerId === p.id)))
                         .map((p) => ({ value: p.id, label: `${p.fullName}${p.role === "RECRUITER" ? " (Tuyển dụng)" : ""}`, disabled: iv.interviewers.some((q) => q.interviewerId === p.id && q.evaluationSubmitted) }))} />
                 <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Người mới sẽ có phiếu đánh giá riêng. Người đã nộp đánh giá không bỏ được.</span>
             </SmallDialog>
@@ -281,7 +285,7 @@ export default function InterviewDetailPage() {
                 onOk={() => newTime && run(() => updateInterview(iv.id, {
                     scheduledAt: toLocalDateTimeString(newTime), durationMinutes: newDuration, format: iv.format,
                     workLocationId: iv.workLocationId, meetingLink: iv.meetingLink, note: iv.note,
-                }), "Đã đổi giờ — người phỏng vấn sẽ xác nhận lại")}>
+                }), "Đã đổi giờ")}>
                 <DatePicker showTime={{ format: "HH:mm", minuteStep: 15 }} format="DD/MM/YYYY HH:mm" style={{ width: "100%" }}
                     value={newTime} onChange={setNewTime} disabledDate={(d) => d.isBefore(dayjs(), "day")} />
                 <InputNumber min={15} max={240} step={15} value={newDuration} onChange={(v) => setNewDuration(v ?? 60)} addonAfter="phút" style={{ width: "100%" }} />

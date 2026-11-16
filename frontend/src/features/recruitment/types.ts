@@ -38,8 +38,9 @@ export interface JobRequisitionResponse {
     skillIds: number[];
     requesterId: number;
     requesterName: string;
-    approverId: number;
-    approverName: string;
+    /** Người xử lý gần nhất (duyệt / yêu cầu sửa / từ chối); null khi chưa ai xử lý. */
+    approverId: number | null;
+    approverName: string | null;
     status: RequisitionStatus;
     rejectReason: string | null;
     hrNote: string | null;
@@ -67,7 +68,7 @@ export interface JobRequisitionCreateRequest {
     requirements?: string | null;
     benefits?: string | null;
     skillIds?: number[];
-    approverId: number;
+    approverId?: number | null;
 }
 
 export type JobRequisitionUpdateRequest = JobRequisitionCreateRequest;

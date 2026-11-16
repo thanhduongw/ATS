@@ -45,6 +45,7 @@ export const STRINGS = {
       candidatePrompt: "Bạn là ứng viên?",
       createAccount: "Tạo tài khoản ứng viên",
       failed: "Đăng nhập thất bại",
+      adminUseWeb: "Tài khoản quản trị doanh nghiệp chỉ dùng trên web. Hãy đăng nhập bằng trình duyệt.",
       verifiedNotice: "Xác minh thành công, mời đăng nhập.",
       resetNotice: "Mật khẩu đã được cập nhật, mời đăng nhập.",
     },

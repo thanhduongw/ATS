@@ -196,6 +196,9 @@ public class InterviewEvaluationService {
         if (!InterviewStatus.HELD.contains(interview.getStatus())) {
             throw new BusinessException("Chỉ đánh giá được buổi phỏng vấn đã được ứng viên xác nhận");
         }
+        if (interview.getScheduledAt().isAfter(LocalDateTime.now())) {
+            throw new BusinessException("Chưa tới giờ phỏng vấn, chưa đánh giá được");
+        }
     }
 
     /**

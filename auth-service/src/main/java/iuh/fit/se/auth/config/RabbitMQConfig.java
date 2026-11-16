@@ -18,6 +18,22 @@ public class RabbitMQConfig {
         return new TopicExchange(ATS_EXCHANGE);
     }
 
+    /** Ứng viên tự xoá dữ liệu cá nhân (candidate-service phát) — khoá tài khoản, thu hồi phiên đăng nhập. */
+    public static final String CANDIDATE_DATA_DELETED_QUEUE = "auth.candidate-data-deleted.queue";
+    public static final String CANDIDATE_DATA_DELETED_ROUTING_KEY = "candidate.data_deleted";
+
+    @Bean
+    public org.springframework.amqp.core.Queue candidateDataDeletedQueue() {
+        return org.springframework.amqp.core.QueueBuilder.durable(CANDIDATE_DATA_DELETED_QUEUE).build();
+    }
+
+    @Bean
+    public org.springframework.amqp.core.Binding candidateDataDeletedBinding(
+            org.springframework.amqp.core.Queue candidateDataDeletedQueue, TopicExchange atsExchange) {
+        return org.springframework.amqp.core.BindingBuilder.bind(candidateDataDeletedQueue)
+                .to(atsExchange).with(CANDIDATE_DATA_DELETED_ROUTING_KEY);
+    }
+
     @Bean
     public MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();

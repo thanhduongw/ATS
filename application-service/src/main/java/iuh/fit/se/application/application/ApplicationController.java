@@ -134,6 +134,7 @@ public class ApplicationController {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireHr(actor);
         service.requireAccess(id, actor);
+        service.requireEvaluationBeforeOffer(id);
         return ResponseEntity.ok(service.advanceStage(
                 id, actor.userId(),
                 req != null ? req : new ApplicationAdvanceStageRequest(null)));

@@ -46,10 +46,10 @@ public class RegisterService {
     public void registerCandidate(CandidateRegistrationRequest req) {
         String email = normalizeEmail(req.email());
         if (appUserRepository.existsByEmailIgnoreCase(email)) {
-            throw new BusinessException("Email da ton tai trong he thong");
+            throw new BusinessException("Email này đã được đăng ký");
         }
         if (!req.password().equals(req.confirmPassword())) {
-            throw new BusinessException("Password confirmation does not match");
+            throw new BusinessException("Mật khẩu nhập lại không khớp");
         }
 
         Role candidateRole = roleRepository.findByName(RoleName.CANDIDATE)
@@ -68,7 +68,7 @@ public class RegisterService {
         String otp = createVerification(email);
         mailService.sendOtpEmail(email, otp);
         candidateRegistrationPublisher.publish(new CandidateRegisteredEvent(
-                user.getId(), user.getFullName(), user.getEmail(), user.getPhone()));
+                user.getId(), user.getFullName(), user.getEmail(), user.getPhone(), java.time.LocalDateTime.now()));
     }
 
     /** Generic behavior prevents the resend endpoint from confirming account existence. */

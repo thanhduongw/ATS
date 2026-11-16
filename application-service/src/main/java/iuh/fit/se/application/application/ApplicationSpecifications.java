@@ -61,11 +61,23 @@ public final class ApplicationSpecifications {
             if (stageType != null && !stageType.isBlank()) {
                 // Nhận một loại hoặc danh sách ngăn cách bằng dấu phẩy, để giao diện lọc theo
                 // 6 giai đoạn cố định (vd. "Sàng lọc" = CV_SCREENING,HR_SCREENING).
+                // "Đã rút đơn" (WITHDRAWN) là loại ảo: DB lưu REJECTED kèm closed_reason WITHDRAWN / DATA_DELETED.
+                // Lọc REJECTED thì không lấy các đơn đã rút; lọc WITHDRAWN thì chỉ lấy các đơn đó.
                 List<String> types = parseStageTypes(stageType);
-                if (types.size() == 1) {
-                    predicates.add(cb.equal(root.get("currentStageType"), types.get(0)));
-                } else if (!types.isEmpty()) {
-                    predicates.add(root.get("currentStageType").in(types));
+                var withdrawnReason = root.get("closedReason").in("WITHDRAWN", "DATA_DELETED");
+                var rejected = cb.equal(root.get("currentStageType"), "REJECTED");
+                List<Predicate> any = new ArrayList<>();
+                for (String type : types) {
+                    if ("WITHDRAWN".equals(type)) {
+                        any.add(cb.and(rejected, withdrawnReason));
+                    } else if ("REJECTED".equals(type)) {
+                        any.add(cb.and(rejected, cb.or(cb.isNull(root.get("closedReason")), cb.not(withdrawnReason))));
+                    } else {
+                        any.add(cb.equal(root.get("currentStageType"), type));
+                    }
+                }
+                if (!any.isEmpty()) {
+                    predicates.add(cb.or(any.toArray(new Predicate[0])));
                 }
             }
             if (aiTier != null && !aiTier.isBlank()) {

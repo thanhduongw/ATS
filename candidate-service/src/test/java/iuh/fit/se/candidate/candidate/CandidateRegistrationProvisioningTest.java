@@ -39,7 +39,7 @@ class CandidateRegistrationProvisioningTest {
     @Test
     void provisionsSingleCompanyCandidateProfileLinkedToUser() {
         CandidateRegisteredEvent event = new CandidateRegisteredEvent(
-                42L, "Candidate", "candidate@example.com", "0900000000");
+                42L, "Candidate", "candidate@example.com", "0900000000", java.time.LocalDateTime.now());
         when(candidateRepository.findByUserIdAndDeletedAtIsNull(42L))
                 .thenReturn(Optional.empty());
         when(candidateRepository.findFirstByEmailIgnoreCaseAndDeletedAtIsNullOrderByIdAsc(
@@ -62,7 +62,7 @@ class CandidateRegistrationProvisioningTest {
     @Test
     void duplicateEventIsIdempotentByUserId() {
         CandidateRegisteredEvent event = new CandidateRegisteredEvent(
-                42L, "Candidate", "candidate@example.com", null);
+                42L, "Candidate", "candidate@example.com", null, null);
         Candidate existing = Candidate.builder()
                 .id(7L)
                 .userId(42L)

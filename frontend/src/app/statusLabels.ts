@@ -81,6 +81,10 @@ export const INTERVIEW_STATUS: Record<string, InterviewStatusMeta> = {
         label: "Đã hủy", color: "error",
         accent: "#FA2A2D", bg: "#FA2A2D17", border: "#FA2A2D33",
     },
+    EXPIRED: {
+        label: "Hết hạn", color: "default",
+        accent: "#18243199", bg: "#1824310C", border: "#1824311A",
+    },
 };
 
 /**
@@ -99,6 +103,8 @@ const INTERVIEW_STATUS_FOR_CANDIDATE: Record<string, string> = {
     COMPLETED: "Đã hoàn thành",
     NO_SHOW: "Vắng mặt",
     CANCELLED: "Đã hủy",
+    CANDIDATE_DECLINED: "Bạn đã xin dời",
+    EXPIRED: "Hết hạn",
 };
 
 /** Thứ tự hiển thị trong chú giải và bộ lọc — theo đúng dòng chảy nghiệp vụ. */

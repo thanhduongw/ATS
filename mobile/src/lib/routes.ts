@@ -8,8 +8,8 @@ export const homeForRole = (role?: Role | string) => {
     case "HIRING_MANAGER":
       return "/hm";
     case "RECRUITER":
-    case "COMPANY_ADMIN":
       return "/hr";
+    // COMPANY_ADMIN không dùng app (chỉ web) → rơi xuống default, về màn đăng nhập.
     default:
       return "/(auth)/login";
   }

@@ -6,4 +6,7 @@ public record ApplicationCreatedEvent(
         Long candidateId,
         Long assignedRecruiterId,
         String candidateName
+,
+        /* Tên vị trí ứng tuyển — để thông báo nói rõ đơn nào; null nếu không lấy được. */
+        String jobTitle
 ) {}

@@ -173,7 +173,7 @@ export default function CompanyPage() {
 
                     <Panel title="Nhận diện" bodyGap={0}>
                         <div>
-                            <Form.Item name="logoUrl" label="Logo" extra="PNG/SVG vuông, tối thiểu 256 px · bấm Lưu để áp dụng"><ImageUploadField folder="logo" /></Form.Item>
+                            <Form.Item name="logoUrl" label="Logo" extra="Ảnh JPG, PNG hoặc WEBP vuông, tối thiểu 256 px"><ImageUploadField folder="logo" /></Form.Item>
                             <Form.Item
                                 name="brandColor"
                                 label="Màu thương hiệu"

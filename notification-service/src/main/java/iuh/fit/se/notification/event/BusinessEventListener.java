@@ -67,7 +67,7 @@ public class BusinessEventListener {
                     NotificationType.APPLICATION_CREATED,
                     "Hồ sơ ứng tuyển mới",
                     (event.candidateName() != null ? event.candidateName() : "Ứng viên")
-                            + " vừa nộp hồ sơ (application #" + event.applicationId() + ").",
+                            + " vừa nộp hồ sơ" + forJob(event.jobTitle()) + ".",
                     "APPLICATION",
                     event.applicationId());
             return;
@@ -82,7 +82,7 @@ public class BusinessEventListener {
                             NotificationType.APPLICATION_CREATED,
                             "Hồ sơ ứng tuyển mới",
                             (event.candidateName() != null ? event.candidateName() : "Ứng viên")
-                                    + " vừa nộp hồ sơ (application #" + event.applicationId() + ").",
+                                    + " vừa nộp hồ sơ" + forJob(event.jobTitle()) + ".",
                             "APPLICATION",
                             event.applicationId());
                 }
@@ -104,14 +104,34 @@ public class BusinessEventListener {
         }
 
         String toType = event.toStageType() != null ? event.toStageType() : "";
+        String closed = event.closedReason();
+        String job = forJob(event.jobTitle());
+        String candidateName = candidateNameOf(event.applicationId());
 
-        if (candidateUserId != null) {
-            if ("REJECTED".equalsIgnoreCase(toType)) {
+        // Ứng viên xoá dữ liệu: tài khoản đã khoá, không báo cho ứng viên nữa.
+        if (candidateUserId != null && !"DATA_DELETED".equals(closed)) {
+            if ("WITHDRAWN".equals(closed)) {
+                notificationService.createAndPush(
+                        candidateUserId,
+                        NotificationType.APPLICATION_STAGE_CHANGED,
+                        "Bạn đã rút đơn ứng tuyển",
+                        "Bạn đã rút đơn ứng tuyển" + job + ".",
+                        "APPLICATION",
+                        event.applicationId());
+            } else if ("HIRED_ELSEWHERE".equals(closed)) {
+                notificationService.createAndPush(
+                        candidateUserId,
+                        NotificationType.APPLICATION_STAGE_CHANGED,
+                        "Đơn ứng tuyển đã ngừng xử lý",
+                        "Đơn ứng tuyển" + job + " ngừng xử lý vì bạn đã nhận việc ở vị trí khác.",
+                        "APPLICATION",
+                        event.applicationId());
+            } else if ("REJECTED".equalsIgnoreCase(toType)) {
                 notificationService.createAndPush(
                         candidateUserId,
                         NotificationType.APPLICATION_REJECTED,
                         "Kết quả hồ sơ ứng tuyển",
-                        "Hồ sơ của bạn đã chuyển sang giai đoạn: " + nullSafe(event.toStageName()) + ".",
+                        "Rất tiếc, hồ sơ ứng tuyển" + job + " của bạn chưa phù hợp ở đợt này.",
                         "APPLICATION",
                         event.applicationId());
             } else {
@@ -119,20 +139,34 @@ public class BusinessEventListener {
                         candidateUserId,
                         NotificationType.APPLICATION_STAGE_CHANGED,
                         "Cập nhật trạng thái hồ sơ",
-                        "Hồ sơ chuyển từ \"" + nullSafe(event.fromStageName())
-                                + "\" sang \"" + nullSafe(event.toStageName()) + "\".",
+                        "Hồ sơ ứng tuyển" + job + " đã chuyển sang giai đoạn \"" + nullSafe(event.toStageName()) + "\".",
                         "APPLICATION",
                         event.applicationId());
             }
         }
 
         if (event.assignedRecruiterId() != null) {
+            String who = candidateName != null ? candidateName : "Ứng viên";
+            String title;
+            String body;
+            if ("WITHDRAWN".equals(closed)) {
+                title = "Ứng viên rút đơn";
+                body = who + " đã rút đơn ứng tuyển" + job + ".";
+            } else if ("DATA_DELETED".equals(closed)) {
+                title = "Ứng viên xoá dữ liệu";
+                body = "Một ứng viên đã xoá dữ liệu cá nhân, đơn ứng tuyển" + job + " đã đóng.";
+            } else if ("HIRED_ELSEWHERE".equals(closed)) {
+                title = "Đơn ngừng xử lý";
+                body = "Đơn của " + who + job + " ngừng xử lý vì ứng viên đã nhận việc ở vị trí khác.";
+            } else {
+                title = "Hồ sơ đổi giai đoạn";
+                body = who + job + ": " + nullSafe(event.fromStageName()) + " → " + nullSafe(event.toStageName());
+            }
             notificationService.createAndPush(
                     event.assignedRecruiterId(),
                     NotificationType.APPLICATION_STAGE_CHANGED,
-                    "Hồ sơ đổi giai đoạn",
-                    "Application #" + event.applicationId() + ": "
-                            + nullSafe(event.fromStageName()) + " → " + nullSafe(event.toStageName()),
+                    title,
+                    body,
                     "APPLICATION",
                     event.applicationId());
         }
@@ -400,8 +434,8 @@ public class BusinessEventListener {
             notificationService.createAndPush(
                     event.requesterId(),
                     NotificationType.OFFER_PENDING_CONFIRMATION,
-                    "Offer đã được duyệt",
-                    "Offer #" + event.offerId() + " đã được phê duyệt. Ứng viên có thể Accept/Decline.",
+                    "Thư mời đã gửi cho ứng viên",
+                    "Thư mời nhận việc" + ofCandidate(candidateNameOf(event.applicationId())) + " đã được gửi, đang chờ ứng viên phản hồi.",
                     "OFFER",
                     event.offerId());
         }
@@ -414,8 +448,8 @@ public class BusinessEventListener {
             notificationService.createAndPush(
                     candidateUserId,
                     NotificationType.OFFER_READY_FOR_CANDIDATE,
-                    "Bạn nhận được thư đề nghị nhận việc",
-                    "Offer đã sẵn sàng. Vui lòng xem và phản hồi trên hệ thống.",
+                    "Bạn nhận được thư mời nhận việc",
+                    "Công ty đã gửi thư mời nhận việc cho bạn. Hãy xem và phản hồi trước hạn.",
                     "OFFER",
                     event.offerId());
         }
@@ -432,9 +466,9 @@ public class BusinessEventListener {
         notificationService.createAndPush(
                 event.requesterId(),
                 NotificationType.OFFER_ACCEPTED,
-                "Ứng viên đã chấp nhận Offer",
+                "Ứng viên đã nhận lời",
                 (event.candidateName() != null ? event.candidateName() : "Ứng viên")
-                        + " đã chấp nhận Offer #" + event.offerId() + ".",
+                        + " đã chấp nhận thư mời nhận việc.",
                 "OFFER",
                 event.offerId());
     }
@@ -451,9 +485,9 @@ public class BusinessEventListener {
         notificationService.createAndPush(
                 event.requesterId(),
                 NotificationType.OFFER_DECLINED,
-                "Ứng viên đã từ chối Offer",
+                "Ứng viên từ chối thư mời",
                 (event.candidateName() != null ? event.candidateName() : "Ứng viên")
-                        + " đã từ chối Offer #" + event.offerId() + "." + extra,
+                        + " đã từ chối thư mời nhận việc." + extra,
                 "OFFER",
                 event.offerId());
     }
@@ -504,6 +538,25 @@ public class BusinessEventListener {
         } catch (Exception e) {
             log.warn("resolveCandidateUserIdFromApplication thất bại applicationId={}: {}",
                     applicationId, e.getMessage());
+            return null;
+        }
+    }
+
+    /** " vị trí X" để ghép vào câu thông báo; không có tên vị trí thì trả chuỗi rỗng. */
+    private static String forJob(String jobTitle) {
+        return jobTitle == null || jobTitle.isBlank() ? "" : " vị trí " + jobTitle.trim();
+    }
+
+    private static String ofCandidate(String name) {
+        return name == null || name.isBlank() ? "" : " của " + name.trim();
+    }
+
+    private String candidateNameOf(Long applicationId) {
+        if (applicationId == null) return null;
+        try {
+            ApplicationSummaryResponse app = applicationServiceClient.getApplicationById(applicationId);
+            return app != null ? app.candidateName() : null;
+        } catch (Exception e) {
             return null;
         }
     }

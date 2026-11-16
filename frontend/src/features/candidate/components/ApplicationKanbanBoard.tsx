@@ -264,7 +264,9 @@ export default function ApplicationKanbanBoard({ applications, stages, interview
                                                                         <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.warning }}>{line.badge}</span>
                                                                     )}
                                                                 </div>
-                                                                {app.aiScore != null && <AiScorePill score={Math.round(app.aiScore)} size="sm" />}
+                                                                {app.aiInjectionDetected
+                                                                    ? <span title="CV có nội dung bất thường nhằm điều khiển AI" style={{ fontSize: 11, fontWeight: 600, color: COLORS.error }}>CV bất thường</span>
+                                                                    : app.aiScore != null && <AiScorePill score={Math.round(app.aiScore)} size="sm" />}
                                                             </div>
                                                         )}
                                                     </Draggable>

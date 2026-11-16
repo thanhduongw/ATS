@@ -13,6 +13,25 @@ public class AuditEventPublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
+    /** Phát sau khi giao dịch ghi xong để bên nhận không đọc phải dữ liệu chưa ẩn danh. */
+    public void publishCandidateDataDeleted(Long candidateId, Long userId) {
+        Runnable send = () -> rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ATS_EXCHANGE,
+                RabbitMQConfig.CANDIDATE_DATA_DELETED_ROUTING_KEY,
+                new CandidateDataDeletedEvent(candidateId, userId));
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            send.run();
+                        }
+                    });
+        } else {
+            send.run();
+        }
+    }
+
     public void publish(Long actorUserId, String action, String resourceType, Long resourceId, String metadata) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,

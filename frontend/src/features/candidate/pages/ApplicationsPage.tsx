@@ -50,16 +50,17 @@ import type { CandidateFormValues } from "../schemas/candidateSchema";
 const STAGE_FILTER_OPTIONS = FIXED_STAGES.map((g) => ({ value: stageTypeFilterOf(g), label: FIXED_STAGE_LABEL[g] }));
 
 /** R16: 4 tab. "Đang trong quy trình" = mọi giai đoạn trừ Đã tuyển và Từ chối. */
-type Tab = "ACTIVE" | "HIRED" | "REJECTED" | "ALL";
+type Tab = "ACTIVE" | "HIRED" | "REJECTED" | "WITHDRAWN" | "ALL";
 const ACTIVE_STAGES: FixedStage[] = FIXED_STAGES.filter((s) => s !== "HIRED" && s !== "REJECTED");
 const TAB_STAGE_FILTER: Record<Tab, string | undefined> = {
     ACTIVE: ACTIVE_STAGES.map(stageTypeFilterOf).join(","),
     HIRED: stageTypeFilterOf("HIRED"),
     REJECTED: stageTypeFilterOf("REJECTED"),
+    WITHDRAWN: "WITHDRAWN",
     ALL: undefined,
 };
-const TAB_KEYS: Tab[] = ["ACTIVE", "HIRED", "REJECTED", "ALL"];
-const TAB_LABEL: Record<Tab, string> = { ACTIVE: "Đang trong quy trình", HIRED: "Đã tuyển", REJECTED: "Từ chối", ALL: "Tất cả" };
+const TAB_KEYS: Tab[] = ["ACTIVE", "HIRED", "REJECTED", "WITHDRAWN", "ALL"];
+const TAB_LABEL: Record<Tab, string> = { ACTIVE: "Đang trong quy trình", HIRED: "Đã tuyển", REJECTED: "Từ chối", WITHDRAWN: "Đã rút đơn", ALL: "Tất cả" };
 
 
 
@@ -324,7 +325,7 @@ export default function ApplicationsPage() {
             sorter: true,
             sortOrder: aiScoreOrder,
             sortDirections: ["descend", "ascend"],
-            render: (_, r) => <AiScoreBadge score={r.aiScore} tier={r.aiTier} status={r.aiStatus} />,
+            render: (_, r) => <AiScoreBadge score={r.aiScore} tier={r.aiTier} status={r.aiStatus} injection={!!r.aiInjectionDetected} />,
         },
         ...(isHm ? [{
             title: "Phỏng vấn của bạn",

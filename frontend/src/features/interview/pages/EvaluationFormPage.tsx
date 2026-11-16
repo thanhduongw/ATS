@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { App, Button, Form, Input, InputNumber, Rate, Spin, Tabs } from "antd";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,7 +13,7 @@ import {
 import { getApplicationById } from "../../candidate/applicationApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { evaluationSubmitSchema, type EvaluationSubmitFormValues } from "../schemas/evaluationSubmitSchema";
-import type { ApiMessageResponse, InterviewResponse, RecommendationType } from "../types";
+import { INTERVIEW_HELD, type ApiMessageResponse, type InterviewResponse, type RecommendationType } from "../types";
 import type { ApplicationResponse } from "../../candidate/types";
 import type { CatalogItem } from "../../masterdata/types";
 import AiScoreCard from "../../ai/components/AiScoreCard";
@@ -44,6 +44,10 @@ export default function EvaluationFormPage() {
     const navigate = useNavigate();
     const { message } = App.useApp();
     const myId = useAppSelector((s) => (s.auth.user?.userId ? Number(s.auth.user.userId) : null));
+    const role = useAppSelector((s) => s.auth.user?.role);
+    const isHr = role === "RECRUITER" || role === "COMPANY_ADMIN";
+    /** Buổi của mình còn chờ đánh giá — dùng khi vào trang mà thiếu ?interviewId=. */
+    const [myPending, setMyPending] = useState<InterviewResponse[] | null>(null);
 
     const applicationId = Number(applicationIdParam);
     const interviewIdParam = searchParams.get("interviewId");
@@ -87,6 +91,10 @@ export default function EvaluationFormPage() {
                 setCriteria(crit);
                 setWorkLocations(Object.fromEntries(locRes.data.map((w) => [w.id, String(w.name)])));
                 setInterview(interviewId != null ? ivRes.data.find((i) => i.id === interviewId) ?? null : null);
+                if (interviewId == null) {
+                    setMyPending(ivRes.data.filter((i) => INTERVIEW_HELD.has(i.status) && dayjs(i.scheduledAt).isBefore(dayjs())
+                        && i.interviewers.some((p) => p.interviewerId === myId && !p.evaluationSubmitted)));
+                }
                 // Có bản nháp của mình thì điền lại.
                 const draft = evalRes?.data.find((e) => e.interviewerId === myId && !e.submittedAt);
                 reset({
@@ -149,6 +157,30 @@ export default function EvaluationFormPage() {
     if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 80 }}><Spin size="large" /></div>;
     if (!application) {
         return <EmptyState title="Không tìm thấy hồ sơ ứng tuyển" description="Hồ sơ có thể đã bị xoá hoặc bạn không có quyền đánh giá." />;
+    }
+
+    // Thiếu ?interviewId=: có đúng một buổi của mình đang chờ đánh giá thì chuyển thẳng tới buổi đó;
+    // người không phải Chuyên viên tuyển dụng thì không được chấm theo hồ sơ.
+    if (interviewId == null && myPending && myPending.length === 1) {
+        return <Navigate to={`?interviewId=${myPending[0].id}`} replace />;
+    }
+    if (interviewId == null && (!isHr || (myPending && myPending.length > 1))) {
+        return (
+            <EmptyState
+                title={myPending && myPending.length > 1 ? "Chọn buổi phỏng vấn cần đánh giá" : "Không có buổi phỏng vấn nào chờ bạn đánh giá"}
+                description={myPending && myPending.length > 1 ? undefined : "Bạn chỉ đánh giá được buổi phỏng vấn mình tham gia, sau khi buổi đã diễn ra."}
+                action={
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                        {(myPending ?? []).map((i) => (
+                            <Button key={i.id} type="primary" onClick={() => navigate(`?interviewId=${i.id}`, { replace: true })}>
+                                Buổi {dayjs(i.scheduledAt).format("HH:mm DD/MM")}
+                            </Button>
+                        ))}
+                        <Button onClick={backToProfile}>Về hồ sơ</Button>
+                    </div>
+                }
+            />
+        );
     }
 
     const when = interview ? (() => {

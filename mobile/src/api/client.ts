@@ -113,7 +113,11 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as RetriableConfig | undefined;
 
-    if (error.response?.status === 401 && original && !original._retry) {
+    // Sai email/mật khẩu cũng trả 401: các endpoint đăng nhập / đăng ký không có gì để refresh.
+    const isAuthCall = /\/auth\/(login|register|refresh-token|verify-email|resend-otp|forgot-password|reset-password)/.test(
+      original?.url ?? "",
+    );
+    if (error.response?.status === 401 && original && !original._retry && !isAuthCall) {
       original._retry = true;
       try {
         const token = await refreshTokens();

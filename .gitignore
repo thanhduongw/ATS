@@ -39,3 +39,5 @@ docker-volume-data/
 ai-service/.venv-research/
 # Sao luu DB truoc khi reset du lieu demo (khong commit)
 backups/2026-11-16-truoc-reset/
+logs/
+tmp/

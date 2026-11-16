@@ -90,7 +90,7 @@ class LoginServiceTest {
         when(appUserRepository.findByEmailIgnoreCase(user.getEmail())).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong-password", user.getPasswordHash())).thenReturn(false);
 
-        assertThrows(BusinessException.class, () ->
+        assertThrows(iuh.fit.se.auth.exception.UnauthorizedException.class, () ->
                 loginService.login(new LoginRequest(user.getEmail(), "wrong-password")));
 
         verifyNoInteractions(roleRepository, refreshTokenRepository, jwtUtil);
@@ -204,7 +204,7 @@ class LoginServiceTest {
     @Test
     void loginRejectsUnknownEmail() {
         when(appUserRepository.findByEmailIgnoreCase("missing@example.com")).thenReturn(Optional.empty());
-        assertThrows(BusinessException.class, () ->
+        assertThrows(iuh.fit.se.auth.exception.UnauthorizedException.class, () ->
                 loginService.login(new LoginRequest("missing@example.com", "password")));
         verifyNoInteractions(passwordEncoder, roleRepository, refreshTokenRepository, jwtUtil);
     }

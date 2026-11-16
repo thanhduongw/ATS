@@ -43,9 +43,12 @@ public class JobRequisitionService {
         Long scopeApproverId = null;
 
         // "Chờ tôi duyệt": chỉ có ý nghĩa với HR (approver), thu hẹp thêm theo approverId
-        Long approverId = Boolean.TRUE.equals(assignedToMe)
-                && (role == AuthorizationPolicy.Role.RECRUITER || role == AuthorizationPolicy.Role.COMPANY_ADMIN)
-                ? actor.userId() : null;
+        // Mọi Chuyên viên tuyển dụng đều duyệt được nên "chờ tôi duyệt" = mọi yêu cầu đang chờ duyệt.
+        Long approverId = null;
+        if (Boolean.TRUE.equals(assignedToMe) && status == null
+                && (role == AuthorizationPolicy.Role.RECRUITER || role == AuthorizationPolicy.Role.COMPANY_ADMIN)) {
+            status = RequisitionStatus.PENDING_APPROVAL;
+        }
 
         var spec = JobRequisitionSpecifications.build(
                 requesterId, approverId, scopeDepartmentId, scopeApproverId,
@@ -75,7 +78,7 @@ public class JobRequisitionService {
     public JobRequisitionResponse create(CurrentUser actor, JobRequisitionCreateRequest req) {
         AuthorizationPolicy.requireHiringManager(actor);
         AuthorizationPolicy.requireSameDepartment(actor, req.departmentId());
-        validateApprover(req.approverId());
+        validateSalaryRange(req.expectedSalaryMin(), req.expectedSalaryMax());
 
         JobRequisition saved = repository.save(JobRequisition.builder()
                 .title(req.title())
@@ -99,9 +102,10 @@ public class JobRequisitionService {
                 .benefits(req.benefits())
                 .skillIds(req.skillIds() != null ? new java.util.ArrayList<>(req.skillIds()) : new java.util.ArrayList<>())
                 .requesterId(actor.userId())
-                .approverId(req.approverId())
                 .status(RequisitionStatus.DRAFT)
                 .build());
+
+        auditEventPublisher.publish(actor.userId(), "REQUISITION_CREATED", "REQUISITION", saved.getId(), saved.getTitle());
 
         return toResponse(saved, buildUserNameMap());
     }
@@ -119,7 +123,8 @@ public class JobRequisitionService {
             throw new BusinessException("Chỉ chỉnh sửa được yêu cầu đang ở trạng thái bản nháp hoặc cần chỉnh sửa lại");
         }
 
-        validateApprover(req.approverId());
+        validateSalaryRange(req.expectedSalaryMin(), req.expectedSalaryMax());
+        boolean afterChangesRequested = requisition.getStatus() == RequisitionStatus.CHANGES_REQUESTED;
 
         requisition.setTitle(req.title());
         requisition.setDepartmentId(req.departmentId());
@@ -141,12 +146,14 @@ public class JobRequisitionService {
         requisition.setRequirements(req.requirements());
         requisition.setBenefits(req.benefits());
         requisition.setSkillIds(req.skillIds() != null ? new java.util.ArrayList<>(req.skillIds()) : new java.util.ArrayList<>());
-        requisition.setApproverId(req.approverId());
         // Chỉnh sửa lại sau khi HR yêu cầu chỉnh sửa -> đưa về Bản nháp, chờ phòng ban
         // gửi duyệt lại
         requisition.setStatus(RequisitionStatus.DRAFT);
 
-        return toResponse(repository.save(requisition), buildUserNameMap());
+        JobRequisition saved = repository.save(requisition);
+        auditEventPublisher.publish(actor.userId(), "REQUISITION_UPDATED", "REQUISITION", saved.getId(),
+                afterChangesRequested ? "Sửa theo góp ý của bộ phận tuyển dụng" : null);
+        return toResponse(saved, buildUserNameMap());
     }
 
     @Transactional
@@ -162,7 +169,14 @@ public class JobRequisitionService {
         requisition.setStatus(RequisitionStatus.PENDING_APPROVAL);
         JobRequisition saved = repository.save(requisition);
 
-        requisitionEventPublisher.publishSubmitted(saved.getId(), saved.getApproverId(), saved.getTitle());
+        // Báo cho mọi Chuyên viên tuyển dụng — ai cũng duyệt được.
+        try {
+            authServiceClient.getUsers("RECRUITER").forEach(u ->
+                    requisitionEventPublisher.publishSubmitted(saved.getId(), u.id(), saved.getTitle()));
+        } catch (RuntimeException ignored) {
+            // Không lấy được danh sách thì bỏ qua thông báo, yêu cầu vẫn nằm ở danh sách chờ duyệt.
+        }
+        auditEventPublisher.publish(actor.userId(), "REQUISITION_SUBMITTED", "REQUISITION", saved.getId(), null);
 
         return toResponse(saved, buildUserNameMap());
     }
@@ -172,7 +186,7 @@ public class JobRequisitionService {
                                           JobRequisitionApproveRequest req) {
         JobRequisition requisition = findById(id);
         AuthorizationPolicy.requireHr(actor);
-        AuthorizationPolicy.requireAssignedOrAdmin(actor, requisition.getApproverId());
+        requisition.setApproverId(actor.userId());
 
         if (requisition.getStatus() != RequisitionStatus.PENDING_APPROVAL) {
             throw new BusinessException("Chỉ phê duyệt được yêu cầu đang chờ duyệt");
@@ -203,7 +217,7 @@ public class JobRequisitionService {
     public JobRequisitionResponse reject(Long id, CurrentUser actor, JobRequisitionRejectRequest req) {
         JobRequisition requisition = findById(id);
         AuthorizationPolicy.requireHr(actor);
-        AuthorizationPolicy.requireAssignedOrAdmin(actor, requisition.getApproverId());
+        requisition.setApproverId(actor.userId());
 
         if (requisition.getStatus() != RequisitionStatus.PENDING_APPROVAL) {
             throw new BusinessException("Chỉ từ chối được yêu cầu đang chờ duyệt");
@@ -230,7 +244,7 @@ public class JobRequisitionService {
                                                  JobRequisitionRequestChangesRequest req) {
         JobRequisition requisition = findById(id);
         AuthorizationPolicy.requireHr(actor);
-        AuthorizationPolicy.requireAssignedOrAdmin(actor, requisition.getApproverId());
+        requisition.setApproverId(actor.userId());
 
         if (requisition.getStatus() != RequisitionStatus.PENDING_APPROVAL) {
             throw new BusinessException("Chỉ yêu cầu chỉnh sửa được yêu cầu đang chờ duyệt");
@@ -264,19 +278,15 @@ public class JobRequisitionService {
      * (Recruiter / Company Admin) duyệt.
      * Người duyệt vì vậy phải thuộc nhóm HR, không phải Hiring Manager.
      */
-    private void validateApprover(Long approverId) {
-        List<UserSummaryResponse> recruiters = authServiceClient.getUsers("RECRUITER");
-        List<UserSummaryResponse> companyAdmins = authServiceClient.getUsers("COMPANY_ADMIN");
-        boolean valid = java.util.stream.Stream.concat(recruiters.stream(), companyAdmins.stream())
-                .anyMatch(u -> u.id().equals(approverId));
-        if (!valid) {
-            throw new BusinessException("Người được chọn không phải là nhân sự HR hợp lệ");
+    private void validateSalaryRange(BigDecimal min, BigDecimal max) {
+        if (min != null && max != null && min.compareTo(max) > 0) {
+            throw new BusinessException("Lương tối thiểu không được lớn hơn lương tối đa");
         }
     }
 
     private Map<Long, String> buildUserNameMap() {
         return authServiceClient.getUsers(null).stream()
-                .collect(java.util.stream.Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
+                .collect(java.util.stream.Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
     }
 
     private JobRequisition findById(Long id) {
@@ -293,7 +303,7 @@ public class JobRequisitionService {
                 r.getApprovedSalaryMin(), r.getApprovedSalaryMax(),
                 r.getExpectedStartDate(), r.getDescription(), r.getRequirements(), r.getBenefits(), r.getSkillIds(),
                 r.getRequesterId(), userNameMap.getOrDefault(r.getRequesterId(), "N/A"),
-                r.getApproverId(), userNameMap.getOrDefault(r.getApproverId(), "N/A"),
+                r.getApproverId(), r.getApproverId() == null ? null : userNameMap.getOrDefault(r.getApproverId(), "N/A"),
                 r.getStatus(), r.getRejectReason(), r.getHrNote(), r.getCreatedAt());
     }
 }

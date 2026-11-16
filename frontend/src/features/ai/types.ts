@@ -167,6 +167,9 @@ export interface RequirementResult {
 
 /** Kết quả chấm (ai_scores.result). Các trường v2 để tùy chọn: kết quả chấm theo cách cũ vẫn đọc được. */
 export interface ScoreResult {
+  /** CV có đoạn văn nhằm điều khiển AI (prompt injection). */
+  injection_detected?: boolean;
+  injection_patterns?: string[];
   /** null = không tính được điểm (Chưa phân loại) */
   total_score: number | null;
   tier: AiTier;

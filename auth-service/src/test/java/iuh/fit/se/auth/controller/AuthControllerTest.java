@@ -60,6 +60,7 @@ class AuthControllerTest {
                                   "password": "strong-password",
                                   "confirmPassword": "strong-password",
                                   "phone": "0900000000",
+                                  "consentAccepted": true,
                                   "role": "COMPANY_ADMIN",
                                   "departmentId": 10
                                 }

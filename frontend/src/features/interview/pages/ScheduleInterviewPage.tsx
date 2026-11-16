@@ -3,7 +3,7 @@ import { App, Button, Input, Segmented, Select, Spin } from "antd";
 import { CloseOutlined, LeftOutlined, RightOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs, { type Dayjs } from "dayjs";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { createInterview, getInterviews } from "../interviewApi";
 import type { ApiMessageResponse, InterviewFormat, InterviewResponse } from "../types";
 import { getApplicationById } from "../../candidate/applicationApi";
@@ -11,6 +11,7 @@ import type { ApplicationResponse } from "../../candidate/types";
 import { getUserDirectory } from "../../auth/authApi";
 import type { UserDirectoryResponse } from "../../auth/types";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
+import { getPostingById } from "../../recruitment/recruitmentApi";
 import type { CatalogItem } from "../../masterdata/types";
 import { isSchedulable } from "../scheduleEligibility";
 import { toLocalDateTimeString } from "../../../app/datetime";
@@ -39,6 +40,9 @@ const slotLabel = (d: Dayjs, minutes: number) =>
 export default function ScheduleInterviewPage() {
     const { applicationId } = useParams();
     const appId = Number(applicationId);
+    const [searchParams] = useSearchParams();
+    const replaceId = searchParams.get("replaceInterviewId") ? Number(searchParams.get("replaceInterviewId")) : null;
+    const [replaced, setReplaced] = useState<InterviewResponse | null>(null);
     const navigate = useNavigate();
     const { message } = App.useApp();
 
@@ -69,7 +73,8 @@ export default function ScheduleInterviewPage() {
             getInterviews().then((r) => r.data).catch(() => []),
         ]).then(([a, users, locs, ivs]) => {
             setApp(a);
-            const staff = users.filter((u) => u.role === "HIRING_MANAGER" || u.role === "RECRUITER");
+            // Chỉ người đang hoạt động: tài khoản mới mời chưa kích hoạt hoặc đã khoá không nhận lịch được.
+            const staff = users.filter((u) => (u.role === "HIRING_MANAGER" || u.role === "RECRUITER") && (u.status ?? "ACTIVE") === "ACTIVE");
             setPeople(staff);
             setLocations(locs);
             setBusy(ivs.filter((iv) => BLOCKING.has(iv.status)));
@@ -77,9 +82,28 @@ export default function ScheduleInterviewPage() {
             const rep = staff.find((u) => u.role === "HIRING_MANAGER" && u.departmentId === a.departmentId);
             if (rep) setInterviewerIds([rep.id]);
             setWorkLocationId(locs[0]?.id);
+            // Địa điểm mặc định theo nơi làm việc của tin tuyển dụng.
+            if (a.jobPostingId) {
+                getPostingById(a.jobPostingId).then((p) => {
+                    const wl = p.data.workLocationId;
+                    if (wl && locs.some((l) => l.id === wl)) setWorkLocationId((cur) => (old ? cur : wl));
+                }).catch(() => undefined);
+            }
+            // Đặt lại lịch cho buổi ứng viên xin dời: điền sẵn dữ liệu buổi cũ.
+            const old = replaceId != null ? ivs.find((iv) => iv.id === replaceId && iv.applicationId === appId) ?? null : null;
+            if (old) {
+                setReplaced(old);
+                setDuration(old.durationMinutes ?? 60);
+                setFormat(old.format);
+                setMeetingLink(old.meetingLink ?? "");
+                if (old.workLocationId) setWorkLocationId(old.workLocationId);
+                const keep = old.interviewers.map((p) => p.interviewerId).filter((id) => staff.some((u) => u.id === id));
+                if (keep.length) setInterviewerIds(keep);
+                setNote(old.note ?? "");
+            }
         }).catch(() => message.error("Không tải được hồ sơ"))
             .finally(() => setLoading(false));
-    }, [appId, message]);
+    }, [appId, message, replaceId]);
 
     const days = useMemo(() => [0, 1, 2, 3, 4].map((i) => weekStart.add(i, "day")), [weekStart]);
     const rows = useMemo(() => {
@@ -103,6 +127,8 @@ export default function ScheduleInterviewPage() {
     };
 
     const isPicked = (d: Dayjs) => picked.some((p) => p.isSame(d, "minute"));
+    /** Ô nằm trong khoảng thời lượng của giờ đã chọn (buổi 60 phút tô 2 ô 30 phút). */
+    const inPicked = (d: Dayjs) => picked.some((p) => !d.isBefore(p, "minute") && d.isBefore(p.add(duration, "minute"), "minute"));
     const toggle = (d: Dayjs) => setPicked(isPicked(d) ? [] : [d]);
 
     if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
@@ -120,8 +146,8 @@ export default function ScheduleInterviewPage() {
                 workLocationId: format === "OFFLINE" ? workLocationId ?? null : null,
                 note: note.trim() || null,
             };
-            await createInterview({ ...common, applicationId: app.id, scheduledAt: toLocalDateTimeString(picked[0]), durationMinutes: duration });
-            message.success("Đã lên lịch. Người phỏng vấn xác nhận xong, ứng viên sẽ Đồng ý hoặc Từ chối.");
+            await createInterview({ ...common, applicationId: app.id, scheduledAt: toLocalDateTimeString(picked[0]), durationMinutes: duration, replaceInterviewId: replaced?.id ?? null });
+            message.success("Đã lên lịch");
             navigate(backTo);
         } catch (err) {
             message.error((err as AxiosError<ApiMessageResponse>).response?.data?.message ?? "Không lên lịch được");
@@ -144,6 +170,12 @@ export default function ScheduleInterviewPage() {
                     </>}
                 />
             </div>
+            {replaced && (
+                <InlineNotice tone="warning">
+                    <b>{app.candidateName}</b> xin dời buổi {dayjs(replaced.scheduledAt).format("HH:mm DD/MM")}
+                    {replaced.candidateDeclineReason ? <> — “{replaced.candidateDeclineReason}”</> : null}. Lịch mới sẽ thay cho buổi cũ.
+                </InlineNotice>
+            )}
             {!isSchedulable(app) && (
                 <InlineNotice tone="warning">Hồ sơ đang ở giai đoạn {FIXED_STAGE_LABEL[toFixedStage(app.currentStageType)]} — chuyển sang Phỏng vấn trước khi lên lịch.</InlineNotice>
             )}
@@ -231,6 +263,7 @@ export default function ScheduleInterviewPage() {
                                     const past = !start.isAfter(dayjs());
                                     const conflicts = past ? [] : conflictsAt(start);
                                     const sel = isPicked(start);
+                                    const covered = !sel && inPicked(start);
                                     const blocked = past || conflicts.length > 0;
                                     const who = conflicts.flatMap((c) => c.interviewers.filter((p) => interviewerIds.includes(p.interviewerId)).map((p) => p.fullName));
                                     return (
@@ -243,8 +276,8 @@ export default function ScheduleInterviewPage() {
                                             style={{
                                                 height: 28, borderRadius: 8, border: 0, fontFamily: "inherit", fontSize: 11,
                                                 cursor: blocked && !sel ? "not-allowed" : "pointer",
-                                                background: sel ? COLORS.primary : conflicts.length ? "#D9DCE1" : past ? "transparent" : COLORS.fill,
-                                                color: sel ? "#fff" : COLORS.textSecondary,
+                                                background: sel || covered ? COLORS.primary : conflicts.length ? "#D9DCE1" : past ? "transparent" : COLORS.fill,
+                                                color: sel ? "#fff" : COLORS.textSecondary, opacity: covered ? 0.55 : 1,
                                             }}
                                         >
                                             {sel ? start.format("HH:mm") : conflicts.length ? "Bận" : ""}

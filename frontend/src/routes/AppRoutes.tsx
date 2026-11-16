@@ -137,8 +137,8 @@ export default function AppRoutes() {
                     <Route path="/offers/:id" element={<OfferDetailPage />} />
                 </Route>
 
-                {/* A07: chỉ Chuyên viên tuyển dụng sửa danh mục. */}
-                <Route element={<RoleRoute allow={["RECRUITER"]} />}>
+                {/* A07: Chuyên viên tuyển dụng và Quản trị doanh nghiệp sửa danh mục (quyền chốt 16/11/2026). */}
+                <Route element={<RoleRoute allow={["RECRUITER", "COMPANY_ADMIN"]} />}>
                     <Route path="/masterdata" element={<MasterDataPage />} />
                     <Route path="/masterdata/:key" element={<CatalogDetailPage />} />
                 </Route>

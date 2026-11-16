@@ -38,7 +38,8 @@ from app.services.experience import today_in
 from app.schemas.jd_extraction import ExtractedJD
 from app.services.jd_extraction_store import COMPLETED as JD_EXTRACTION_COMPLETED
 from app.services.jd_extraction_store import get_or_extract_jd
-from app.services.scoring.aggregate import Thresholds
+from app.schemas.scoring import TIER_LABELS, Tier
+from app.services.scoring.aggregate import Thresholds, headline
 from app.services.scoring.engine import score_candidate
 from app.services.scoring.prompt import JobInfo
 
@@ -163,10 +164,30 @@ async def _publish_status(score) -> None:
             "status": score.status,
             "totalScore": float(score.total_score) if score.total_score is not None else None,
             "tier": score.tier,
+            "injectionDetected": bool((getattr(score, "result", None) or {}).get("injection_detected")),
             "updatedAt": score.updated_at.isoformat() if score.updated_at else None,
         }).encode())
     except Exception as exc:  # noqa: BLE001 — thông báo phụ trợ, không làm hỏng việc chấm
         logger.warning("Không phát được ai.scoring.completed cho hồ sơ %s: %s", score.application_id, exc)
+
+
+# [GIẢI THÍCH] Ứng viên xoá dữ liệu cá nhân: gỡ bản trích xuất CV khỏi các dòng điểm, xoá phần chi tiết kết quả
+# (dẫn chứng trích nguyên văn từ CV) rồi xoá các bản trích xuất. Giữ total_score / tier để thống kê không đổi.
+async def purge_candidate_data(
+    candidate_id: int,
+    *,
+    session_factory: async_sessionmaker[AsyncSession] = async_session_factory,
+) -> int:
+    from sqlalchemy import delete
+    from app.models import CVExtraction
+    async with session_factory() as session:
+        await session.execute(
+            update(AIScore).where(AIScore.candidate_id == candidate_id)
+            .values(cv_extraction_id=None, result=None, provenance=None, error_message=None)
+        )
+        removed = await session.execute(delete(CVExtraction).where(CVExtraction.candidate_id == candidate_id))
+        await session.commit()
+        return removed.rowcount or 0
 
 
 # [GIẢI THÍCH] HÀM CHÍNH: chấm một hồ sơ từ đầu đến cuối. Cả 3 lối vào đều gọi hàm này:
@@ -255,6 +276,18 @@ async def score_application(
                 jd_extraction_id=jd_row.id,
                 jd_extraction_prompt_version=jd_row.prompt_version,
             )
+            # CV có đoạn văn nhằm điều khiển AI: lưu cờ vào kết quả để HR thấy cảnh báo, và không bao giờ tự xếp
+            # "Phù hợp" cho hồ sơ như vậy — hạ về Chưa phân loại để HR xem tay.
+            meta = extraction.text_metadata or {}
+            if meta.get("injection_detected"):
+                result.injection_detected = True
+                result.injection_patterns = [str(p) for p in (meta.get("injection_patterns") or [])]
+                if result.tier == Tier.FIT:
+                    result.tier = Tier.UNCLASSIFIED
+                    result.tier_label = TIER_LABELS[Tier.UNCLASSIFIED]
+                    result.tier_reason = ("CV có nội dung bất thường nhằm điều khiển AI nên không tự xếp Phù hợp; "
+                                          "HR cần xem trực tiếp hồ sơ.")
+                    result.comment = f"{headline(result.total_score, result.tier, result.tier_reason)} {result.summary}".strip()
             values = {
                 "status": COMPLETED, "cv_extraction_id": extraction.id, "total_score": result.total_score,
                 "tier": result.tier.value, "result": result.model_dump(mode="json"),

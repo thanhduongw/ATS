@@ -3,6 +3,7 @@ package iuh.fit.se.application.application;
 import iuh.fit.se.application.application.dto.*;
 import iuh.fit.se.application.client.AuthServiceClient;
 import iuh.fit.se.application.client.CandidateServiceClient;
+import iuh.fit.se.application.client.InterviewServiceClient;
 import iuh.fit.se.application.client.MasterDataServiceClient;
 import iuh.fit.se.application.client.RecruitmentServiceClient;
 import iuh.fit.se.application.client.dto.CandidateSummaryResponse;
@@ -50,6 +51,19 @@ public class ApplicationService {
     // [GIẢI THÍCH] Xếp loại duy nhất được phép không có điểm: Chưa phân loại vì không tính được điểm.
     private static final String AI_TIER_UNCLASSIFIED = "UNCLASSIFIED";
 
+    private static final String STAGE_TYPE_OFFER = "OFFER";
+    /** Loại giai đoạn "ảo" trả cho giao diện khi đơn đóng do ứng viên rút / xoá dữ liệu (DB vẫn lưu REJECTED). */
+    public static final String STAGE_TYPE_WITHDRAWN = "WITHDRAWN";
+    public static final String CLOSED_WITHDRAWN = "WITHDRAWN";
+    public static final String CLOSED_HIRED_ELSEWHERE = "HIRED_ELSEWHERE";
+    public static final String CLOSED_DATA_DELETED = "DATA_DELETED";
+    public static final String ANONYMIZED_NAME = "Ứng viên đã xoá dữ liệu";
+    private static final Map<String, String> CLOSED_REASON_LABEL = Map.of(
+            CLOSED_WITHDRAWN, "Ứng viên rút đơn",
+            CLOSED_HIRED_ELSEWHERE, "Ngừng xử lý – đã nhận việc",
+            CLOSED_DATA_DELETED, "Ứng viên đã xoá dữ liệu");
+    private static final String WITHDRAWN_STAGE_NAME = "Đã rút đơn";
+
     private final ApplicationRepository applicationRepository;
     private final ApplicationHistoryRepository historyRepository;
     private final ApplicationCommentRepository commentRepository;
@@ -57,6 +71,7 @@ public class ApplicationService {
     private final RecruitmentServiceClient recruitmentServiceClient;
     private final MasterDataServiceClient masterDataServiceClient;
     private final AuthServiceClient authServiceClient;
+    private final InterviewServiceClient interviewServiceClient;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditEventPublisher auditEventPublisher;
 
@@ -175,8 +190,13 @@ public class ApplicationService {
                 if (event.totalScore() == null && !AI_TIER_UNCLASSIFIED.equals(event.tier())) {
                     throw new BusinessException("Sự kiện COMPLETED thiếu điểm (chỉ Chưa phân loại mới được không có điểm)");
                 }
-                yield applicationRepository.updateAiCompleted(
+                int n = applicationRepository.updateAiCompleted(
                         event.applicationId(), event.totalScore(), event.tier(), event.updatedAt());
+                if (n > 0) {
+                    applicationRepository.updateAiInjection(
+                            event.applicationId(), Boolean.TRUE.equals(event.injectionDetected()));
+                }
+                yield n;
             }
             case "FAILED" -> applicationRepository.updateAiFailed(event.applicationId(), event.updatedAt());
             default -> throw new BusinessException("Trạng thái chấm AI không hợp lệ: " + event.status());
@@ -218,12 +238,10 @@ public class ApplicationService {
         return toCandidateResponse(application);
     }
 
-    /** Tên lý do trong danh mục "Lý do từ chối" dùng khi ứng viên tự rút đơn (seed của masterdata). */
-    static final String WITHDRAW_REASON_NAME = "Ứng viên tự rút hồ sơ";
-
     /**
-     * Ứng viên tự rút đơn (docs/UI UC06; quyết định B5, mặc định G8): đơn chuyển sang Từ chối với lý do
-     * "Ứng viên tự rút hồ sơ", không thêm trạng thái mới. Không rút được đơn đã kết thúc (Đã tuyển, Từ chối).
+     * Ứng viên tự rút đơn (docs/UI UC06). Từ 16/11/2026 "Đã rút đơn" là trạng thái riêng: đơn vẫn nằm ở bước
+     * REJECTED của quy trình (các service khác coi là đã kết thúc) nhưng mang {@code closedReason = WITHDRAWN},
+     * giao diện và thông báo hiện "Đã rút đơn" chứ không phải "Từ chối". Không rút được đơn đã kết thúc.
      * Lịch phỏng vấn còn treo do interview-service tự huỷ khi nhận sự kiện application.status_changed.
      */
     @Transactional
@@ -234,14 +252,101 @@ public class ApplicationService {
         if (STAGE_TYPE_HIRED.equals(application.getCurrentStageType())) {
             throw new BusinessException("Đơn đã ở giai đoạn Đã tuyển, không rút được");
         }
-        Long reasonId = masterDataServiceClient.getRejectionReasons().stream()
-                .filter(r -> WITHDRAW_REASON_NAME.equalsIgnoreCase(r.name()))
-                .map(CatalogItemResponse::id)
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(
-                        "Danh mục lý do từ chối chưa có mục \"" + WITHDRAW_REASON_NAME + "\""));
-        applyReject(id, actor.userId(), new ApplicationRejectRequest(reasonId, "Ứng viên rút đơn"));
+        closeWithoutRejection(application, CLOSED_WITHDRAWN, "Ứng viên rút đơn", actor.userId());
         return toCandidateResponse(findById(id));
+    }
+
+    /**
+     * Đóng một đơn mà không phải do công ty từ chối (ứng viên rút, đã nhận việc ở vị trí khác, xoá dữ liệu).
+     * Đơn về bước REJECTED của quy trình để các service khác coi là đã kết thúc; lý do thật nằm ở closedReason.
+     */
+    private void closeWithoutRejection(Application application, String closedReason, String note, Long actorUserId) {
+        ensureNotTerminal(application);
+        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(resolvePipelineId(application));
+        PipelineStageResponse rejectedStage = pipeline.stages().stream()
+                .filter(s -> STAGE_TYPE_REJECTED.equals(s.stageType()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("Quy trình tuyển dụng không có bước kết thúc (REJECTED)"));
+
+        String previousStageName = application.getCurrentStageName();
+        application.setCurrentStageId(rejectedStage.id());
+        application.setCurrentStageName(rejectedStage.name());
+        application.setCurrentStageOrder(rejectedStage.stageOrder());
+        application.setCurrentStageType(rejectedStage.stageType());
+        application.setClosedReason(closedReason);
+        applicationRepository.save(application);
+
+        String shownStage = CLOSED_HIRED_ELSEWHERE.equals(closedReason) ? rejectedStage.name() : WITHDRAWN_STAGE_NAME;
+        saveHistory(application, previousStageName, shownStage, note, actorUserId);
+        eventPublisher.publishApplicationStatusChanged(
+                application.getId(), application.getJobPostingId(),
+                application.getCandidateId(), application.getAssignedRecruiterId(),
+                previousStageName, shownStage, rejectedStage.stageType(), closedReason, jobTitleOf(application));
+        auditEventPublisher.publish(actorUserId,
+                CLOSED_WITHDRAWN.equals(closedReason) ? "APPLICATION_WITHDRAWN" : "APPLICATION_CLOSED",
+                "APPLICATION", application.getId(), CLOSED_REASON_LABEL.get(closedReason));
+    }
+
+    /** Ứng viên đã chấp nhận thư mời của một đơn: các đơn còn mở khác tự đóng ("Ngừng xử lý – đã nhận việc"). */
+    @Transactional
+    public int closeOtherOpenApplications(Long hiredApplicationId, Long actorUserId) {
+        Application hired = findById(hiredApplicationId);
+        int closed = 0;
+        for (Application other : applicationRepository
+                .findByCandidateIdAndDeletedAtIsNullOrderByCreatedAtDesc(hired.getCandidateId())) {
+            if (other.getId().equals(hiredApplicationId) || isTerminal(other)) continue;
+            closeWithoutRejection(other, CLOSED_HIRED_ELSEWHERE,
+                    "Ứng viên đã nhận việc ở vị trí khác", actorUserId);
+            closed++;
+        }
+        return closed;
+    }
+
+    /**
+     * Ứng viên xoá dữ liệu cá nhân: đóng các đơn còn mở rồi ẩn danh hoá mọi đơn (tên, email, liên kết CV).
+     * Giữ lại dòng dữ liệu để số liệu thống kê không đổi.
+     */
+    @Transactional
+    public int anonymizeCandidate(Long candidateId, Long actorUserId) {
+        for (Application application : applicationRepository
+                .findByCandidateIdAndDeletedAtIsNullOrderByCreatedAtDesc(candidateId)) {
+            if (isTerminal(application)) continue;
+            try {
+                closeWithoutRejection(application, CLOSED_DATA_DELETED, "Ứng viên xoá dữ liệu cá nhân", actorUserId);
+            } catch (RuntimeException e) {
+                // Không đóng được (vd masterdata lỗi) thì vẫn phải ẩn danh hoá bên dưới.
+            }
+        }
+        return applicationRepository.anonymizeCandidate(candidateId, ANONYMIZED_NAME);
+    }
+
+    /** 3.1: chỉ chuyển sang giai đoạn Thư mời khi hồ sơ đã có ít nhất một đánh giá được nộp. */
+    public void requireEvaluationBeforeOffer(Long id) {
+        Application application = findById(id);
+        if (isTerminal(application)) return; // applyAdvanceStage sẽ báo lỗi đúng câu
+        PipelineResponse pipeline = masterDataServiceClient.getPipelineById(resolvePipelineId(application));
+        int nextOrder = application.getCurrentStageOrder() + 1;
+        boolean nextIsOffer = pipeline.stages().stream()
+                .anyMatch(s -> s.stageOrder().equals(nextOrder) && STAGE_TYPE_OFFER.equals(s.stageType()));
+        if (!nextIsOffer) return;
+        boolean evaluated;
+        try {
+            evaluated = interviewServiceClient.getEvaluations(id).stream().anyMatch(e -> e.submittedAt() != null);
+        } catch (RuntimeException e) {
+            throw new BusinessException("Không kiểm tra được đánh giá phỏng vấn, vui lòng thử lại");
+        }
+        if (!evaluated) {
+            throw new BusinessException("Hồ sơ chưa có đánh giá nào được nộp nên chưa chuyển sang Thư mời được");
+        }
+    }
+
+    private boolean isTerminal(Application application) {
+        return STAGE_TYPE_HIRED.equals(application.getCurrentStageType())
+                || STAGE_TYPE_REJECTED.equals(application.getCurrentStageType());
+    }
+
+    private boolean shownAsWithdrawn(Application a) {
+        return CLOSED_WITHDRAWN.equals(a.getClosedReason()) || CLOSED_DATA_DELETED.equals(a.getClosedReason());
     }
 
     private ApplicationResponse buildDetailedResponse(
@@ -261,11 +366,20 @@ public class ApplicationService {
         return toResponse(application, sourceMap, reasonMap, userMap, postingMap);
     }
 
+    /** Tên vị trí cho nội dung thông báo; không lấy được thì null (thông báo bỏ phần tên vị trí). */
+    private String jobTitleOf(Application application) {
+        try {
+            return recruitmentServiceClient.getPostingById(application.getJobPostingId()).title();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private JobPostingResponse safeGetPosting(Long jobPostingId) {
         try {
             return recruitmentServiceClient.getPostingById(jobPostingId);
         } catch (Exception e) {
-            return new JobPostingResponse(jobPostingId, null, null, "Job #" + jobPostingId, null, null);
+            return new JobPostingResponse(jobPostingId, null, null, "Tin tuyển dụng #" + jobPostingId, null, null);
         }
     }
 
@@ -277,7 +391,7 @@ public class ApplicationService {
             Map<Long, JobPostingResponse> postingMap) {
 
         JobPostingResponse posting = postingMap.get(a.getJobPostingId());
-        String jobTitle = posting != null && posting.title() != null ? posting.title() : "Job #" + a.getJobPostingId();
+        String jobTitle = posting != null && posting.title() != null ? posting.title() : "Tin tuyển dụng #" + a.getJobPostingId();
 
         return new ApplicationResponse(
                 a.getId(),
@@ -293,17 +407,20 @@ public class ApplicationService {
                 a.getAssignedRecruiterId() == null ? null : userMap.get(a.getAssignedRecruiterId()),
                 a.getResumeUrl(),
                 a.getCurrentStageId(),
-                a.getCurrentStageName(),
+                shownAsWithdrawn(a) ? WITHDRAWN_STAGE_NAME : a.getCurrentStageName(),
                 a.getCurrentStageOrder(),
-                a.getCurrentStageType(),
+                shownAsWithdrawn(a) ? STAGE_TYPE_WITHDRAWN : a.getCurrentStageType(),
                 a.getRejectionReasonId(),
-                a.getRejectionReasonId() == null ? null : reasonMap.get(a.getRejectionReasonId()),
+                a.getClosedReason() != null ? CLOSED_REASON_LABEL.get(a.getClosedReason())
+                        : a.getRejectionReasonId() == null ? null : reasonMap.get(a.getRejectionReasonId()),
                 a.getNote(),
                 a.getAppliedAt(),
                 a.getHiredAt(),
                 a.getAiScore(),
                 a.getAiTier(),
-                a.getAiStatus()
+                a.getAiStatus(),
+                a.getAiInjectionDetected(),
+                a.getClosedReason()
         );
     }
 
@@ -333,12 +450,15 @@ public class ApplicationService {
         Long effectiveCandidateId;
         Long effectiveAssignedRecruiterId;
         if (candidateSelfApply) {
+            if (!Boolean.TRUE.equals(req.consentAccepted())) {
+                throw new BusinessException("Bạn cần đồng ý cho doanh nghiệp xử lý dữ liệu cá nhân trước khi nộp hồ sơ");
+            }
             effectiveCandidateId = resolveCandidateId(actor.userId());
             effectiveAssignedRecruiterId = null;
         } else {
             AuthorizationPolicy.requireHr(actor);
             if (req.candidateId() == null) {
-                throw new BusinessException("Vui long chon ung vien");
+                throw new BusinessException("Vui lòng chọn ứng viên");
             }
             effectiveCandidateId = req.candidateId();
             effectiveAssignedRecruiterId = req.assignedRecruiterId();
@@ -350,9 +470,25 @@ public class ApplicationService {
             throw new BusinessException("Chỉ ứng tuyển được vào tin tuyển dụng đang mở");
         }
 
-        if (applicationRepository.existsByCandidateIdAndJobPostingIdAndDeletedAtIsNull(
-                effectiveCandidateId, req.jobPostingId())) {
-            throw new BusinessException("Ứng viên này đã nộp hồ sơ vào tin tuyển dụng này rồi");
+        var existing = applicationRepository.findFirstByCandidateIdAndJobPostingIdAndDeletedAtIsNull(
+                effectiveCandidateId, req.jobPostingId());
+        if (existing.isPresent()) {
+            // Đã rút đơn thì không nộp lại cùng việc — nói rõ lý do thay vì báo "đã nộp rồi".
+            if (CLOSED_WITHDRAWN.equals(existing.get().getClosedReason())) {
+                throw new BusinessException(candidateSelfApply
+                        ? "Bạn đã rút đơn ứng tuyển vị trí này nên không thể nộp lại"
+                        : "Ứng viên đã rút đơn ứng tuyển vị trí này nên không thể nộp lại");
+            }
+            throw new BusinessException(candidateSelfApply
+                    ? "Bạn đã ứng tuyển vị trí này rồi"
+                    : "Ứng viên này đã nộp hồ sơ vào tin tuyển dụng này rồi");
+        }
+        // Đã nhận việc (có đơn ở giai đoạn Đã tuyển) thì không ứng tuyển thêm.
+        if (applicationRepository.existsByCandidateIdAndCurrentStageTypeAndDeletedAtIsNull(
+                effectiveCandidateId, STAGE_TYPE_HIRED)) {
+            throw new BusinessException(candidateSelfApply
+                    ? "Bạn đã nhận việc tại công ty nên không thể ứng tuyển thêm vị trí khác"
+                    : "Ứng viên đã nhận việc tại công ty nên không thể thêm vào tin tuyển dụng khác");
         }
 
         validateRecruitmentSource(req.recruitmentSourceId());
@@ -387,13 +523,16 @@ public class ApplicationService {
                 .currentStageOrder(firstStage.stageOrder())
                 .currentStageType(firstStage.stageType())
                 .note(req.note())
+                .consentAt(candidateSelfApply ? LocalDateTime.now() : null)
                 .build());
 
-        saveHistory(application, null, firstStage.name(), "Ứng tuyển vào vị trí", actor.userId());
+        saveHistory(application, null, firstStage.name(),
+                candidateSelfApply ? "Ứng tuyển vào vị trí" : "Được thêm vào tin tuyển dụng", actor.userId());
 
         eventPublisher.publishApplicationCreated(
                 req.jobPostingId(), application.getId(),
-                application.getCandidateId(), application.getAssignedRecruiterId(), application.getCandidateNameSnapshot());
+                application.getCandidateId(), application.getAssignedRecruiterId(), application.getCandidateNameSnapshot(),
+                posting.title());
 
         return getById(actor, application.getId());
     }
@@ -445,7 +584,7 @@ public class ApplicationService {
         eventPublisher.publishApplicationStatusChanged(
                 application.getId(), application.getJobPostingId(),
                 application.getCandidateId(), application.getAssignedRecruiterId(),
-                previousStageName, nextStage.name(), nextStage.stageType());
+                previousStageName, nextStage.name(), nextStage.stageType(), null, jobTitleOf(application));
         auditEventPublisher.publish(actorUserId, "APPLICATION_STAGE_CHANGED", "APPLICATION", application.getId(),
                 previousStageName + " → " + nextStage.name());
 
@@ -489,7 +628,7 @@ public class ApplicationService {
         eventPublisher.publishApplicationStatusChanged(
                 application.getId(), application.getJobPostingId(),
                 application.getCandidateId(), application.getAssignedRecruiterId(),
-                previousStageName, rejectedStage.name(), rejectedStage.stageType());
+                previousStageName, rejectedStage.name(), rejectedStage.stageType(), null, jobTitleOf(application));
         auditEventPublisher.publish(actorUserId, "APPLICATION_REJECTED", "APPLICATION", application.getId(),
                 "Từ chối hồ sơ: " + req.note());
 
@@ -519,8 +658,10 @@ public class ApplicationService {
 
     @Transactional
     public BulkOperationResponse bulkAdvanceStage(Long actorUserId, BulkAdvanceStageRequest req) {
-        return runBulk(req.ids(), id ->
-                advanceStage(id, actorUserId, new ApplicationAdvanceStageRequest(req.note())));
+        return runBulk(req.ids(), id -> {
+            requireEvaluationBeforeOffer(id);
+            advanceStage(id, actorUserId, new ApplicationAdvanceStageRequest(req.note()));
+        });
     }
 
     @Transactional
@@ -694,10 +835,11 @@ public class ApplicationService {
                 posting.title(),
                 application.getDepartmentId(),
                 posting.departmentName(),
-                application.getCurrentStageName(),
+                shownAsWithdrawn(application) ? WITHDRAWN_STAGE_NAME : application.getCurrentStageName(),
                 application.getCurrentStageOrder(),
-                application.getCurrentStageType(),
-                application.getRejectionReasonId() == null
+                shownAsWithdrawn(application) ? STAGE_TYPE_WITHDRAWN : application.getCurrentStageType(),
+                application.getClosedReason() != null ? CLOSED_REASON_LABEL.get(application.getClosedReason())
+                        : application.getRejectionReasonId() == null
                         ? null : reasonMap.get(application.getRejectionReasonId()),
                 application.getAppliedAt(),
                 application.getHiredAt(),

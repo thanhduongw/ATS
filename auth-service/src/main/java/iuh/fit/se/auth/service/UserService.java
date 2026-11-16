@@ -56,7 +56,8 @@ public class UserService {
                         user.getId(),
                         user.getFullName(),
                         findRole(user.getRoleId()).getName().name(),
-                        user.getDepartmentId()))
+                        user.getDepartmentId(),
+                        user.getStatus() == null ? null : user.getStatus().name()))
                 .filter(user -> !RoleName.CANDIDATE.name().equals(user.role()))
                 .filter(user -> roleFilter == null || roleFilter.equalsIgnoreCase(user.role()))
                 .toList();

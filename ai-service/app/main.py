@@ -44,17 +44,31 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Không tạo được bảng của ai-service: %s", e)
 
-    try:
-        await rabbitmq_manager.connect()
-        logger.info("RabbitMQ connected successfully.")
+    # Worker chấm điểm phải luôn nghe hàng đợi application.created: nếu RabbitMQ chưa sẵn sàng lúc
+    # khởi động thì thử lại định kỳ thay vì chạy tiếp mà không có worker (hồ sơ nộp sau đó sẽ nằm
+    # mãi trong hàng đợi, không được chấm).
+    async def _start_queue_worker() -> None:
+        import asyncio
         from app.workers.scoring_worker import start_scoring_worker
-        await start_scoring_worker()
-    except Exception as e:
-        logger.warning("RabbitMQ connection failed (service will start without queue): %s", e)
+        delay = 5
+        while True:
+            try:
+                await rabbitmq_manager.connect()
+                await start_scoring_worker()
+                logger.info("RabbitMQ connected successfully.")
+                return
+            except Exception as e:  # noqa: BLE001
+                logger.warning("RabbitMQ chưa sẵn sàng (%s) — thử lại sau %ss", e, delay)
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 60)
+
+    import asyncio
+    queue_task = asyncio.create_task(_start_queue_worker())
 
     yield
 
     # --- Shutdown ---
+    queue_task.cancel()
     await rabbitmq_manager.disconnect()
     logger.info("AI Service shutdown complete.")
 

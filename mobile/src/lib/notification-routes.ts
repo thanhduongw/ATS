@@ -24,7 +24,7 @@ export function notificationHref(n: NotificationResponse, role?: Role): string |
         return null;
     }
   }
-  const area = role === "HIRING_MANAGER" ? "/hm" : role === "RECRUITER" || role === "COMPANY_ADMIN" ? "/hr" : null;
+  const area = role === "HIRING_MANAGER" ? "/hm" : role === "RECRUITER" ? "/hr" : null;
   if (!area) return null;
   switch (type) {
     case "APPLICATION":

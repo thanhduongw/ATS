@@ -69,6 +69,7 @@ function menuFor(role: UserRole): NavItem[] {
                 { key: "/admin/users", label: "Người dùng", icon: <UserOutlined /> },
                 { key: "/admin/company", label: "Thông tin doanh nghiệp", icon: <BankOutlined /> },
                 { key: "/admin/careers", label: "Trang tuyển dụng", icon: <GlobalOutlined /> },
+                { key: "/masterdata", label: "Danh mục", icon: <DatabaseOutlined /> },
                 { key: "/audit-logs", label: "Nhật ký hệ thống", icon: <AuditOutlined /> },
             ];
         // Ứng viên không dùng khung này (RoleShell → CandidateLayout).

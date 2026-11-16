@@ -137,7 +137,7 @@ export default function ApplyJobPage() {
                 dateOfBirth: profile.dateOfBirth, gender: profile.gender, address: profile.address,
                 educationLevelId: profile.educationLevelId, skillIds: profile.skillIds,
             });
-            const r = await applyToJob({ jobPostingId: job.id, recruitmentSourceId: sourceId });
+            const r = await applyToJob({ jobPostingId: job.id, recruitmentSourceId: sourceId, consentAccepted: agree });
             setDoneAt(r.data.appliedAt ?? new Date().toISOString());
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;

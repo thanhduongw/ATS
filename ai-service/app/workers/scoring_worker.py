@@ -80,10 +80,35 @@ async def _handle(message: aio_pika.abc.AbstractIncomingMessage) -> None:
 # [GIẢI THÍCH] Chạy 1 lần lúc ai-service khởi động (gọi trong app/main.py):
 # khai báo exchange ats.events, khai báo hàng đợi (durable = bền qua khởi động lại), gắn với key application.created,
 # rồi đăng ký _handle làm hàm xử lý tin nhắn.
+CANDIDATE_DATA_DELETED_QUEUE = "ai.candidate-data-deleted.queue"
+CANDIDATE_DATA_DELETED_ROUTING_KEY = "candidate.data_deleted"
+
+
+# [GIẢI THÍCH] Ứng viên xoá dữ liệu cá nhân (candidate-service phát candidate.data_deleted):
+# xoá bản trích xuất CV và phần chi tiết của kết quả chấm (dẫn chứng trích từ CV). Điểm và xếp loại giữ lại
+# để số liệu thống kê không đổi.
+async def _handle_candidate_deleted(message: aio_pika.abc.AbstractIncomingMessage) -> None:
+    async with message.process(ignore_processed=True):
+        try:
+            candidate_id = int(json.loads(message.body)["candidateId"])
+        except (ValueError, KeyError, TypeError):
+            logger.warning("Bỏ qua message candidate.data_deleted không hợp lệ: %r", message.body[:200])
+            return
+        try:
+            from app.services.application_scoring import purge_candidate_data
+            removed = await purge_candidate_data(candidate_id)
+            logger.info("Đã xoá %s bản trích xuất CV của ứng viên %s", removed, candidate_id)
+        except Exception:  # noqa: BLE001
+            logger.exception("Không xoá được dữ liệu AI của ứng viên %s", candidate_id)
+
+
 async def start_scoring_worker() -> None:
     channel = rabbitmq_manager.channel
     exchange = await channel.declare_exchange(ATS_EXCHANGE, aio_pika.ExchangeType.TOPIC, durable=True)
     queue = await channel.declare_queue(APPLICATION_CREATED_QUEUE, durable=True)
     await queue.bind(exchange, routing_key=APPLICATION_CREATED_ROUTING_KEY)
     await queue.consume(_handle)
+    deleted_queue = await channel.declare_queue(CANDIDATE_DATA_DELETED_QUEUE, durable=True)
+    await deleted_queue.bind(exchange, routing_key=CANDIDATE_DATA_DELETED_ROUTING_KEY)
+    await deleted_queue.consume(_handle_candidate_deleted)
     logger.info("Scoring worker đang nghe %s", APPLICATION_CREATED_QUEUE)

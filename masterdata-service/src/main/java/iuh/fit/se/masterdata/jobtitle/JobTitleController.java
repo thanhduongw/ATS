@@ -26,7 +26,7 @@ public class JobTitleController {
     @PostMapping
     public ResponseEntity<JobTitleResponse> create(
             @Valid @RequestBody JobTitleRequest req) {
-        AuthorizationPolicy.requireInternal(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.create(req));
     }
 

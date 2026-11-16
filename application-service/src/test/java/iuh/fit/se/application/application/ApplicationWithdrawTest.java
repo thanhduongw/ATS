@@ -44,22 +44,24 @@ class ApplicationWithdrawTest {
     @Mock private RecruitmentServiceClient recruitmentServiceClient;
     @Mock private MasterDataServiceClient masterDataServiceClient;
     @Mock private AuthServiceClient authServiceClient;
+    @Mock private iuh.fit.se.application.client.InterviewServiceClient interviewServiceClient;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private AuditEventPublisher auditEventPublisher;
 
     @InjectMocks private ApplicationService applicationService;
 
     @Test
-    void ownerWithdrawsAndApplicationEndsAsRejectedWithWithdrawReason() {
+    void ownerWithdrawsAndApplicationIsClosedAsWithdrawn() {
         Application app = application("TECHNICAL_INTERVIEW", 3);
         stub(app, 100L);
 
         applicationService.withdrawMyApplication(candidate(), 7L);
 
         assertThat(app.getCurrentStageType()).isEqualTo("REJECTED");
-        assertThat(app.getRejectionReasonId()).isEqualTo(55L);
+        assertThat(app.getClosedReason()).isEqualTo("WITHDRAWN");
+        assertThat(app.getRejectionReasonId()).isNull();
         verify(eventPublisher).publishApplicationStatusChanged(
-                eq(7L), eq(30L), eq(100L), any(), any(), any(), eq("REJECTED"));
+                eq(7L), eq(30L), eq(100L), any(), any(), eq("Đã rút đơn"), eq("REJECTED"), eq("WITHDRAWN"), any());
     }
 
     @Test

@@ -40,6 +40,7 @@ class ApplicationAuthorizationTest {
     @Mock private RecruitmentServiceClient recruitmentServiceClient;
     @Mock private MasterDataServiceClient masterDataServiceClient;
     @Mock private AuthServiceClient authServiceClient;
+    @Mock private iuh.fit.se.application.client.InterviewServiceClient interviewServiceClient;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private AuditEventPublisher auditEventPublisher;
 
@@ -96,8 +97,8 @@ class ApplicationAuthorizationTest {
                         10L, "Candidate A", "a@example.com", null, "owned-resume.pdf"));
         when(recruitmentServiceClient.getPostingById(30L))
                 .thenReturn(new JobPostingResponse(30L, 40L, "OPEN", "Backend Engineer", 50L, "IT"));
-        when(applicationRepository.existsByCandidateIdAndJobPostingIdAndDeletedAtIsNull(10L, 30L))
-                .thenReturn(false);
+        when(applicationRepository.findFirstByCandidateIdAndJobPostingIdAndDeletedAtIsNull(10L, 30L))
+                .thenReturn(Optional.empty());
         when(masterDataServiceClient.getRecruitmentSources())
                 .thenReturn(List.of(new CatalogItemResponse(60L, "WEB", "Website")));
         when(masterDataServiceClient.getRejectionReasons()).thenReturn(List.of());
@@ -120,7 +121,7 @@ class ApplicationAuthorizationTest {
         var response = applicationService.createForCandidate(
                 actor,
                 new ApplicationCreateRequest(
-                        999L, 30L, 60L, 888L, "attacker-resume.pdf", "Cover letter"));
+                        999L, 30L, 60L, 888L, "attacker-resume.pdf", "Cover letter", true));
 
         assertEquals(7L, response.id());
         assertEquals(10L, saved.get().getCandidateId());

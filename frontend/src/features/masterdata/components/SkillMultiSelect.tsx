@@ -4,6 +4,7 @@ import { PlusOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getCatalogItems, createCatalogItem } from "../masterdataApi";
 import type { CatalogItem, ApiMessageResponse } from "../types";
+import { useAppSelector } from "../../../app/hooks";
 
 interface SkillMultiSelectProps {
     value: number[];
@@ -18,6 +19,8 @@ export default function SkillMultiSelect({ value, onChange, placeholder }: Skill
     const [loading, setLoading] = useState(false);
     const [creating, setCreating] = useState(false);
     const [searchValue, setSearchValue] = useState("");
+    const role = useAppSelector((st) => st.auth.user?.role);
+    const canEditCatalog = role === "RECRUITER" || role === "COMPANY_ADMIN";
 
     useEffect(() => {
         setLoading(true);
@@ -33,7 +36,8 @@ export default function SkillMultiSelect({ value, onChange, placeholder }: Skill
 
     const trimmedSearch = searchValue.trim();
     const isDuplicate = skills.some((s) => (s.name as string).toLowerCase() === trimmedSearch.toLowerCase());
-    const canQuickAdd = trimmedSearch.length > 0 && !isDuplicate;
+    // Chỉ Chuyên viên tuyển dụng và Quản trị viên được thêm mục danh mục; Đại diện phòng ban chỉ chọn mục có sẵn.
+    const canQuickAdd = canEditCatalog && trimmedSearch.length > 0 && !isDuplicate;
 
     const handleCreateSkill = async () => {
         if (!canQuickAdd) return;

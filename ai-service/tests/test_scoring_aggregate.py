@@ -20,7 +20,7 @@ from app.schemas.scoring import (
     Tier,
 )
 from app.schemas.scoring_llm import LLMScoringOutput
-from app.services.scoring.aggregate import Thresholds, assemble_result, classify
+from app.services.scoring.aggregate import Thresholds, assemble_result, classify, relevance_gate
 
 TODAY = date(2026, 10, 22)
 T = Thresholds()
@@ -487,3 +487,46 @@ def test_education_requirement_name_and_graduated_evidence():
     edu_req = next(q for q in r.requirements if q.category == RequirementCategory.EDUCATION_LEVEL)
     assert edu_req.requirement == "Tốt nghiệp từ Cao đẳng (bậc 5) trở lên"
     assert edu_req.evidence == "Ứng viên: Đại học (bậc 6) (suy từ tên trường: Đại học Bách Khoa)"
+
+
+# ============================================================
+# Chốt chặn theo lĩnh vực / chuyên môn (16/11/2026)
+# ============================================================
+
+def intern_jd() -> ExtractedJD:
+    """JD ít yêu cầu (thực tập sinh): không kỹ năng bắt buộc, 0 năm kinh nghiệm."""
+    return ExtractedJD(job_title="Thực tập sinh Nhân sự", skills=[], tasks=["Hỗ trợ đăng tin tuyển dụng"],
+                       experience=ExperienceRequirement(min_years=0, importance=PREF),
+                       education=None, certifications=[], domains=[])
+
+
+def test_low_relevance_blocks_fit_even_with_high_score():
+    """CV lập trình viên nộp vị trí Thực tập sinh Nhân sự: JD chỉ áp dụng 2 tiêu chí, Số năm mức 4 kéo điểm
+    trung bình vượt ngưỡng dù Kinh nghiệm liên quan chỉ mức 1 -> không được Phù hợp."""
+    r = assemble(intern_jd(), llm_output(levels={"RELEVANT_EXPERIENCE": 1}), years=3, degree=6)
+    assert dim(r, D.RELEVANT_EXPERIENCE).level == 1
+    assert classify(80, [], T)[0] == Tier.FIT
+    dims = r.dimensions
+    tier, reason = relevance_gate(Tier.FIT, "x", 80, dims, "Tóm tắt.")
+    assert tier == Tier.UNCLASSIFIED and "chuyên môn thấp" in reason
+
+
+def test_negative_summary_blocks_fit():
+    tier, reason = relevance_gate(Tier.FIT, "x", 80, [], "Ứng viên thiên về backend, hoàn toàn không phù hợp với vị trí.")
+    assert tier == Tier.UNCLASSIFIED and "nhận xét của AI" in reason
+
+
+def test_gate_never_changes_other_tiers_or_good_profiles():
+    assert relevance_gate(Tier.NOT_FIT, "x", 30, [], "không phù hợp") == (Tier.NOT_FIT, "x")
+    r = assemble(backend_jd(years_importance=PREF), llm_output(levels={"TECHNICAL_SKILLS": 4, "RELEVANT_EXPERIENCE": 4}),
+                 years=5)
+    assert r.tier == Tier.FIT  # Lĩnh vực ưu tiên ở mức 1 không chặn
+
+
+def test_required_domain_low_blocks_fit():
+    jd = backend_jd(years_importance=PREF, domains=[item("Ngân hàng", REQ)])
+    llm = llm_output(levels={"TECHNICAL_SKILLS": 4, "RELEVANT_EXPERIENCE": 4, "DOMAIN": 1},
+                     checks=[("Java", "SKILL", "MET"), ("Spring Boot", "SKILL", "MET"), ("SQL", "SKILL", "MET"),
+                             ("Ngân hàng", "DOMAIN", "MET")])
+    r = assemble(jd, llm, years=5)
+    assert r.tier == Tier.UNCLASSIFIED

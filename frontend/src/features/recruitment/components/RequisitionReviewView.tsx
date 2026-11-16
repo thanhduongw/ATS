@@ -82,7 +82,8 @@ export default function RequisitionReviewView({ requisition: r, cat, onChanged }
     }, [r.id, r.status]);
 
     const role = me?.role as UserRole | undefined;
-    const canAct = r.status === "PENDING_APPROVAL" && !!role && HR_ROLES.includes(role) && me?.userId === String(r.approverId);
+    // Mọi Chuyên viên tuyển dụng đều duyệt được; backend ghi lại người thực sự duyệt.
+    const canAct = r.status === "PENDING_APPROVAL" && !!role && HR_ROLES.includes(role);
     const skills = r.skillIds.map((id) => cat.skillMap[id]).filter(Boolean);
     const dept = cat.departmentMap[r.departmentId];
 
@@ -183,7 +184,7 @@ export default function RequisitionReviewView({ requisition: r, cat, onChanged }
                         <Field label="Ngân sách tối đa / tháng" value={millions(r.budget)} />
                         {r.status === "APPROVED"
                             ? <Field label="Lương đã duyệt" value={<span style={{ color: COLORS.success }}>{formatSalaryShort(r.approvedSalaryMin, r.approvedSalaryMax)}</span>} />
-                            : <Field label="Người duyệt" value={r.approverName || "Chuyên viên tuyển dụng hoặc quản trị viên"} />}
+                            : <Field label="Người duyệt" value={r.approverName || "Chuyên viên tuyển dụng"} />}
                     </Panel>
                     {r.status === "CHANGES_REQUESTED" && r.hrNote && (
                         <Panel title="Đã yêu cầu phòng ban sửa" bodyGap={6}>{text(`“${r.hrNote}”`)}</Panel>

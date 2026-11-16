@@ -12,6 +12,7 @@ Python thuần, tất định: không gọi LLM, không DB. Benchmark dùng lạ
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -383,6 +384,42 @@ def classify(
     return Tier.FIT, f"Đạt mọi yêu cầu bắt buộc và điểm {_vn(total_score)} từ {_vn(high)} trở lên."
 
 
+# [GIẢI THÍCH] CHỐT CHẶN THEO LĨNH VỰC (bổ sung 16/11/2026, sau khi CV lập trình viên được xếp "Phù hợp" cho vị trí
+# Thực tập sinh Nhân sự): JD ít yêu cầu thì Số năm và Học vấn dễ đạt mức 4, kéo điểm trung bình vượt ngưỡng dù ứng viên
+# làm trái ngành. Ba tiêu chí nói về chuyên môn / lĩnh vực (Kỹ năng, Kinh nghiệm liên quan, Lĩnh vực) mà có tiêu chí
+# ở mức 0–1 thì KHÔNG được xếp Phù hợp — hạ về Chưa phân loại để HR xem tay. Chỉ hạ, không bao giờ nâng.
+# Lĩnh vực chỉ tính vào chốt chặn khi JD ghi lĩnh vực là BẮT BUỘC (lĩnh vực ưu tiên thấp không phải lý do để chặn).
+_RELEVANCE_DIMENSIONS = (D.TECHNICAL_SKILLS, D.RELEVANT_EXPERIENCE)
+_LOW_RELEVANCE_LEVEL = 1
+
+# Tóm tắt của AI kết luận "không phù hợp" (nhận xét mâu thuẫn với điểm) -> cũng không xếp Phù hợp.
+_NEGATIVE_SUMMARY = re.compile(
+    r"(hoàn toàn\s+)?(không|chưa|ít)\s+(thật sự\s+|thực sự\s+)?(phù hợp|liên quan|đáp ứng|tương thích)"
+    r"|trái\s+(ngành|lĩnh vực)|khác\s+(hẳn\s+)?(ngành|lĩnh vực)|not\s+(a\s+)?(good\s+)?(fit|suitable|relevant)",
+    re.IGNORECASE,
+)
+
+
+def relevance_gate(tier: Tier, tier_reason: str, total_score: float | None,
+                   dimensions: list[ScoredDimension], summary: str,
+                   domain_required: bool = False) -> tuple[Tier, str]:
+    """Hạ Phù hợp -> Chưa phân loại khi chuyên môn / lĩnh vực thấp hoặc nhận xét của AI kết luận không phù hợp."""
+    if tier != Tier.FIT:
+        return tier, tier_reason
+    gated = _RELEVANCE_DIMENSIONS + ((D.DOMAIN,) if domain_required else ())
+    low = [d for d in dimensions
+           if d.dimension in gated and d.applicable and d.level is not None
+           and d.level <= _LOW_RELEVANCE_LEVEL]
+    if low:
+        names = ", ".join(f"{d.label} (mức {d.level}/4)" for d in low)
+        return Tier.UNCLASSIFIED, (f"Điểm {_vn(total_score)} đạt ngưỡng nhưng mức độ phù hợp chuyên môn thấp: {names}; "
+                                   "HR cần xem trực tiếp hồ sơ.")
+    if summary and _NEGATIVE_SUMMARY.search(summary):
+        return Tier.UNCLASSIFIED, (f"Điểm {_vn(total_score)} đạt ngưỡng nhưng nhận xét của AI cho thấy hồ sơ chưa phù hợp "
+                                   "với vị trí; HR cần xem trực tiếp hồ sơ.")
+    return tier, tier_reason
+
+
 # [GIẢI THÍCH] Câu mở đầu nhận xét do CODE viết (luôn khớp điểm và xếp loại), nối với tóm tắt của Gemini.
 def headline(total_score: float | None, tier: Tier, tier_reason: str) -> str:
     score = f"{_vn(total_score)}/100" if total_score is not None else "chưa tính được điểm"
@@ -421,6 +458,9 @@ def assemble_result(
                                       studying)
     tier, tier_reason = classify(total, requirements, thresholds)
     summary = llm.summary.strip()
+    tier, tier_reason = relevance_gate(
+        tier, tier_reason, total, dimensions, summary,
+        domain_required=any(d.importance == Importance.REQUIRED for d in jd.domains))
     return ScoreResult(
         total_score=total,
         tier=tier,

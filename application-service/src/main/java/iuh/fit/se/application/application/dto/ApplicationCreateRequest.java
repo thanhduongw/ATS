@@ -8,5 +8,7 @@ public record ApplicationCreateRequest(
         @NotNull(message = "Vui lòng chọn nguồn tuyển dụng") Long recruitmentSourceId,
         Long assignedRecruiterId,
         String resumeUrl,
-        String note
+        String note,
+        /** Ứng viên tự nộp đơn phải đồng ý cho doanh nghiệp xử lý dữ liệu cá nhân (bắt buộc là true). */
+        Boolean consentAccepted
 ) {}

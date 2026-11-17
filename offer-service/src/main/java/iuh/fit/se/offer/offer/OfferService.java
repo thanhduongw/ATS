@@ -189,6 +189,7 @@ public class OfferService {
             throw new BusinessException("Hồ sơ này đã có Offer đang xử lý hoặc đã được chấp nhận");
         }
 
+        requireDeadlineBeforeStart(req.responseDeadline(), req.startDate());
         validateContractType(req.contractTypeId());
         validateApprover(req.approverId());
         JobPostingSummaryResponse posting = requireHeadcountAvailable(application.jobPostingId());
@@ -240,6 +241,7 @@ public class OfferService {
             throw new BusinessException("Chỉ chỉnh sửa được Offer ở trạng thái bản nháp");
         }
 
+        requireDeadlineBeforeStart(req.responseDeadline(), req.startDate());
         validateContractType(req.contractTypeId());
         validateApprover(req.approverId());
 
@@ -566,6 +568,13 @@ public class OfferService {
      * Chan tao them offer khi tin tuyen dung da dung het so luong tuyen cua requisition.
      * Offer tao truoc khi co cot job_posting_id mang gia tri null nen khong tinh vao han muc.
      */
+    /** Ứng viên phải trả lời trước ngày đi làm (ràng buộc ck_offer_deadline_before_start ở DB) — báo rõ thay vì lỗi 500. */
+    private void requireDeadlineBeforeStart(LocalDateTime responseDeadline, java.time.LocalDate startDate) {
+        if (responseDeadline != null && startDate != null && !responseDeadline.toLocalDate().isBefore(startDate)) {
+            throw new BusinessException("Hạn phản hồi phải trước ngày bắt đầu làm việc");
+        }
+    }
+
     private JobPostingSummaryResponse requireHeadcountAvailable(Long jobPostingId) {
         if (jobPostingId == null) return null;
 

@@ -16,6 +16,11 @@ pid_of() { netstat -ano | grep LISTENING | grep -E "[:.]$1 " | awk '{print $5}' 
 
 stop_one() {
   local pid; pid="$(pid_of "${PORT[$1]}")"
+  if [ -z "$pid" ]; then
+    # Service khoi dong loi (vd. migration hong) van de lai tien trinh Maven/devtools treo, khong mo cong nhung
+    # giu file log -> lan khoi dong sau khong len. Tim theo dong lenh run-service.bat <ten>.
+    pid="$(powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter \"Name='cmd.exe'\" | Where-Object { \$_.CommandLine -like '*run-service.bat*$1*' -or \$_.CommandLine -like '*run-ai-service.bat*' -and '$1' -eq 'ai-service' } | Select-Object -First 1).ProcessId" 2>/dev/null | tr -d '')"
+  fi
   if [ -n "$pid" ]; then
     taskkill //F //T //PID "$pid" > /dev/null 2>&1; echo "da dung $1 (pid $pid)"
     # Cho tien trinh cu nha file log: khoi dong ngay se khong mo duoc logs/<service>.log va service khong len.

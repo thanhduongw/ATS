@@ -82,24 +82,34 @@ mục 5, mục 6 (reset + dữ liệu demo), mục 7 (kiểm tra giao diện), n
 Phụ: khoá / vô hiệu hoá tài khoản thì thu hồi luôn phiên đăng nhập; `scripts/dev/svc.sh` chờ 3 giây sau khi dừng service
 (trước đó khởi động lại nhiều service một lúc có cái không lên vì file log còn bị giữ).
 
-## Mục 6 — đang làm
+## Mục 4 — code xong (17/11), chưa kiểm trên giao diện
 
-Bộ script ở `scripts/demo-data/` (chạy bằng Python của ai-service):
+| Việc | Trạng thái | Đã kiểm bằng gì | Ghi chú |
+|---|---|---|---|
+| 4.1 Màu thương hiệu | code xong | test auth-service, tsc web, typecheck + lint mobile; `GET /api/auth/public/theme` trả 200 qua gateway | Web: `COLORS.primary…` trỏ tới biến CSS `--ats-brand*` (`frontend/src/app/brand.ts`), Ant Design dựng chủ đề từ bảng màu; trang Thông tin doanh nghiệp có bảng chọn màu, xem trước trực tiếp, báo tỉ lệ tương phản; màu nhạt hơn 4,5:1 tự làm đậm, backend từ chối màu không đạt. Mobile: đọc đồng bộ màu đã lưu lúc khởi động, màu mới có hiệu lực từ lần mở app sau |
+| 4.2 Nền phần đầu trang tuyển dụng | code xong | tsc web | Chọn "Màu thương hiệu / Một màu / Chuyển màu" trong trình soạn trang tuyển dụng; không có ảnh bìa thì dùng ảnh đời sống, không có ảnh nào thì chỉ còn chữ |
+| 4.3 Email bất đồng bộ | code xong | test auth, notification | auth-service (đợt trước) và notification-service gửi mail ở luồng nền; bỏ qua địa chỉ sai dạng và miền thử nghiệm |
+| 4.4 Nhắc lịch phỏng vấn | code xong | test interview, notification | Job mỗi phút ở interview-service, hai cột `reminder_24h_sent_at` / `reminder_1h_sent_at` (migration V12) chống nhắc trùng, đổi giờ thì nhắc lại; notification-service gửi thông báo + email cho người phỏng vấn và ứng viên. Bỏ cơ chế hàng đợi trễ cũ (tin TTL khác nhau chặn nhau) |
+| 4.5 Tìm không dấu | code xong | test recruitment / application / candidate, tsc web | Web: `matchesKeyword` cho Ctrl+K, các danh sách, danh mục, việc làm công khai. Backend: `TextSearch.fold` (hàm `translate` của Postgres, không cần extension) |
 
-- `reset_db.py` — xoá mọi bảng của mọi DB `ats_*` (giữ `flyway_schema_history` và bảng `role`), tạo lại dòng công ty +
-  quản trị viên đầu tiên, khởi động lại masterdata-service để nạp danh mục IT mặc định.
-- `seed.py` — reset rồi tạo lại dữ liệu qua API thật (công ty Mộc Lam Software, 9 tài khoản nội bộ, 10 yêu cầu tuyển dụng,
-  6 tin, 33 ứng viên có CV PDF sinh bằng PyMuPDF, 41 đơn, ~20 buổi phỏng vấn, 7 thư mời, 2 CV chèn lệnh).
-  Các chỗ chỉnh DB có kiểm soát được liệt kê ở đầu file.
-- `jobs.py`, `people.py` (dữ liệu), `cv_pdf.py`, `images.py` (logo chữ + 3 áp phích), `lib.py` (API, psql, đồng hồ giả lập).
+Kèm theo: ai-service tự kiểm tra consumer của hàng đợi chấm điểm mỗi 30 giây và nối lại (lỗi 1.5 tái diễn ngày 17/11:
+kết nối RabbitMQ rớt, thư viện không đăng ký lại consumer); hạn phản hồi thư mời mặc định 17:00; thông báo nổi nằm dưới thanh trên cùng.
 
-**Chưa chạy lần nào** — bước kế tiếp là chạy `seed.py`, sửa lỗi phát sinh, rồi kiểm số liệu.
+## Mục 6 — script đã viết, đang chạy
+
+Bộ script ở `scripts/demo-data/` (chạy bằng Python của ai-service; cách dùng ở `CLAUDE.md` gốc):
+`reset_db.py`, `seed.py`, `jobs.py`, `people.py`, `cv_pdf.py`, `images.py`, `lib.py`.
+
+Các lần chạy 17/11: (1) hỏng do script gọi nhầm bash của WSL và đọc sai trường trả về; (2) máy khởi động lại, Docker tắt;
+(3) ai-service rớt consumer + access token hết hạn giữa chừng; (4) interview-service không lên vì migration trùng số;
+(5) bị dừng vì máy thiếu RAM. Mỗi nguyên nhân đã sửa. Lần (4) đã tạo đủ 41 đơn và AI chấm xong cả 41.
+**Chưa có lần nào chạy trọn tới cuối.**
 
 ## Việc dở dang — đọc trước khi "làm tiếp"
 
-1. Chạy `ai-service/.venv/Scripts/python.exe scripts/demo-data/seed.py` (mất 30–45 phút vì AI chấm thật từng đơn).
-2. Mục 7: kiểm trên giao diện web + mobile — **chưa kiểm mục nào**, kể cả các mục nhóm A / B / C ở trên.
-3. Mục 4 (màu thương hiệu, hero, nhắc lịch qua email, tìm không dấu), mục 5, nhóm D, mục 9.
+1. Chạy trọn `ai-service/.venv/Scripts/python.exe scripts/demo-data/seed.py` (30–45 phút, cần đủ 11 service và còn RAM trống).
+2. Mục 7: kiểm trên giao diện web + mobile — **chưa kiểm mục nào**, kể cả các mục nhóm A / B / C và mục 4 ở trên.
+3. Mục 5, nhóm D (mới làm vài mục), 3.19, mục 9 (`docs/KET_QUA_HOAN_THIEN.md`).
 
 ## Công cụ đã thêm
 

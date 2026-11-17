@@ -150,6 +150,16 @@ Quy tắc giữ nguyên:
 - Chỉ có giao diện SÁNG (`app.json` đặt `userInterfaceStyle: "light"`). Đừng thêm dark mode.
 - Làm một màn: mở đúng khung (mã màn) trong `docs/UI/Mobile.html` trước, chép đúng chữ, rồi ghép từ component chung.
 
+**Màu thương hiệu động (17/11/2026).** `COLORS.primary`, `primaryDark`, `primarySoft`, `primaryFaint`, `navy`, `navy2`
+không còn là hằng số: `src/theme/brand.ts` tính chúng từ màu Quản trị doanh nghiệp chọn trên web
+(`GET /auth/public/theme`). Vì màu nằm trong `StyleSheet.create` (tính một lần lúc nạp module), app đọc **đồng bộ**
+màu đã lưu ở lần mở trước (SecureStore, trên web là localStorage); `syncBrandFromServer()` trong `app/_layout.tsx`
+hỏi lại máy chủ và lưu màu mới — có hiệu lực từ lần mở app kế tiếp (trên trình duyệt thì tự tải lại trang).
+Màu nhạt hơn mức tương phản 4,5:1 với chữ trắng được tự làm đậm, cùng công thức với web. Hệ quả cho người viết mã:
+- Không viết mã màu thương hiệu trực tiếp (`#0A59F7`, `#0A59F719`…) ở bất kỳ đâu — luôn qua `COLORS.*` / `STATUS_TONES.brand`.
+- Bảng dưới ghi giá trị **mặc định** của thiết kế; lúc chạy có thể khác.
+- Màu ngữ nghĩa (đỏ, cam, xanh lá, tím phỏng vấn) và dải màu AI không đổi theo thương hiệu.
+
 Các con số đã chốt:
 
 | Thứ | Giá trị | Token |

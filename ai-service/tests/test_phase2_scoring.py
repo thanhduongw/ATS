@@ -374,6 +374,17 @@ async def test_failure_clears_previous_score(factory, java):
         assert len((await s.execute(select(AIScore))).scalars().all()) == 1
 
 
+async def test_failure_message_hides_raw_llm_error(factory, java):
+    """HR chỉ thấy câu tiếng Việt; lỗi gốc của Gemini (mã HTTP, tiếng Anh) nằm ở ai_jobs để tra cứu."""
+    failed = await svc.score_application(1, session_factory=factory, manager=manager(ScoringLLM(fail_jd=True)))
+    assert "quá tải" in failed.error_message and "JD quota" not in failed.error_message
+    failed = await svc.score_application(1, session_factory=factory, manager=manager(ScoringLLM(fail=True)))
+    assert "quá tải" in failed.error_message and "429" not in failed.error_message
+    async with factory() as s:
+        job = (await s.execute(select(AIJob).order_by(AIJob.id.desc()))).scalars().first()
+    assert "429 quota" in job.error_message
+
+
 @pytest.mark.parametrize("change, expected", [
     ({"summary": {"resumeUrl": None}}, "không có CV"),
     ({"posting": None}, "tin tuyển dụng"),

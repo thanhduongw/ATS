@@ -33,7 +33,8 @@ export default function AuditLogPage() {
     const [keyword, setKeyword] = useState("");
 
     useEffect(() => {
-        getUsers().then((r) => setUsers((r.data ?? []).filter((u) => u.role !== "CANDIDATE"))).catch(() => setUsers([]));
+        // Giữ cả ứng viên: cột "Đối tượng" tra tên tài khoản ứng viên (vd. dòng Đăng nhập). Ô lọc chỉ liệt kê nhân viên.
+        getUsers().then((r) => setUsers(r.data ?? [])).catch(() => setUsers([]));
     }, []);
 
     // Bộ lọc gửi lên server: đổi là tải lại ngay (không cần nút "Lọc").
@@ -128,7 +129,7 @@ export default function AuditLogPage() {
                         style={{ width: 200 }}
                         value={actorUserId}
                         onChange={(v) => { setLoading(true); setActorUserId(v); }}
-                        options={users.map((u) => ({ value: u.id, label: u.fullName || u.email }))}
+                        options={users.filter((u) => u.role !== "CANDIDATE").map((u) => ({ value: u.id, label: u.fullName || u.email }))}
                     />
                     <RangePicker
                         format="DD/MM/YYYY"

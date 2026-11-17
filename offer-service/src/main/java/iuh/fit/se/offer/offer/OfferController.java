@@ -153,6 +153,6 @@ public class OfferController {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireHr(actor);
         service.softDelete(id, actor);
-        return ResponseEntity.ok(Map.of("message", "Xóa Offer thành công"));
+        return ResponseEntity.ok(Map.of("message", "Đã xoá thư mời"));
     }
 }

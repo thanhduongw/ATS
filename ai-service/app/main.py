@@ -62,29 +62,10 @@ async def lifespan(app: FastAPI):
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, 60)
 
-        # Canh gác: kết nối có thể rớt giữa chừng (mất heartbeat, RabbitMQ khởi động lại) mà thư viện không đăng ký
-        # lại consumer — đã gặp ngày 17/11: hàng đợi còn tin nhưng 0 consumer, hồ sơ không được chấm. Cứ 30 giây hỏi
-        # RabbitMQ số consumer của hàng đợi chấm điểm; bằng 0 hoặc hỏi lỗi thì dựng lại kết nối và worker.
+        # Canh gác: kết nối rớt giữa chừng mà thư viện không đăng ký lại consumer (xem app/workers/scoring_watchdog.py).
+        from app.workers.scoring_watchdog import watch
         from app.workers.scoring_worker import APPLICATION_CREATED_QUEUE
-        while True:
-            await asyncio.sleep(30)
-            try:
-                state = await rabbitmq_manager.channel.declare_queue(APPLICATION_CREATED_QUEUE, durable=True, passive=True)
-                if state.declaration_result.consumer_count > 0:
-                    continue
-                logger.warning("Hàng đợi chấm điểm không còn consumer — đăng ký lại")
-            except Exception as e:  # noqa: BLE001
-                logger.warning("Kết nối RabbitMQ có vấn đề (%s) — nối lại", e)
-            try:
-                try:
-                    await rabbitmq_manager.disconnect()
-                except Exception:  # noqa: BLE001
-                    pass
-                await rabbitmq_manager.connect()
-                await start_scoring_worker()
-                logger.info("Đã nối lại RabbitMQ và worker chấm điểm.")
-            except Exception as e:  # noqa: BLE001
-                logger.warning("Nối lại RabbitMQ thất bại (%s) — thử lại sau 30s", e)
+        await watch(rabbitmq_manager, start_scoring_worker, APPLICATION_CREATED_QUEUE)
 
     import asyncio
     queue_task = asyncio.create_task(_start_queue_worker())

@@ -43,7 +43,7 @@ export default function WorkExperienceTimeline({ items }: Props) {
           .join(" → ");
 
         return {
-          dot: (
+          icon: (
             <div
               style={{
                 width: 10,
@@ -54,7 +54,7 @@ export default function WorkExperienceTimeline({ items }: Props) {
               }}
             />
           ),
-          children: (
+          content: (
             <div style={{ paddingBottom: 4 }}>
               {/* Company + Title */}
               <div style={{ marginBottom: 4 }}>

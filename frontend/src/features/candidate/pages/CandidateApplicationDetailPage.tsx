@@ -100,6 +100,8 @@ export default function CandidateApplicationDetailPage() {
 
     const [application, setApplication] = useState<ApplicationResponse | null>(null);
     const [candidate, setCandidate] = useState<CandidateResponse | null>(null);
+    /** Đơn còn (giữ để thống kê) nhưng hồ sơ ứng viên đã bị xoá — ứng viên tự xoá dữ liệu hoặc HR xoá. */
+    const [candidateGone, setCandidateGone] = useState(false);
     const [stages, setStages] = useState<PipelineStageResponse[]>([]);
     const [history, setHistory] = useState<ApplicationHistoryResponse[]>([]);
     const [comments, setComments] = useState<ApplicationCommentResponse[]>([]);
@@ -129,11 +131,16 @@ export default function CandidateApplicationDetailPage() {
     const loadAll = useCallback(async () => {
         if (!applicationId) return;
         setLoading(true);
+        setCandidateGone(false);
         try {
             const appRes = await getApplicationById(applicationId);
             setApplication(appRes.data);
             const [candRes, postingRes, pipelineListRes, historyRes, commentsRes, interviewsRes, workLocationRes] = await Promise.all([
-                getCandidateById(appRes.data.candidateId),
+                // Hồ sơ ứng viên đã xoá (404): không báo lỗi, màn tự giải thích bên dưới.
+                getCandidateById(appRes.data.candidateId).catch((err: AxiosError) => {
+                    if (err.response?.status === 404) return null;
+                    throw err;
+                }),
                 getPostingById(appRes.data.jobPostingId),
                 getPipelines(),
                 getApplicationHistory(applicationId),
@@ -141,6 +148,11 @@ export default function CandidateApplicationDetailPage() {
                 getInterviews(applicationId),
                 getCatalogItems("/masterdata/work-locations"),
             ]);
+            if (!candRes) {
+                setCandidate(null);
+                setCandidateGone(true);
+                return;
+            }
             setCandidate(candRes.data);
             const pipeline = pipelineListRes.data.find((p) => p.id === postingRes.data.pipelineId);
             setStages(pipeline ? [...pipeline.stages].sort((a, b) => a.stageOrder - b.stageOrder) : []);
@@ -289,6 +301,14 @@ export default function CandidateApplicationDetailPage() {
     }
 
     // Tai xong that su ma van thieu thi moi la khong tim thay.
+    if (application && candidateGone) {
+        return (
+            <div className="page-container">
+                <EmptyState title="Hồ sơ ứng viên đã bị xoá"
+                    description="Đơn ứng tuyển được giữ lại để thống kê nhưng không còn thông tin cá nhân và CV của ứng viên." />
+            </div>
+        );
+    }
     if (!application || !candidate) {
         return (
             <div className="page-container">

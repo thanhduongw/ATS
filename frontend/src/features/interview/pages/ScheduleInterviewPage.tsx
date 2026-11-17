@@ -86,7 +86,9 @@ export default function ScheduleInterviewPage() {
             if (a.jobPostingId) {
                 getPostingById(a.jobPostingId).then((p) => {
                     const wl = p.data.workLocationId;
-                    if (wl && locs.some((l) => l.id === wl)) setWorkLocationId((cur) => (old ? cur : wl));
+                    // Đặt lại lịch: giữ địa điểm của buổi cũ nếu buổi đó tại văn phòng; buổi cũ trực tuyến thì dùng
+                    // văn phòng của tin (không để rơi về văn phòng đầu danh sách).
+                    if (wl && locs.some((l) => l.id === wl)) setWorkLocationId((cur) => (old?.workLocationId ? cur : wl));
                 }).catch(() => undefined);
             }
             // Đặt lại lịch cho buổi ứng viên xin dời: điền sẵn dữ liệu buổi cũ.

@@ -7,7 +7,6 @@ import {
   Space,
   Statistic,
   Alert,
-  List,
   Typography,
 } from "antd";
 import {
@@ -92,8 +91,7 @@ export default function CvParseResultPanel({ result, provenance }: Props) {
         <Descriptions
           column={{ xs: 1, sm: 2 }}
           size="small"
-          labelStyle={{ color: COLORS.textMuted, fontSize: 12 }}
-          contentStyle={{ fontSize: 13, fontWeight: 500 }}
+          styles={{ label: { color: COLORS.textMuted, fontSize: 12 }, content: { fontSize: 13, fontWeight: 500 } }}
         >
           <Descriptions.Item label="Họ tên">{candidate.name}</Descriptions.Item>
           <Descriptions.Item label="Email">{candidate.email ?? "—"}</Descriptions.Item>
@@ -140,13 +138,13 @@ export default function CvParseResultPanel({ result, provenance }: Props) {
             title={<span style={{ fontSize: 12 }}>Tính toán từ lịch sử</span>}
             value={yoeCalc ?? "—"}
             suffix={yoeCalc != null ? "năm" : ""}
-            valueStyle={{ fontSize: 20, fontWeight: 700, color: COLORS.primary }}
+            styles={{ content: { fontSize: 20, fontWeight: 700, color: COLORS.primary } }}
           />
           <Statistic
             title={<span style={{ fontSize: 12 }}>Ứng viên tự khai</span>}
             value={yoeClaimed ?? "—"}
             suffix={yoeClaimed != null ? "năm" : ""}
-            valueStyle={{ fontSize: 20, fontWeight: 700, color: COLORS.textSecondary }}
+            styles={{ content: { fontSize: 20, fontWeight: 700, color: COLORS.textSecondary } }}
           />
         </div>
         {yoeDiff != null && yoeDiff > 0.5 && (
@@ -216,23 +214,17 @@ export default function CvParseResultPanel({ result, provenance }: Props) {
       {cv.certifications.length > 0 && (
         <Card size="small" style={{ borderRadius: 10, border: `1px solid ${COLORS.borderLight}` }}>
           <SectionTitle icon={<SafetyCertificateOutlined />} title="Chứng chỉ" />
-          <List
-            size="small"
-            style={{ marginTop: 8 }}
-            dataSource={cv.certifications}
-            renderItem={(cert) => (
-              <List.Item style={{ padding: "8px 0" }}>
-                <List.Item.Meta
-                  title={<span style={{ fontSize: 13, fontWeight: 600 }}>{cert.name ?? "—"}</span>}
-                  description={
-                    <span style={{ fontSize: 12, color: COLORS.textMuted }}>
-                      {[cert.issuer, cert.date_obtained].filter(Boolean).join(" · ") || "—"}
-                    </span>
-                  }
-                />
-              </List.Item>
-            )}
-          />
+          {/* antd 6 bỏ List — danh sách thường, mỗi dòng cách nhau bằng đường kẻ mảnh. */}
+          <div style={{ marginTop: 8 }}>
+            {cv.certifications.map((cert, index) => (
+              <div key={index} style={{ padding: "8px 0", borderTop: index ? `1px solid ${COLORS.borderLight}` : undefined }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{cert.name ?? "—"}</div>
+                <div style={{ fontSize: 12, color: COLORS.textMuted }}>
+                  {[cert.issuer, cert.date_obtained].filter(Boolean).join(" · ") || "—"}
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
       )}
 
@@ -389,8 +381,7 @@ export default function CvParseResultPanel({ result, provenance }: Props) {
             <Descriptions
               column={2}
               size="small"
-              labelStyle={{ color: COLORS.textMuted, fontSize: 12 }}
-              contentStyle={{ fontSize: 12 }}
+              styles={{ label: { color: COLORS.textMuted, fontSize: 12 }, content: { fontSize: 12 } }}
             >
               <Descriptions.Item label="Model">{provenance.model_used}</Descriptions.Item>
               <Descriptions.Item label="Prompt version">{provenance.prompt_version}</Descriptions.Item>

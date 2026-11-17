@@ -146,7 +146,40 @@ Ghi nhận, không sửa:
 - `ats_auth` chỉ khác ở extension `pgcrypto`, do `reset_db.py` tạo trên DB đang dùng để băm mật khẩu quản trị viên.
 - `ats_pgdata` báo "collation version mismatch" (DB tạo với glibc 2.41, image hiện tại 2.36). Sửa phải `REINDEX` + `ALTER DATABASE … REFRESH COLLATION VERSION` trên DB đang dùng — để người dùng quyết.
 
+## Phần D của `docs/KE_HOACH_CON_LAI.md` — kiểm luồng ghi (17/11, 19:25–20:05, **dở dang**)
+
+Dừng giữa chừng vì hết hạn mức phiên. Dữ liệu demo **đang bẩn** (chưa chạy lại `seed.py`).
+
+| Mã | Kết quả | Đã kiểm bằng gì |
+|---|---|---|
+| W-1 … W-8 | Đạt | UI web + SQL. Đăng nhập ứng viên về `/careers/home` (quyết định 13/11, kế hoạch ghi `/my-home` là cũ). API nộp lại tin 1: "Bạn đã ứng tuyển vị trí này rồi" |
+| W-9 | Đạt sau khi sửa D-B1, D-B2 | Gemini 503 → "Chấm lỗi"; "Chấm lại" đúng 1 request `rescore` → 75 "Không phù hợp" |
+| W-10, W-11, W-12b | Đạt | Sai mật khẩu cũ → "Mật khẩu hiện tại không đúng"; phiên khác bị thu hồi (refresh 400); tab "Đã rút đơn" có đơn mới; API chặn nộp lại kèm lý do |
+| W-12 | Đạt sau khi sửa D-B4, D-B5 | Ẩn danh hoá ở auth / candidate / application; `cv_extractions` 34 → 33 |
+| W-13 … W-17 | Đạt (W-16 sau khi sửa D-B6) | UI web 4 vai trò + SQL + bảng `notification` |
+| W-18 | **Lỗi chưa sửa (D-B7)** | Ba thao tác chạy; nhật ký chỉ có "Đổi lịch", "Huỷ lịch" |
+| W-19 … W-59 | Chưa làm | — |
+
+Lỗi tìm thấy trong phần D:
+
+| Mã | Lỗi | Sửa ở | Đã kiểm |
+|---|---|---|---|
+| D-B1 | Băng lỗi AI hiện nguyên văn lỗi Gemini tiếng Anh ("Gemini call failed: 503 UNAVAILABLE {...}") | `ai-service/app/core/public_errors.py` (mới), `application_scoring.py`, `cv_extraction_engine.py`, `cv_extraction_store.py`, `api/cv_extraction.py`: giao diện chỉ nhận câu tiếng Việt, lỗi gốc ghi log / `ai_jobs` | pytest `test_public_errors` 4, `test_phase2_scoring` 31, `test_phase1_extraction` 50, `test_phase2_unit` + `test_jd_extraction` 43 — qua; ai-service đã khởi động lại |
+| D-B2 | Console có 6 lỗi đỏ (API cũ của Ant Design 6) ở tab Điểm AI | `CvParseResultPanel.tsx` (`styles.label/content`, bỏ `List`), `WorkExperienceTimeline.tsx` (`icon`, `content`) | UI: console sạch, khối Chứng chỉ hiện đúng; tsc sạch |
+| D-B3 | Thẻ Kanban không báo AI đang chấm / chấm lỗi | `ApplicationKanbanBoard.tsx` | tsc sạch; **chưa thấy trên UI** (đơn mới đã có điểm) |
+| D-B4 | Đơn của ứng viên đã xoá dữ liệu: trang chi tiết báo "không tìm thấy / không có quyền" + 2 toast lỗi | `CandidateApplicationDetailPage.tsx`: báo "Hồ sơ ứng viên đã bị xoá" | UI |
+| D-B5 | Console "useForm is not connected" ở trang cài đặt ứng viên | `AccountSettingsPage.tsx` | UI: console sạch |
+| D-B6 | Đặt lịch mới thay buổi trực tuyến: địa điểm mặc định "Đà Nẵng" thay vì văn phòng của tin | `ScheduleInterviewPage.tsx` | UI: ra "Văn phòng TP. Hồ Chí Minh" |
+| D-B8 | Ứng viên rút đơn chưa giao người phụ trách → không chuyên viên nào được báo | `notification-service/.../BusinessEventListener.java` (báo mọi RECRUITER như khi đơn mới đến) + `BusinessEventListenerTest` (3 ca) | `mvnw test` notification-service: 5 test qua |
+| D-B7 | **Chưa sửa:** interview-service không ghi nhật ký khi thêm người phỏng vấn (`updateInterviewers`) và khi duyệt đề xuất đổi giờ (`approveHmProposal`); đổi giờ / huỷ buổi không gửi thông báo cho người phỏng vấn | `interview-service/.../InterviewService.java` (dòng ~457, ~498, ~559, ~701) | — |
+
+Ghi nhận, không sửa: khung CV trống trong ảnh chụp chỉ vì công cụ chụp màn không chụp được trình xem PDF của Chrome
+(S3 trả `application/pdf` đúng). Hộp xoá dữ liệu bắt gõ "XOA DU LIEU" không dấu (cố ý cho dễ gõ).
+
 ## Việc dở dang — đọc trước khi "làm tiếp"
+
+**Phần D dở dang (bảng ngay trên):** sửa D-B7, làm tiếp W-18 … W-59, rồi chạy lại `seed.py` và cập nhật
+`docs/KET_QUA_HOAN_THIEN.md`.
 
 **Kế hoạch chi tiết cho phần còn lại (từng việc, bước làm, kết quả phải đạt): `docs/KE_HOACH_CON_LAI.md`.**
 Phần E đã xong (bảng trên). Còn lại theo kế hoạch: B (lỗi đã biết B-1 … B-16), F (test còn thiếu), A (kiểm giao diện luồng

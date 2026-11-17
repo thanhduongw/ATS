@@ -8,6 +8,7 @@ import iuh.fit.se.interview.client.dto.*;
 import iuh.fit.se.interview.common.AccessGuard;
 import iuh.fit.se.interview.evaluation.InterviewEvaluation;
 import iuh.fit.se.interview.evaluation.InterviewEvaluationRepository;
+import iuh.fit.se.interview.event.InterviewCancelledEvent;
 import iuh.fit.se.interview.event.InterviewCandidateDeclinedEvent;
 import iuh.fit.se.interview.event.InterviewEventPublisher;
 import iuh.fit.se.interview.exception.BusinessException;
@@ -625,7 +626,10 @@ public class InterviewService {
         if (candidateAlreadyNotified) {
             return saveAndNotifyCandidate(interview);
         }
-        return toResponse(interviewRepository.save(interview));
+        // Còn chờ phòng ban xác nhận: báo người phỏng vấn giờ mới để họ xác nhận lại đúng giờ.
+        Interview saved = interviewRepository.save(interview);
+        eventPublisher.publishInterviewScheduled(saved.getId(), saved.getApplicationId(), saved.getScheduledAt());
+        return toResponse(saved);
     }
 
     private void markHmConfirmed(Interview interview) {
@@ -698,14 +702,22 @@ public class InterviewService {
     }
 
     @Transactional
-    public InterviewResponse cancel(Long id) {
+    public InterviewResponse cancel(CurrentUser actor, Long id) {
         Interview interview = findById(id);
         fetchApplication(interview.getApplicationId());
         if (!InterviewStatus.CANCELLABLE.contains(interview.getStatus())) {
             throw new BusinessException("Không hủy được buổi phỏng vấn đã kết thúc");
         }
+        // Ứng viên chỉ biết buổi này từ khi phòng ban chốt giờ — trước đó không báo huỷ cho ứng viên.
+        boolean candidateNotified = interview.getStatus() == InterviewStatus.HM_CONFIRMED
+                || interview.getStatus() == InterviewStatus.CANDIDATE_CONFIRMED;
         interview.setStatus(InterviewStatus.CANCELLED);
-        return toResponse(interviewRepository.save(interview));
+        Interview saved = interviewRepository.save(interview);
+        eventPublisher.publishInterviewCancelled(new InterviewCancelledEvent(
+                saved.getId(), saved.getApplicationId(), saved.getScheduledAt(), saved.getCandidateNameSnapshot(),
+                saved.getInterviewers().stream().map(InterviewInterviewer::getInterviewerId).toList(),
+                actor.userId(), candidateNotified));
+        return toResponse(saved);
     }
 
     @Transactional
@@ -762,9 +774,12 @@ public class InterviewService {
         return toResponse(saved);
     }
 
-    /** Buổi hết hạn chỉ hiện với ứng viên nếu trước đó họ đã được báo lịch (phòng ban đã chốt giờ). */
+    /**
+     * Buổi hết hạn hoặc đã huỷ chỉ hiện với ứng viên nếu trước đó họ đã được báo lịch (phòng ban đã chốt giờ);
+     * buổi huỷ khi giờ còn đang thương lượng nội bộ thì ứng viên không biết tới.
+     */
     private boolean visibleToCandidate(Interview interview) {
-        if (interview.getStatus() == InterviewStatus.EXPIRED) {
+        if (interview.getStatus() == InterviewStatus.EXPIRED || interview.getStatus() == InterviewStatus.CANCELLED) {
             return interview.getHmConfirmedAt() != null;
         }
         return interview.getStatus().visibleToCandidate();

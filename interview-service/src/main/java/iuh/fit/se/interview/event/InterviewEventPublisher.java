@@ -46,6 +46,11 @@ public class InterviewEventPublisher {
                 new InterviewConfirmedEvent(interviewId, applicationId, scheduledAt, candidateName)));
     }
 
+    public void publishInterviewCancelled(InterviewCancelledEvent event) {
+        publishAfterCommit(() -> rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ATS_EXCHANGE, RabbitMQConfig.INTERVIEW_CANCELLED_ROUTING_KEY, event));
+    }
+
     public void publishInterviewReminder(InterviewReminderEvent event) {
         publishAfterCommit(() -> rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE, RabbitMQConfig.INTERVIEW_REMINDER_ROUTING_KEY, event));

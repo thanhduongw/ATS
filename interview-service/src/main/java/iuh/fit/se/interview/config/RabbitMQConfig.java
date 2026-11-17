@@ -19,6 +19,7 @@ public class RabbitMQConfig {
     public static final String INTERVIEW_CONFIRMED_ROUTING_KEY = "interview.confirmed";
     public static final String INTERVIEW_REMINDER_ROUTING_KEY = "interview.reminder";
     public static final String INTERVIEW_CANDIDATE_DECLINED_ROUTING_KEY = "interview.candidate-declined";
+    public static final String INTERVIEW_CANCELLED_ROUTING_KEY = "interview.cancelled";
     /** Nghe trạng thái hồ sơ để huỷ lịch còn treo khi hồ sơ kết thúc (xem ApplicationClosedListener). */
     public static final String APPLICATION_STATUS_CHANGED_QUEUE = "interview.application-status-changed.queue";
     public static final String APPLICATION_STATUS_CHANGED_ROUTING_KEY = "application.status_changed";

@@ -8,6 +8,7 @@ import iuh.fit.se.interview.interview.dto.InterviewCreateRequest;
 import iuh.fit.se.interview.interview.dto.InterviewHmRejectRequest;
 import iuh.fit.se.interview.interview.dto.InterviewResponse;
 import iuh.fit.se.interview.interview.dto.InterviewUpdateRequest;
+import iuh.fit.se.interview.interview.dto.InterviewerSummary;
 import iuh.fit.se.interview.interview.dto.CandidateInterviewResponse;
 import iuh.fit.se.interview.security.AuthorizationPolicy;
 import iuh.fit.se.interview.security.CurrentUser;
@@ -116,7 +117,7 @@ public class InterviewController {
             @PathVariable Long id) {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireHr(actor);
-        InterviewResponse cancelled = service.cancel(id);
+        InterviewResponse cancelled = service.cancel(actor, id);
         service.recordAudit(actor.userId(), "INTERVIEW_CANCELLED", cancelled, "Huỷ lịch phỏng vấn");
         return ResponseEntity.ok(cancelled);
     }
@@ -146,7 +147,9 @@ public class InterviewController {
             @PathVariable Long id) {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireHr(actor);
-        return ResponseEntity.ok(service.approveHmProposal(actor, id));
+        InterviewResponse approved = service.approveHmProposal(actor, id);
+        service.recordAudit(actor.userId(), "INTERVIEW_PROPOSAL_APPROVED", approved, "Duyệt giờ phòng ban đề xuất");
+        return ResponseEntity.ok(approved);
     }
 
     /** Ghi nhận ứng viên đã xác nhận nhưng không đến. */
@@ -160,7 +163,14 @@ public class InterviewController {
     @PatchMapping("/{id}/interviewers")
     public ResponseEntity<InterviewResponse> updateInterviewers(
             @PathVariable Long id, @RequestBody java.util.Map<String, java.util.List<Long>> body) {
-        return ResponseEntity.ok(service.updateInterviewers(CurrentUser.required(), id, body.get("interviewerIds")));
+        CurrentUser actor = CurrentUser.required();
+        InterviewResponse updated = service.updateInterviewers(actor, id, body.get("interviewerIds"));
+        String names = updated.interviewers() == null ? "" : updated.interviewers().stream()
+                .map(InterviewerSummary::fullName).filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.joining(", "));
+        service.recordAudit(actor.userId(), "INTERVIEW_INTERVIEWERS_UPDATED", updated,
+                names.isEmpty() ? "Đổi người phỏng vấn" : "Đổi người phỏng vấn: " + names);
+        return ResponseEntity.ok(updated);
     }
 
     @PatchMapping("/{id}/no-show")

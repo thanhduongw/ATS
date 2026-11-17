@@ -1,3 +1,4 @@
+import { brandAlpha } from "../../../app/brand";
 import { useEffect, useMemo, useState } from "react";
 import {
     Modal,
@@ -251,7 +252,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                             width: 32,
                             height: 32,
                             borderRadius: "50%",
-                            background: `${COLORS.primary}1A`,
+                            background: brandAlpha(10),
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -517,10 +518,10 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                     {previewSlots.length > 0 && (
                         <div
                             style={{
-                                border: `1px solid ${COLORS.primary}25`,
+                                border: `1px solid ${brandAlpha(15)}`,
                                 borderRadius: RADIUS.md,
                                 padding: 12,
-                                background: `${COLORS.primary}08`,
+                                background: brandAlpha(3),
                                 marginBottom: 16,
                             }}
                         >

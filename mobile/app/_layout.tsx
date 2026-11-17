@@ -7,7 +7,8 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { useAuthStore } from "@/store/authStore";
 import { homeForRole } from "@/lib/routes";
-import { COLORS, FONT_ASSETS, paperTheme } from "@/theme";
+import { COLORS, FONT_ASSETS, paperTheme, syncBrandFromServer } from "@/theme";
+import { API_BASE_URL } from "@/config";
 import { SnackbarProvider } from "@/components/ui/snackbar";
 
 const queryClient = new QueryClient({
@@ -33,6 +34,8 @@ function AuthGate() {
 
   useEffect(() => {
     void hydrate();
+    // Màu thương hiệu doanh nghiệp vừa đổi trên web thì lưu lại cho lần mở app sau (mục 4.1).
+    void syncBrandFromServer(API_BASE_URL);
   }, [hydrate]);
 
   useEffect(() => {

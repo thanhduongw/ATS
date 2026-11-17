@@ -465,6 +465,7 @@ public class InterviewService {
             throw new BusinessException("Giờ đề xuất đã qua, vui lòng yêu cầu phòng ban đề xuất lại");
         }
         interview.setScheduledAt(interview.getProposedScheduledAt());
+        interview.resetReminders();
         interview.setProposedScheduledAt(null);
         interview.setProposalNote(null);
         interview.setProposedBy(null);
@@ -582,6 +583,7 @@ public class InterviewService {
         if (interview.getStatus() == InterviewStatus.CANDIDATE_DECLINED) {
             // Ứng viên xin dời: đặt giờ mới ngay trên buổi cũ, giữ người phỏng vấn, xoá lý do xin dời.
             interview.setScheduledAt(req.scheduledAt());
+            interview.resetReminders();
             interview.setDurationMinutes(req.durationMinutes());
             interview.setFormat(req.format());
             interview.setWorkLocationId(req.workLocationId());
@@ -607,6 +609,8 @@ public class InterviewService {
         boolean candidateAlreadyNotified = interview.getStatus() == InterviewStatus.HM_CONFIRMED;
 
         interview.setScheduledAt(req.scheduledAt());
+
+        interview.resetReminders();
         interview.setDurationMinutes(req.durationMinutes());
         interview.setFormat(req.format());
         interview.setWorkLocationId(req.workLocationId());

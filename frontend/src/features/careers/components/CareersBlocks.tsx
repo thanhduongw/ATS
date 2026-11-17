@@ -9,7 +9,7 @@ import { relativeTime } from "../../../app/datetime";
 import StatusTag from "../../../components/ui/StatusTag";
 import { arrangementLabel, salaryText } from "../../public/jobFormat";
 import type { PublicCompanyResponse, PublicJobPosting } from "../../public/types";
-import type { CareersConfig } from "../careersConfig";
+import { heroBackgroundCss, type CareersConfig } from "../careersConfig";
 import BenefitIcon from "./BenefitIcon";
 
 /**
@@ -33,6 +33,10 @@ export default function CareersBlocks({ config, company, jobs }: {
     const featured = [...jobs].sort((a, b) => Number(!!b.urgent) - Number(!!a.urgent)).slice(0, Math.max(1, config.featured.count));
     const offices = [...new Set(jobs.map((j) => j.workLocationName).filter(Boolean) as string[])];
     const photos = config.life.photos.filter((p) => p.url);
+    // Không có ảnh bìa thì lấy ảnh đời sống đầu tiên; không có ảnh nào thì phần đầu trang chỉ còn chữ trên nền màu.
+    const heroMain = config.hero.coverUrl || photos[0]?.url;
+    const heroSide = config.hero.coverUrl ? photos[0] : photos[1];
+    const heroArt = !!heroMain;
     const search = () => {
         const p = new URLSearchParams();
         if (q.trim()) p.set("q", q.trim());
@@ -48,8 +52,8 @@ export default function CareersBlocks({ config, company, jobs }: {
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 72 }}>
             {v.hero && (
-                <section style={{ ...bleed, marginTop: -28, background: GRADIENTS.hero, color: COLORS.textOnDark }}>
-                    <div className="careers-hero" style={{ ...inner, padding: "64px 24px 72px", display: "grid", gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)", gap: 48, alignItems: "center" }}>
+                <section style={{ ...bleed, marginTop: -28, background: heroBackgroundCss(config.hero, GRADIENTS.hero), color: COLORS.textOnDark }}>
+                    <div className="careers-hero" style={{ ...inner, padding: "64px 24px 72px", display: "grid", gridTemplateColumns: heroArt ? "minmax(0, 1.05fr) minmax(0, 1fr)" : "minmax(0, 760px)", gap: 48, alignItems: "center" }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
                             {config.hero.eyebrow && (
                                 <span style={{
@@ -81,11 +85,11 @@ export default function CareersBlocks({ config, company, jobs }: {
                                 <Button type="primary" size="large" shape="round" onClick={search}>Tìm việc</Button>
                             </div>
                         </div>
-                        <div className="careers-hero-art" style={{ position: "relative", height: 400 }}>
-                            <Photo url={config.hero.coverUrl} label="Ảnh bìa trang tuyển dụng"
+                        {heroArt && <div className="careers-hero-art" style={{ position: "relative", height: 400 }}>
+                            <Photo url={heroMain} label="Ảnh bìa trang tuyển dụng"
                                 style={{ position: "absolute", top: 0, right: 0, width: "84%", height: 300, borderRadius: 28 }} />
-                            {photos[0] && (
-                                <Photo url={photos[0].url} label={photos[0].caption || "Ảnh đời sống"}
+                            {heroSide && (
+                                <Photo url={heroSide.url} label={heroSide.caption || "Ảnh đời sống"}
                                     style={{ position: "absolute", left: 0, bottom: 0, width: "46%", height: 220, borderRadius: 24, boxShadow: "0 16px 40px rgba(0,0,0,0.3)" }} />
                             )}
                             {config.hero.quote && (
@@ -97,7 +101,7 @@ export default function CareersBlocks({ config, company, jobs }: {
                                     {config.hero.quoteAuthor && <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{config.hero.quoteAuthor}</span>}
                                 </div>
                             )}
-                        </div>
+                        </div>}
                     </div>
                 </section>
             )}
@@ -143,7 +147,7 @@ export default function CareersBlocks({ config, company, jobs }: {
             {v.benefits && config.benefits.items.some((b) => b.title.trim()) && (
                 <section className="careers-benefits" style={{
                     display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 2fr)", gap: 48, padding: "56px",
-                    borderRadius: 32, background: "linear-gradient(120deg, #0B2F78, #0A59F7)", color: COLORS.textOnDark,
+                    borderRadius: 32, background: "linear-gradient(120deg, var(--ats-brand-deep2), var(--ats-brand))", color: COLORS.textOnDark,
                 }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         <span style={{ ...kicker, color: onDark(0.7) }}>Phúc lợi</span>
@@ -174,7 +178,7 @@ export default function CareersBlocks({ config, company, jobs }: {
             )}
 
             {v.footer && (
-                <footer style={{ ...bleed, marginBottom: -40, background: "#061A44", color: onDark(0.7), fontSize: 14 }}>
+                <footer style={{ ...bleed, marginBottom: -40, background: "var(--ats-brand-deep)", color: onDark(0.7), fontSize: 14 }}>
                     <div style={{ ...inner, padding: "48px 24px 28px", display: "flex", flexDirection: "column", gap: 32 }}>
                         <div className="careers-footer" style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr)", gap: 32 }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -221,7 +225,7 @@ function Photo({ url, label, caption, style }: { url?: string; label: string; ca
     return (
         <div role="img" aria-label={label} style={{
             position: "relative", overflow: "hidden",
-            background: url ? `center / cover no-repeat url(${url})` : "linear-gradient(140deg, #2A7DFF, #7FB2FF)", ...style,
+            background: url ? `center / cover no-repeat url(${url})` : "linear-gradient(140deg, var(--ats-brand), var(--ats-brand-hover))", ...style,
         }}>
             {!url && <span style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", background: "rgba(255,255,255,0.14)" }} />}
             {caption && (

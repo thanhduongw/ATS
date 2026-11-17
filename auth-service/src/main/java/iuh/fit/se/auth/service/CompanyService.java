@@ -20,6 +20,12 @@ public class CompanyService {
         return toResponse(requireCompany());
     }
 
+    public iuh.fit.se.auth.dto.response.PublicThemeResponse getPublicTheme() {
+        Company company = requireCompany();
+        return new iuh.fit.se.auth.dto.response.PublicThemeResponse(
+                company.getName(), company.getLogoUrl(), company.getBrandColor());
+    }
+
     public CompanyResponse getPublicCompany() {
         return getCompanyInfo();
     }
@@ -58,7 +64,7 @@ public class CompanyService {
         company.setWebsite(req.website());
         company.setSizeRange(req.sizeRange());
         company.setRecruitingEmail(req.recruitingEmail());
-        company.setBrandColor(req.brandColor());
+        company.setBrandColor(BrandColor.validate(req.brandColor()));
         company.setDataProtectionOfficerId(req.dataProtectionOfficerId());
         // A08 "Cập nhật 01/07/2026": chỉ đổi mốc khi nội dung chính sách thật sự đổi.
         if (!java.util.Objects.equals(company.getPrivacyPolicy(), req.privacyPolicy())) {

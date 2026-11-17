@@ -342,7 +342,7 @@ function Band({ eyebrow, title, subtitle, aside }: { eyebrow: string; title: str
     return (
         <section style={{
             borderRadius: 20, padding: "24px 28px", color: "#fff",
-            background: "linear-gradient(135deg, #0A3FB8 0%, #0A59F7 100%)",
+            background: "linear-gradient(135deg, var(--ats-brand-hover) 0%, var(--ats-brand) 100%)",
             display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap",
         }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

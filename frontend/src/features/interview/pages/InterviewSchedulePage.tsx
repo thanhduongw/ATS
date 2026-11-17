@@ -1,3 +1,4 @@
+import { matchesKeyword } from "../../../app/text";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { App, Button, Dropdown, Input, Modal, Pagination, Segmented, Select, Space, Spin, Tooltip, type MenuProps } from "antd";
 import {
@@ -215,7 +216,7 @@ export default function InterviewSchedulePage() {
         const k = keyword.trim().toLowerCase();
         return interviews.filter((iv) =>
             (isHr || iv.interviewers.some((p) => p.interviewerId === myId))
-            && (!k || iv.candidateName.toLowerCase().includes(k))
+            && matchesKeyword(k, iv.candidateName)
             && (interviewerId == null || iv.interviewers.some((p) => p.interviewerId === interviewerId))
             && (postingId == null || iv.jobPostingId === postingId));
     }, [interviews, keyword, interviewerId, postingId, isHr, myId]);

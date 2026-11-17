@@ -14,6 +14,7 @@ public class BusinessEventConfig {
     public static final String INTERVIEW_SCHEDULED_QUEUE = "notification.interview-scheduled.queue";
     public static final String INTERVIEW_HM_CONFIRMED_QUEUE = "notification.interview-hm-confirmed.queue";
     public static final String INTERVIEW_CONFIRMED_QUEUE = "notification.interview-confirmed.queue";
+    public static final String INTERVIEW_REMINDER_QUEUE = "notification.interview-reminder.queue";
     public static final String INTERVIEW_CANDIDATE_DECLINED_QUEUE = "notification.interview-candidate-declined.queue";
     public static final String REQUISITION_SUBMITTED_QUEUE = "notification.requisition-submitted.queue";
     public static final String OFFER_APPROVED_QUEUE = "notification.offer-approved.queue";
@@ -54,6 +55,16 @@ public class BusinessEventConfig {
     public Binding interviewHmConfirmedBinding(
             Queue interviewHmConfirmedQueue, TopicExchange atsExchange) {
         return BindingBuilder.bind(interviewHmConfirmedQueue).to(atsExchange).with("interview.hm-confirmed");
+    }
+
+    @Bean
+    public Queue interviewReminderQueue() {
+        return new Queue(INTERVIEW_REMINDER_QUEUE, true);
+    }
+
+    @Bean
+    public Binding interviewReminderEventBinding(Queue interviewReminderQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(interviewReminderQueue).to(atsExchange).with("interview.reminder");
     }
 
     @Bean

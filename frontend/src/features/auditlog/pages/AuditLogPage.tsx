@@ -1,3 +1,4 @@
+import { matchesKeyword } from "../../../app/text";
 import { useEffect, useMemo, useState } from "react";
 import { DatePicker, Input, Select, Tooltip } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
@@ -54,8 +55,7 @@ export default function AuditLogPage() {
         const q = keyword.trim().toLowerCase();
         const sorted = [...logs].sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf());
         if (!q) return sorted;
-        return sorted.filter((l) => [AUDIT_ACTION_LABEL[l.action] ?? l.action, l.actorName, l.metadata, String(l.resourceId ?? "")]
-            .filter(Boolean).join(" ").toLowerCase().includes(q));
+        return sorted.filter((l) => matchesKeyword(q, AUDIT_ACTION_LABEL[l.action] ?? l.action, l.actorName, l.metadata, l.resourceId));
     }, [logs, keyword]);
 
     const columns: ColumnsType<AuditLogResponse> = [

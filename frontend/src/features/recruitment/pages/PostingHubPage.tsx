@@ -1,3 +1,4 @@
+import { matchesKeyword } from "../../../app/text";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { App, Button, Input, Modal, Segmented, Select, Space, Spin, Table, Tabs } from "antd";
@@ -123,7 +124,7 @@ export default function PostingHubPage() {
 
     const filtered = useMemo(() => {
         const k = keyword.trim().toLowerCase();
-        return applications.filter((a) => (!k || a.candidateName.toLowerCase().includes(k))
+        return applications.filter((a) => matchesKeyword(k, a.candidateName)
             && (!aiTier || a.aiTier === aiTier)
             && (recruiterId == null || a.assignedRecruiterId === recruiterId));
     }, [applications, keyword, aiTier, recruiterId]);

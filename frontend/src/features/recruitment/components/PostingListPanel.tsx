@@ -1,3 +1,4 @@
+import { matchesKeyword } from "../../../app/text";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { App, Button, Input, Select} from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
@@ -104,7 +105,7 @@ export default function PostingListPanel() {
 
     const filtered = useMemo(() => {
         const k = keyword.trim().toLowerCase();
-        return postings.filter((p) => (!k || p.title.toLowerCase().includes(k))
+        return postings.filter((p) => matchesKeyword(k, p.title)
             && (departmentId == null || deptOf(p) === departmentId));
     }, [postings, keyword, departmentId, deptOf]);
 

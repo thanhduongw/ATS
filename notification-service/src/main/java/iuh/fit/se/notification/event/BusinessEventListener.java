@@ -37,9 +37,6 @@ public class BusinessEventListener {
     private final CandidateServiceClient candidateServiceClient;
     private final AuthServiceClient authServiceClient;
 
-    @Value("${app.notification.interview-reminder-hours-before:24}")
-    private long reminderHoursBefore;
-
     @Value("${app.notification.evaluation-check-hours-after:24}")
     private long evaluationCheckHoursAfter;
 
@@ -250,15 +247,7 @@ public class BusinessEventListener {
                     event.interviewId());
         }
 
-        long reminderDelay = Duration.between(
-                LocalDateTime.now(),
-                event.scheduledAt().minusHours(reminderHoursBefore)).toMillis();
-        if (reminderDelay > 0) {
-            delayedMessagePublisher.scheduleInterviewReminder(
-                    new InterviewReminderPayload(
-                            event.interviewId(), event.applicationId(), event.scheduledAt()),
-                    reminderDelay);
-        }
+        // Nhắc lịch (trước 24 giờ và 1 giờ) do interview-service chủ động phát — xem onInterviewReminder.
 
         long evalCheckDelay = Duration.between(
                 LocalDateTime.now(),
@@ -329,46 +318,55 @@ public class BusinessEventListener {
         }
     }
 
-    // ===== 6a. Nhắc phỏng vấn =====
-    @RabbitListener(queues = DelayQueueConfig.INTERVIEW_REMINDER_PROCESS_QUEUE)
-    public void onInterviewReminderDue(InterviewReminderPayload payload) {
-        log.info("Đến giờ nhắc phỏng vấn, interviewId={}", payload.interviewId());
-
-        InterviewResponse interview = safeGetInterview(payload.interviewId());
+    // ===== 6a. Nhắc phỏng vấn trước 24 giờ / 1 giờ (mục 4.4) =====
+    @RabbitListener(queues = BusinessEventConfig.INTERVIEW_REMINDER_QUEUE)
+    public void onInterviewReminder(InterviewReminderEvent event) {
+        log.info("Nhắc lịch phỏng vấn interviewId={} trước {} giờ", event.interviewId(), event.hoursBefore());
+        InterviewResponse interview = safeGetInterview(event.interviewId());
         if (interview == null) {
             return;
         }
         String status = interview.status();
         if (status == null
                 || (!"HM_CONFIRMED".equals(status) && !"CANDIDATE_CONFIRMED".equals(status))
-                || !isCurrentSchedule(interview, payload.expectedScheduledAt())) {
-            return;
+                || !isCurrentSchedule(interview, event.scheduledAt())) {
+            return; // buổi đã huỷ / đổi giờ sau khi lời nhắc được phát
         }
+        String when = event.hoursBefore() <= 1 ? "còn khoảng 1 giờ nữa" : "vào ngày mai";
+        String where = "ONLINE".equals(event.format())
+                ? (event.meetingLink() == null || event.meetingLink().isBlank()
+                        ? " Hình thức: trực tuyến." : " Phòng họp trực tuyến: " + event.meetingLink())
+                : " Hình thức: trực tiếp tại văn phòng.";
+        String title = event.hoursBefore() <= 1 ? "Sắp đến giờ phỏng vấn" : "Nhắc lịch phỏng vấn ngày mai";
 
         if (interview.interviewers() != null) {
             for (InterviewerSummary interviewer : interview.interviewers()) {
                 notificationService.createAndPush(
                         interviewer.interviewerId(),
                         NotificationType.INTERVIEW_REMINDER,
-                        "Sắp đến giờ phỏng vấn",
-                        "Buổi phỏng vấn " + nullSafe(interview.candidateName())
-                                + " sẽ diễn ra lúc " + formatVi(interview.scheduledAt()) + ".",
+                        title,
+                        "Buổi phỏng vấn " + nullSafe(interview.candidateName()) + " diễn ra " + when
+                                + ", lúc " + formatVi(interview.scheduledAt()) + "." + where,
                         "INTERVIEW",
-                        payload.interviewId());
+                        event.interviewId());
             }
         }
-
-        Long candidateUserId = resolveCandidateUserIdFromApplication(
-                payload.applicationId());
-        if (candidateUserId != null) {
+        Long candidateId = resolveCandidateUserIdFromApplication(event.applicationId());
+        if (candidateId != null) {
             notificationService.createAndPush(
-                    candidateUserId,
+                    candidateId,
                     NotificationType.INTERVIEW_REMINDER,
-                    "Nhắc lịch phỏng vấn",
-                    "Buổi phỏng vấn của bạn sẽ diễn ra lúc " + formatVi(interview.scheduledAt()) + ".",
+                    title,
+                    "Buổi phỏng vấn của bạn diễn ra " + when + ", lúc " + formatVi(interview.scheduledAt()) + "." + where,
                     "INTERVIEW",
-                    payload.interviewId());
+                    event.interviewId());
         }
+    }
+
+    /** Lời nhắc kiểu cũ (hàng đợi trễ) còn sót trong RabbitMQ: nhận rồi bỏ, việc nhắc nay do onInterviewReminder lo. */
+    @RabbitListener(queues = DelayQueueConfig.INTERVIEW_REMINDER_PROCESS_QUEUE)
+    public void onInterviewReminderDue(InterviewReminderPayload payload) {
+        log.debug("Bỏ qua lời nhắc kiểu cũ, interviewId={}", payload.interviewId());
     }
 
     // ===== 6b. Kiểm tra đánh giá còn thiếu =====

@@ -46,6 +46,11 @@ public class InterviewEventPublisher {
                 new InterviewConfirmedEvent(interviewId, applicationId, scheduledAt, candidateName)));
     }
 
+    public void publishInterviewReminder(InterviewReminderEvent event) {
+        publishAfterCommit(() -> rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ATS_EXCHANGE, RabbitMQConfig.INTERVIEW_REMINDER_ROUTING_KEY, event));
+    }
+
     /** 3.11: ghi nhật ký hệ thống cho thao tác với lịch phỏng vấn / phiếu đánh giá. Lỗi gửi không làm hỏng thao tác. */
     public void publishAudit(Long actorUserId, String action, String resourceType, Long resourceId, String metadata) {
         publishAfterCommit(() -> {

@@ -1,3 +1,4 @@
+import { brandAlpha } from "../../../app/brand";
 import { useEffect, useMemo, useState } from "react";
 import {
     Modal,
@@ -212,7 +213,7 @@ export default function InterviewQuickCreateModal({
                             width: 36,
                             height: 36,
                             borderRadius: 10,
-                            background: `${COLORS.primary}12`,
+                            background: brandAlpha(7),
                             color: COLORS.primary,
                             display: "flex",
                             alignItems: "center",

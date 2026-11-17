@@ -95,15 +95,15 @@ public final class ApplicationSpecifications {
     }
 
     /**
-     * R16: tìm theo tên hoặc email ứng viên (bản chụp lưu trên hồ sơ ứng tuyển), không phân biệt hoa thường.
+     * R16: tìm theo tên hoặc email ứng viên (bản chụp lưu trên hồ sơ ứng tuyển), không phân biệt hoa thường và dấu.
      * Trả về null khi không có từ khoá để có thể ghép bằng {@code spec.and(...)}.
      */
     public static Specification<Application> keyword(String keyword) {
         if (keyword == null || keyword.isBlank()) return null;
-        String like = "%" + keyword.trim().toLowerCase().replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        String like = iuh.fit.se.application.common.TextSearch.likePattern(keyword);
         return (root, query, cb) -> cb.or(
-                cb.like(cb.lower(root.get("candidateNameSnapshot")), like, '!'),
-                cb.like(cb.lower(root.get("candidateEmailSnapshot")), like, '!'));
+                cb.like(iuh.fit.se.application.common.TextSearch.fold(cb, root.get("candidateNameSnapshot")), like, '!'),
+                cb.like(iuh.fit.se.application.common.TextSearch.fold(cb, root.get("candidateEmailSnapshot")), like, '!'));
     }
 
     /** Tách tham số stageType ("A" hoặc "A,B,C") thành danh sách, bỏ khoảng trắng và phần tử rỗng. */

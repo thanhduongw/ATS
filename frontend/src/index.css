@@ -1,3 +1,14 @@
+:root {
+  /* Màu thương hiệu mặc định; app/brand.ts ghi đè theo màu doanh nghiệp chọn. */
+  --ats-brand: #0A59F7;
+  --ats-brand-hover: #0848C7;
+  --ats-brand-soft: #0A59F719;
+  --ats-brand-faint: #0A59F70F;
+  --ats-brand-deep: #061A44;
+  --ats-brand-deep2: #0B2F78;
+  --ats-brand-rgb: 10 89 247;
+}
+
 /* ═══════════════════════════════════════════════════════════
    ATS — Global Styles & Utilities
    ═══════════════════════════════════════════════════════════ */
@@ -391,7 +402,7 @@ h6 {
 
 .otp-input-group .ant-input:focus {
   border-color: #0a59f7;
-  box-shadow: 0 0 0 3px rgba(10, 89, 247, 0.12);
+  box-shadow: 0 0 0 3px rgb(var(--ats-brand-rgb) / 0.12);
 }
 
 /* ── Sidebar Enhancements ──────────────────────────────── */
@@ -576,8 +587,8 @@ h6 {
 }
 
 .kanban-column-body.is-dragging-over {
-  background: rgba(10, 89, 247, 0.04);
-  border-color: rgba(10, 89, 247, 0.2);
+  background: rgb(var(--ats-brand-rgb) / 0.04);
+  border-color: rgb(var(--ats-brand-rgb) / 0.2);
 }
 
 .kanban-card {
@@ -945,7 +956,7 @@ h6 {
 
 /* C04–C08 · Khung đăng nhập / đăng ký 2 cột: ảnh trái, biểu mẫu phải. Màn hẹp chỉ còn biểu mẫu. */
 .auth-shell { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); min-height: 100vh; background: #fff; }
-.auth-shell-art { position: sticky; top: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 48px 56px; color: #fff; background: linear-gradient(165deg, #061A44, #0B2F78 60%, #1546B8); }
+.auth-shell-art { position: sticky; top: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 48px 56px; color: #fff; background: linear-gradient(165deg, var(--ats-brand-deep), var(--ats-brand-deep2) 60%, var(--ats-brand)); }
 .auth-shell-form { display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
 .auth-shell-form > div { width: 100%; max-width: 400px; }
 @media (max-width: 860px) {

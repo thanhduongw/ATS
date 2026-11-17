@@ -1,4 +1,5 @@
 import type { ThemeConfig } from "antd";
+import { derivePalette, type BrandPalette } from "./brand";
 
 /*
  * Token giao diện web — nguồn: docs/UI "Interactive UI Prototype.html"
@@ -12,22 +13,23 @@ import type { ThemeConfig } from "antd";
 /* ── Color Palette (DS01) ─────────────────────────────────── */
 export const COLORS = {
     /* Thương hiệu */
-    primary: "#0A59F7",
+    /* Thương hiệu: trỏ tới biến CSS do app/brand.ts ghi lên :root — đổi màu thương hiệu là đổi toàn bộ web. */
+    primary: "var(--ats-brand)",
     /** Trạng thái nhấn / di chuột của nút chính. */
-    primaryHover: "#0848C7",
+    primaryHover: "var(--ats-brand-hover)",
     /** Nền 10%: mục menu đang chọn, nút phụ màu xanh. */
-    primarySoft: "#0A59F719",
+    primarySoft: "var(--ats-brand-soft)",
     /** Nền 6%: dòng được chọn, thông báo chưa đọc. */
-    primaryFaint: "#0A59F70F",
+    primaryFaint: "var(--ats-brand-faint)",
     /** Khoá cũ — nay trỏ về màu nhấn của thiết kế. */
-    primaryLight: "#0848C7",
-    primaryDark: "#0848C7",
+    primaryLight: "var(--ats-brand-hover)",
+    primaryDark: "var(--ats-brand-hover)",
     /** Xanh đậm: nền màn chào, trang tuyển dụng công khai. */
-    navy: "#061A44",
+    navy: "var(--ats-brand-deep)",
     /** Xanh đậm 2: điểm đầu dải màu thư mời, ảnh bìa. */
-    navy2: "#0B2F78",
+    navy2: "var(--ats-brand-deep2)",
     /** Khoá cũ — giữ cho các màn chưa chuyển. */
-    accent: "#0A59F719",
+    accent: "var(--ats-brand-soft)",
     accentWarm: "#FF7500",
 
     /* Bề mặt */
@@ -48,7 +50,7 @@ export const COLORS = {
     /** Tím: phỏng vấn, đề xuất đổi giờ, cần sửa. */
     interview: "#7C4DFF",
     interviewBg: "#7C4DFF1A",
-    info: "#0A59F7",
+    info: "var(--ats-brand)",
 
     /* Chữ — cùng màu #182431 ở các độ trong suốt */
     textPrimary: "#182431",
@@ -100,7 +102,7 @@ export const TONES: Record<StatusTone, { bg: string; text: string }> = {
     success: { bg: "#00CB8724", text: "#00A06B" },
     interview: { bg: "#7C4DFF1A", text: "#7C4DFF" },
     warning: { bg: "#FF75001F", text: "#FF7500" },
-    brand: { bg: "#0A59F719", text: "#0A59F7" },
+    brand: { bg: "var(--ats-brand-soft)", text: "var(--ats-brand)" },
     danger: { bg: "#FA2A2D17", text: "#FA2A2D" },
 };
 
@@ -128,12 +130,12 @@ export const AI_GRADIENT = "linear-gradient(135deg, #42CBF7, #2A7DFF 40%, #A479F
 export const GRADIENTS = {
     primary: COLORS.primary,
     header: COLORS.header,
-    hero: "linear-gradient(170deg, #061A44, #0B2F78 55%, #0A59F7)",
-    offer: "linear-gradient(135deg, #0B2F78, #0A59F7)",
+    hero: "linear-gradient(170deg, var(--ats-brand-deep), var(--ats-brand-deep2) 55%, var(--ats-brand))",
+    offer: "linear-gradient(135deg, var(--ats-brand-deep2), var(--ats-brand))",
     card: COLORS.cardBg,
     accent: COLORS.primarySoft,
     warm: COLORS.warningBg,
-    stat1: "#0A59F7",
+    stat1: "var(--ats-brand)",
     stat2: "#00A06B",
     stat3: "#FF7500",
     stat4: "#7C4DFF",
@@ -201,18 +203,20 @@ export const LAYOUT = {
 } as const;
 
 /* ── Ant Design Theme Config ───────────────────────────────── */
-export const atsTheme: ThemeConfig = {
+/** Ant Design cần mã màu thật (để tự suy ra các sắc độ), nên chủ đề được dựng từ bảng màu thương hiệu. */
+export function buildAtsTheme(brand: BrandPalette): ThemeConfig {
+    return {
     token: {
         /* Colors */
-        colorPrimary: COLORS.primary,
-        colorPrimaryHover: COLORS.primaryHover,
-        colorPrimaryActive: COLORS.primaryHover,
+        colorPrimary: brand.color,
+        colorPrimaryHover: brand.hover,
+        colorPrimaryActive: brand.hover,
         colorSuccess: COLORS.success,
         colorWarning: COLORS.warning,
         colorError: COLORS.error,
-        colorInfo: COLORS.info,
-        colorLink: COLORS.primary,
-        colorLinkHover: COLORS.primaryHover,
+        colorInfo: brand.color,
+        colorLink: brand.color,
+        colorLinkHover: brand.hover,
         colorTextBase: COLORS.textPrimary,
         colorText: COLORS.textPrimary,
         colorTextSecondary: COLORS.textSecondary,
@@ -230,8 +234,8 @@ export const atsTheme: ThemeConfig = {
 
         /* Màu preset của antd (Tag color="purple"…) lấy theo bảng màu DS01,
          * để các màn chưa chuyển sang StatusTag vẫn đúng tông thiết kế. */
-        blue: COLORS.primary,
-        geekblue: COLORS.primary,
+        blue: brand.color,
+        geekblue: brand.color,
         green: COLORS.success,
         lime: COLORS.success,
         cyan: "#0D9488",
@@ -288,10 +292,10 @@ export const atsTheme: ThemeConfig = {
         Menu: {
             itemBg: "transparent",
             subMenuItemBg: "transparent",
-            itemSelectedBg: COLORS.primarySoft,
-            itemSelectedColor: COLORS.primary,
+            itemSelectedBg: brand.soft,
+            itemSelectedColor: brand.color,
             itemHoverBg: COLORS.fill,
-            itemActiveBg: COLORS.primarySoft,
+            itemActiveBg: brand.soft,
             itemColor: COLORS.textPrimary,
             itemBorderRadius: 12,
             itemHeight: 36,
@@ -311,9 +315,9 @@ export const atsTheme: ThemeConfig = {
             headerBg: COLORS.cardBg,
             headerColor: COLORS.textSecondary,
             headerSplitColor: "transparent",
-            rowHoverBg: COLORS.primaryFaint,
-            rowSelectedBg: COLORS.primaryFaint,
-            rowSelectedHoverBg: COLORS.primarySoft,
+            rowHoverBg: brand.faint,
+            rowSelectedBg: brand.faint,
+            rowSelectedHoverBg: brand.soft,
             borderColor: COLORS.border,
             headerBorderRadius: RADIUS.lg,
             cellPaddingBlock: 12,
@@ -351,7 +355,7 @@ export const atsTheme: ThemeConfig = {
             colorBgContainer: COLORS.fill,
             colorBorder: "transparent",
             hoverBorderColor: COLORS.border,
-            activeBorderColor: COLORS.primary,
+            activeBorderColor: brand.color,
             activeShadow: "none",
             hoverBg: COLORS.fill,
             activeBg: "#FFFFFF",
@@ -369,7 +373,7 @@ export const atsTheme: ThemeConfig = {
             colorBgContainer: COLORS.fill,
             colorBorder: "transparent",
             activeOutlineColor: "transparent",
-            optionSelectedBg: COLORS.primarySoft,
+            optionSelectedBg: brand.soft,
         },
         DatePicker: {
             borderRadius: 19,
@@ -388,9 +392,9 @@ export const atsTheme: ThemeConfig = {
             paddingLG: 24,
         },
         Tabs: {
-            inkBarColor: COLORS.primary,
-            itemSelectedColor: COLORS.primary,
-            itemHoverColor: COLORS.primaryHover,
+            inkBarColor: brand.color,
+            itemSelectedColor: brand.color,
+            itemHoverColor: brand.hover,
             itemColor: COLORS.textSecondary,
             titleFontSize: 14,
         },
@@ -419,8 +423,8 @@ export const atsTheme: ThemeConfig = {
             radioSize: 20,
         },
         Switch: {
-            colorPrimary: COLORS.primary,
-            colorPrimaryHover: COLORS.primaryHover,
+            colorPrimary: brand.color,
+            colorPrimaryHover: brand.hover,
         },
         Descriptions: {
             labelBg: COLORS.cardBg,
@@ -438,3 +442,7 @@ export const atsTheme: ThemeConfig = {
         },
     },
 };
+}
+
+/** Chủ đề mặc định (màu thương hiệu gốc của thiết kế). */
+export const atsTheme: ThemeConfig = buildAtsTheme(derivePalette(null));

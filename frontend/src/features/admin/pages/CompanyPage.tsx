@@ -8,6 +8,9 @@ import type { ApiMessageResponse, CompanyResponse, UpdateCompanyRequest, UserSum
 import { createCatalogItem, getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import { COLORS, RADIUS } from "../../../app/theme";
+import { BrandColorField, BrandPreview } from "../components/BrandColorField";
+import { useBrand } from "../../../app/BrandProvider";
+import { ensureContrast, isHexColor } from "../../../app/brand";
 import ImageUploadField from "../../../components/ui/ImageUploadField";
 import { Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
 
@@ -50,6 +53,13 @@ export default function CompanyPage() {
     const [officeSaving, setOfficeSaving] = useState(false);
     const [officeForm] = Form.useForm<{ name: string; address?: string }>();
     const brandColor = Form.useWatch("brandColor", form);
+    const brand = useBrand();
+    // Xem trước trực tiếp: cả trang quản trị đổi màu theo lựa chọn; rời trang mà chưa lưu thì trả về màu cũ.
+    const { preview } = brand;
+    useEffect(() => {
+        preview(isHexColor(brandColor) ? brandColor : null);
+        return () => preview(null);
+    }, [brandColor, preview]);
 
     useEffect(() => {
         Promise.allSettled([getCompany(), getCatalogItems("/masterdata/work-locations"), getUsers()])
@@ -82,9 +92,13 @@ export default function CompanyPage() {
                 foundedDate: foundedDate ? foundedDate.format("YYYY-MM-DD") : null,
                 benefits: JSON.stringify((benefitList ?? []).filter((b) => b?.title?.trim())),
                 privacyPolicy: company?.privacyPolicy ?? null,
+                // Lưu bản đã đủ tương phản (xem BrandPreview) để mọi nơi dùng đúng một màu.
+                brandColor: isHexColor(rest.brandColor) ? ensureContrast(rest.brandColor) : null,
             };
             const res = await updateCompany(body);
             setCompany(res.data);
+            form.setFieldValue("brandColor", res.data.brandColor ?? undefined);
+            brand.reload();
             message.success("Đã lưu thông tin doanh nghiệp");
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
@@ -174,16 +188,11 @@ export default function CompanyPage() {
                     <Panel title="Nhận diện" bodyGap={0}>
                         <div>
                             <Form.Item name="logoUrl" label="Logo" extra="Ảnh JPG, PNG hoặc WEBP vuông, tối thiểu 256 px"><ImageUploadField folder="logo" /></Form.Item>
-                            <Form.Item
-                                name="brandColor"
-                                label="Màu thương hiệu"
-                                rules={[{ pattern: /^#[0-9A-Fa-f]{6}$/, message: "Dạng #RRGGBB" }]}
-                            >
-                                <Input
-                                    placeholder="#0A59F7"
-                                    prefix={<span style={{ width: 16, height: 16, borderRadius: 4, background: brandColor && /^#[0-9A-Fa-f]{6}$/.test(brandColor) ? brandColor : COLORS.fill }} />}
-                                />
+                            <Form.Item name="brandColor" label="Màu thương hiệu" style={{ marginBottom: 8 }}
+                                extra="Dùng cho nút, liên kết, mục đang chọn trên web, ứng dụng di động và trang tuyển dụng">
+                                <BrandColorField />
                             </Form.Item>
+                            <BrandPreview picked={brandColor} />
                         </div>
                     </Panel>
 

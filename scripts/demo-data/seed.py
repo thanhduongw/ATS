@@ -369,6 +369,11 @@ def cand_confirm(app: dict, iv: dict, when: dt.datetime) -> None:
 def shift_interview(iv: dict, real: dt.datetime) -> None:
     """Chỉnh DB có kiểm soát: lịch chỉ tạo được ở tương lai, dời về thời điểm đã diễn ra."""
     psql("ats_interview", f"update interview set scheduled_at = timestamp '{real:%Y-%m-%d %H:%M:%S}' where id = {iv['id']};")
+    # Dòng nhật ký "Đặt lịch phỏng vấn — … (giờ hẹn)" ghi giờ lúc tạo; chờ nó được ghi rồi sửa theo giờ thật.
+    time.sleep(0.5)
+    stamp = f"({real:%H:%M %d/%m/%Y})"
+    psql("ats_notification", "update audit_log set metadata = regexp_replace(metadata, '[(][^)]*[)]$', "
+         + sql_str(stamp) + f") where resource_type = 'INTERVIEW' and resource_id = {iv['id']} and action = 'INTERVIEW_SCHEDULED';")
 
 
 EVAL_NOTES = {
@@ -596,6 +601,9 @@ def fixups() -> None:
                  f"update offer set start_date = date '{a['offer_start']:%Y-%m-%d}', "
                  f"response_deadline = timestamp '{a['offer_deadline']:%Y-%m-%d %H:%M:%S}' where id = {a['offer_id']};")
     align_ai_timestamps()
+    # Nhân viên nội bộ dùng hệ thống hằng ngày: lần đăng nhập gần nhất nằm trong hai ngày qua, không phải hôm tạo tài khoản.
+    psql("ats_auth", """update app_user u set last_login_at = date_trunc('minute', now() - (interval '1 hour' * (2 + (u.id * 7) % 40)))
+        where role_id in (select id from role where name <> 'CANDIDATE') and email <> 'le.quan@example.com';""")
     # Thông báo cũ hơn 10 ngày coi như đã đọc, để chuông không báo hàng chục tin từ ba tháng trước.
     cols = psql("ats_notification", "select column_name from information_schema.columns where table_name='notification'")
     if "is_read" in cols:

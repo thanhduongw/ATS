@@ -2,6 +2,10 @@
  * Chuỗi hiển thị dùng chung (quy tắc 7 của CLAUDE.md). Chuỗi chỉ thuộc về một màn thì đặt
  * dưới khóa của màn đó khi làm màn ấy.
  */
+import { readCachedCompanyName } from "@/theme";
+
+const COMPANY_NAME = readCachedCompanyName();
+
 export const STRINGS = {
   common: {
     retry: "Thử lại",
@@ -13,10 +17,11 @@ export const STRINGS = {
     required: " *",
     loading: "Đang tải",
   },
+  // Tên doanh nghiệp lấy từ API công khai (lưu ở lần mở trước — xem src/theme/brand.ts); chưa có thì dùng tên chung.
   brand: {
-    mark: "A",
-    name: "ATS",
-    tagline: "HỆ THỐNG TUYỂN DỤNG",
+    mark: (COMPANY_NAME ?? "A").trim().charAt(0).toUpperCase(),
+    name: COMPANY_NAME ?? "ATS",
+    tagline: COMPANY_NAME ? "TUYỂN DỤNG" : "HỆ THỐNG TUYỂN DỤNG",
   },
   auth: {
     otpLabel: "Mã OTP",

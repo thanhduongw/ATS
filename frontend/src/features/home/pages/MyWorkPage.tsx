@@ -312,7 +312,7 @@ function recruiterTasks(d: Data, me: number): Task[] {
             key: `confirm-${iv.id}`, icon: <CalendarOutlined />, color: COLORS.interview, mine: true,
             title: `Xác nhận tham gia phỏng vấn · ${iv.candidateName}`,
             sub: `${fmtDay(iv.scheduledAt)} ${fmtTime(iv.scheduledAt)} · ${iv.format === "ONLINE" ? "Trực tuyến" : "Tại văn phòng"}`,
-            action: "Xác nhận", to: `/interviews/${iv.id}`,
+            action: "Xem và xác nhận", to: `/interviews/${iv.id}`,
         }));
 
     // 3b. Ứng viên xin dời lịch → đặt giờ mới
@@ -399,7 +399,7 @@ function managerTasks(d: Data, me: number): Task[] {
             key: `confirm-${iv.id}`, icon: <CalendarOutlined />, color: COLORS.interview, mine: true,
             title: `Xác nhận tham gia phỏng vấn · ${iv.candidateName}`,
             sub: `${WEEKDAY[dayjs(iv.scheduledAt).day()]} ${fmtDay(iv.scheduledAt)} · ${fmtTime(iv.scheduledAt)} – ${dayjs(iv.scheduledAt).add(iv.durationMinutes, "minute").format("HH:mm")} · ${iv.format === "ONLINE" ? "Trực tuyến" : "Tại văn phòng"}`,
-            action: "Xác nhận", to: "/interviews",
+            action: "Xem và xác nhận", to: `/interviews/${iv.id}`,
         }));
     d.requisitions.filter((r) => r.requesterId === me && r.status === "CHANGES_REQUESTED").forEach((r) => tasks.push({
         key: `fix-${r.id}`, icon: <SolutionOutlined />, color: COLORS.interview, mine: true,

@@ -35,7 +35,7 @@ export default function CareersBlocks({ config, company, jobs }: {
     const photos = config.life.photos.filter((p) => p.url);
     // Không có ảnh bìa thì lấy ảnh đời sống đầu tiên; không có ảnh nào thì phần đầu trang chỉ còn chữ trên nền màu.
     const heroMain = config.hero.coverUrl || photos[0]?.url;
-    const heroSide = config.hero.coverUrl ? photos[0] : photos[1];
+    const heroSide = config.hero.coverUrl ? photos[0] : undefined;
     const heroArt = !!heroMain;
     const search = () => {
         const p = new URLSearchParams();

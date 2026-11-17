@@ -333,7 +333,8 @@ export default function CandidateApplicationDetailPage() {
         ...auditTrail.filter((l) => !ACTIVITY_SKIP.has(l.action)).map((l) => ({
             key: `a-${l.id}`, at: l.createdAt, who: l.who ?? candidate.fullName, whoId: l.actorUserId,
             what: (AUDIT_ACTION_LABEL[l.action] ?? l.action).toLowerCase(),
-            body: l.resourceType === "APPLICATION" ? null : l.metadata,
+            // Chi tiết chỉ hiện khi nói thêm được điều gì ngoài tên hành động (giờ hẹn, người nhận…).
+            body: l.resourceType === "APPLICATION" || l.action === "EVALUATION_SUBMITTED" ? null : l.metadata,
         })),
         ...history.map((h) => ({
             key: `h-${h.id}`, at: h.changedAt, who: h.changedByUserName, whoId: h.changedByUserId,

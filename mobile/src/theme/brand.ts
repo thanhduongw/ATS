@@ -15,6 +15,7 @@ import * as SecureStore from "expo-secure-store";
 export const DEFAULT_BRAND = "#0A59F7";
 const MIN_CONTRAST = 4.5;
 const KEY = "ats.brandColor";
+const NAME_KEY = "ats.companyName";
 
 export interface BrandPalette {
   color: string;
@@ -90,33 +91,39 @@ export function derivePalette(input?: string | null): BrandPalette {
 
 /** Đọc đồng bộ màu đã lưu; lỗi đọc thì dùng màu mặc định. */
 export function readCachedBrand(): string | null {
+  const v = readRaw(KEY);
+  return isHex(v) ? v : null;
+}
+
+function readRaw(key: string): string | null {
   try {
-    const v =
-      Platform.OS === "web"
-        ? typeof localStorage !== "undefined"
-          ? localStorage.getItem(KEY)
-          : null
-        : SecureStore.getItem(KEY);
-    return isHex(v) ? v : null;
+    if (Platform.OS === "web") return typeof localStorage !== "undefined" ? localStorage.getItem(key) : null;
+    return SecureStore.getItem(key);
   } catch {
     return null;
   }
 }
 
-function writeCachedBrand(hex: string | null): void {
+function writeRaw(key: string, value: string | null): void {
   try {
     if (Platform.OS === "web") {
       if (typeof localStorage === "undefined") return;
-      if (hex) localStorage.setItem(KEY, hex);
-      else localStorage.removeItem(KEY);
-    } else if (hex) {
-      SecureStore.setItem(KEY, hex);
+      if (value) localStorage.setItem(key, value);
+      else localStorage.removeItem(key);
+    } else if (value) {
+      SecureStore.setItem(key, value);
     } else {
-      void SecureStore.deleteItemAsync(KEY);
+      void SecureStore.deleteItemAsync(key);
     }
   } catch {
     // không lưu được thì lần sau hỏi lại máy chủ
   }
+}
+
+/** Tên doanh nghiệp đã lưu ở lần mở trước (hiện ở màn đăng nhập thay cho chữ "ATS"); chưa có thì null. */
+export function readCachedCompanyName(): string | null {
+  const v = readRaw(NAME_KEY);
+  return v && v.trim() ? v.trim() : null;
 }
 
 /**
@@ -127,11 +134,12 @@ export async function syncBrandFromServer(apiBaseUrl: string): Promise<void> {
   try {
     const res = await fetch(`${apiBaseUrl}/auth/public/theme`);
     if (!res.ok) return;
-    const body = (await res.json()) as { brandColor?: string | null };
+    const body = (await res.json()) as { brandColor?: string | null; companyName?: string | null };
     const next = isHex(body.brandColor) ? body.brandColor.toUpperCase() : null;
-    const current = readCachedBrand();
-    if (next === current) return;
-    writeCachedBrand(next);
+    const name = body.companyName?.trim() || null;
+    if (next === readCachedBrand() && name === readCachedCompanyName()) return;
+    writeRaw(KEY, next);
+    writeRaw(NAME_KEY, name);
     if (Platform.OS === "web" && typeof window !== "undefined") window.location.reload();
   } catch {
     // mất mạng: giữ màu đang có

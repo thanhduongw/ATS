@@ -103,13 +103,25 @@ Bộ script ở `scripts/demo-data/` (chạy bằng Python của ai-service; cá
 Các lần chạy 17/11: (1) hỏng do script gọi nhầm bash của WSL và đọc sai trường trả về; (2) máy khởi động lại, Docker tắt;
 (3) ai-service rớt consumer + access token hết hạn giữa chừng; (4) interview-service không lên vì migration trùng số;
 (5) bị dừng vì máy thiếu RAM. Mỗi nguyên nhân đã sửa. Lần (4) đã tạo đủ 41 đơn và AI chấm xong cả 41.
-**Chưa có lần nào chạy trọn tới cuối.**
+Sau đó: (6) tạo thư mời lỗi 500 vì DB bắt hạn phản hồi trước ngày đi làm, và trigger khoá sửa thư đã niêm phong chặn bước
+dời thời gian. **Lần (7) chạy trọn tới cuối, không lỗi** (13:09–13:47 ngày 17/11): 41 đơn, 20 buổi phỏng vấn, 7 thư mời.
+
+## Mục 7 — đã kiểm một phần (17/11)
+
+Đã mở trên web bằng 4 vai trò và trên Expo web (đăng nhập, ứng viên, trang chủ chuyên viên tuyển dụng); danh sách màn đã xem,
+chưa xem và lỗi mới sửa ở `docs/KET_QUA_HOAN_THIEN.md` mục 6. 3.19 (kéo thả từ chối) chạy đúng, không phải lỗi.
+
+## Mục 9 — đã viết
+
+`docs/KET_QUA_HOAN_THIEN.md`, `CLAUDE.md` gốc, `frontend/docs/TEST_ACCOUNTS.md`, bổ sung `mobile/CLAUDE.md`.
 
 ## Việc dở dang — đọc trước khi "làm tiếp"
 
-1. Chạy trọn `ai-service/.venv/Scripts/python.exe scripts/demo-data/seed.py` (30–45 phút, cần đủ 11 service và còn RAM trống).
-2. Mục 7: kiểm trên giao diện web + mobile — **chưa kiểm mục nào**, kể cả các mục nhóm A / B / C và mục 4 ở trên.
-3. Mục 5, nhóm D (mới làm vài mục), 3.19, mục 9 (`docs/KET_QUA_HOAN_THIEN.md`).
+1. Kiểm nốt mục 7: các luồng ghi dữ liệu trên giao diện (ứng tuyển, đồng ý / xin dời lịch, nhận / từ chối thư mời, soạn thư mời,
+   lên lịch, đánh giá, đổi vai trò, xoá dữ liệu…) và phần lớn màn mobile của nhân viên.
+2. Mục 5 (tinh chỉnh câu chữ, bố cục) chưa làm; nhóm D còn vài mục nhỏ.
+3. `docker/postgres-init/init-databases.sql` chưa cập nhật.
+4. Script `seed.py` có hai chỉnh sửa sau lần chạy trọn (đã áp vào DB hiện tại) — chưa chạy lại để xác nhận.
 
 ## Công cụ đã thêm
 

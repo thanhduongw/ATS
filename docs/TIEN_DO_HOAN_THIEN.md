@@ -117,6 +117,8 @@ chưa xem và lỗi mới sửa ở `docs/KET_QUA_HOAN_THIEN.md` mục 6. 3.19 (
 
 ## Việc dở dang — đọc trước khi "làm tiếp"
 
+**Kế hoạch chi tiết cho phần còn lại (từng việc, bước làm, kết quả phải đạt): `docs/KE_HOACH_CON_LAI.md`.**
+
 1. Kiểm nốt mục 7: các luồng ghi dữ liệu trên giao diện (ứng tuyển, đồng ý / xin dời lịch, nhận / từ chối thư mời, soạn thư mời,
    lên lịch, đánh giá, đổi vai trò, xoá dữ liệu…) và phần lớn màn mobile của nhân viên.
 2. Mục 5 (tinh chỉnh câu chữ, bố cục) chưa làm; nhóm D còn vài mục nhỏ.

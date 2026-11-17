@@ -120,7 +120,7 @@ chưa xem và lỗi mới sửa ở `docs/KET_QUA_HOAN_THIEN.md` mục 6. 3.19 (
 1. Kiểm nốt mục 7: các luồng ghi dữ liệu trên giao diện (ứng tuyển, đồng ý / xin dời lịch, nhận / từ chối thư mời, soạn thư mời,
    lên lịch, đánh giá, đổi vai trò, xoá dữ liệu…) và phần lớn màn mobile của nhân viên.
 2. Mục 5 (tinh chỉnh câu chữ, bố cục) chưa làm; nhóm D còn vài mục nhỏ.
-3. `docker/postgres-init/init-databases.sql` chưa cập nhật.
+3. `docker/postgres-init/init-databases.sql` đã sửa nhưng chưa thử với volume Postgres mới.
 4. Script `seed.py` có hai chỉnh sửa sau lần chạy trọn (đã áp vào DB hiện tại) — chưa chạy lại để xác nhận.
 
 ## Công cụ đã thêm

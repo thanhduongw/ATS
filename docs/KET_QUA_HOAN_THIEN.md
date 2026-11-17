@@ -107,7 +107,7 @@ Xong. `scripts/demo-data/seed.py` chạy trọn một lần ngày 17/11, sau nhi
 Sau lần chạy đó script được sửa thêm hai chỗ (lần đăng nhập gần nhất của nhân viên, giờ hẹn trong dòng nhật ký đặt lịch);
 hai chỗ này đã áp thẳng vào DB hiện tại nhưng **script bản mới chưa được chạy lại trọn vẹn**.
 
-`docker/postgres-init/init-databases.sql` **chưa cập nhật** — vẫn còn seed cũ (công ty "TechCorp Vietnam", tài khoản `@test.net`).
+`docker/postgres-init/init-databases.sql` đã bỏ seed cũ (công ty "TechCorp Vietnam", 3 tài khoản `@test.net`, phòng "Human Resources"): chỉ còn dòng công ty và quản trị viên đầu tiên. Chưa thử khởi tạo một volume Postgres mới với file này.
 File này chỉ chạy khi tạo volume Postgres mới; với DB đang có thì script reset đã thay thế.
 
 ## 6. Mục 7 — kiểm tra giao diện
@@ -135,7 +135,7 @@ Lỗi mới phát hiện trong lúc làm và đã sửa:
 1. Kiểm nốt mục 7 (danh sách "Chưa kiểm" ở trên), cả web và mobile.
 2. Mục 5 (tinh chỉnh câu chữ và bố cục).
 3. Các mục nhỏ còn lại của nhóm D.
-4. Cập nhật `docker/postgres-init/init-databases.sql`.
+4. Thử khởi tạo volume Postgres mới với `docker/postgres-init/init-databases.sql` bản đã sửa.
 5. Vài chỗ chữ bị cắt đã thấy nhưng chưa sửa: tên phòng ban và tên người ở bảng "Theo phòng ban" của Tổng quan, tên ứng viên trên thẻ Kanban.
 6. Nút "Từ chối" trong hộp thoại từ chối hồ sơ chưa dùng màu đỏ như quy ước nút không hoàn tác.
 

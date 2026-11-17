@@ -48,8 +48,9 @@ CREATE TABLE IF NOT EXISTS app_user (
     CONSTRAINT ck_app_user_department_positive CHECK (department_id IS NULL OR department_id > 0)
 );
 
-INSERT INTO company (id, name, address, phone)
-VALUES (1, 'TechCorp Vietnam', 'TP. Ho Chi Minh', '0909123456')
+-- Dòng công ty duy nhất. Thông tin đầy đủ do scripts/demo-data/seed.py (hoặc Quản trị trên giao diện) điền sau.
+INSERT INTO company (id, name)
+VALUES (1, 'Mộc Lam Software')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO role (id, name) VALUES
@@ -59,13 +60,12 @@ INSERT INTO role (id, name) VALUES
 (4, 'CANDIDATE')
 ON CONFLICT (id) DO NOTHING;
 
--- BCrypt hash for Password123!. Candidate accounts are created through /api/auth/register.
+-- Chỉ tạo quản trị viên đầu tiên (mật khẩu Password123!, băm BCrypt). Mọi tài khoản khác tạo qua giao diện / API:
+-- nhân viên do Quản trị mời, ứng viên tự đăng ký. Bộ dữ liệu demo: scripts/demo-data/seed.py (xem CLAUDE.md ở gốc).
 INSERT INTO app_user
     (id, email, password_hash, full_name, role_id, department_id, status, email_verified)
 VALUES
-    (1, 'admin.company@test.net', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'Company Admin', 1, NULL, 'ACTIVE', TRUE),
-    (2, 'hr.recruiter@test.net', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'HR Recruiter', 2, 1, 'ACTIVE', TRUE),
-    (3, 'dept.manager@test.net', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'Hiring Manager', 3, 1, 'ACTIVE', TRUE)
+    (1, 'le.quan@example.com', '$2a$10$kTAaqCGu7GXtmozdlwjyG.JrGorYCKvPSLvHd/70QqMrsR2NBJ7Xu', 'Lê Minh Quân', 1, NULL, 'ACTIVE', TRUE)
 ON CONFLICT (email) DO NOTHING;
 
 SELECT setval('company_id_seq', (SELECT MAX(id) FROM company));
@@ -83,11 +83,7 @@ CREATE TABLE IF NOT EXISTS department (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO department (id, name, description, active)
-VALUES (1, 'Human Resources', 'Default department for seeded internal users', TRUE)
-ON CONFLICT (id) DO NOTHING;
-
-SELECT setval('department_id_seq', (SELECT MAX(id) FROM department));
+-- Phòng ban và các danh mục khác (lĩnh vực IT) do masterdata-service tự nạp khi khởi động (DefaultDataSeeder).
 
 -- ============================================================
 -- AI Service Database (ats_ai) — pgvector + AI tables

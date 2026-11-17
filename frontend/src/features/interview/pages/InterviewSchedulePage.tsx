@@ -1,4 +1,4 @@
-import { matchesKeyword } from "../../../app/text";
+import { matchesKeyword, filterOptionByLabel } from "../../../app/text";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { App, Button, Dropdown, Input, Modal, Pagination, Segmented, Select, Space, Spin, Tooltip, type MenuProps } from "antd";
 import {
@@ -380,7 +380,7 @@ export default function InterviewSchedulePage() {
                     />
                     {isHr && (
                         <Select
-                            allowClear showSearch optionFilterProp="label"
+                            allowClear showSearch optionFilterProp="label" filterOption={filterOptionByLabel}
                             placeholder="Người phỏng vấn"
                             style={{ width: 200 }}
                             value={interviewerId}
@@ -389,7 +389,7 @@ export default function InterviewSchedulePage() {
                         />
                     )}
                     <Select
-                        allowClear showSearch optionFilterProp="label"
+                        allowClear showSearch optionFilterProp="label" filterOption={filterOptionByLabel}
                         placeholder="Việc làm"
                         style={{ width: 220 }}
                         value={postingId}

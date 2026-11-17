@@ -170,6 +170,8 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
     REQUISITION_UPDATED: "Sửa yêu cầu tuyển dụng",
     POSTING_UPDATED: "Sửa nội dung tin",
     INTERVIEW_RESCHEDULED: "Đổi lịch phỏng vấn",
+    INTERVIEW_INTERVIEWERS_UPDATED: "Đổi người phỏng vấn",
+    INTERVIEW_PROPOSAL_APPROVED: "Duyệt giờ phòng ban đề xuất",
     INTERVIEW_NO_SHOW: "Ghi nhận ứng viên vắng mặt",
     OFFER_SENT: "Gửi thư mời cho ứng viên",
     OFFER_EXPIRED: "Thư mời hết hạn",

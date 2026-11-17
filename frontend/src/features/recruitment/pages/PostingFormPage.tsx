@@ -23,6 +23,7 @@ import { FIXED_STAGE_LABEL } from "../../../app/stages";
 import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
 import DateField from "../../../components/ui/DateField";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
+import { filterOptionByLabel } from "../../../app/text";
 
 /**
  * R07 · Tạo / sửa việc làm từ yêu cầu tuyển dụng (trang, thay PostingFormModal).
@@ -241,7 +242,7 @@ export default function PostingFormPage() {
                         <Panel title="Từ yêu cầu tuyển dụng" bodyGap={8}>
                             <Form.Item style={{ marginBottom: 4 }} {...field("requisitionId")}>
                                 <Controller name="requisitionId" control={control} render={({ field: f }) => (
-                                    <Select {...f} disabled={!!editing} showSearch optionFilterProp="label" placeholder="Chọn yêu cầu đã duyệt"
+                                    <Select {...f} disabled={!!editing} showSearch optionFilterProp="label" filterOption={filterOptionByLabel} placeholder="Chọn yêu cầu đã duyệt"
                                         options={requisitions.map((r) => ({ value: r.id, label: `${r.title} · ${requisitionCode(r.id)}` }))} />)} />
                             </Form.Item>
                             {req && (<>

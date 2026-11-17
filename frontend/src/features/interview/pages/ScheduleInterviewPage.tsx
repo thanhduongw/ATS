@@ -19,6 +19,7 @@ import { COLORS } from "../../../app/theme";
 import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
 import { AiScorePill, Avatar, InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
+import { filterOptionByLabel } from "../../../app/text";
 
 /**
  * R18 · Lên lịch phỏng vấn (trang): HR chọn MỘT giờ cố định → tạo buổi phỏng vấn (người phỏng vấn
@@ -218,7 +219,7 @@ export default function ScheduleInterviewPage() {
                         )}
                         <Field label="Người phỏng vấn">
                             <Select mode="multiple" value={interviewerIds} onChange={setInterviewerIds} style={{ width: "100%" }}
-                                optionFilterProp="label" placeholder="Chọn người phỏng vấn"
+                                optionFilterProp="label" filterOption={filterOptionByLabel} placeholder="Chọn người phỏng vấn"
                                 options={people.map((p) => ({ value: p.id, label: `${p.fullName}${p.role === "RECRUITER" ? " (Tuyển dụng)" : ""}` }))} />
                         </Field>
                         <Field label="Giờ đã chọn">

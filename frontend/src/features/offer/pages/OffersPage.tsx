@@ -1,4 +1,4 @@
-import { matchesKeyword } from "../../../app/text";
+import { matchesKeyword, filterOptionByLabel } from "../../../app/text";
 import { useEffect, useMemo, useState } from "react";
 import { App, Button, Input, Select} from "antd";
 import { SearchOutlined } from "@ant-design/icons";
@@ -138,6 +138,7 @@ export default function OffersPage() {
                     <Select
                         allowClear
                         showSearch
+                        filterOption={filterOptionByLabel}
                         placeholder="Tìm việc làm"
                         value={job}
                         onChange={setJob}

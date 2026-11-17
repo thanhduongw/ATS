@@ -18,6 +18,7 @@ import type { JobPostingResponse } from "../../recruitment/types";
 import type { CatalogItem } from "../../masterdata/types";
 import type { UserDirectoryResponse } from "../../auth/types";
 import type { ApiMessageResponse } from "../types";
+import { filterOptionByLabel } from "../../../app/text";
 
 interface Props {
   open: boolean;
@@ -105,7 +106,7 @@ export default function ApplicationCreateModal({
       onOk={handleSubmit(onSubmit)}
       onCancel={onClose}
       confirmLoading={isSubmitting}
-      okText="Ứng tuyển"
+      okText="Thêm vào tin"
       cancelText="Hủy"
       destroyOnHidden
     >
@@ -123,7 +124,7 @@ export default function ApplicationCreateModal({
                 {...field}
                 disabled={!!presetCandidateId}
                 showSearch
-                optionFilterProp="label"
+                optionFilterProp="label" filterOption={filterOptionByLabel}
                 options={candidates.map((c) => ({ value: c.id, label: `${c.fullName} (${c.email})` }))}
               />
             )}
@@ -134,7 +135,7 @@ export default function ApplicationCreateModal({
           <Select
             showSearch
             allowClear
-            optionFilterProp="label"
+            optionFilterProp="label" filterOption={filterOptionByLabel}
             disabled={!!presetJobPostingId}
             value={departmentId}
             onChange={(v) => {
@@ -159,7 +160,7 @@ export default function ApplicationCreateModal({
               <Select
                 {...field}
                 showSearch
-                optionFilterProp="label"
+                optionFilterProp="label" filterOption={filterOptionByLabel}
                 disabled={!!presetJobPostingId || departmentId == null}
                 options={postings
                   .filter((p) => p.departmentId === departmentId)

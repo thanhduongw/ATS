@@ -50,6 +50,7 @@ import { findInterviewerConflicts, describeConflict } from "../conflicts";
 import { toLocalDateTimeString } from "../../../app/datetime";
 import { COLORS, RADIUS } from "../../../app/theme";
 import StageTag from "../../../components/ui/StageTag";
+import { filterOptionByLabel } from "../../../app/text";
 
 interface Props {
     open: boolean;
@@ -351,7 +352,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                             }}
                             allowClear
                             showSearch
-                            optionFilterProp="label"
+                            optionFilterProp="label" filterOption={filterOptionByLabel}
                             options={departmentOptions}
                             notFoundContent="Chưa có phòng ban nào đang có tin tuyển dụng"
                         />
@@ -368,7 +369,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                             value={postingId}
                             onChange={setPostingId}
                             showSearch
-                            optionFilterProp="label"
+                            optionFilterProp="label" filterOption={filterOptionByLabel}
                             options={postingsInDepartment.map((p) => ({ value: p.id, label: p.title }))}
                             notFoundContent="Phòng ban này chưa có tin tuyển dụng nào"
                         />
@@ -443,7 +444,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                             value={interviewerIds}
                             onChange={setInterviewerIds}
                             showSearch
-                            optionFilterProp="label"
+                            optionFilterProp="label" filterOption={filterOptionByLabel}
                             options={interviewerOptions}
                             optionRender={(option) => (
                                 <div

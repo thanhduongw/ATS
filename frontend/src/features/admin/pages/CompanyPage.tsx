@@ -13,6 +13,7 @@ import { useBrand } from "../../../app/BrandProvider";
 import { ensureContrast, isHexColor } from "../../../app/brand";
 import ImageUploadField from "../../../components/ui/ImageUploadField";
 import { Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
+import { filterOptionByLabel } from "../../../app/text";
 
 interface Benefit { title: string; description?: string }
 
@@ -251,7 +252,7 @@ export default function CompanyPage() {
                                 <InputNumber min={1} style={{ width: "100%" }} />
                             </Form.Item>
                             <Form.Item name="dataProtectionOfficerId" label="Người phụ trách dữ liệu cá nhân">
-                                <Select allowClear showSearch optionFilterProp="label" options={staff.map((u) => ({ value: u.id, label: u.fullName }))} />
+                                <Select allowClear showSearch optionFilterProp="label" filterOption={filterOptionByLabel} options={staff.map((u) => ({ value: u.id, label: u.fullName }))} />
                             </Form.Item>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: RADIUS.md, background: COLORS.fill }}>

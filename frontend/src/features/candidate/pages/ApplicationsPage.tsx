@@ -46,6 +46,7 @@ import { AI_TIER_OPTIONS, aiTierMeta } from "../../ai/aiScore";
 import { rescorePosting } from "../../ai/aiApi";
 import { useFitPageSize } from "../../../components/ui/useFitPageSize";
 import type { CandidateFormValues } from "../schemas/candidateSchema";
+import { filterOptionByLabel } from "../../../app/text";
 
 /** Bộ lọc giai đoạn theo 6 nhóm cố định (DS06) — giá trị là danh sách stageType gửi lên API. */
 const STAGE_FILTER_OPTIONS = FIXED_STAGES.map((g) => ({ value: stageTypeFilterOf(g), label: FIXED_STAGE_LABEL[g] }));
@@ -408,7 +409,7 @@ export default function ApplicationsPage() {
                     <Select
                         allowClear
                         showSearch
-                        optionFilterProp="label"
+                        optionFilterProp="label" filterOption={filterOptionByLabel}
                         placeholder="Việc làm"
                         style={{ width: 240 }}
                         value={jobPostingId}
@@ -544,7 +545,7 @@ export default function ApplicationsPage() {
                     >
                         <Select
                             showSearch
-                            optionFilterProp="label"
+                            optionFilterProp="label" filterOption={filterOptionByLabel}
                             options={recruiters.map((r) => ({ value: r.id, label: r.fullName }))}
                         />
                     </Form.Item>

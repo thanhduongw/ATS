@@ -21,6 +21,7 @@ import { toLocalDateTimeString } from "../../../app/datetime";
 import { Avatar, InlineNotice, Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
+import { filterOptionByLabel } from "../../../app/text";
 
 /**
  * R21 · Chi tiết buổi phỏng vấn (trang, thay InterviewDetailModal).
@@ -262,7 +263,12 @@ export default function InterviewDetailPage() {
 
             <SmallDialog open={dialog === "cancel"} title="Huỷ buổi phỏng vấn?" okText="Huỷ buổi" danger okLoading={busy}
                 onCancel={() => setDialog(null)} onOk={() => run(() => cancelInterview(iv.id), "Đã huỷ buổi phỏng vấn")}>
-                <span style={{ color: COLORS.textSecondary }}>Người phỏng vấn và ứng viên sẽ nhận thông báo huỷ. Không hoàn tác được.</span>
+                <span style={{ color: COLORS.textSecondary }}>
+                    {/* Ứng viên chỉ biết buổi này từ khi phòng ban chốt giờ — trước đó không báo huỷ cho ứng viên. */}
+                    {iv.status === "HM_CONFIRMED" || iv.status === "CANDIDATE_CONFIRMED"
+                        ? "Người phỏng vấn và ứng viên sẽ nhận thông báo huỷ. Không hoàn tác được."
+                        : "Người phỏng vấn sẽ nhận thông báo huỷ; ứng viên chưa được báo lịch này. Không hoàn tác được."}
+                </span>
             </SmallDialog>
 
             <SmallDialog open={dialog === "noshow"} title="Ứng viên vắng mặt?" okText="Ghi nhận vắng mặt" danger okLoading={busy}
@@ -272,7 +278,7 @@ export default function InterviewDetailPage() {
 
             <SmallDialog open={dialog === "interviewers"} title="Người phỏng vấn" okText="Lưu" okLoading={busy} okDisabled={pickedPeople.length === 0}
                 onCancel={() => setDialog(null)} onOk={() => run(() => updateInterviewers(iv.id, pickedPeople), "Đã cập nhật người phỏng vấn")}>
-                <Select mode="multiple" value={pickedPeople} onChange={setPickedPeople} style={{ width: "100%" }} optionFilterProp="label"
+                <Select mode="multiple" value={pickedPeople} onChange={setPickedPeople} style={{ width: "100%" }} optionFilterProp="label" filterOption={filterOptionByLabel}
                     options={people.filter((p) => (p.role === "HIRING_MANAGER" || p.role === "RECRUITER")
                         && ((p.status ?? "ACTIVE") === "ACTIVE" || iv.interviewers.some((q) => q.interviewerId === p.id)))
                         .map((p) => ({ value: p.id, label: `${p.fullName}${p.role === "RECRUITER" ? " (Tuyển dụng)" : ""}`, disabled: iv.interviewers.some((q) => q.interviewerId === p.id && q.evaluationSubmitted) }))} />

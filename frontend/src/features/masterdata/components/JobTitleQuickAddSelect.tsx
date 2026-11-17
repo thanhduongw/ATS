@@ -5,6 +5,7 @@ import type { AxiosError } from "axios";
 import { getCatalogItems, createCatalogItem } from "../masterdataApi";
 import type { CatalogItem, ApiMessageResponse } from "../types";
 import { useAppSelector } from "../../../app/hooks";
+import { filterOptionByLabel } from "../../../app/text";
 
 interface JobTitleQuickAddSelectProps {
     value: number | undefined;
@@ -65,7 +66,7 @@ export default function JobTitleQuickAddSelect({ value, onChange, placeholder }:
             value={value}
             onChange={onChange}
             options={options}
-            optionFilterProp="label"
+            optionFilterProp="label" filterOption={filterOptionByLabel}
             searchValue={searchValue}
             onSearch={setSearchValue}
             popupRender={(menu) => (

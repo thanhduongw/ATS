@@ -14,6 +14,7 @@ import AvatarUploader from "../../auth/components/AvatarUploader";
 import { getMyProfile } from "../../auth/authApi";
 import type { UserProfileResponse } from "../../auth/types";
 import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
+import { filterOptionByLabel } from "../../../app/text";
 
 /**
  * C17 · Hồ sơ của tôi: thông tin cá nhân · kỹ năng · CV (chỉ 1 CV — "Tải CV mới" thay CV cũ, quyết định G7).
@@ -161,7 +162,7 @@ export default function CandidateProfilePage() {
 
                 <Panel title="Kỹ năng">
                     <Form.Item name="skillIds" style={{ marginBottom: 0 }}>
-                        <Select mode="multiple" allowClear placeholder="Thêm kỹ năng" optionFilterProp="label"
+                        <Select mode="multiple" allowClear placeholder="Thêm kỹ năng" optionFilterProp="label" filterOption={filterOptionByLabel}
                             options={skills.map((i) => ({ value: i.id, label: String(i.name) }))} />
                     </Form.Item>
                 </Panel>

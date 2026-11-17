@@ -25,6 +25,7 @@ import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import type { ReactNode } from "react";
 import { CalendarOutlined, EditOutlined, MailOutlined, SolutionOutlined, TeamOutlined } from "@ant-design/icons";
 import { ROLE_NAME, USER_STATUS_VIEW } from "../adminLabels";
+import { filterOptionByLabel } from "../../../app/text";
 
 /**
  * A05 · Chi tiết người dùng: vai trò & phòng ban · việc đang phụ trách (chỉ số đếm) · lịch sử tài khoản (nhật ký hệ thống).
@@ -244,7 +245,7 @@ export default function UserDetailPage() {
                     <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: COLORS.textSecondary }}>
                         Phòng ban
                         <Select value={newDept ?? undefined} onChange={(v) => setNewDept(v)} placeholder="Chọn phòng ban"
-                            showSearch optionFilterProp="label"
+                            showSearch optionFilterProp="label" filterOption={filterOptionByLabel}
                             options={departments.filter((d) => d.active !== false || d.id === user.departmentId)
                                 .map((d) => ({ value: d.id, label: String(d.name) }))} />
                     </label>

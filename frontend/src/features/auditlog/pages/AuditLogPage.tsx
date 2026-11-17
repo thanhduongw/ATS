@@ -1,4 +1,4 @@
-import { matchesKeyword } from "../../../app/text";
+import { matchesKeyword, filterOptionByLabel } from "../../../app/text";
 import { useEffect, useMemo, useState } from "react";
 import { DatePicker, Input, Select, Tooltip } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
@@ -124,7 +124,7 @@ export default function AuditLogPage() {
                     <Select
                         allowClear
                         showSearch
-                        optionFilterProp="label"
+                        optionFilterProp="label" filterOption={filterOptionByLabel}
                         placeholder="Người thực hiện"
                         style={{ width: 200 }}
                         value={actorUserId}

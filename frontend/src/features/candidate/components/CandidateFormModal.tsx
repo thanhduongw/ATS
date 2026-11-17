@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Modal, Form, Input, InputNumber, Select, Upload, message } from "antd";
@@ -60,6 +60,7 @@ export default function CandidateFormModal({ open, editingItem, initialValues, i
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [cvError, setCvError] = useState<string | null>(null);
+  const cvSectionRef = useRef<HTMLDivElement>(null);
 
   const {
     control,
@@ -126,6 +127,8 @@ export default function CandidateFormModal({ open, editingItem, initialValues, i
   const onSubmit = async (data: CandidateFormValues) => {
     if (!editingItem && !cvFile) {
       setCvError("Vui lòng tải lên CV của ứng viên");
+      // Ô CV nằm dưới khung nhìn của hộp thoại: cuộn tới để thấy lỗi.
+      cvSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     try {
@@ -252,6 +255,7 @@ export default function CandidateFormModal({ open, editingItem, initialValues, i
           </div>
         </SectionContainer>
 
+        <div ref={cvSectionRef}>
         <SectionContainer>
           <SectionHeader icon={<FileTextOutlined />} title="CV / Hồ sơ đính kèm" subtitle="Hỗ trợ tệp PDF, DOC, DOCX" />
           <Form.Item
@@ -288,6 +292,7 @@ export default function CandidateFormModal({ open, editingItem, initialValues, i
             </Upload.Dragger>
           </Form.Item>
         </SectionContainer>
+        </div>
 
         <SectionContainer>
           <SectionHeader icon={<TrophyOutlined />} title="Chuyên môn" subtitle="Trình độ và kỹ năng phục vụ sàng lọc hồ sơ" />

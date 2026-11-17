@@ -88,6 +88,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<string, string> = {
     INTERVIEW_SCHEDULED: "Lịch phỏng vấn",
     INTERVIEW_HM_CONFIRMED: "Lịch phỏng vấn đã được chốt",
     INTERVIEW_CONFIRMED: "Xác nhận PV",
+    INTERVIEW_CANDIDATE_DECLINED: "Ứng viên xin dời lịch",
+    INTERVIEW_CANCELLED: "Lịch phỏng vấn đã huỷ",
     INTERVIEW_REMINDER: "Nhắc phỏng vấn",
     EVALUATION_INCOMPLETE_REMINDER: "Chưa đánh giá",
     OFFER_PENDING_CONFIRMATION: "Offer đã duyệt",

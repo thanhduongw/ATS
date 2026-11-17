@@ -4,12 +4,15 @@ import iuh.fit.se.notification.client.ApplicationServiceClient;
 import iuh.fit.se.notification.client.AuthServiceClient;
 import iuh.fit.se.notification.client.CandidateServiceClient;
 import iuh.fit.se.notification.client.InterviewServiceClient;
+import iuh.fit.se.notification.client.dto.ApplicationSummaryResponse;
+import iuh.fit.se.notification.client.dto.CandidateSummaryResponse;
 import iuh.fit.se.notification.client.dto.UserSummaryResponse;
 import iuh.fit.se.notification.notification.NotificationService;
 import iuh.fit.se.notification.notification.NotificationType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -27,15 +30,18 @@ class BusinessEventListenerTest {
 
     private NotificationService notifications;
     private AuthServiceClient auth;
+    private ApplicationServiceClient applications;
+    private CandidateServiceClient candidates;
     private BusinessEventListener listener;
 
     @BeforeEach
     void setUp() {
         notifications = mock(NotificationService.class);
         auth = mock(AuthServiceClient.class);
+        applications = mock(ApplicationServiceClient.class);
+        candidates = mock(CandidateServiceClient.class);
         listener = new BusinessEventListener(notifications, mock(DelayedMessagePublisher.class),
-                mock(InterviewServiceClient.class), mock(ApplicationServiceClient.class),
-                mock(CandidateServiceClient.class), auth);
+                mock(InterviewServiceClient.class), applications, candidates, auth);
         when(auth.getUsers("RECRUITER")).thenReturn(List.of(
                 new UserSummaryResponse(2L, "Trần Thị Thu Hà", "tran.ha@example.com", "RECRUITER"),
                 new UserSummaryResponse(3L, "Phạm Ngọc Ánh", "pham.anh@example.com", "RECRUITER")));
@@ -75,5 +81,33 @@ class BusinessEventListenerTest {
 
         verify(auth, never()).getUsers(anyString());
         verify(notifications, never()).createAndPush(eq(2L), any(), anyString(), anyString(), any(), anyLong());
+    }
+
+    private static InterviewCancelledEvent cancelled(boolean candidateNotified) {
+        return new InterviewCancelledEvent(12L, 23L, LocalDateTime.of(2026, 11, 23, 15, 0), "Trương Thị Mỹ Linh",
+                List.of(6L, 2L), 2L, candidateNotified);
+    }
+
+    @Test
+    void cancelledBeforeAnnouncedTellsOtherInterviewersOnly() {
+        listener.onInterviewCancelled(cancelled(false));
+
+        verify(notifications).createAndPush(eq(6L), eq(NotificationType.INTERVIEW_CANCELLED), eq("Buổi phỏng vấn đã huỷ"),
+                contains("Trương Thị Mỹ Linh"), eq("INTERVIEW"), eq(12L));
+        // Người huỷ (2) không tự nhận; ứng viên chưa từng được báo lịch nên không tra hồ sơ, không báo.
+        verify(notifications, never()).createAndPush(eq(2L), any(), anyString(), anyString(), any(), anyLong());
+        verify(applications, never()).getApplicationById(anyLong());
+    }
+
+    @Test
+    void cancelledAfterAnnouncedAlsoTellsCandidate() {
+        when(applications.getApplicationById(23L)).thenReturn(new ApplicationSummaryResponse(23L, 21L, null, "Trương Thị Mỹ Linh"));
+        when(candidates.getCandidateSummary(21L))
+                .thenReturn(new CandidateSummaryResponse(21L, "Trương Thị Mỹ Linh", "truong.linh@example.com", null, null, 30L));
+
+        listener.onInterviewCancelled(cancelled(true));
+
+        verify(notifications).createAndPush(eq(30L), eq(NotificationType.INTERVIEW_CANCELLED), eq("Lịch phỏng vấn đã huỷ"),
+                contains("đã huỷ"), eq("INTERVIEW"), eq(12L));
     }
 }

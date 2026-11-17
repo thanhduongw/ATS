@@ -339,6 +339,38 @@ public class BusinessEventListener {
         }
     }
 
+    // ===== 5c. HR huỷ buổi phỏng vấn =====
+    @RabbitListener(queues = BusinessEventConfig.INTERVIEW_CANCELLED_QUEUE)
+    public void onInterviewCancelled(InterviewCancelledEvent event) {
+        log.info("Nhận event interview.cancelled, interviewId={}", event.interviewId());
+        String when = formatVi(event.scheduledAt());
+        if (event.interviewerIds() != null) {
+            for (Long userId : new java.util.LinkedHashSet<>(event.interviewerIds())) {
+                if (userId == null || userId.equals(event.actorUserId())) continue; // người huỷ không cần tự báo
+                notificationService.createAndPush(
+                        userId,
+                        NotificationType.INTERVIEW_CANCELLED,
+                        "Buổi phỏng vấn đã huỷ",
+                        "Buổi phỏng vấn " + nullSafe(event.candidateName()) + " lúc " + when + " đã huỷ.",
+                        "INTERVIEW",
+                        event.interviewId());
+            }
+        }
+        // Ứng viên chưa từng được báo lịch (giờ còn đang thương lượng nội bộ) thì không báo huỷ.
+        if (event.candidateNotified()) {
+            Long candidateUserId = resolveCandidateUserIdFromApplication(event.applicationId());
+            if (candidateUserId != null) {
+                notificationService.createAndPush(
+                        candidateUserId,
+                        NotificationType.INTERVIEW_CANCELLED,
+                        "Lịch phỏng vấn đã huỷ",
+                        "Buổi phỏng vấn lúc " + when + " đã huỷ. Bộ phận tuyển dụng sẽ liên hệ nếu có lịch mới.",
+                        "INTERVIEW",
+                        event.interviewId());
+            }
+        }
+    }
+
     // ===== 6a. Nhắc phỏng vấn trước 24 giờ / 1 giờ (mục 4.4) =====
     @RabbitListener(queues = BusinessEventConfig.INTERVIEW_REMINDER_QUEUE)
     public void onInterviewReminder(InterviewReminderEvent event) {

@@ -16,6 +16,7 @@ public class BusinessEventConfig {
     public static final String INTERVIEW_CONFIRMED_QUEUE = "notification.interview-confirmed.queue";
     public static final String INTERVIEW_REMINDER_QUEUE = "notification.interview-reminder.queue";
     public static final String INTERVIEW_CANDIDATE_DECLINED_QUEUE = "notification.interview-candidate-declined.queue";
+    public static final String INTERVIEW_CANCELLED_QUEUE = "notification.interview-cancelled.queue";
     public static final String REQUISITION_SUBMITTED_QUEUE = "notification.requisition-submitted.queue";
     public static final String OFFER_APPROVED_QUEUE = "notification.offer-approved.queue";
     public static final String OFFER_ACCEPTED_QUEUE = "notification.offer-accepted.queue";
@@ -85,6 +86,16 @@ public class BusinessEventConfig {
     @Bean
     public Binding interviewCandidateDeclinedBinding(Queue interviewCandidateDeclinedQueue, TopicExchange atsExchange) {
         return BindingBuilder.bind(interviewCandidateDeclinedQueue).to(atsExchange).with("interview.candidate-declined");
+    }
+
+    @Bean
+    public Queue interviewCancelledQueue() {
+        return new Queue(INTERVIEW_CANCELLED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding interviewCancelledBinding(Queue interviewCancelledQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(interviewCancelledQueue).to(atsExchange).with("interview.cancelled");
     }
 
     @Bean

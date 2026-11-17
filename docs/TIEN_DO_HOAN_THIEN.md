@@ -105,6 +105,7 @@ Các lần chạy 17/11: (1) hỏng do script gọi nhầm bash của WSL và đ
 (5) bị dừng vì máy thiếu RAM. Mỗi nguyên nhân đã sửa. Lần (4) đã tạo đủ 41 đơn và AI chấm xong cả 41.
 Sau đó: (6) tạo thư mời lỗi 500 vì DB bắt hạn phản hồi trước ngày đi làm, và trigger khoá sửa thư đã niêm phong chặn bước
 dời thời gian. **Lần (7) chạy trọn tới cuối, không lỗi** (13:09–13:47 ngày 17/11): 41 đơn, 20 buổi phỏng vấn, 7 thư mời.
+**Lần (8) — bản script mới nhất, chạy trọn** (18:58–19:17 ngày 17/11, phần E bên dưới).
 
 ## Mục 7 — đã kiểm một phần (17/11)
 
@@ -115,15 +116,42 @@ chưa xem và lỗi mới sửa ở `docs/KET_QUA_HOAN_THIEN.md` mục 6. 3.19 (
 
 `docs/KET_QUA_HOAN_THIEN.md`, `CLAUDE.md` gốc, `frontend/docs/TEST_ACCOUNTS.md`, bổ sung `mobile/CLAUDE.md`.
 
+## Phần E của `docs/KE_HOACH_CON_LAI.md` — chốt (17/11, 18:30–19:30)
+
+Làm trước các phần khác theo yêu cầu người dùng. Commit: `b9fe19f`, `1882901`, `76dfa0c`, `9f1b1fd` (đã push `origin/dev`).
+
+| Mã | Kết quả | Đã kiểm bằng gì |
+|---|---|---|
+| E-1 | Đạt | `mvnw.cmd -q test` lần lượt 9 service: cả 9 mã thoát 0, **153 test, 0 lỗi** (auth 52, masterdata 6, recruitment 15, candidate 10, application 37, interview 7, offer 23, notification 2, dashboard 1 — đếm từ `target/surefire-reports`); recruitment + candidate chạy lại sau khi sửa migration, vẫn qua. `npx tsc -b --noEmit` web sạch (chạy lại sau sửa nhật ký, sạch). Mobile `typecheck` sạch; `lint` 0 lỗi, có 1 cảnh báo mới (`PillButton` import thừa ở `app/(candidate)/applications/index.tsx`) → đã xoá, còn 3 cảnh báo axios có sẵn. pytest ai-service theo từng file: `test_schemas_jd` 11, `test_schemas_scoring` 12, `test_scoring_aggregate` 59, `test_scoring_prompt` 11, `test_scoring_rules` 206, `test_jd_extraction` 11, `test_phase2_unit` 32 — qua hết; file mới `test_scoring_watchdog` 6 qua. Không chạy các file gọi Gemini thật / benchmark |
+| E-2 | Đạt | `npm run gen:types -- -Base http://localhost:8080`: chỉ `auth.ts` (thêm `PublicThemeResponse`, `UpdateUserRoleRequest`, `PATCH /users/{id}/role`, `GET /public/theme`) và `notification.ts` (`GET /audit-logs/resource`) đổi; typecheck + lint lại sạch |
+| E-3 | Đạt | Chạy lần (8) 18:58–19:17, không dòng `!!` / `Traceback`. Tổng kết: 41 đơn đúng từng giai đoạn như kế hoạch; 7 thư mời đúng (DRAFT 1, APPROVED 1, EXPIRED 1, DECLINED 1, ACCEPTED 3); AI 19 Phù hợp / 22 Không phù hợp. Phỏng vấn lúc in tổng kết: CANDIDATE_CONFIRMED 3, EVALUATION_PENDING 0 — buổi 8 (Lê Thị Ngọc Trâm, đã qua giờ) do job 5 phút của interview-service chuyển sang EVALUATION_PENDING lúc 19:20; sau đó cả 20 buổi khớp kế hoạch. Mã số đơn / ứng viên / buổi / thư mời trùng bảng "Dữ liệu demo hiện có" của kế hoạch (đối chiếu bằng SQL) |
+| E-4 | Không cần | `ai_status <> 'COMPLETED'` = 0 / 41 |
+| E-5 | Đạt (trừ chuông) | UI: `/careers/home` chưa đăng nhập (màu `#0F6E66`, 4 việc đang mở), `/dashboard` Quản trị, `/audit-logs` (260 thao tác), `/my-work` của `tran.ha` (đủ việc theo kịch bản); console không lỗi. SQL: "Đăng nhập gần nhất" của 8 nhân viên trong 2 ngày qua; nhật ký "Đặt lịch phỏng vấn" của buổi tháng 9–10 ghi giờ hẹn thật (vd. "14:00 21/09/2026"). Chuông `tran.ha` **32** chưa đọc — mức ≤ 9 cần C-9 (chưa làm) |
+| E-6 | Đạt sau khi sửa | Container tạm `ats-pg-thu` (cổng 5442 — 55432 bị Windows giữ), volume ẩn danh mới, **không đụng `ats_pgdata`**. `init-databases.sql` chạy không lỗi: 10 DB, công ty "Mộc Lam Software", `le.quan@example.com` với mật khẩu `Password123!` khớp (kiểm bằng `crypt`). Thử thêm: khởi động lần lượt 8 service Java trỏ vào DB đó (RabbitMQ / Redis trỏ cổng giả để không đụng broker thật) → **recruitment-service và candidate-service không khởi động được** (xem E-B1). Sau khi sửa: cả 8 lên; masterdata tự nạp 7 phòng ban IT, 50 kỹ năng, 11 lý do từ chối; schema 6 DB trùng hệt DB đang dùng (so bảng / cột / ràng buộc / index / trigger). Đã xoá container (volume đi theo) |
+| E-7 … E-10 | Đạt | Hai tài liệu này cập nhật; `TEST_ACCOUNTS.md` không phải đổi (dữ liệu khớp); push `origin/dev` |
+| — | Đạt | Xoá `logs$1.log` (commit nhầm ở `efbbd01`, nội dung là lỗi "'run-service.bat' is not recognized" của một lệnh chuyển hướng gõ tay, không script nào sinh ra) và thêm `*.log` vào `.gitignore` |
+
+Lỗi phát hiện trong phần E và đã sửa:
+
+| Mã | Lỗi | Sửa ở | Đã kiểm |
+|---|---|---|---|
+| E-B1 | Volume Postgres mới: Flyway chạy trước Hibernate `ddl-auto`, nên V4/V5 của recruitment (`ALTER TABLE job_posting`) và V4 của candidate (`ALTER TABLE candidate`) lỗi "relation does not exist" → hai service không bao giờ khởi động | Migration mới `V3_1__ensure_job_posting_table.sql`, `V3_1__ensure_candidate_table.sql` (tạo bảng chỉ có khoá chính nếu chưa có, như V3 đã làm với `job_requisition`) + `spring.flyway.out-of-order: true` ở hai service. Không sửa migration đã chạy (đổi checksum sẽ làm mọi DB hiện có không khởi động được) | DB mới: 8/8 service lên, schema trùng DB đang dùng. DB đang dùng: hai service tự khởi động lại, chạy V3.1 "[out of order]" không lỗi; test hai service qua |
+| E-B2 | ai-service lại mất consumer hàng đợi chấm điểm (kết nối RabbitMQ đóng lúc 17:50, từ đó 0 consumer) dù đã có canh gác 30 giây: lệnh hỏi hàng đợi không có giới hạn thời gian, kênh "robust" của aio-pika chờ nối lại mãi nên chính vòng canh gác treo | `ai-service/app/workers/scoring_watchdog.py` (mới, `main.py` gọi vào): mọi thao tác RabbitMQ trong canh gác có giới hạn 10 / 30 giây; thao tác bị thư viện huỷ ngang coi là lỗi kết nối | 6 test mới (kênh treo, bị huỷ, 0 consumer, nối lại lỗi…). Thử thật: `rabbitmqctl close_connection` hai lần → aio-pika tự nối lại nhưng 0 consumer (tái hiện đúng lỗi) → canh gác đăng ký lại sau 28 giây và 20 giây, không thừa kết nối. Sau đó seed chấm đủ 41 đơn |
+| E-B3 | Nhật ký hệ thống: dòng "Đăng nhập" của ứng viên chỉ ghi "Người dùng", không có tên — danh sách tra tên bị lọc bỏ ứng viên (vốn để làm ô lọc "Người thực hiện") | `frontend/src/features/auditlog/pages/AuditLogPage.tsx`: giữ đủ danh sách, chỉ lọc ở ô chọn | UI: "Người dùng · Ngô Gia Bảo"; ô lọc vẫn chỉ có nhân viên; tsc sạch |
+
+Ghi nhận, không sửa:
+
+- DB mới thiếu index hiệu năng `idx_application_posting_ai_score_active` (application V4 có guard, chạy khi bảng chưa có). Chỉ ảnh hưởng tốc độ sắp xếp theo điểm AI.
+- DB mới có thêm bảng `ai_feedback`, `cv_document_chunks` và extension `vector` (do `init-databases.sql` tạo); DB đang dùng không có. Hai bảng có model nhưng không chỗ nào dùng.
+- `ats_auth` chỉ khác ở extension `pgcrypto`, do `reset_db.py` tạo trên DB đang dùng để băm mật khẩu quản trị viên.
+- `ats_pgdata` báo "collation version mismatch" (DB tạo với glibc 2.41, image hiện tại 2.36). Sửa phải `REINDEX` + `ALTER DATABASE … REFRESH COLLATION VERSION` trên DB đang dùng — để người dùng quyết.
+
 ## Việc dở dang — đọc trước khi "làm tiếp"
 
 **Kế hoạch chi tiết cho phần còn lại (từng việc, bước làm, kết quả phải đạt): `docs/KE_HOACH_CON_LAI.md`.**
-
-1. Kiểm nốt mục 7: các luồng ghi dữ liệu trên giao diện (ứng tuyển, đồng ý / xin dời lịch, nhận / từ chối thư mời, soạn thư mời,
-   lên lịch, đánh giá, đổi vai trò, xoá dữ liệu…) và phần lớn màn mobile của nhân viên.
-2. Mục 5 (tinh chỉnh câu chữ, bố cục) chưa làm; nhóm D còn vài mục nhỏ.
-3. `docker/postgres-init/init-databases.sql` đã sửa nhưng chưa thử với volume Postgres mới.
-4. Script `seed.py` có hai chỉnh sửa sau lần chạy trọn (đã áp vào DB hiện tại) — chưa chạy lại để xác nhận.
+Phần E đã xong (bảng trên). Còn lại theo kế hoạch: B (lỗi đã biết B-1 … B-16), F (test còn thiếu), A (kiểm giao diện luồng
+chỉ đọc), C (mục 5 — câu chữ, bố cục; gồm C-9 để chuông `tran.ha` ≤ 9), D (kiểm giao diện luồng ghi). Phần D làm bẩn dữ liệu
+demo → làm xong thì chạy lại `seed.py` (E-3) trước khi bàn giao.
 
 ## Công cụ đã thêm
 

@@ -19,7 +19,14 @@ Chú thích cột "Đã kiểm": **T** = test tự động của service / type-
 | `aea5ffb` | Mục 4: màu thương hiệu, nền phần đầu trang tuyển dụng, nhắc lịch, tìm không dấu |
 | `4a21e32` | Sửa số phiên bản migration nhắc lịch |
 | `c639726` | Bộ script dữ liệu demo, `CLAUDE.md` gốc, tài khoản demo |
-| (commit cuối) | Sửa sau khi kiểm giao diện + báo cáo này |
+| `3af74d9` | Sửa sau khi kiểm giao diện + báo cáo này (bản đầu) |
+| `fd677af` | `init-databases.sql` chỉ còn dòng công ty và quản trị viên đầu tiên |
+| `83d26f1`, `9e58ab1` | Kế hoạch phần còn lại (`docs/KE_HOACH_CON_LAI.md`) |
+| `b9fe19f` | Phần E: volume Postgres mới khởi động được mọi service (migration V3_1 ở recruitment, candidate) |
+| `1882901` | Phần E: canh gác hàng đợi chấm điểm của ai-service không còn treo |
+| `76dfa0c` | Phần E: xoá `logs$1.log`, bỏ qua `*.log`; sinh lại kiểu API cho mobile, xoá import thừa |
+| `9f1b1fd` | Phần E: nhật ký hệ thống hiện tên tài khoản ứng viên ở cột Đối tượng |
+| (commit này) | Cập nhật `TIEN_DO_HOAN_THIEN.md` và báo cáo này sau phần E |
 
 ## 2. Mục 3 — lỗi trong `docs/KIEM_TRA_GIAO_DIEN_16-11-2026.md`
 
@@ -31,7 +38,7 @@ Chú thích cột "Đã kiểm": **T** = test tự động của service / type-
 | 1.2 Người phỏng vấn là HR xác nhận được | xong | T, UI | Việc "Xác nhận tham gia phỏng vấn" hiện ở *Việc của tôi* của trưởng bộ phận; nút ở danh sách lịch có đủ Xác nhận / Đề xuất giờ khác |
 | 1.3 Ứng viên xin dời → đặt lịch mới | xong | T, UI | Chi tiết buổi hiện lý do xin dời và nút "Đặt lịch mới"; chưa bấm tạo lịch mới trên giao diện (script dữ liệu đã gọi API này thành công) |
 | 1.4 Mọi chuyên viên tuyển dụng duyệt được yêu cầu | xong | T, UI | Trang yêu cầu ghi "Người duyệt: Chuyên viên tuyển dụng", có đủ 3 nút |
-| 1.5 AI không chấm đơn mới | xong | UI (gián tiếp) | Lần sửa đầu chưa đủ: ngày 17/11 worker lại mất consumer giữa chừng. Đã thêm canh gác 30 giây tự nối lại (`da55a16`). Sau đó script tạo 41 đơn, AI chấm đủ 41 |
+| 1.5 AI không chấm đơn mới | xong | T, thử thật | Lần sửa đầu chưa đủ: ngày 17/11 worker lại mất consumer giữa chừng. Đã thêm canh gác 30 giây tự nối lại (`da55a16`), nhưng 17:50 cùng ngày lỗi tái diễn vì chính canh gác treo khi kênh RabbitMQ hỏng — sửa ở `1882901` (mọi thao tác có giới hạn thời gian). Thử bằng `rabbitmqctl close_connection` hai lần: consumer được đăng ký lại sau 28 và 20 giây. Lần chạy `seed.py` sau đó AI chấm đủ 41 đơn |
 | 1.6 AI xếp "Phù hợp" cho hồ sơ trái ngành | xong | T, dữ liệu thật | Hồ sơ kinh doanh nộp Backend: 18,8 điểm, Không phù hợp |
 | 1.7 Cảnh báo CV chèn lệnh | xong | T, UI | Thẻ Kanban có nhãn "CV bất thường". Lưu ý: hồ sơ bị gắn cờ vẫn có điểm và xếp loại (66,7 – Không phù hợp), không bị ép về "Chưa phân loại" trong mọi trường hợp |
 | 1.8 Xoá dữ liệu cá nhân | xong | T | **Chưa thử trên giao diện.** File CV trên S3 không xoá (theo yêu cầu) |
@@ -104,11 +111,20 @@ Xong. `scripts/demo-data/seed.py` chạy trọn một lần ngày 17/11, sau nhi
 33 ứng viên có CV PDF, 41 đơn (AI chấm đủ 41: 19 Phù hợp, 22 Không phù hợp), 20 buổi phỏng vấn, 7 thư mời
 (nháp, đã gửi, hết hạn, từ chối, 3 đã nhận), mốc thời gian từ 06/09 đến 16/11/2026.
 
-Sau lần chạy đó script được sửa thêm hai chỗ (lần đăng nhập gần nhất của nhân viên, giờ hẹn trong dòng nhật ký đặt lịch);
-hai chỗ này đã áp thẳng vào DB hiện tại nhưng **script bản mới chưa được chạy lại trọn vẹn**.
+Sau lần chạy đó script được sửa thêm hai chỗ (lần đăng nhập gần nhất của nhân viên, giờ hẹn trong dòng nhật ký đặt lịch).
+**Bản script mới đã chạy lại trọn vẹn** lúc 18:58–19:17 ngày 17/11 (phần E): cùng số đơn, buổi, thư mời, cùng mã số như bảng
+"Dữ liệu demo hiện có" trong `docs/KE_HOACH_CON_LAI.md`; AI chấm đủ 41 (19 Phù hợp, 22 Không phù hợp); "Đăng nhập gần nhất"
+của nhân viên trong 2 ngày qua; nhật ký đặt lịch của buổi tháng 9–10 ghi đúng giờ hẹn quá khứ. Lưu ý khi đọc dòng tổng kết
+của script: buổi 8 (đã qua giờ, còn thiếu phiếu) chỉ sang "Chờ đánh giá" ở lượt chạy kế tiếp của job 5 phút, nên tổng kết in
+CANDIDATE_CONFIRMED 3 / EVALUATION_PENDING 0, vài phút sau là 2 / 1. Chuông của `tran.ha` còn 32 thông báo chưa đọc (C-9 chưa làm).
 
-`docker/postgres-init/init-databases.sql` đã bỏ seed cũ (công ty "TechCorp Vietnam", 3 tài khoản `@test.net`, phòng "Human Resources"): chỉ còn dòng công ty và quản trị viên đầu tiên. Chưa thử khởi tạo một volume Postgres mới với file này.
+`docker/postgres-init/init-databases.sql` đã bỏ seed cũ (công ty "TechCorp Vietnam", 3 tài khoản `@test.net`, phòng "Human Resources"): chỉ còn dòng công ty và quản trị viên đầu tiên.
 File này chỉ chạy khi tạo volume Postgres mới; với DB đang có thì script reset đã thay thế.
+**Đã thử với volume mới** (container tạm, không đụng `ats_pgdata`): file chạy không lỗi, đăng nhập được bằng `le.quan@example.com` /
+`Password123!`. Khởi động 8 service Java trên DB đó thì recruitment-service và candidate-service không lên (migration `ALTER`
+bảng mà Hibernate chưa tạo) — đã sửa ở `b9fe19f`; sau khi sửa cả 8 lên, masterdata tự nạp danh mục IT, schema 6 DB trùng hệt
+DB đang dùng. Khác biệt còn lại (không chặn chạy): DB mới thiếu một index sắp xếp theo điểm AI của bảng `application`, và có
+thêm hai bảng không dùng của ai-service (`ai_feedback`, `cv_document_chunks`).
 
 ## 6. Mục 7 — kiểm tra giao diện
 
@@ -129,15 +145,28 @@ Lỗi mới phát hiện trong lúc làm và đã sửa:
 - Gateway chưa mở đường dẫn công khai `/api/auth/public/theme`.
 - `scripts/dev/svc.sh`: service khởi động lỗi để lại tiến trình treo giữ file log, lần khởi động sau không lên.
 - Nút "Xác nhận" ở *Việc của tôi* của trưởng bộ phận chỉ mở danh sách lịch.
+- (Phần E) Volume Postgres mới: recruitment-service và candidate-service không khởi động được → migration `V3_1` (`b9fe19f`).
+- (Phần E) Canh gác hàng đợi chấm điểm của ai-service treo khi kênh RabbitMQ hỏng → `1882901`.
+- (Phần E) Nhật ký hệ thống: dòng của tài khoản ứng viên không có tên ở cột Đối tượng → `9f1b1fd`.
+- (Phần E) Lint mobile: import `PillButton` thừa ở màn đơn ứng tuyển của ứng viên → `76dfa0c`.
+
+Kiểm chốt phần E (17/11, sau khi chạy lại `seed.py`), đã thấy chạy đúng trên web: `/careers/home` chưa đăng nhập, `/dashboard`
+của Quản trị, `/audit-logs`, `/my-work` của `tran.ha`; console không lỗi. Chi tiết từng việc E-1 … E-10 ở
+`docs/TIEN_DO_HOAN_THIEN.md` mục "Phần E".
 
 ## 7. Còn lại
 
 1. Kiểm nốt mục 7 (danh sách "Chưa kiểm" ở trên), cả web và mobile.
 2. Mục 5 (tinh chỉnh câu chữ và bố cục).
 3. Các mục nhỏ còn lại của nhóm D.
-4. Thử khởi tạo volume Postgres mới với `docker/postgres-init/init-databases.sql` bản đã sửa.
-5. Vài chỗ chữ bị cắt đã thấy nhưng chưa sửa: tên phòng ban và tên người ở bảng "Theo phòng ban" của Tổng quan, tên ứng viên trên thẻ Kanban.
-6. Nút "Từ chối" trong hộp thoại từ chối hồ sơ chưa dùng màu đỏ như quy ước nút không hoàn tác.
+4. Vài chỗ chữ bị cắt đã thấy nhưng chưa sửa: tên phòng ban và tên người ở bảng "Theo phòng ban" của Tổng quan, tên ứng viên
+   trên thẻ Kanban; liên kết "Mời" ở khối "Cần chú ý" tràn ra ngoài thẻ (B-1, B-2, B-4 — vẫn thấy khi kiểm chốt phần E).
+5. Nút "Từ chối" trong hộp thoại từ chối hồ sơ chưa dùng màu đỏ như quy ước nút không hoàn tác.
+6. Chuông `tran.ha` 32 thông báo chưa đọc sau khi tạo dữ liệu (C-9: đánh dấu đã đọc thông báo cũ hơn 3 ngày).
+7. `ats_pgdata` báo "collation version mismatch" (DB tạo với glibc 2.41, image `pgvector/pgvector:pg16` hiện tại 2.36). Chưa
+   gây lỗi; sửa phải `REINDEX` từng DB rồi `ALTER DATABASE … REFRESH COLLATION VERSION` trên DB đang dùng — cần người dùng đồng ý.
+
+Thứ tự và chi tiết từng việc còn lại: `docs/KE_HOACH_CON_LAI.md` (phần E đã xong).
 
 ## 8. Quyết định kỹ thuật
 
@@ -152,3 +181,9 @@ Lỗi mới phát hiện trong lúc làm và đã sửa:
 - **Tìm không dấu ở backend:** dùng hàm `translate` của Postgres, không cần extension `unaccent`.
 - **Dữ liệu demo:** tạo bằng API thật ở "hiện tại" rồi dời mọi mốc thời gian sinh ra trong lúc chạy về 3 tháng gần đây; các chỗ
   chỉnh DB có kiểm soát liệt kê ở đầu `seed.py`.
+- **Migration cho DB mới (phần E):** không sửa migration đã chạy (đổi checksum thì mọi DB hiện có báo "checksum mismatch" và
+  service không khởi động). Thêm `V3_1` tạo bảng tối thiểu nếu chưa có, bật `spring.flyway.out-of-order` ở recruitment và
+  candidate để DB đang ở V4–V6 vẫn nhận V3_1 (không làm gì vì bảng đã có). Migration mới về sau phải tự chạy được trên DB trống
+  (guard `to_regclass` như interview V2 / application V4, hoặc tạo bảng nếu chưa có như recruitment V3).
+- **Canh gác RabbitMQ của ai-service:** aio-pika tự nối lại kết nối nhưng không đăng ký lại consumer, nên vẫn cần canh gác; mọi
+  thao tác trong canh gác có giới hạn thời gian (kiểm 10 giây, nối lại 30 giây) vì kênh hỏng có thể chờ vô hạn.

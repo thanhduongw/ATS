@@ -142,7 +142,15 @@ public class BusinessEventListener {
             }
         }
 
+        // Người cần biết phía công ty: người phụ trách đơn. Đơn chưa giao ai mà ứng viên tự đóng (rút đơn, xoá dữ liệu)
+        // thì báo mọi Chuyên viên tuyển dụng — giống khi đơn mới đến — để không ai tiếp tục xử lý đơn đã đóng.
+        java.util.Set<Long> staff = new java.util.LinkedHashSet<>();
         if (event.assignedRecruiterId() != null) {
+            staff.add(event.assignedRecruiterId());
+        } else if ("WITHDRAWN".equals(closed) || "DATA_DELETED".equals(closed)) {
+            staff.addAll(recruiterIds());
+        }
+        if (!staff.isEmpty()) {
             String who = candidateName != null ? candidateName : "Ứng viên";
             String title;
             String body;
@@ -159,13 +167,26 @@ public class BusinessEventListener {
                 title = "Hồ sơ đổi giai đoạn";
                 body = who + job + ": " + nullSafe(event.fromStageName()) + " → " + nullSafe(event.toStageName());
             }
-            notificationService.createAndPush(
-                    event.assignedRecruiterId(),
-                    NotificationType.APPLICATION_STAGE_CHANGED,
-                    title,
-                    body,
-                    "APPLICATION",
-                    event.applicationId());
+            for (Long userId : staff) {
+                notificationService.createAndPush(
+                        userId,
+                        NotificationType.APPLICATION_STAGE_CHANGED,
+                        title,
+                        body,
+                        "APPLICATION",
+                        event.applicationId());
+            }
+        }
+    }
+
+    /** Mọi Chuyên viên tuyển dụng; lỗi gọi auth-service thì trả rỗng (không làm hỏng các thông báo khác). */
+    private List<Long> recruiterIds() {
+        try {
+            List<UserSummaryResponse> recruiters = authServiceClient.getUsers("RECRUITER");
+            return recruiters == null ? List.of() : recruiters.stream().map(UserSummaryResponse::id).toList();
+        } catch (Exception e) {
+            log.warn("Không lấy được danh sách RECRUITER: {}", e.getMessage());
+            return List.of();
         }
     }
 

@@ -11,7 +11,6 @@ import { QueryList } from "@/components/ui/query-list";
 import { ScreenHeader } from "@/components/ui/screen-chrome";
 import { Card } from "@/components/ui/surfaces";
 import { StatusChip } from "@/components/ui/status-chip";
-import { PillButton } from "@/components/ui/buttons";
 import { Icon } from "@/components/ui/icon";
 import { STRINGS } from "@/lib/strings";
 import { applicationPhase, stageStatus } from "@/lib/status";

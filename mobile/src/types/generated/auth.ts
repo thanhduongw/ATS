@@ -340,6 +340,22 @@ export interface paths {
         patch: operations["updateUserStatus"];
         trace?: never;
     };
+    "/api/auth/users/{id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateUserRole"];
+        trace?: never;
+    };
     "/api/auth/users": {
         parameters: {
             query?: never;
@@ -364,6 +380,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getUserDirectory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/public/theme": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTheme"];
         put?: never;
         post?: never;
         delete?: never;
@@ -627,6 +659,12 @@ export interface components {
             /** @enum {string} */
             status: "PENDING_VERIFICATION" | "ACTIVE" | "LOCKED" | "INACTIVE";
         };
+        UpdateUserRoleRequest: {
+            /** @enum {string} */
+            role: "COMPANY_ADMIN" | "RECRUITER" | "HIRING_MANAGER" | "CANDIDATE";
+            /** Format: int64 */
+            departmentId?: number;
+        };
         UserSummaryResponse: {
             /** Format: int64 */
             id?: number;
@@ -647,6 +685,11 @@ export interface components {
             /** Format: int64 */
             departmentId?: number;
             status?: string;
+        };
+        PublicThemeResponse: {
+            companyName?: string;
+            logoUrl?: string;
+            brandColor?: string;
         };
         InvitationPreviewResponse: {
             email?: string;
@@ -1198,6 +1241,32 @@ export interface operations {
             };
         };
     };
+    updateUserRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiMessageResponse"];
+                };
+            };
+        };
+    };
     getUsers: {
         parameters: {
             query?: {
@@ -1238,6 +1307,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["UserDirectoryResponse"][];
+                };
+            };
+        };
+    };
+    getTheme: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PublicThemeResponse"];
                 };
             };
         };

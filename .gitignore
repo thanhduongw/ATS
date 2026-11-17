@@ -41,3 +41,5 @@ ai-service/.venv-research/
 backups/2026-11-16-truoc-reset/
 logs/
 tmp/
+# Log rơi ra ngoài logs/ (vd. lệnh chuyển hướng sai tên biến tạo ra "logs$1.log" ở gốc repo)
+*.log

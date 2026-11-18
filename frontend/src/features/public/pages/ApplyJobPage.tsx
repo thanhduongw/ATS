@@ -13,7 +13,7 @@ import { getPublicCompany, getPublicJobById } from "../publicApi";
 import type { PublicJobPosting } from "../types";
 import { arrangementLabel, salaryText } from "../jobFormat";
 import { Chip } from "../components/JobCard";
-import { getMyCandidateProfile, updateMyCandidateProfile, uploadMyCandidateResume } from "../../candidate/candidateApi";
+import { getMyCandidateProfile, setTalentPoolConsent, updateMyCandidateProfile, uploadMyCandidateResume } from "../../candidate/candidateApi";
 import { applyToJob, getMyApplications } from "../../candidate/applicationApi";
 import type { ApiMessageResponse, CandidateSelfResponse } from "../../candidate/types";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
@@ -47,6 +47,8 @@ export default function ApplyJobPage() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [agree, setAgree] = useState(false);
+    // Đồng ý RIÊNG (không bắt buộc) để doanh nghiệp lưu hồ sơ và xét cho vị trí khác; mặc định theo lựa chọn đã lưu.
+    const [talentPool, setTalentPool] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [doneAt, setDoneAt] = useState<string | null>(null);
 
@@ -61,6 +63,7 @@ export default function ApplyJobPage() {
         ]).then(([j, p, c, sources, apps]) => {
             setJob(j);
             setProfile(p);
+            setTalentPool(!!p.talentPoolConsent);
             setCompany(c);
             const active = sources.filter((s) => s.active);
             const site = active.find((s) => /website|trang tuyển dụng|career/i.test(String(s.name)));
@@ -137,6 +140,10 @@ export default function ApplyJobPage() {
                 dateOfBirth: profile.dateOfBirth, gender: profile.gender, address: profile.address,
                 educationLevelId: profile.educationLevelId, skillIds: profile.skillIds,
             });
+            // Lưu lựa chọn Talent Pool nếu đổi; lỗi ở đây không được chặn việc nộp hồ sơ.
+            if (talentPool !== !!profile.talentPoolConsent) {
+                await setTalentPoolConsent(talentPool).catch(() => message.warning("Chưa lưu được lựa chọn lưu hồ sơ, bạn có thể đổi lại ở Cài đặt tài khoản"));
+            }
             const r = await applyToJob({ jobPostingId: job.id, recruitmentSourceId: sourceId });
             setDoneAt(r.data.appliedAt ?? new Date().toISOString());
         } catch (err) {
@@ -209,6 +216,13 @@ export default function ApplyJobPage() {
                 </div>
                 <Checkbox checked={agree} onChange={(e) => setAgree(e.target.checked)}>
                     Tôi đồng ý cho {company || "doanh nghiệp"} xử lý dữ liệu cho đợt tuyển dụng này
+                </Checkbox>
+                <Checkbox style={{ display: "flex", marginInlineStart: 0, marginTop: 8 }} checked={talentPool}
+                    onChange={(e) => setTalentPool(e.target.checked)}>
+                    Tôi đồng ý để {company || "doanh nghiệp"} lưu hồ sơ và liên hệ khi có vị trí phù hợp khác
+                    <span style={{ display: "block", fontSize: 13, color: COLORS.textSecondary }}>
+                        Không bắt buộc. Bạn có thể rút lại bất cứ lúc nào trong Cài đặt tài khoản.
+                    </span>
                 </Checkbox>
             </section>
 

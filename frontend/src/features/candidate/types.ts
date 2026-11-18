@@ -16,6 +16,8 @@ export interface CandidateResponse {
   cvFileUrl: string | null;
   internalNote: string | null;
   poolStatus: "ACTIVE" | "IN_POOL";
+  /** Ứng viên đã đồng ý lưu hồ sơ và xét cho vị trí khác (Talent Pool). */
+  talentPoolConsent?: boolean;
   tags: CandidateTag[];
   customFields: Record<string, string>;
   createdAt: string;
@@ -39,6 +41,9 @@ export interface CandidateSelfResponse {
   resumeUploadedAt?: string | null;
   /** C18: lúc đồng ý xử lý dữ liệu. */
   consentAt?: string | null;
+  /** Đồng ý riêng cho Talent Pool: lưu hồ sơ và xét cho vị trí khác. */
+  talentPoolConsent?: boolean;
+  talentPoolConsentAt?: string | null;
 }
 
 export interface CandidateSelfUpdateRequest {

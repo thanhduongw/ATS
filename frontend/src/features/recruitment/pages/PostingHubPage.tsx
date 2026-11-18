@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { App, Button, Input, Modal, Segmented, Select, Space, Spin, Table, Tabs } from "antd";
+import { App, Button, Input, Modal, Segmented, Select, Space, Spin, Table, Tabs, Tag, Tooltip } from "antd";
 import { EditOutlined, ExportOutlined, PlusOutlined, SearchOutlined, SwapOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import type { AxiosError } from "axios";
@@ -11,6 +11,9 @@ import {
 import { getCatalogItems, getPipelines } from "../../masterdata/masterdataApi";
 import type { CatalogItem, PipelineStageResponse } from "../../masterdata/types";
 import { getApplications } from "../../candidate/applicationApi";
+import { getPostingSimilarity } from "../../talent/talentApi";
+import { matchLabel } from "../../talent/match";
+import PostingSuggestions from "../../talent/components/PostingSuggestions";
 import { getInterviews } from "../../interview/interviewApi";
 import type { InterviewResponse } from "../../interview/types";
 import { getOffers } from "../../offer/offerApi";
@@ -67,6 +70,9 @@ export default function PostingHubPage() {
     const [posting, setPosting] = useState<JobPostingResponse | null>(null);
     const [requisition, setRequisition] = useState<JobRequisitionResponse | null>(null);
     const [applications, setApplications] = useState<ApplicationResponse[]>([]);
+    // Độ tương đồng CV-JD theo applicationId (chỉ HR; chỉ để xem và sắp xếp, không đổi điểm AI).
+    const [similarity, setSimilarity] = useState<Record<number, number>>({});
+    const [activeTab, setActiveTab] = useState("candidates");
     const [stages, setStages] = useState<PipelineStageResponse[]>([]);
     const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
     const [offers, setOffers] = useState<OfferResponse[]>([]);
@@ -111,6 +117,13 @@ export default function PostingHubPage() {
     }, [jobPostingId, canManage, message]);
 
     useEffect(() => { void loadAll(); }, [loadAll]);
+
+    useEffect(() => {
+        if (!canManage || !jobPostingId) return;
+        getPostingSimilarity(jobPostingId)
+            .then((r) => setSimilarity(Object.fromEntries(r.data.items.map((i) => [i.applicationId, i.similarity]))))
+            .catch(() => setSimilarity({}));  // tính năng phụ: lỗi thì chỉ không hiện cột
+    }, [canManage, jobPostingId, applications.length]);
 
     useEffect(() => {
         const toMap = (xs: CatalogItem[]) => Object.fromEntries(xs.map((x) => [x.id, String(x.name)]));
@@ -203,6 +216,16 @@ export default function PostingHubPage() {
         },
         { title: "Giai đoạn", key: "stage", width: 150, render: (_, a) => <StageTag stageType={a.currentStageType} /> },
         { title: "Điểm AI", key: "ai", width: 170, render: (_, a) => <AiScoreBadge score={a.aiScore} tier={a.aiTier} status={a.aiStatus} /> },
+        ...(Object.keys(similarity).length > 0 ? [{
+            title: "Khớp JD", key: "sim", width: 130,
+            sorter: (a: ApplicationResponse, b: ApplicationResponse) => (similarity[a.id] ?? -1) - (similarity[b.id] ?? -1),
+            render: (_: unknown, a: ApplicationResponse) => {
+                const s = similarity[a.id];
+                if (s === undefined) return <span style={{ color: COLORS.textMuted }}>—</span>;
+                const m = matchLabel(s);
+                return <Tooltip title="Độ gần giữa CV và nội dung tin (embedding), chỉ để tham khảo"><Tag color={m.color} style={{ marginInlineEnd: 0 }}>{m.text}</Tag></Tooltip>;
+            },
+        }] : []),
         { title: "Phụ trách", key: "rec", width: 180, render: (_, a) => a.assignedRecruiterName ?? "—" },
         { title: "Ngày ứng tuyển", key: "applied", width: 130, render: (_, a) => fullDate(a.appliedAt) },
         rowArrowColumn,
@@ -324,9 +347,21 @@ export default function PostingHubPage() {
             </div>
 
             <Tabs
-                defaultActiveKey="candidates"
+                activeKey={activeTab}
+                onChange={setActiveTab}
                 items={[
                     { key: "candidates", label: `Ứng viên ${applications.length}`, children: candidatesTab },
+                    {
+                        key: "suggest", label: "Gợi ý từ kho",
+                        children: (
+                            <PostingSuggestions
+                                jobPostingId={posting.id}
+                                canAdd={canManage}
+                                active={activeTab === "suggest"}
+                                onAdded={() => void loadAll()}
+                            />
+                        ),
+                    },
                     { key: "content", label: "Nội dung tin", children: contentTab },
                     { key: "activity", label: "Hoạt động", children: activityTab },
                 ]}

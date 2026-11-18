@@ -40,6 +40,7 @@ import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
 import CvParseResultPanel from "../../ai/components/CvParseResultPanel";
 import AiScoreCard from "../../ai/components/AiScoreCard";
+import DuplicateBanner from "../../talent/components/DuplicateBanner";
 import type { CVExtractionResult, ExtractionProvenance, CVExtractionResponse } from "../../ai/types";
 import { getCvExtraction, reExtractCv } from "../../ai/aiApi";
 import StageTag from "../../../components/ui/StageTag";
@@ -734,6 +735,9 @@ export default function CandidateApplicationDetailPage() {
                     </div>
                 </div>
             </Panel>
+
+            {/* Cảnh báo ứng viên có thể trùng (chỉ HR; chỉ gắn cờ, không tự gộp) */}
+            <DuplicateBanner candidateId={application.candidateId} enabled={isHr} />
 
             {/* ── CV trái · tab phải ── */}
             <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>

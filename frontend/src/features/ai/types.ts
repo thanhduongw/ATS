@@ -203,4 +203,7 @@ export interface RescorePostingResponse {
   total: number;
   queued: number;
   skipped: number;
+  /** Hồ sơ bị bỏ qua vì CV ít gần tin (chỉ khi chọn topN). */
+  skippedLowSimilarity?: number;
+  prefilterApplied?: boolean;
 }

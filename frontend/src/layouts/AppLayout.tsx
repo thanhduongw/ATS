@@ -4,7 +4,7 @@ import {
     AuditOutlined, BankOutlined, CalendarOutlined, CheckSquareOutlined,
     DashboardOutlined, DatabaseOutlined, FileDoneOutlined, FileTextOutlined, GlobalOutlined,
     LogoutOutlined, PlusOutlined, SettingOutlined, SolutionOutlined,
-    TeamOutlined, UserOutlined, BarChartOutlined, RightOutlined,
+    TeamOutlined, UserOutlined, BarChartOutlined, RightOutlined, ContactsOutlined,
 } from "@ant-design/icons";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
@@ -49,6 +49,7 @@ function menuFor(role: UserRole): NavItem[] {
                 { key: "/recruitment/requisitions", label: "Yêu cầu tuyển dụng", icon: <SolutionOutlined /> },
                 { key: "/recruitment/postings", label: "Việc làm", icon: <FileTextOutlined /> },
                 { key: "/applications", label: "Ứng viên", icon: <TeamOutlined /> },
+                { key: "/talent-pool", label: "Kho ứng viên", icon: <ContactsOutlined /> },
                 { key: "/interviews", label: "Lịch phỏng vấn", icon: <CalendarOutlined /> },
                 { key: "/offers", label: "Thư mời", icon: <FileDoneOutlined /> },
                 { key: "/masterdata", label: "Danh mục", icon: <DatabaseOutlined /> },

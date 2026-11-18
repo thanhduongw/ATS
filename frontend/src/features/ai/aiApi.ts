@@ -54,7 +54,7 @@ export const rescoreApplication = (applicationId: number) =>
   });
 
 /** Chấm nền mọi hồ sơ chưa có điểm / chấm lỗi của một tin. Chỉ Admin / Recruiter. */
-export const rescorePosting = (jobPostingId: number) =>
+export const rescorePosting = (jobPostingId: number, topN?: number) =>
   axiosClient.post<RescorePostingResponse>("/v1/ai/scores/rescore-posting", null, {
-    params: { jobPostingId },
+    params: { jobPostingId, ...(topN ? { topN } : {}) },
   });

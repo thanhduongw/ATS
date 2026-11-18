@@ -79,7 +79,7 @@ export default function HomeScreen() {
           />
         }
       >
-        <PageTitle eyebrow={S.eyebrow} title={S.greeting(firstName)} subtitle={S.subtitle} />
+        {/* <PageTitle title={S.greeting(firstName)} /> */}
 
         {careers.config.visible.hero ? (
           <Hero

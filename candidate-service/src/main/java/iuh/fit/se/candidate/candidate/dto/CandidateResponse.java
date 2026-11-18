@@ -23,5 +23,7 @@ public record CandidateResponse(
         String poolStatus,
         List<CandidateTagResponse> tags,
         Map<String, String> customFields,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        // Ứng viên đã đồng ý được lưu hồ sơ và xét cho vị trí khác (Talent Pool) hay chưa.
+        boolean talentPoolConsent
 ) {}

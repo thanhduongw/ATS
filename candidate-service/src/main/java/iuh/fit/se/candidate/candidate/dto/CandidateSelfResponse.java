@@ -20,5 +20,8 @@ public record CandidateSelfResponse(
         String resumeUrl,
         // C17: lúc tải CV hiện tại; C18: lúc ứng viên đồng ý xử lý dữ liệu (null nếu chưa có).
         LocalDateTime resumeUploadedAt,
-        LocalDateTime consentAt
+        LocalDateTime consentAt,
+        // Đồng ý riêng cho Talent Pool (lưu hồ sơ, xét cho vị trí khác) và thời điểm đồng ý.
+        boolean talentPoolConsent,
+        LocalDateTime talentPoolConsentAt
 ) {}

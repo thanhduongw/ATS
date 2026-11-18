@@ -17,4 +17,8 @@ public interface CandidateRepository extends JpaRepository<Candidate, Long>, Jpa
     Optional<Candidate> findFirstByEmailIgnoreCaseAndDeletedAtIsNullOrderByIdAsc(String email);
     boolean existsByEmailIgnoreCaseAndDeletedAtIsNull(String email);
     List<Candidate> findByDeletedAtIsNullAndCreatedAtBefore(LocalDateTime threshold);
+
+    /** Talent Pool: chỉ ứng viên đã đồng ý riêng và chưa bị xóa. */
+    List<Candidate> findByTalentPoolConsentTrueAndDeletedAtIsNull();
+    List<Candidate> findByTalentPoolConsentTrueAndPoolStatusAndDeletedAtIsNull(PoolStatus poolStatus);
 }

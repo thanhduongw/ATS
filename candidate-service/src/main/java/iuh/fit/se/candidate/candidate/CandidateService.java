@@ -10,6 +10,7 @@ import iuh.fit.se.candidate.customfield.CandidateCustomFieldValueRepository;
 import iuh.fit.se.candidate.customfield.CustomFieldDefinition;
 import iuh.fit.se.candidate.customfield.CustomFieldDefinitionRepository;
 import iuh.fit.se.candidate.event.AuditEventPublisher;
+import iuh.fit.se.candidate.event.CandidateEventPublisher;
 import iuh.fit.se.candidate.event.CandidateRegisteredEvent;
 import iuh.fit.se.candidate.exception.BusinessException;
 import iuh.fit.se.candidate.security.AuthorizationPolicy;
@@ -48,6 +49,7 @@ public class CandidateService {
     private final MasterDataServiceClient masterDataServiceClient;
     private final S3Service s3Service;
     private final AuditEventPublisher auditEventPublisher;
+    private final CandidateEventPublisher candidateEventPublisher;
 
     @Transactional
     public Candidate provisionRegisteredCandidate(CandidateRegisteredEvent event) {
@@ -191,6 +193,25 @@ public class CandidateService {
         return toSelfResponse(candidate);
     }
 
+    /**
+     * Ứng viên bật/tắt đồng ý Talent Pool. Chỉ ghi khi giá trị đổi (gọi lặp lại không làm đổi thời điểm đồng ý).
+     * Rút lại có hiệu lực ngay: HR không còn thấy ứng viên khi tìm trong kho.
+     */
+    @Transactional
+    public CandidateSelfResponse setTalentPoolConsent(CurrentUser actor, boolean consent) {
+        AuthorizationPolicy.requireCandidate(actor);
+        Candidate candidate = findByUserId(actor.userId());
+        if (Boolean.TRUE.equals(candidate.getTalentPoolConsent()) != consent) {
+            candidate.setTalentPoolConsent(consent);
+            candidate.setTalentPoolConsentAt(consent ? LocalDateTime.now() : null);
+            candidateRepository.save(candidate);
+            auditEventPublisher.publish(actor.userId(),
+                    consent ? "TALENT_POOL_CONSENT_GRANTED" : "TALENT_POOL_CONSENT_WITHDRAWN",
+                    "CANDIDATE", candidate.getId(), null);
+        }
+        return toSelfResponse(candidate);
+    }
+
     @Transactional
     public CandidateSelfResponse updateMyProfile(
             CurrentUser actor, CandidateSelfUpdateRequest request) {
@@ -224,6 +245,7 @@ public class CandidateService {
         candidate.setCvFileUrl(url);
         candidate.setCvUploadedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
+        candidateEventPublisher.publishCvUploaded(candidate.getId(), url);
         return toSelfResponse(candidate);
     }
 
@@ -348,6 +370,7 @@ public class CandidateService {
         candidate.setCvFileUrl(url);
         candidate.setCvUploadedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
+        candidateEventPublisher.publishCvUploaded(id, url);
         return getById(id);
     }
 
@@ -359,6 +382,7 @@ public class CandidateService {
         candidate.setDeletedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
         auditEventPublisher.publish(userId, "CANDIDATE_SELF_DELETION_REQUEST", "CANDIDATE", candidate.getId(), null);
+        candidateEventPublisher.publishCandidateDeleted(candidate.getId());
     }
 
     @Transactional
@@ -368,6 +392,7 @@ public class CandidateService {
         candidate.setDeletedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
         auditEventPublisher.publish(actor.userId(), "CANDIDATE_DELETED", "CANDIDATE", id, null);
+        candidateEventPublisher.publishCandidateDeleted(id);
     }
 
     @Transactional
@@ -383,6 +408,24 @@ public class CandidateService {
             }
         }
         return new BulkOperationResponse(succeeded, failed);
+    }
+
+    /**
+     * Danh sách ứng viên đủ điều kiện xuất hiện trong Talent Pool: đã đồng ý riêng (talent_pool_consent) và chưa bị xóa.
+     * ai-service dùng danh sách này để giới hạn tìm kiếm vector, nên rút đồng ý có hiệu lực ngay ở lần tìm kế tiếp.
+     * poolStatus = null: mọi ứng viên đã đồng ý; IN_POOL: chỉ người đã bị từ chối ở một vị trí.
+     */
+    @Transactional(readOnly = true)
+    public List<TalentPoolCandidateResponse> getTalentPoolEligible(PoolStatus poolStatus) {
+        List<Candidate> rows = poolStatus == null
+                ? candidateRepository.findByTalentPoolConsentTrueAndDeletedAtIsNull()
+                : candidateRepository.findByTalentPoolConsentTrueAndPoolStatusAndDeletedAtIsNull(poolStatus);
+        return rows.stream().map(c -> new TalentPoolCandidateResponse(
+                c.getId(), c.getFullName(), c.getEmail(), c.getPhone(), c.getCurrentPosition(),
+                c.getPoolStatus().name(),
+                c.getTags().stream().map(CandidateTag::getTag).toList(),
+                c.getCvFileUrl() != null,
+                c.getTalentPoolConsentAt())).toList();
     }
 
     /** Internal / Feign — application-service gọi khi reject hồ sơ, để đưa ứng viên vào Talent Pool. */
@@ -565,7 +608,9 @@ public class CandidateService {
                 candidate.getCvFileUrl() != null,
                 candidate.getCvFileUrl(),
                 candidate.getCvUploadedAt(),
-                candidate.getConsentAt());
+                candidate.getConsentAt(),
+                Boolean.TRUE.equals(candidate.getTalentPoolConsent()),
+                candidate.getTalentPoolConsentAt());
     }
 
     private String trimToNull(String value) {
@@ -584,7 +629,8 @@ public class CandidateService {
                 c.getPoolStatus().name(),
                 c.getTags().stream().map(t -> new CandidateTagResponse(t.getId(), t.getTag())).toList(),
                 loadCustomFields(c.getId()),
-                c.getCreatedAt()
+                c.getCreatedAt(),
+                Boolean.TRUE.equals(c.getTalentPoolConsent())
         );
     }
 
@@ -677,6 +723,7 @@ public class CandidateService {
         candidate.setCvFileUrl(url);
         candidate.setCvUploadedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
+        candidateEventPublisher.publishCvUploaded(candidateId, url);
 
         return new CandidateSummaryResponse(
                 candidate.getId(),

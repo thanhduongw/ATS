@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   Linking,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/screen-chrome";
 import { FilterChips } from "@/components/ui/search-and-filters";
 import { AiScoreBadge, StatusChip } from "@/components/ui/status-chip";
+import { Icon } from "@/components/ui/icon";
 import { Card, CardTitle, InfoNote } from "@/components/ui/surfaces";
 import {
   formatDate,
@@ -45,7 +47,11 @@ import {
   SIZES,
   SPACING,
 } from "@/theme";
-import type { EvaluationResponse, InterviewResponse } from "@/types/api";
+import type {
+  AiScoreDetail,
+  EvaluationResponse,
+  InterviewResponse,
+} from "@/types/api";
 import {
   useAiScore,
   useApplicationEvaluations,
@@ -325,7 +331,64 @@ export function StaffApplicationScreen() {
   );
 }
 
-/** UR03 theo B6: xếp loại, "Đáp ứng x/y yêu cầu bắt buộc", tiêu chí mức x/4 — không dùng mẫu 0–100 và mục lương. */
+type AiCriterion = NonNullable<AiScoreDetail["result"]>["criteria"][number];
+
+/** Một tiêu chí: tên + "x/5" (Chứng chỉ không áp dụng → "Không áp dụng"); chạm để mở lý do và câu trích. */
+function CriterionRow({ c }: { c: AiCriterion }) {
+  const [open, setOpen] = useState(false);
+  const A = P.ai;
+  const counted = c.applicable && c.score != null;
+  return (
+    <View style={styles.dim}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((v) => !v)}
+        style={styles.headRow}
+      >
+        <Text style={[styles.dimLabel, styles.flex]}>{c.label}</Text>
+        <Text style={styles.dimLevel}>
+          {counted ? A.level(c.score ?? 0) : A.notApplicable}
+        </Text>
+        <Icon
+          name={open ? "chevronDown" : "chevronRight"}
+          size={FONT_SIZE.md}
+          color={COLORS.textSecondary}
+        />
+      </Pressable>
+      {open && counted ? (
+        <>
+          <Text style={styles.body}>{c.reason}</Text>
+          <Text style={styles.sub}>{A.cvQuotes}</Text>
+          {c.cv_evidence.length ? (
+            c.cv_evidence.map((q, i) => (
+              <Text key={i} style={styles.quote}>
+                “{q}”
+              </Text>
+            ))
+          ) : (
+            <Text style={styles.quote}>{A.noCvQuote}</Text>
+          )}
+          <Text style={styles.sub}>{A.jdQuotes}</Text>
+          {c.jd_evidence.length ? (
+            c.jd_evidence.map((q, i) => (
+              <Text key={i} style={styles.quote}>
+                “{q}”
+              </Text>
+            ))
+          ) : (
+            <Text style={styles.quote}>{A.noJdQuote}</Text>
+          )}
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * UR03: điểm 0–100 + xếp loại + lý do xếp loại, 4 tiêu chí "x/5" chạm để mở lý do và câu trích từ CV / JD.
+ * COMPLETED mà `result = null` (ứng viên đã xoá dữ liệu cá nhân) vẫn hiện điểm + xếp loại, không báo "đang chấm".
+ */
 function AiTab({ applicationId }: { applicationId: number }) {
   const q = useAiScore(applicationId);
   const A = P.ai;
@@ -338,44 +401,36 @@ function AiTab({ applicationId }: { applicationId: number }) {
       />
     );
   const d = q.data;
-  if (!d || !d.result) {
-    const msg = !d ? A.notScored : d.status === "FAILED" ? A.failed : A.scoring;
-    return <InfoNote>{msg}</InfoNote>;
-  }
-  const reqs = d.result.requirements ?? [];
-  const met = reqs.filter((r) => r.status === "MET").length;
+  if (!d) return <InfoNote>{A.notScored}</InfoNote>;
+  if (d.status === "FAILED") return <InfoNote>{A.failed}</InfoNote>;
+  if (d.status === "PENDING" || d.status === "PROCESSING")
+    return <InfoNote>{A.scoring}</InfoNote>;
+  const tierLabel = d.tier ? S.candidates.filter.aiTiers[d.tier] : "";
   return (
     <Card>
-      {d.result.injection_detected ? <InfoNote tone="danger">{A.injection}</InfoNote> : null}
+      {d.result?.injection_detected ? (
+        <InfoNote tone="danger">{A.injection}</InfoNote>
+      ) : null}
       <View style={styles.headRow}>
         {d.totalScore != null ? (
           <AiScoreBadge score={Math.round(d.totalScore)} />
         ) : null}
         <View style={styles.flex}>
-          <Text style={styles.rowTitle}>{d.result.tier_label}</Text>
+          <Text style={styles.rowTitle}>{d.result?.tier_label ?? tierLabel}</Text>
           <Text style={styles.sub}>{A.scoredAt(formatDate(d.scoredAt))}</Text>
         </View>
       </View>
-      {reqs.length ? (
-        <Text style={styles.rowTitle}>{A.requirements(met, reqs.length)}</Text>
-      ) : null}
-      {d.result.dimensions.map((dim) => (
-        <View key={dim.dimension} style={styles.dim}>
-          <View style={styles.headRow}>
-            <Text style={[styles.dimLabel, styles.flex]}>{dim.label}</Text>
-            <Text style={styles.dimLevel}>
-              {dim.applicable && dim.level != null
-                ? A.level(dim.level)
-                : A.notApplicable}
-            </Text>
-          </View>
-          {dim.reason ? <Text style={styles.body}>{dim.reason}</Text> : null}
-        </View>
-      ))}
-      {d.result.summary ? (
-        <Text style={styles.body}>{d.result.summary}</Text>
-      ) : null}
-      <InfoNote>{A.disclaimer}</InfoNote>
+      {d.result ? (
+        <>
+          <Text style={styles.rowTitle}>{A.tierReason}</Text>
+          <Text style={styles.body}>{d.result.tier_reason}</Text>
+          {d.result.criteria.map((c) => (
+            <CriterionRow key={c.key} c={c} />
+          ))}
+        </>
+      ) : (
+        <Text style={styles.sub}>{A.detailsDeleted}</Text>
+      )}
     </Card>
   );
 }
@@ -583,6 +638,12 @@ const styles = StyleSheet.create({
     fontFamily: FONT.bold,
     fontSize: FONT_SIZE.base,
     color: COLORS.primaryDark,
+  },
+  quote: {
+    fontFamily: FONT.regular,
+    fontSize: FONT_SIZE.caption,
+    fontStyle: "italic",
+    color: COLORS.textSecondary,
   },
   summary: { flexDirection: "row", gap: SPACING.md },
   hidden: {

@@ -80,7 +80,7 @@ export type UserProfile          = AuthC["schemas"]["UserProfileResponse"];
  * Điểm AI chi tiết — `GET /v1/ai/scores/{applicationId}` của ai-service (FastAPI).
  * NGOẠI LỆ của quy tắc 1: endpoint này trả `dict` không khai báo schema nên openapi không sinh
  * được type. Chỉ khai đúng những trường màn UR03/UH03 dùng, đối chiếu
- * `ai-service/app/schemas/scoring.py` (ScoredDimension, RequirementResult, ScoreResult).
+ * `ai-service/app/schemas/ssrc.py` (CriterionResult, ScoreResult).
  * Điểm tổng + xếp loại ở danh sách thì lấy từ `ApplicationResponse.aiScore/aiTier` (có type sinh).
  */
 export type AiTier = "FIT" | "UNCLASSIFIED" | "NOT_FIT";
@@ -90,14 +90,23 @@ export type AiScoreDetail = {
   totalScore: number | null;
   tier: AiTier | null;
   scoredAt: string | null;
+  /** null khi FAILED, hoặc khi ứng viên đã xoá dữ liệu cá nhân (COMPLETED vẫn giữ điểm + xếp loại). */
   result: {
     tier_label: string;
+    /** Luật xếp loại đã áp dụng, bằng tiếng Việt. */
+    tier_reason: string;
     /** CV có đoạn văn nhằm điều khiển AI (prompt injection). */
     injection_detected?: boolean;
-    comment: string;
-    summary: string;
-    dimensions: { dimension: string; label: string; applicable: boolean; level: number | null; reason: string }[];
-    requirements?: { requirement: string; status: string; status_label: string }[];
+    /** 4 tiêu chí, điểm 1–5; Chứng chỉ không áp dụng thì `applicable = false`, `score = null`. */
+    criteria: {
+      key: "work_experience" | "skills" | "education" | "certifications";
+      label: string;
+      applicable: boolean;
+      score: number | null;
+      reason: string;
+      cv_evidence: string[];
+      jd_evidence: string[];
+    }[];
   } | null;
 };
 

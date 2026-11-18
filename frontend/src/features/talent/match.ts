@@ -21,6 +21,6 @@ export function matchLabel(score: number, coverage?: number | null): { text: str
 }
 
 export const CHUNK_LABEL: Record<string, string> = {
-    SUMMARY: "Tóm tắt", SKILLS: "Kỹ năng", WORK_EXPERIENCE: "Kinh nghiệm",
+    SUMMARY: "Tóm tắt", YEARS: "Số năm", SKILLS: "Kỹ năng", WORK_EXPERIENCE: "Kinh nghiệm",
     PROJECT: "Dự án", EDUCATION: "Học vấn", CERTIFICATION: "Chứng chỉ",
 };

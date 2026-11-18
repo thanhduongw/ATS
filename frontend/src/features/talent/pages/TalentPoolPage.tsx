@@ -59,7 +59,7 @@ export default function TalentPoolPage() {
     const [addFor, setAddFor] = useState<number | null>(null);
 
     /** Chạy tìm. `override` = bộ lọc người dùng vừa chỉnh (gỡ thẻ, đổi số năm); không có thì để AI tự tách. */
-    const run = async (q: string, override?: { minYears?: number | null; skills?: string[] }, poolStatus = pool, statusList = statuses) => {
+    const run = async (q: string, override?: { minYears?: number | null; maxYears?: number | null; skills?: string[] }, poolStatus = pool, statusList = statuses) => {
         const text = q.trim();
         if (text.length < 2) { message.warning("Nhập ít nhất 2 ký tự"); return; }
         setLoading(true);
@@ -67,6 +67,7 @@ export default function TalentPoolPage() {
             const r = await searchTalentPool({
                 query: text, poolStatus, statuses: statusList, limit: 30,
                 ...(override?.minYears !== undefined ? { minYears: override.minYears ?? 0 } : {}),
+                ...(override?.maxYears !== undefined ? { maxYears: override.maxYears ?? 0 } : {}),
                 ...(override?.skills !== undefined ? { skills: override.skills } : {}),
             });
             setData(r.data);
@@ -168,7 +169,7 @@ export default function TalentPoolPage() {
     ];
 
     const applied = data?.applied;
-    const hasChips = !!applied && (applied.minYears != null || applied.skills.length > 0);
+    const hasChips = !!applied && (applied.minYears != null || applied.maxYears != null || applied.skills.length > 0);
 
     return (
         <ListPage
@@ -234,17 +235,23 @@ export default function TalentPoolPage() {
                                 size="small" min={0.5} max={50} step={0.5} style={{ width: 70 }}
                                 value={minYearsInput ?? undefined}
                                 onChange={(v) => setMinYearsInput(v)}
-                                onPressEnter={() => data && void run(data.query, { minYears: minYearsInput, skills: applied.skills })}
-                                onBlur={() => { if (data && minYearsInput !== applied.minYears) void run(data.query, { minYears: minYearsInput, skills: applied.skills }); }}
+                                onPressEnter={() => data && void run(data.query, { minYears: minYearsInput, maxYears: applied.maxYears, skills: applied.skills })}
+                                onBlur={() => { if (data && minYearsInput !== applied.minYears) void run(data.query, { minYears: minYearsInput, maxYears: applied.maxYears, skills: applied.skills }); }}
                             />
                             <span style={{ fontSize: 13 }}>năm</span>
                             <Button size="small" type="text" aria-label="Gỡ bộ lọc số năm"
-                                onClick={() => void run(data!.query, { minYears: null, skills: applied.skills })}>✕</Button>
+                                onClick={() => void run(data!.query, { minYears: null, maxYears: applied.maxYears, skills: applied.skills })}>✕</Button>
                         </span>
+                    )}
+                    {applied.maxYears != null && (
+                        <Tag color="blue" closable style={{ marginInlineEnd: 0 }}
+                            onClose={(e) => { e.preventDefault(); void run(data!.query, { minYears: applied.minYears, maxYears: null, skills: applied.skills }); }}>
+                            Dưới {applied.maxYears.toLocaleString("vi-VN")} năm kinh nghiệm
+                        </Tag>
                     )}
                     {applied.skills.map((s) => (
                         <Tag key={s} color="blue" closable style={{ marginInlineEnd: 0 }}
-                            onClose={(e) => { e.preventDefault(); void run(data!.query, { minYears: applied.minYears, skills: applied.skills.filter((x) => x !== s) }); }}>
+                            onClose={(e) => { e.preventDefault(); void run(data!.query, { minYears: applied.minYears, maxYears: applied.maxYears, skills: applied.skills.filter((x) => x !== s) }); }}>
                             Có {s}
                         </Tag>
                     ))}

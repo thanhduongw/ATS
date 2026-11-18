@@ -172,7 +172,7 @@ def test_skill_filter_matches_spelling_variants_and_whole_words_only():
 
 
 def test_lexical_coverage_rewards_exact_terms():
-    terms = query_terms("kỹ sư backend logistics Kafka", ["Kafka"])
+    terms = query_terms("kỹ sư backend logistics Kafka", ["Kafka"], ["logistics"])
     full = lexical_coverage(sc.fold(CV), terms)
     none = lexical_coverage(sc.fold("Thiết kế đồ hoạ Photoshop"), terms)
     assert full > none and none == 0.0
@@ -244,3 +244,28 @@ def test_evidence_keeps_other_mentions_for_see_more():
     ev, = build_evidence([["Kafka"]], chunks, ["Kafka"])
     assert ev["found"] and len(ev["others"]) == 3 and ev["section"] == "WORK_EXPERIENCE"
     assert all(o["text"][o["highlights"][0][0]:o["highlights"][0][1]] == "Kafka" for o in ev["others"])
+
+
+def test_descriptive_query_does_not_split_into_common_syllables():
+    from app.services.talent_search import query_terms
+    terms = query_terms("sinh viên mới ra trường, kinh nghiệm còn ít, gpa cao", [], ["GPA"])
+    assert terms == [["GPA"]]   # "sinh", "moi", "truong", "cao" không phải điều kiện kiểm chứng được
+
+
+def test_highlight_offsets_count_emoji_as_two_utf16_units():
+    from app.services.talent_search import find_snippet
+    snip = find_snippet(["sinh viên"], [("EDUCATION", "📞 ✉ Tôi là sinh viên năm 4")])
+    s, e = snip["highlights"][0]
+    units = snip["text"].encode("utf-16-le")
+    assert units[s * 2:e * 2].decode("utf-16-le") == "sinh viên"
+
+
+def test_years_evidence_for_fresher():
+    from app.services.talent_search import SearchFilters, SearchHit, years_evidence
+    h = SearchHit.__new__(SearchHit)
+    h.total_years, h.jobs = 0.4, [{"title": "Intern", "start": "2025-07", "end": "2025-09"}]
+    ev = years_evidence(h, SearchFilters(max_years=1))
+    assert ev["label"] == "Dưới 1 năm" and "Intern" in ev["text"] and ev["found"]
+    h.total_years = None
+    assert "chưa có kinh nghiệm" in years_evidence(h, SearchFilters(max_years=1))["text"]
+    assert years_evidence(h, SearchFilters()) is None

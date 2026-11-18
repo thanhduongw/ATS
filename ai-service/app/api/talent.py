@@ -35,6 +35,7 @@ class TalentSearchRequest(BaseModel):
     query: str = Field(..., min_length=2, max_length=500, description="Câu tìm kiếm tự nhiên")
     # Bộ lọc chọn trên giao diện: nếu có thì thắng kết quả LLM tách từ câu hỏi.
     min_years: float | None = Field(None, ge=0, le=50, alias="minYears")
+    max_years: float | None = Field(None, ge=0, le=50, alias="maxYears")
     skills: list[str] | None = Field(None, max_length=8)
     pool_status: Literal["IN_POOL", "ALL"] = Field("ALL", alias="poolStatus")
     limit: int = Field(20, ge=1, le=50)
@@ -96,7 +97,8 @@ async def load_job_and_vector(job_posting_id: int, user: CurrentUser) -> tuple[J
 
 
 def _parsed_dto(p: ParsedQuery) -> dict:
-    return {"semanticQuery": p.semantic_query, "minYears": p.min_years, "skills": p.required_skills}
+    return {"semanticQuery": p.semantic_query, "minYears": p.min_years, "maxYears": p.max_years,
+            "keywords": p.keywords, "skills": p.required_skills}
 
 
 # [GIẢI THÍCH] Tìm trong kho: (1) LLM tách "3 năm", "Kafka" thành bộ lọc cứng; (2) hỏi candidate-service ai được phép
@@ -134,9 +136,11 @@ async def search(req: TalentSearchRequest, user: CurrentUser = Depends(current_u
         skills = list(parsed.required_skills)
         known = {skill_catalog.canonical(s) or s.lower() for s in skills}
         skills += [c for c in skill_catalog.detect_skills(req.query) if c not in known]
+    max_years = req.max_years if req.max_years is not None else parsed.max_years
     filters = SearchFilters(
         min_years=min_years if min_years and min_years > 0 else None,  # 0 = giao diện gỡ bộ lọc số năm
-        skills=skills,
+        max_years=max_years if max_years and max_years > 0 else None,
+        skills=skills, keywords=parsed.keywords,
     )
     try:
         qvec = await embed_search_query(parsed.semantic_query)
@@ -149,7 +153,7 @@ async def search(req: TalentSearchRequest, user: CurrentUser = Depends(current_u
     return {
         "query": req.query,
         "applied": {"semanticQuery": parsed.semantic_query,
-                    "minYears": filters.min_years, "skills": filters.skills},
+                    "minYears": filters.min_years, "maxYears": filters.max_years, "skills": filters.skills},
         "parsed": _parsed_dto(parsed),
         "eligibleTotal": len(all_by_id),
         "statusCounts": status_counts,

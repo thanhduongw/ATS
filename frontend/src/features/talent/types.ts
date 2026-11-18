@@ -19,6 +19,8 @@ export interface TalentSearchRequest {
   query: string;
   /** Có giá trị thì thắng bộ lọc AI tách từ câu hỏi; 0 = gỡ bộ lọc số năm. */
   minYears?: number | null;
+  /** Số năm tối đa (câu hỏi dạng sinh viên mới ra trường); 0 = gỡ bộ lọc. */
+  maxYears?: number | null;
   /** Có giá trị (kể cả mảng rỗng) thì thắng bộ lọc AI tách từ câu hỏi. */
   skills?: string[] | null;
   poolStatus?: TalentPoolFilter;
@@ -78,8 +80,8 @@ export interface TalentSearchResult {
 export interface TalentSearchResponse {
   query: string;
   /** Bộ lọc thực sự được áp dụng (sau khi gộp AI tách và lựa chọn của người dùng). */
-  applied: { semanticQuery: string; minYears: number | null; skills: string[] };
-  parsed: { semanticQuery: string; minYears: number | null; skills: string[] };
+  applied: { semanticQuery: string; minYears: number | null; maxYears: number | null; skills: string[] };
+  parsed: { semanticQuery: string; minYears: number | null; maxYears: number | null; keywords: string[]; skills: string[] };
   /** Số ứng viên đã đồng ý lưu hồ sơ (trước khi lọc/xếp hạng). */
   eligibleTotal: number;
   /** Số ứng viên đã đồng ý theo từng trạng thái (trước khi lọc trạng thái). */

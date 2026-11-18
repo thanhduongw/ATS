@@ -34,6 +34,13 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
             @Param("userId") Long userId);
 
     List<Interview> findByStatus(InterviewStatus status);
+    List<Interview> findByStatusIn(List<InterviewStatus> statuses);
+
+    /** Ẩn danh hoá tên ứng viên trong mọi buổi phỏng vấn của một ứng viên đã xoá dữ liệu. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query(value = "UPDATE interview SET candidate_name_snapshot = :name WHERE candidate_id = :candidateId", nativeQuery = true)
+    int anonymizeCandidate(@Param("candidateId") Long candidateId, @Param("name") String name);
 
     /** Lịch hiện có của các người phỏng vấn — dùng để tránh trùng lịch khi xếp lịch hàng loạt. */
     List<Interview> findByInterviewers_InterviewerIdInAndStatusIn(

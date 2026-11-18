@@ -116,13 +116,15 @@ export function groupOf(app: CandidateApplicationResponse): AppGroup {
 }
 
 /** Đơn đã rút (lý do do hệ thống gắn khi ứng viên tự rút — ApplicationService.WITHDRAW_REASON_NAME). */
-export const isWithdrawn = (app: CandidateApplicationResponse) =>
-    toFixedStage(app.currentStageType) === "REJECTED" && (app.rejectionReasonName ?? "").toLowerCase().includes("tự rút");
+export const isWithdrawn = (app: CandidateApplicationResponse) => app.currentStageType === "WITHDRAWN";
 
 /** Nhãn đóng của đơn: ứng viên không thấy chữ "Từ chối" (DS06) — dùng "Chưa phù hợp" / "Đã rút đơn". */
 export function closedLabel(app: CandidateApplicationResponse): { label: string; tone: StatusTone } | null {
     if (toFixedStage(app.currentStageType) !== "REJECTED") return null;
-    return isWithdrawn(app) ? { label: "Đã rút đơn", tone: "neutral" } : { label: "Chưa phù hợp", tone: "neutral" };
+    if (isWithdrawn(app)) return { label: "Đã rút đơn", tone: "neutral" };
+    // Đóng vì đã nhận việc ở vị trí khác: hiện đúng lý do backend trả.
+    if ((app.rejectionReasonName ?? "").startsWith("Ngừng xử lý")) return { label: "Ngừng xử lý", tone: "neutral" };
+    return { label: "Chưa phù hợp", tone: "neutral" };
 }
 
 export const canWithdraw = (app: CandidateApplicationResponse) =>

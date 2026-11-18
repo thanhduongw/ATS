@@ -1,3 +1,4 @@
+import { matchesKeyword } from "../../../app/text";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { App, Button, Input, Select} from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
@@ -55,6 +56,8 @@ export default function PostingListPanel() {
     const [departments, setDepartments] = useState<Record<number, string>>({});
     const [locations, setLocations] = useState<Record<number, string>>({});
     const [loading, setLoading] = useState(true);
+    /** Không đếm được số ứng viên (application-service lỗi) → cột ứng viên hiện "—" thay vì 0. */
+    const [countsFailed, setCountsFailed] = useState(false);
     const [tab, setTab] = useState<Tab>("OPEN");
     const [keyword, setKeyword] = useState("");
     const [departmentId, setDepartmentId] = useState<number | undefined>();
@@ -63,25 +66,31 @@ export default function PostingListPanel() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [p, r, a, d, l] = await Promise.all([
-                getPostings({ size: 1000 }),
+            // Danh sách tin là phần chính; các phần phụ (yêu cầu, số ứng viên, danh mục) lỗi thì vẫn hiện tin.
+            const [r, a, d, l] = await Promise.allSettled([
                 getRequisitions({ size: 1000 }),
                 getApplications({ size: 5000 }),
                 getCatalogItems("/masterdata/departments"),
                 getCatalogItems("/masterdata/work-locations"),
             ]);
+            const p = await getPostings({ size: 1000 });
             setPostings(p.data.content);
-            setRequisitions(new Map(r.data.content.map((x) => [x.id, x])));
-            const m = new Map<number, Partial<Record<FixedStage, number>>>();
-            a.data.content.forEach((app) => {
-                const c = m.get(app.jobPostingId) ?? {};
-                const s = toFixedStage(app.currentStageType);
-                c[s] = (c[s] ?? 0) + 1;
-                m.set(app.jobPostingId, c);
-            });
-            setStageCounts(m);
-            setDepartments(Object.fromEntries(d.data.map((x) => [x.id, String(x.name)])));
-            setLocations(Object.fromEntries(l.data.map((x) => [x.id, String(x.name)])));
+            if (r.status === "fulfilled") setRequisitions(new Map(r.value.data.content.map((x) => [x.id, x])));
+            if (a.status === "fulfilled") {
+                const m = new Map<number, Partial<Record<FixedStage, number>>>();
+                a.value.data.content.forEach((app) => {
+                    const c = m.get(app.jobPostingId) ?? {};
+                    const s = toFixedStage(app.currentStageType);
+                    c[s] = (c[s] ?? 0) + 1;
+                    m.set(app.jobPostingId, c);
+                });
+                setStageCounts(m);
+                setCountsFailed(false);
+            } else {
+                setCountsFailed(true);
+            }
+            if (d.status === "fulfilled") setDepartments(Object.fromEntries(d.value.data.map((x) => [x.id, String(x.name)])));
+            if (l.status === "fulfilled") setLocations(Object.fromEntries(l.value.data.map((x) => [x.id, String(x.name)])));
         } catch {
             message.error("Không tải được danh sách việc làm");
         } finally {
@@ -96,7 +105,7 @@ export default function PostingListPanel() {
 
     const filtered = useMemo(() => {
         const k = keyword.trim().toLowerCase();
-        return postings.filter((p) => (!k || p.title.toLowerCase().includes(k))
+        return postings.filter((p) => matchesKeyword(k, p.title)
             && (departmentId == null || deptOf(p) === departmentId));
     }, [postings, keyword, departmentId, deptOf]);
 
@@ -151,7 +160,7 @@ export default function PostingListPanel() {
                         {MAIN_STAGES.map((s) => (
                             <div key={s} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: 44 }}>
                                 <span style={{ fontWeight: 700, fontSize: 15, color: (c[s] ?? 0) > 0 ? STAGE_COLORS[s].color : COLORS.textMuted }}>
-                                    {c[s] ?? 0}
+                                    {countsFailed ? "—" : c[s] ?? 0}
                                 </span>
                                 <span style={{ fontSize: 11, color: COLORS.textSecondary, whiteSpace: "nowrap" }}>{FIXED_STAGE_LABEL[s]}</span>
                             </div>

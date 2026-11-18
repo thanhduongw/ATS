@@ -98,7 +98,7 @@ export default function RequisitionHmView({ requisition: r, cat }: { requisition
 
             {r.status === "CHANGES_REQUESTED" && (
                 <Panel
-                    title={`${r.approverName} yêu cầu sửa`}
+                    title={`${r.approverName ?? "Chuyên viên tuyển dụng"} yêu cầu sửa`}
                     extra={<Button type="primary" icon={<EditOutlined />} onClick={edit}>Sửa và gửi lại</Button>}
                     style={{ background: STAGE_COLORS.INTERVIEW.bg }}
                 >
@@ -111,18 +111,18 @@ export default function RequisitionHmView({ requisition: r, cat }: { requisition
                 </InlineNotice>
             )}
             {r.status === "PENDING_APPROVAL" && (
-                <InlineNotice tone="warning">Đang chờ {r.approverName} duyệt.</InlineNotice>
+                <InlineNotice tone="warning">Đang chờ Chuyên viên tuyển dụng duyệt.</InlineNotice>
             )}
             {r.status === "REJECTED" && (
                 <InlineNotice tone="danger">
-                    {r.approverName} đã từ chối yêu cầu{r.rejectReason ? `: “${r.rejectReason}”` : "."}
+                    {r.approverName ?? "Chuyên viên tuyển dụng"} đã từ chối yêu cầu{r.rejectReason ? `: “${r.rejectReason}”` : "."}
                 </InlineNotice>
             )}
 
             {r.status === "APPROVED" && (
                 <>
                     <InlineNotice tone="success">
-                        Đã duyệt bởi {r.approverName}
+                        Đã duyệt bởi {r.approverName ?? "Chuyên viên tuyển dụng"}
                         {(r.approvedSalaryMin != null || r.approvedSalaryMax != null) && (
                             <> · Lương duyệt <b>{formatSalaryShort(r.approvedSalaryMin, r.approvedSalaryMax)}</b> (bạn đề xuất {proposed})</>
                         )}
@@ -203,7 +203,7 @@ export default function RequisitionHmView({ requisition: r, cat }: { requisition
             )}
 
             <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
-                {requisitionCode(r.id)} · tạo ngày {fullDate(r.createdAt)} · người duyệt {r.approverName}
+                {requisitionCode(r.id)} · tạo ngày {fullDate(r.createdAt)}{r.approverName && r.status !== "DRAFT" && r.status !== "PENDING_APPROVAL" ? ` · xử lý bởi ${r.approverName}` : ""}
             </span>
         </div>
     );

@@ -69,6 +69,20 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(aiScoringCompletedQueue).to(atsExchange).with(AI_SCORING_COMPLETED_ROUTING_KEY);
     }
 
+    /** Ứng viên tự xoá dữ liệu cá nhân (candidate-service phát) — đơn ứng tuyển phải được ẩn danh hoá. */
+    public static final String CANDIDATE_DATA_DELETED_QUEUE = "application.candidate-data-deleted.queue";
+    public static final String CANDIDATE_DATA_DELETED_ROUTING_KEY = "candidate.data_deleted";
+
+    @Bean
+    public Queue candidateDataDeletedQueue() {
+        return QueueBuilder.durable(CANDIDATE_DATA_DELETED_QUEUE).build();
+    }
+
+    @Bean
+    public Binding candidateDataDeletedBinding(Queue candidateDataDeletedQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(candidateDataDeletedQueue).to(atsExchange).with(CANDIDATE_DATA_DELETED_ROUTING_KEY);
+    }
+
     @Bean
     public MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();

@@ -29,8 +29,9 @@ public class InterviewEvaluationController {
             @Valid @RequestBody EvaluationSubmitRequest req) {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireInternal(actor);
-        return ResponseEntity.ok(service.submit(
-                interviewId, actor, req));
+        EvaluationResponse submitted = service.submit(interviewId, actor, req);
+        service.recordSubmitAudit(actor.userId(), interviewId, "INTERVIEW");
+        return ResponseEntity.ok(submitted);
     }
 
     /**

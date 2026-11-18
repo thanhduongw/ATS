@@ -124,11 +124,21 @@ export function ListRow({
 }
 
 /** Hộp chú thích xám lồng trong thẻ (canvas M08: "Phỏng vấn kỹ thuật 10:00, 26/09"). */
-export function InfoNote({ children, icon = "info" }: { children: string; icon?: IconName }) {
+export function InfoNote({
+  children,
+  icon = "info",
+  tone = "neutral",
+}: {
+  children: string;
+  icon?: IconName;
+  /** `danger` cho cảnh báo cần chú ý (vd CV có nội dung bất thường). */
+  tone?: "neutral" | "danger";
+}) {
+  const danger = tone === "danger";
   return (
-    <View style={styles.note}>
-      <Icon name={icon} size={SPACING.md} color={COLORS.textSecondary} />
-      <Text style={styles.noteText}>{children}</Text>
+    <View style={[styles.note, danger && styles.noteDanger]}>
+      <Icon name={icon} size={SPACING.md} color={danger ? COLORS.errorText : COLORS.textSecondary} />
+      <Text style={[styles.noteText, danger && styles.noteTextDanger]}>{children}</Text>
     </View>
   );
 }
@@ -207,4 +217,6 @@ const styles = StyleSheet.create({
     lineHeight: FONT_SIZE.caption * LINE_HEIGHT.body,
     color: COLORS.textPrimary,
   },
+  noteDanger: { backgroundColor: STATUS_TONES.danger.bg },
+  noteTextDanger: { color: COLORS.errorText },
 });

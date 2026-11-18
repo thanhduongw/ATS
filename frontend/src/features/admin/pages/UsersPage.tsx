@@ -1,3 +1,4 @@
+import { matchesKeyword } from "../../../app/text";
 import { useEffect, useMemo, useState } from "react";
 import { App, Button, Input, Select} from "antd";
 import { SearchOutlined, SafetyOutlined, UserAddOutlined } from "@ant-design/icons";
@@ -48,7 +49,7 @@ export default function UsersPage() {
     const filtered = useMemo(() => {
         const k = keyword.trim().toLowerCase();
         return users.filter((u) =>
-            (!k || u.fullName?.toLowerCase().includes(k) || u.email.toLowerCase().includes(k))
+            matchesKeyword(k, u.fullName, u.email)
             && (!role || u.role === role)
             && (!departmentId || u.departmentId === departmentId));
     }, [users, keyword, role, departmentId]);

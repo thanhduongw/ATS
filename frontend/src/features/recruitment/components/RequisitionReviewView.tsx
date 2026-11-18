@@ -16,6 +16,7 @@ import { COLORS, type StatusTone } from "../../../app/theme";
 import { formatMoney, formatSalaryShort, moneyFormatter, moneyParser } from "../../../app/money";
 import { fullDate } from "../../../app/datetime";
 import dayjs from "dayjs";
+import RequisitionHistory from "./RequisitionHistory";
 import StatusTag from "../../../components/ui/StatusTag";
 import { Avatar, Panel, SmallDialog } from "../../../components/ui/designKit";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
@@ -82,7 +83,8 @@ export default function RequisitionReviewView({ requisition: r, cat, onChanged }
     }, [r.id, r.status]);
 
     const role = me?.role as UserRole | undefined;
-    const canAct = r.status === "PENDING_APPROVAL" && !!role && HR_ROLES.includes(role) && me?.userId === String(r.approverId);
+    // Mọi Chuyên viên tuyển dụng đều duyệt được; backend ghi lại người thực sự duyệt.
+    const canAct = r.status === "PENDING_APPROVAL" && !!role && HR_ROLES.includes(role);
     const skills = r.skillIds.map((id) => cat.skillMap[id]).filter(Boolean);
     const dept = cat.departmentMap[r.departmentId];
 
@@ -183,7 +185,7 @@ export default function RequisitionReviewView({ requisition: r, cat, onChanged }
                         <Field label="Ngân sách tối đa / tháng" value={millions(r.budget)} />
                         {r.status === "APPROVED"
                             ? <Field label="Lương đã duyệt" value={<span style={{ color: COLORS.success }}>{formatSalaryShort(r.approvedSalaryMin, r.approvedSalaryMax)}</span>} />
-                            : <Field label="Người duyệt" value={r.approverName || "Chuyên viên tuyển dụng hoặc quản trị viên"} />}
+                            : <Field label="Người duyệt" value={r.approverName || "Chuyên viên tuyển dụng"} />}
                     </Panel>
                     {r.status === "CHANGES_REQUESTED" && r.hrNote && (
                         <Panel title="Đã yêu cầu phòng ban sửa" bodyGap={6}>{text(`“${r.hrNote}”`)}</Panel>
@@ -194,12 +196,7 @@ export default function RequisitionReviewView({ requisition: r, cat, onChanged }
                     {r.status === "APPROVED" && r.hrNote && (
                         <Panel title="Ghi chú khi duyệt" bodyGap={6}>{text(r.hrNote)}</Panel>
                     )}
-                    <Panel title="Lịch sử" bodyGap={8}>
-                        <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                            <Avatar name={r.requesterName} colorKey={r.requesterId} size={22} />
-                            <span>{r.requesterName} tạo yêu cầu · {dayjs(r.createdAt).format("DD/MM HH:mm")}</span>
-                        </span>
-                    </Panel>
+                    <RequisitionHistory requisition={r} />
                 </div>
             </div>
 

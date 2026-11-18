@@ -29,7 +29,9 @@ public class ApplicationEvaluationController {
             @Valid @RequestBody EvaluationSubmitRequest req) {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireHr(actor);
-        return ResponseEntity.ok(service.submitForApplication(applicationId, actor, req));
+        EvaluationResponse submitted = service.submitForApplication(applicationId, actor, req);
+        service.recordSubmitAudit(actor.userId(), applicationId, "APPLICATION");
+        return ResponseEntity.ok(submitted);
     }
 
     /** Toan bo danh gia cua ho so, da ap dung quy tac che noi dung. */

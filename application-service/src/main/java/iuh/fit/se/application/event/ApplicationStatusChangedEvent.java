@@ -8,5 +8,9 @@ public record ApplicationStatusChangedEvent(
         Long assignedRecruiterId,
         String fromStageName,
         String toStageName,
-        String toStageType
+        String toStageType,
+        /* WITHDRAWN | HIRED_ELSEWHERE | DATA_DELETED khi đơn đóng không phải do công ty từ chối; null trong các trường hợp khác. */
+        String closedReason,
+        /* Tên vị trí ứng tuyển — để thông báo nói rõ đơn nào; null nếu không lấy được. */
+        String jobTitle
 ) {}

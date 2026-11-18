@@ -54,7 +54,8 @@ public final class JobRequisitionSpecifications {
                 predicates.add(cb.equal(root.get("departmentId"), departmentId));
             }
             if (keyword != null && !keyword.isBlank()) {
-                predicates.add(cb.like(cb.lower(root.get("title")), "%" + keyword.trim().toLowerCase() + "%"));
+                predicates.add(cb.like(iuh.fit.se.recruitment.common.TextSearch.fold(cb, root.get("title")),
+                        iuh.fit.se.recruitment.common.TextSearch.likePattern(keyword), '!'));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

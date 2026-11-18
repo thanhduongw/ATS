@@ -82,7 +82,7 @@ public class DefaultDataSeeder {
     }
 
     private void seedEmploymentTypes() {
-        List.of("Toàn thời gian", "Bán thời gian", "Thực tập", "Cộng tác viên", "Freelance")
+        List.of("Toàn thời gian", "Bán thời gian", "Thực tập", "Cộng tác viên")
                 .forEach(name -> {
                     if (!employmentTypeRepository.existsByNameIgnoreCase(name)) {
                         employmentTypeRepository.save(
@@ -92,7 +92,8 @@ public class DefaultDataSeeder {
     }
 
     private void seedContractTypes() {
-        List.of("Thử việc", "Chính thức", "Thời vụ", "Hợp đồng dịch vụ", "Không xác định thời hạn")
+        List.of("Không xác định thời hạn", "Xác định thời hạn 12 tháng", "Xác định thời hạn 24 tháng",
+                        "Thực tập", "Cộng tác viên")
                 .forEach(name -> {
                     if (!contractTypeRepository.existsByNameIgnoreCase(name)) {
                         contractTypeRepository.save(
@@ -102,8 +103,8 @@ public class DefaultDataSeeder {
     }
 
     private void seedRecruitmentSources() {
-        List.of("Website công ty", "LinkedIn", "Giới thiệu nội bộ", "Facebook", "TopCV",
-                        "VietnamWorks", "ITviec", "CareerBuilder", "Ngày hội việc làm", "Headhunter")
+        List.of("Trang tuyển dụng của công ty", "ITviec", "TopDev", "LinkedIn", "TopCV", "VietnamWorks",
+                        "Giới thiệu nội bộ", "Nhóm Facebook về IT", "Ngày hội việc làm IT", "Headhunter")
                 .forEach(name -> {
                     if (!recruitmentSourceRepository.existsByNameIgnoreCase(name)) {
                         recruitmentSourceRepository.save(
@@ -123,10 +124,11 @@ public class DefaultDataSeeder {
     }
 
     private void seedRejectionReasons() {
-        List.of("Không đủ kinh nghiệm", "Không đạt yêu cầu phỏng vấn", "Mức lương không phù hợp",
-                        "Vị trí đã tuyển đủ", "Ứng viên tự rút hồ sơ", "Không phù hợp văn hóa công ty",
-                        "Hồ sơ không đầy đủ", "Không phản hồi liên hệ", "Kỹ năng ngoại ngữ chưa đạt",
-                        "Địa điểm làm việc không phù hợp")
+        List.of("Chưa đủ số năm kinh nghiệm", "Kỹ năng kỹ thuật chưa đạt", "Chưa đạt bài phỏng vấn kỹ thuật",
+                        "Công nghệ chính không khớp vị trí", "Mức lương mong muốn vượt khung",
+                        "Vị trí đã tuyển đủ", "Tiếng Anh chưa đạt yêu cầu", "Không phản hồi liên hệ",
+                        "Chưa phù hợp cách làm việc của nhóm", "Đã nhận việc ở công ty khác",
+                        "Hồ sơ thiếu thông tin")
                 .forEach(name -> {
                     if (!rejectionReasonRepository.existsByNameIgnoreCase(name)) {
                         rejectionReasonRepository.save(
@@ -146,9 +148,9 @@ public class DefaultDataSeeder {
     }
 
     private void seedInterviewCriteria() {
-        List.of("Kiến thức chuyên môn", "Kỹ năng kỹ thuật", "Kỹ năng mềm & giao tiếp",
-                        "Thái độ & tư duy giải quyết vấn đề", "Mức độ phù hợp với vị trí",
-                        "Khả năng làm việc nhóm", "Tiềm năng phát triển", "Kỹ năng ngoại ngữ")
+        List.of("Kiến thức nền tảng (cấu trúc dữ liệu, thuật toán)", "Kỹ năng lập trình và chất lượng mã",
+                        "Thiết kế hệ thống", "Tư duy giải quyết vấn đề", "Kinh nghiệm dự án thực tế",
+                        "Giao tiếp và làm việc nhóm", "Tinh thần học hỏi", "Tiếng Anh đọc tài liệu kỹ thuật")
                 .forEach(name -> {
                     if (!interviewCriteriaRepository.existsByNameIgnoreCase(name)) {
                         interviewCriteriaRepository.save(
@@ -159,16 +161,13 @@ public class DefaultDataSeeder {
 
     private void seedDepartments() {
         String[][] departments = {
-                {"Ban Giám đốc", "Điều hành và định hướng chiến lược công ty"},
-                {"Phòng Nhân sự", "Tuyển dụng, đào tạo và quản lý nhân sự"},
-                {"Phòng Kỹ thuật", "Phát triển và vận hành sản phẩm công nghệ"},
-                {"Phòng Kinh doanh", "Bán hàng và phát triển khách hàng"},
-                {"Phòng Marketing", "Truyền thông, thương hiệu và tiếp thị"},
-                {"Phòng Tài chính - Kế toán", "Quản lý tài chính, kế toán và ngân sách"},
-                {"Phòng Hành chính", "Hành chính tổng hợp và cơ sở vật chất"},
-                {"Phòng Chăm sóc khách hàng", "Hỗ trợ và chăm sóc khách hàng sau bán"},
-                {"Phòng Sản phẩm", "Nghiên cứu, thiết kế và quản lý sản phẩm"},
-                {"Phòng Đảm bảo chất lượng", "Kiểm thử và đảm bảo chất lượng sản phẩm"},
+                {"Phòng Backend", "Xây dựng dịch vụ, API và cơ sở dữ liệu của sản phẩm"},
+                {"Phòng Frontend", "Phát triển giao diện web của sản phẩm"},
+                {"Phòng Mobile", "Phát triển ứng dụng iOS và Android"},
+                {"Phòng Kiểm thử (QA)", "Kiểm thử thủ công, kiểm thử tự động và đảm bảo chất lượng"},
+                {"Phòng DevOps & Cloud", "Hạ tầng, triển khai liên tục và vận hành hệ thống"},
+                {"Phòng Dữ liệu & AI", "Kỹ thuật dữ liệu, phân tích và mô hình học máy"},
+                {"Phòng Nhân sự", "Tuyển dụng, đào tạo và chăm sóc nhân viên"},
         };
         for (String[] d : departments) {
             if (!departmentRepository.existsByNameIgnoreCase(d[0])) {
@@ -179,8 +178,7 @@ public class DefaultDataSeeder {
     }
 
     private void seedJobLevels() {
-        String[] names = {"Thực tập sinh", "Nhân viên mới", "Nhân viên", "Nhân viên cao cấp",
-                "Trưởng nhóm", "Trưởng phòng", "Giám đốc bộ phận", "Ban điều hành"};
+        String[] names = {"Intern", "Fresher", "Junior", "Middle", "Senior", "Tech Lead", "Engineering Manager"};
         for (int i = 0; i < names.length; i++) {
             if (!jobLevelRepository.existsByNameIgnoreCase(names[i])) {
                 jobLevelRepository.save(JobLevel.builder()
@@ -191,13 +189,11 @@ public class DefaultDataSeeder {
 
     private void seedJobTitles() {
         List.of("Lập trình viên Backend", "Lập trình viên Frontend", "Lập trình viên Full-stack",
-                        "Lập trình viên Mobile", "Kỹ sư DevOps", "Kỹ sư kiểm thử phần mềm",
-                        "Kỹ sư dữ liệu", "Chuyên viên phân tích nghiệp vụ", "Quản lý dự án",
-                        "Quản lý sản phẩm", "Thiết kế UI/UX", "Chuyên viên tuyển dụng",
-                        "Chuyên viên nhân sự tổng hợp", "Chuyên viên kinh doanh",
-                        "Chuyên viên marketing", "Chuyên viên kế toán", "Chuyên viên hành chính",
-                        "Chuyên viên chăm sóc khách hàng", "Kỹ sư hệ thống",
-                        "Chuyên viên an toàn thông tin")
+                        "Lập trình viên Mobile", "Kỹ sư kiểm thử phần mềm", "Kỹ sư kiểm thử tự động",
+                        "Kỹ sư DevOps", "Kỹ sư Cloud", "Kỹ sư dữ liệu", "Kỹ sư AI/ML",
+                        "Chuyên viên phân tích dữ liệu", "Chuyên viên phân tích nghiệp vụ",
+                        "Thiết kế UI/UX", "Quản lý dự án phần mềm", "Chuyên viên an toàn thông tin",
+                        "Chuyên viên tuyển dụng IT")
                 .forEach(name -> {
                     if (!jobTitleRepository.existsByNameIgnoreCase(name)) {
                         jobTitleRepository.save(JobTitle.builder().name(name).active(true).build());
@@ -230,12 +226,9 @@ public class DefaultDataSeeder {
 
     private void seedWorkLocations() {
         String[][] locations = {
-                {"Trụ sở TP. Hồ Chí Minh", "12 Nguyễn Văn Bảo, Phường 4, Quận Gò Vấp, TP. Hồ Chí Minh"},
-                {"Chi nhánh Hà Nội", "Tòa nhà Keangnam, Phạm Hùng, Quận Nam Từ Liêm, Hà Nội"},
-                {"Chi nhánh Đà Nẵng", "Số 15 Quang Trung, Quận Hải Châu, Đà Nẵng"},
-                {"Chi nhánh Cần Thơ", "Số 1 Lý Tự Trọng, Quận Ninh Kiều, Cần Thơ"},
-                {"Làm việc từ xa", "Remote - làm việc trực tuyến toàn thời gian"},
-                {"Linh hoạt (Hybrid)", "Kết hợp làm việc tại văn phòng và từ xa"},
+                {"Văn phòng TP. Hồ Chí Minh", "Tầng 8, 12 Nguyễn Văn Bảo, Phường 4, Quận Gò Vấp, TP. Hồ Chí Minh"},
+                {"Văn phòng Hà Nội", "Tầng 15, 86 Duy Tân, Quận Cầu Giấy, Hà Nội"},
+                {"Văn phòng Đà Nẵng", "Tầng 4, 15 Quang Trung, Quận Hải Châu, Đà Nẵng"},
         };
         for (String[] l : locations) {
             if (!workLocationRepository.existsByNameIgnoreCase(l[0])) {
@@ -247,20 +240,24 @@ public class DefaultDataSeeder {
 
     private void seedSkills() {
         String[][] skills = {
-                {"Java", "Technical"}, {"Spring Boot", "Technical"}, {"JavaScript", "Technical"},
-                {"TypeScript", "Technical"}, {"ReactJS", "Technical"}, {"NodeJS", "Technical"},
-                {"Python", "Technical"}, {"C#/.NET", "Technical"}, {"PHP", "Technical"},
-                {"SQL", "Technical"}, {"PostgreSQL", "Technical"}, {"MongoDB", "Technical"},
-                {"Docker", "Technical"}, {"Kubernetes", "Technical"}, {"CI/CD", "Technical"},
-                {"AWS", "Technical"}, {"Git", "Technical"}, {"REST API", "Technical"},
-                {"Microservices", "Technical"}, {"Kiểm thử phần mềm", "Technical"},
-                {"Figma", "Tool"}, {"Jira", "Tool"}, {"Excel nâng cao", "Tool"},
-                {"Giao tiếp", "Soft skill"}, {"Làm việc nhóm", "Soft skill"},
-                {"Giải quyết vấn đề", "Soft skill"}, {"Quản lý thời gian", "Soft skill"},
-                {"Tư duy phản biện", "Soft skill"}, {"Thuyết trình", "Soft skill"},
-                {"Lãnh đạo", "Soft skill"}, {"Đàm phán", "Soft skill"},
-                {"Tiếng Anh", "Language"}, {"Tiếng Nhật", "Language"},
-                {"Tiếng Hàn", "Language"}, {"Tiếng Trung", "Language"},
+                {"Java", "Chuyên môn"}, {"Spring Boot", "Chuyên môn"}, {"Node.js", "Chuyên môn"},
+                {"Python", "Chuyên môn"}, {"Go", "Chuyên môn"}, {"C#/.NET", "Chuyên môn"},
+                {"JavaScript", "Chuyên môn"}, {"TypeScript", "Chuyên môn"}, {"React", "Chuyên môn"},
+                {"Vue.js", "Chuyên môn"}, {"Next.js", "Chuyên môn"}, {"HTML/CSS", "Chuyên môn"},
+                {"React Native", "Chuyên môn"}, {"Flutter", "Chuyên môn"}, {"Kotlin", "Chuyên môn"},
+                {"Swift", "Chuyên môn"}, {"SQL", "Chuyên môn"}, {"PostgreSQL", "Chuyên môn"},
+                {"MySQL", "Chuyên môn"}, {"MongoDB", "Chuyên môn"}, {"Redis", "Chuyên môn"},
+                {"Kafka", "Chuyên môn"}, {"RabbitMQ", "Chuyên môn"}, {"REST API", "Chuyên môn"},
+                {"Microservices", "Chuyên môn"}, {"Docker", "Chuyên môn"}, {"Kubernetes", "Chuyên môn"},
+                {"CI/CD", "Chuyên môn"}, {"AWS", "Chuyên môn"}, {"Linux", "Chuyên môn"},
+                {"Terraform", "Chuyên môn"}, {"Kiểm thử thủ công", "Chuyên môn"},
+                {"Selenium", "Chuyên môn"}, {"Playwright", "Chuyên môn"}, {"Kiểm thử API", "Chuyên môn"},
+                {"Machine Learning", "Chuyên môn"}, {"PyTorch", "Chuyên môn"}, {"Pandas", "Chuyên môn"},
+                {"Airflow", "Chuyên môn"}, {"Spark", "Chuyên môn"},
+                {"Git", "Công cụ"}, {"Jira", "Công cụ"}, {"Figma", "Công cụ"}, {"Postman", "Công cụ"},
+                {"Giao tiếp", "Kỹ năng mềm"}, {"Làm việc nhóm", "Kỹ năng mềm"},
+                {"Giải quyết vấn đề", "Kỹ năng mềm"}, {"Tự học", "Kỹ năng mềm"},
+                {"Tiếng Anh", "Ngoại ngữ"}, {"Tiếng Nhật", "Ngoại ngữ"},
         };
         for (String[] s : skills) {
             if (!skillRepository.existsByNameIgnoreCase(s[0])) {

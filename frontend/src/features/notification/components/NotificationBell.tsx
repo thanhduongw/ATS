@@ -11,6 +11,7 @@ import { BellOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector } from "../../../app/hooks";
 import {
+    NOTIFICATIONS_CHANGED_EVENT,
     getNotifications,
     getUnreadCount,
     markAsRead,
@@ -66,6 +67,14 @@ export default function NotificationBell() {
     useEffect(() => {
         if (!accessToken) return;
         loadInitial();
+    }, [accessToken, loadInitial]);
+
+    // Trang Thông báo (và mọi nơi khác) đánh dấu đã đọc xong thì phát sự kiện này để số trên chuông cập nhật ngay.
+    useEffect(() => {
+        if (!accessToken) return;
+        const refresh = () => { void loadInitial(); };
+        window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
+        return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
     }, [accessToken, loadInitial]);
 
     useEffect(() => {

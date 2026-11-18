@@ -59,7 +59,7 @@ class RegisterServiceTest {
     void candidateRegistrationHardCodesCandidateSecurityAttributes() {
         CandidateRegistrationRequest request = new CandidateRegistrationRequest(
                 " Nguyen Van A ", " Candidate@Example.com ",
-                "strong-password", "strong-password", " 0900000000 ");
+                "strong-password", "strong-password", " 0900000000 ", true);
         Role candidateRole = new Role(4L, RoleName.CANDIDATE);
 
         when(appUserRepository.existsByEmailIgnoreCase("candidate@example.com")).thenReturn(false);
@@ -89,8 +89,10 @@ class RegisterServiceTest {
         assertFalse(user.isEmailVerified());
         assertEquals("bcrypt-hash", user.getPasswordHash());
 
-        verify(candidateRegistrationPublisher).publish(new CandidateRegisteredEvent(
-                42L, "Nguyen Van A", "candidate@example.com", "0900000000"));
+        verify(candidateRegistrationPublisher).publish(org.mockito.ArgumentMatchers.argThat(event ->
+                event.userId().equals(42L) && event.fullName().equals("Nguyen Van A")
+                        && event.email().equals("candidate@example.com") && event.phone().equals("0900000000")
+                        && event.consentAt() != null));
         verify(mailService).sendOtpEmail(
                 org.mockito.ArgumentMatchers.eq("candidate@example.com"),
                 org.mockito.ArgumentMatchers.matches("\\d{6}"));
@@ -136,7 +138,7 @@ class RegisterServiceTest {
     @Test
     void rejectsPasswordConfirmationMismatchBeforeWritingData() {
         CandidateRegistrationRequest request = new CandidateRegistrationRequest(
-                "Candidate", "candidate@example.com", "password-one", "password-two", null);
+                "Candidate", "candidate@example.com", "password-one", "password-two", null, true);
         when(appUserRepository.existsByEmailIgnoreCase(request.email())).thenReturn(false);
 
         assertThrows(BusinessException.class, () -> registerService.registerCandidate(request));

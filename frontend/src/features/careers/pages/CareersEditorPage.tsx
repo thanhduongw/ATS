@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { App, Button, Input, InputNumber, Select, Spin, Switch, Upload } from "antd";
+import { App, Button, ColorPicker, Input, InputNumber, Segmented, Select, Spin, Switch, Upload } from "antd";
+import { DEFAULT_BRAND } from "../../../app/brand";
+import { heroBackgroundCss, type HeroBackground } from "../careersConfig";
 import { DeleteOutlined, PictureOutlined, PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
@@ -10,7 +12,7 @@ import {
     type BlockKey, type CareersConfig,
 } from "../careersConfig";
 import BenefitIcon from "../components/BenefitIcon";
-import { COLORS, RADIUS } from "../../../app/theme";
+import { COLORS, GRADIENTS, RADIUS } from "../../../app/theme";
 import { Panel, ScreenTitle, SmallDialog } from "../../../components/ui/designKit";
 
 /**
@@ -164,6 +166,19 @@ function HeroEditor({ config, update }: { config: CareersConfig; update: Update 
                 }}>{!h.coverUrl && <PictureOutlined style={{ fontSize: 28 }} />}</div>
                 <ImageUpload label={h.coverUrl ? "Tải ảnh khác" : "Tải ảnh bìa"} onUploaded={(url) => set({ coverUrl: url })} />
                 {h.coverUrl && <Button type="text" danger onClick={() => set({ coverUrl: "" })}>Xoá</Button>}
+            </div>
+        </Field>
+        <Field label="Nền phần đầu trang" hint="Chữ trên nền luôn màu trắng; màu quá nhạt sẽ được tự làm đậm cho dễ đọc">
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                <Segmented value={h.background ?? "brand"} onChange={(v) => set({ background: v as HeroBackground })}
+                    options={[{ value: "brand", label: "Màu thương hiệu" }, { value: "color", label: "Một màu" }, { value: "gradient", label: "Chuyển màu" }]} />
+                {(h.background === "color" || h.background === "gradient") && (
+                    <ColorPicker disabledAlpha showText value={h.color1 ?? DEFAULT_BRAND} onChangeComplete={(c) => set({ color1: c.toHexString().slice(0, 7).toUpperCase() })} />
+                )}
+                {h.background === "gradient" && (
+                    <ColorPicker disabledAlpha showText value={h.color2 ?? h.color1 ?? DEFAULT_BRAND} onChangeComplete={(c) => set({ color2: c.toHexString().slice(0, 7).toUpperCase() })} />
+                )}
+                <span style={{ width: 120, height: 32, borderRadius: 8, background: heroBackgroundCss(h, GRADIENTS.hero) }} />
             </div>
         </Field>
         <Field label="Dòng nhỏ phía trên" hint="“{jobs}” tự thay bằng số vị trí đang mở">

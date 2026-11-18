@@ -2,6 +2,10 @@
  * Chuỗi hiển thị dùng chung (quy tắc 7 của CLAUDE.md). Chuỗi chỉ thuộc về một màn thì đặt
  * dưới khóa của màn đó khi làm màn ấy.
  */
+import { readCachedCompanyName } from "@/theme";
+
+const COMPANY_NAME = readCachedCompanyName();
+
 export const STRINGS = {
   common: {
     retry: "Thử lại",
@@ -13,10 +17,11 @@ export const STRINGS = {
     required: " *",
     loading: "Đang tải",
   },
+  // Tên doanh nghiệp lấy từ API công khai (lưu ở lần mở trước — xem src/theme/brand.ts); chưa có thì dùng tên chung.
   brand: {
-    mark: "A",
-    name: "ATS",
-    tagline: "HỆ THỐNG TUYỂN DỤNG",
+    mark: (COMPANY_NAME ?? "A").trim().charAt(0).toUpperCase(),
+    name: COMPANY_NAME ?? "ATS",
+    tagline: COMPANY_NAME ? "TUYỂN DỤNG" : "HỆ THỐNG TUYỂN DỤNG",
   },
   auth: {
     otpLabel: "Mã OTP",
@@ -45,6 +50,7 @@ export const STRINGS = {
       candidatePrompt: "Bạn là ứng viên?",
       createAccount: "Tạo tài khoản ứng viên",
       failed: "Đăng nhập thất bại",
+      adminUseWeb: "Tài khoản quản trị doanh nghiệp chỉ dùng trên web. Hãy đăng nhập bằng trình duyệt.",
       verifiedNotice: "Xác minh thành công, mời đăng nhập.",
       resetNotice: "Mật khẩu đã được cập nhật, mời đăng nhập.",
     },
@@ -61,6 +67,8 @@ export const STRINGS = {
       haveAccount: "Đã có tài khoản?",
       login: "Đăng nhập",
       failed: "Đăng ký thất bại",
+      consent: "Tôi đồng ý cho doanh nghiệp xử lý dữ liệu cá nhân của tôi cho mục đích tuyển dụng.",
+      consentRequired: "Bạn cần đồng ý với chính sách bảo vệ dữ liệu cá nhân",
     },
     verify: {
       title: "Xác minh email",
@@ -193,6 +201,8 @@ export const STRINGS = {
     sourcePlaceholder: "Chọn nguồn",
     note: "Lời nhắn cho nhà tuyển dụng (không bắt buộc)",
     submit: "Gửi hồ sơ",
+    consent: "Tôi đồng ý cho doanh nghiệp xử lý dữ liệu cá nhân trong hồ sơ này cho mục đích tuyển dụng.",
+    consentRequired: "Bạn cần đồng ý xử lý dữ liệu cá nhân trước khi gửi hồ sơ",
   },
   applications: {
     title: "Hồ sơ ứng tuyển",
@@ -215,7 +225,10 @@ export const STRINGS = {
       hired: "Chúc mừng, bạn đã trúng tuyển",
       rejected: "Hồ sơ chưa phù hợp với vị trí này",
       rejectedReason: (r: string) => `Hồ sơ chưa phù hợp: ${r}`,
+      withdrawn: "Bạn đã rút đơn ứng tuyển này",
+      closedOther: "Ngừng xử lý vì bạn đã nhận việc ở vị trí khác",
     },
+    withdrawnChip: "Đã rút đơn",
     emptyTitle: "Bạn chưa nộp đơn nào",
     emptyMessage: "Tìm một vị trí phù hợp và ứng tuyển — tiến trình sẽ hiện ở đây.",
     browseJobs: "Xem việc làm",
@@ -230,6 +243,8 @@ export const STRINGS = {
     stepCurrent: "Đang ở bước này",
     stepUpcoming: "Chưa đến",
     rejectedTitle: "Không tiếp tục",
+    withdrawnTitle: "Đã rút đơn",
+    withdrawnNote: "Bạn đã rút đơn ứng tuyển này",
     hiredTitle: "Đã trúng tuyển",
     interview: "Lịch phỏng vấn",
     online: "Trực tuyến",
@@ -552,6 +567,8 @@ export const STRINGS = {
         requirements: (met: number, total: number) => `Đáp ứng ${met}/${total} yêu cầu bắt buộc`,
         disclaimer: "Điểm AI chỉ để tham khảo, không thay đánh giá phỏng vấn.",
         notApplicable: "Không áp dụng",
+        injection: "CV có nội dung bất thường nhằm điều khiển AI. Điểm chỉ để tham khảo — hãy xem trực tiếp hồ sơ.",
+        injectionChip: "CV bất thường",
       },
       evals: {
         none: "Chưa có phiếu đánh giá nào.",
@@ -882,6 +899,7 @@ export const STRINGS = {
       NO_SHOW: "Vắng mặt",
       CANCELLED: "Đã hủy",
       CANDIDATE_DECLINED: "Ứng viên xin dời",
+      EXPIRED: "Hết hạn",
     },
     /** Ứng viên nhìn cùng một trạng thái theo góc của mình. */
     interviewForCandidate: {

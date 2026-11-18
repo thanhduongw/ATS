@@ -9,7 +9,9 @@ export type InterviewStatus =
   | "NO_SHOW"
   | "CANCELLED"
   /** Ứng viên xin dời lịch (kèm lý do) — HR đặt giờ mới. */
-  | "CANDIDATE_DECLINED";
+  | "CANDIDATE_DECLINED"
+  /** Quá giờ hẹn mà chưa được xác nhận đủ — job định kỳ tự đánh dấu. */
+  | "EXPIRED";
 export type RecommendationType = "STRONG_YES" | "YES" | "NO" | "STRONG_NO";
 
 /** Các trạng thái còn chiếm chỗ trên lịch của người phỏng vấn. */
@@ -34,6 +36,7 @@ export const INTERVIEW_RESCHEDULABLE: ReadonlySet<InterviewStatus> = new Set([
   "SCHEDULED",
   "HM_CONFIRMED",
   "CANDIDATE_CONFIRMED",
+  "CANDIDATE_DECLINED",
 ]);
 
 /** Các trạng thái của buổi đã hoặc đáng lẽ đã diễn ra. */
@@ -51,6 +54,7 @@ export const INTERVIEW_CLOSED: ReadonlySet<InterviewStatus> = new Set([
   "COMPLETED",
   "NO_SHOW",
   "CANCELLED",
+  "EXPIRED",
 ]);
 
 export interface InterviewerSummary {
@@ -100,6 +104,8 @@ export interface InterviewCreateRequest {
   meetingLink?: string | null;
   note?: string | null;
   interviewerIds: number[];
+  /** Lịch mới thay cho buổi ứng viên đã xin dời — backend đóng buổi cũ. */
+  replaceInterviewId?: number | null;
 }
 
 export interface InterviewHmRejectRequest {

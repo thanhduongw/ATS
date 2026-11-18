@@ -23,6 +23,7 @@ import EmptyState from "../../../components/ui/EmptyState";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import { listCardStyle, listCardBodyStyle, listPagination } from "../../../components/ui/listStyles";
 import { useTableScrollY } from "../../../app/useTableScrollY";
+import { filterOptionByLabel } from "../../../app/text";
 
 /**
  * Hai goc nhin tren cung mot du lieu:
@@ -214,7 +215,7 @@ function HrEvaluationTracking() {
                     <Select
                         allowClear
                         showSearch
-                        optionFilterProp="label"
+                        optionFilterProp="label" filterOption={filterOptionByLabel}
                         style={{ minWidth: 190 }}
                         placeholder="Tất cả phòng ban"
                         value={departmentId ?? undefined}
@@ -228,7 +229,7 @@ function HrEvaluationTracking() {
                     <Select
                         allowClear
                         showSearch
-                        optionFilterProp="label"
+                        optionFilterProp="label" filterOption={filterOptionByLabel}
                         style={{ minWidth: 240 }}
                         disabled={departmentId == null}
                         placeholder={departmentId == null ? "Chọn phòng ban trước" : "Tất cả tin tuyển dụng"}

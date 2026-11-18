@@ -6,7 +6,6 @@ import type { AxiosError } from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { requisitionSchema, type RequisitionFormValues } from "../schemas/requisitionSchema";
 import { createRequisition, getRequisitionById, submitRequisition, updateRequisition } from "../recruitmentApi";
-import { getUserDirectory } from "../../auth/authApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import SkillMultiSelect from "../../masterdata/components/SkillMultiSelect";
@@ -80,15 +79,11 @@ export default function RequisitionFormPage() {
             getCatalogItems("/masterdata/job-levels"),
             getCatalogItems("/masterdata/employment-types"),
             getCatalogItems("/masterdata/work-locations"),
-            getUserDirectory("RECRUITER"),
-            getUserDirectory("COMPANY_ADMIN"),
-        ]).then(([d, l, e, w, rec, adm]) => {
+        ]).then(([d, l, e, w]) => {
             setDepartments(active(d));
             setJobLevels(active(l));
             setEmploymentTypes(active(e));
             setWorkLocations(active(w));
-            const approvers = [...rec.data, ...adm.data];
-            if (!getValues("approverId") && approvers.length > 0) setValue("approverId", approvers[0].id);
             if (!editingId && myDept != null && getValues("departmentId") == null) setValue("departmentId", myDept);
         }).catch(() => message.error("Không tải được danh mục"));
     }, [editingId, myDept, getValues, setValue, message]);
@@ -107,7 +102,6 @@ export default function RequisitionFormPage() {
                 expectedSalaryMin: x.expectedSalaryMin, expectedSalaryMax: x.expectedSalaryMax,
                 expectedStartDate: x.expectedStartDate ?? "", description: x.description ?? "",
                 requirements: x.requirements ?? "", benefits: x.benefits, skillIds: x.skillIds ?? [],
-                approverId: x.approverId,
             });
         }).catch(() => message.error("Không tải được yêu cầu tuyển dụng"))
             .finally(() => setLoading(false));
@@ -261,7 +255,7 @@ export default function RequisitionFormPage() {
                             <Form.Item label="Ngày bắt đầu mong muốn" required {...err(errors.expectedStartDate)}>
                                 <Controller name="expectedStartDate" control={control}
                                     render={({ field }) => (
-                                        <DateField value={field.value} onChange={field.onChange} />
+                                        <DateField value={field.value} onChange={field.onChange} futureOnly />
                                     )} />
                             </Form.Item>
                             <Form.Item label="Độ ưu tiên">
@@ -302,7 +296,8 @@ export default function RequisitionFormPage() {
 
                     <Section no={3} title="Ngân sách" hint="Chuyên viên tuyển dụng sẽ chốt khung lương khi duyệt">
                         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
-                            <Form.Item label="Lương đề xuất (đồng/tháng)" style={{ marginBottom: 0 }}>
+                            <Form.Item label="Lương đề xuất (đồng/tháng)" style={{ marginBottom: 0 }}
+                                validateStatus={errors.expectedSalaryMax ? "error" : ""} help={errors.expectedSalaryMax?.message}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                     {money("expectedSalaryMin", "Từ")}
                                     <span style={{ color: COLORS.textMuted }}>đến</span>

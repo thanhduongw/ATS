@@ -12,6 +12,8 @@ export interface CandidateRegistrationRequest {
     password: string;
     confirmPassword: string;
     phone?: string | null;
+    /** Đồng ý xử lý dữ liệu cá nhân — backend bắt buộc là true. */
+    consentAccepted: boolean;
 }
 
 export interface ResendOtpRequest { email: string; }
@@ -131,6 +133,8 @@ export interface UserDirectoryResponse {
     fullName: string;
     role: UserRole;
     departmentId: number | null;
+    /** ACTIVE | PENDING_VERIFICATION | LOCKED | INACTIVE — chỉ phân công việc cho người ACTIVE. */
+    status?: string | null;
 }
 
 export interface UserSummaryResponse {

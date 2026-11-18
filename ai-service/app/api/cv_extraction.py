@@ -34,7 +34,8 @@ async def _extract_for_application(application_id: int, user: CurrentUser, force
     try:
         row = await get_or_extract(async_session_factory, resume_url, summary.get("candidateId"), force=force)
     except CVUnavailableError as exc:
-        raise HTTPException(status_code=422, detail=f"Không đọc được file CV: {exc}") from exc
+        logger.warning("Không tải được CV của hồ sơ %s: %s", application_id, exc)
+        raise HTTPException(status_code=422, detail="Không tải được file CV của hồ sơ này") from exc
     return to_response(row)
 
 

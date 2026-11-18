@@ -12,6 +12,7 @@ import StatusTag from "../../../components/ui/StatusTag";
 import { rowArrowColumn } from "../../../components/ui/listHelpers";
 import { departmentLabel } from "../../overview/useCompanyOverview";
 import { offerStatusText, useDepartmentResults } from "../useDepartmentResults";
+import { avgDaysToHire } from "../../overview/useCompanyOverview";
 
 /**
  * H16 · MÀN CHÍNH · Kết quả tuyển dụng (Đại diện phòng ban). Không hiện lương (T1.5).
@@ -30,8 +31,7 @@ export default function ResultsPage() {
     const hiredApps = allApps.filter((a) => toFixedStage(a.currentStageType) === "HIRED");
     const headcount = postings.filter((p) => p.status !== "DRAFT").reduce((s, p) => s + (p.headcount ?? 0), 0);
     const lastHired = [...hiredApps].sort((a, b) => dayjs(b.hiredAt ?? 0).valueOf() - dayjs(a.hiredAt ?? 0).valueOf())[0];
-    const days = hiredApps.filter((a) => a.hiredAt).map((a) => dayjs(a.hiredAt).diff(dayjs(a.appliedAt), "day"));
-    const avgDays = days.length ? Math.round(days.reduce((s, d) => s + d, 0) / days.length) : null;
+    const avgDays = avgDaysToHire(allApps);
     const pastInterview = allApps.filter((a) => ["INTERVIEW", "OFFER", "HIRED"].includes(toFixedStage(a.currentStageType)));
     const passed = pastInterview.filter((a) => toFixedStage(a.currentStageType) !== "INTERVIEW").length;
     const passRate = pastInterview.length ? Math.round((passed / pastInterview.length) * 100) : null;

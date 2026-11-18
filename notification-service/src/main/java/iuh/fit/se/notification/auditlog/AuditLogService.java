@@ -21,6 +21,15 @@ public class AuditLogService {
     private final AuditLogRepository repository;
     private final AuthServiceClient authServiceClient;
 
+    public List<AuditLogResponse> forResource(String resourceType, List<Long> resourceIds) {
+        if (resourceIds == null || resourceIds.isEmpty()) return List.of();
+        return repository.findByResourceTypeAndResourceIdInOrderByCreatedAtDesc(resourceType, resourceIds).stream()
+                .map(l -> new AuditLogResponse(
+                        l.getId(), l.getActorUserId(), null,
+                        l.getAction(), l.getResourceType(), l.getResourceId(), l.getMetadata(), l.getCreatedAt()))
+                .toList();
+    }
+
     public List<AuditLogResponse> search(
             String resourceType, Long actorUserId, LocalDateTime from, LocalDateTime to) {
 
@@ -40,7 +49,7 @@ public class AuditLogService {
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName));
 
         return logs.stream().map(l -> new AuditLogResponse(
-                l.getId(), l.getActorUserId(), userNameMap.getOrDefault(l.getActorUserId(), "N/A"),
+                l.getId(), l.getActorUserId(), userNameMap.get(l.getActorUserId()),
                 l.getAction(), l.getResourceType(), l.getResourceId(), l.getMetadata(), l.getCreatedAt()
         )).toList();
     }

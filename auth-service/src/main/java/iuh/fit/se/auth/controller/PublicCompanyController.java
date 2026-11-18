@@ -26,4 +26,10 @@ public class PublicCompanyController {
     public ResponseEntity<iuh.fit.se.auth.dto.response.CareersPageResponse> getCareersPage() {
         return ResponseEntity.ok(careersPageService.getPublic());
     }
+
+    /** Mục 4.1: màu thương hiệu, tên và logo cho web / ứng dụng di động — gọi trước khi đăng nhập. */
+    @GetMapping("/theme")
+    public ResponseEntity<iuh.fit.se.auth.dto.response.PublicThemeResponse> getTheme() {
+        return ResponseEntity.ok(companyService.getPublicTheme());
+    }
 }

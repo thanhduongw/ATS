@@ -134,6 +134,10 @@ export interface ApplicationResponse {
   aiScore: number | null;
   aiTier: AiTier | null;
   aiStatus: AiScoreStatus | null;
+  /** CV có nội dung nhằm điều khiển AI (prompt injection) — cần xem tay. */
+  aiInjectionDetected?: boolean | null;
+  /** WITHDRAWN | HIRED_ELSEWHERE | DATA_DELETED khi đơn đóng không phải do công ty từ chối. */
+  closedReason?: string | null;
 }
 export interface CandidateWithApplications extends CandidateResponse {
   applications: ApplicationResponse[];

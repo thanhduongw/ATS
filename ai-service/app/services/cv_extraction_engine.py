@@ -18,6 +18,7 @@ import time
 
 from app.core.config import get_settings
 from app.core.llm_client import LLMError, LLMManager, LLMUsage, get_llm_manager
+from app.core.public_errors import LLM_EXTRACTION_FAILED, extraction_error_message
 from app.schemas.cv_extraction import (
     CVExtractionResponse,
     CVExtractionResult,
@@ -221,7 +222,8 @@ async def extract_cv_from_file_bytes(
                 processing_time_ms=elapsed_ms,
             ),
             error_code=text_result.metadata.error_code or "TEXT_EXTRACTION_FAILED",
-            error_message=text_result.metadata.error_message or "Could not extract text from file",
+            error_message=extraction_error_message(text_result.metadata.error_code,
+                                                   text_result.metadata.error_message),
         )
 
     # --- Phase 2: LLM extraction ---
@@ -256,6 +258,7 @@ async def extract_cv_from_file_bytes(
                 processing_time_ms=elapsed_ms,
                 retries=e.retries,
             ),
-            error_code="FAILED_EXTRACTION",
-            error_message=str(e),
+            error_code=LLM_EXTRACTION_FAILED,
+            # Lỗi gốc (tiếng Anh, mã HTTP của Gemini) đã ghi log ở trên; người dùng chỉ thấy câu tiếng Việt.
+            error_message=extraction_error_message(LLM_EXTRACTION_FAILED, str(e)),
         )

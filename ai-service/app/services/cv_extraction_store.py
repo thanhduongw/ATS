@@ -20,6 +20,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.llm_client import LLMError, LLMManager
+from app.core.public_errors import extraction_error_message
 from app.core.s3_client import get_s3_client
 from app.models import CVExtraction
 from app.schemas.cv_extraction import CVExtractionResponse, CVExtractionResult, ExtractionProvenance
@@ -180,7 +181,8 @@ def to_response(row: CVExtraction) -> dict:
             status="error",
             provenance=ExtractionProvenance(model_used="none", prompt_version=row.prompt_version),
             error_code=row.error_code,
-            error_message=row.error_message,
+            # Bảng giữ lỗi gốc để tra cứu; giao diện chỉ nhận câu tiếng Việt.
+            error_message=extraction_error_message(row.error_code, row.error_message),
         ).model_dump(mode="json")
     body["extraction_id"] = row.id
     body["updated_at"] = row.updated_at.isoformat() if row.updated_at else None

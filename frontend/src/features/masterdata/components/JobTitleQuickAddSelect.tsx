@@ -4,6 +4,8 @@ import { PlusOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getCatalogItems, createCatalogItem } from "../masterdataApi";
 import type { CatalogItem, ApiMessageResponse } from "../types";
+import { useAppSelector } from "../../../app/hooks";
+import { filterOptionByLabel } from "../../../app/text";
 
 interface JobTitleQuickAddSelectProps {
     value: number | undefined;
@@ -18,6 +20,8 @@ export default function JobTitleQuickAddSelect({ value, onChange, placeholder }:
     const [loading, setLoading] = useState(false);
     const [creating, setCreating] = useState(false);
     const [searchValue, setSearchValue] = useState("");
+    const role = useAppSelector((st) => st.auth.user?.role);
+    const canEditCatalog = role === "RECRUITER" || role === "COMPANY_ADMIN";
 
     useEffect(() => {
         setLoading(true);
@@ -33,7 +37,8 @@ export default function JobTitleQuickAddSelect({ value, onChange, placeholder }:
 
     const trimmedSearch = searchValue.trim();
     const isDuplicate = jobTitles.some((t) => (t.name as string).toLowerCase() === trimmedSearch.toLowerCase());
-    const canQuickAdd = trimmedSearch.length > 0 && !isDuplicate;
+    // Chỉ Chuyên viên tuyển dụng và Quản trị viên được thêm mục danh mục; Đại diện phòng ban chỉ chọn mục có sẵn.
+    const canQuickAdd = canEditCatalog && trimmedSearch.length > 0 && !isDuplicate;
 
     const handleCreate = async () => {
         if (!canQuickAdd) return;
@@ -57,11 +62,11 @@ export default function JobTitleQuickAddSelect({ value, onChange, placeholder }:
             allowClear
             showSearch
             loading={loading}
-            placeholder={placeholder ?? "Chọn hoặc thêm chức vụ..."}
+            placeholder={placeholder ?? (canEditCatalog ? "Chọn hoặc thêm chức vụ..." : "Chọn chức vụ...")}
             value={value}
             onChange={onChange}
             options={options}
-            optionFilterProp="label"
+            optionFilterProp="label" filterOption={filterOptionByLabel}
             searchValue={searchValue}
             onSearch={setSearchValue}
             popupRender={(menu) => (

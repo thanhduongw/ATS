@@ -1,15 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Select } from "antd";
 import FitTable from "../../../components/ui/FitTable";
 import type { ColumnsType } from "antd/es/table";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { COLORS, STAGE_COLORS } from "../../../app/theme";
 import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
 import { Avatar, InlineNotice, MetricCard, Panel, ScreenTitle } from "../../../components/ui/designKit";
 import { rowArrowColumn } from "../../../components/ui/listHelpers";
 import {
     avgDaysToHire, deltaText, departmentLabel, departmentOfPosting, funnelOf, hiredOf, inPeriod, isActivePosting,
-    periodOptions, previousPeriod, useCompanyOverview,
+    periodFromQuery, periodOptions, previousPeriod, useCompanyOverview,
 } from "../useCompanyOverview";
 
 /**
@@ -33,14 +33,15 @@ export default function CompanyOverviewPage() {
     const navigate = useNavigate();
     const data = useCompanyOverview();
     const periods = useMemo(() => periodOptions(), []);
-    const [periodKey, setPeriodKey] = useState(periods[0].key);
-    const period = periods.find((p) => p.key === periodKey) ?? periods[0];
+    const [searchParams, setSearchParams] = useSearchParams();
+    const period = periodFromQuery(periods, searchParams.get("quarter"));
+    const periodKey = period.key;
+    const setPeriodKey = (key: string) => setSearchParams({ quarter: key }, { replace: true });
     const prev = previousPeriod(period);
 
     const m = useMemo(() => {
         const { postings, requisitions, applications, offers, departments, users } = data;
         const reqById = new Map(requisitions.map((r) => [r.id, r]));
-        const postingById = new Map(postings.map((p) => [p.id, p]));
         const appsByPosting = new Map<number, typeof applications>();
         applications.forEach((a) => appsByPosting.set(a.jobPostingId, [...(appsByPosting.get(a.jobPostingId) ?? []), a]));
 
@@ -67,7 +68,7 @@ export default function CompanyOverviewPage() {
                 rep: rep ? { id: rep.id, name: rep.fullName || rep.email } : null,
                 openPositions: ps.filter((p) => p.status === "OPEN").length,
                 remaining: remainingOf(ps),
-                hired: hiredOf(apps).length,
+                hired: hiredOf(apps).filter((a) => inPeriod(a.hiredAt, period)).length,
                 headcount: ps.reduce((s, p) => s + (p.headcount ?? 0), 0),
                 interviewing: apps.filter((a) => toFixedStage(a.currentStageType) === "INTERVIEW").length,
             };
@@ -82,8 +83,8 @@ export default function CompanyOverviewPage() {
             remaining: remainingOf(open),
             hired: hiredIn(period),
             hiredPrev: prev ? hiredIn(prev) : null,
-            avgDays: avgDaysToHire(applications, postingById, period),
-            avgDaysPrev: prev ? avgDaysToHire(applications, postingById, prev) : null,
+            avgDays: avgDaysToHire(applications, period),
+            avgDaysPrev: prev ? avgDaysToHire(applications, prev) : null,
             accepted, respondedCount: resp.length,
             funnel: funnelOf(applications, period),
             deptRows, pendingInvites, noRep,
@@ -144,7 +145,7 @@ export default function CompanyOverviewPage() {
                 <MetricCard label="Thời gian tuyển trung bình" value={m.avgDays != null ? `${m.avgDays} ngày` : "—"}
                     delta={deltaText(m.avgDays, m.avgDaysPrev)}
                     deltaGood={m.avgDays == null || m.avgDaysPrev == null || m.avgDays <= m.avgDaysPrev}
-                    hint="từ mở tin đến nhận việc" />
+                    hint="từ ứng tuyển đến nhận việc" />
                 <MetricCard label="Tỉ lệ nhận thư mời" value={m.respondedCount ? `${Math.round((m.accepted / m.respondedCount) * 100)}%` : "—"}
                     hint={`${m.accepted}/${m.respondedCount} thư mời đã phản hồi`} />
             </div>
@@ -160,7 +161,7 @@ export default function CompanyOverviewPage() {
                     dataSource={m.deptRows}
                     pagination={false}
                     rowClassName={() => "row-clickable"}
-                    onRow={(r) => ({ onClick: () => navigate(`/dashboard/departments/${r.id}`) })}
+                    onRow={(r) => ({ onClick: () => navigate(`/dashboard/departments/${r.id}?quarter=${period.key}`) })}
                     locale={{ emptyText: "Chưa có phòng ban nào" }}
                 />
             </Panel>

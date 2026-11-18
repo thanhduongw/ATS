@@ -109,6 +109,12 @@ public class InterviewEvaluationService {
         return toResponse(evaluation, interview, buildCriteriaNameMap(), true, true);
     }
 
+    /** 3.11: ghi nhật ký khi một phiếu đánh giá được nộp. */
+    public void recordSubmitAudit(Long actorUserId, Long resourceId, String resourceType) {
+        interviewService.recordEvaluationAudit(actorUserId, "EVALUATION_SUBMITTED", resourceId, resourceType,
+                "Nộp phiếu đánh giá phỏng vấn");
+    }
+
     public List<EvaluationResponse> getByInterview(
             Long interviewId, CurrentUser actor) {
 
@@ -195,6 +201,9 @@ public class InterviewEvaluationService {
         }
         if (!InterviewStatus.HELD.contains(interview.getStatus())) {
             throw new BusinessException("Chỉ đánh giá được buổi phỏng vấn đã được ứng viên xác nhận");
+        }
+        if (interview.getScheduledAt().isAfter(LocalDateTime.now())) {
+            throw new BusinessException("Chưa tới giờ phỏng vấn, chưa đánh giá được");
         }
     }
 

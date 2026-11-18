@@ -1,3 +1,4 @@
+import { brandAlpha } from "../../../app/brand";
 import { useEffect, useMemo, useState } from "react";
 import {
     Modal,
@@ -38,6 +39,7 @@ import { isSchedulable, applicationOptionLabel } from "../scheduleEligibility";
 import { findInterviewerConflicts, describeConflict } from "../conflicts";
 import { toLocalDateTimeString } from "../../../app/datetime";
 import { COLORS, RADIUS } from "../../../app/theme";
+import { filterOptionByLabel } from "../../../app/text";
 
 interface Props {
     open: boolean;
@@ -212,7 +214,7 @@ export default function InterviewQuickCreateModal({
                             width: 36,
                             height: 36,
                             borderRadius: 10,
-                            background: `${COLORS.primary}12`,
+                            background: brandAlpha(7),
                             color: COLORS.primary,
                             display: "flex",
                             alignItems: "center",
@@ -259,7 +261,7 @@ export default function InterviewQuickCreateModal({
                             <Select
                                 showSearch
                                 allowClear
-                                optionFilterProp="label"
+                                optionFilterProp="label" filterOption={filterOptionByLabel}
                                 placeholder="Chọn phòng ban"
                                 value={departmentId}
                                 onChange={(value) => {
@@ -274,7 +276,7 @@ export default function InterviewQuickCreateModal({
                         <Form.Item label={<Space size={6}><TeamOutlined />Tin tuyển dụng</Space>}>
                             <Select
                                 showSearch
-                                optionFilterProp="label"
+                                optionFilterProp="label" filterOption={filterOptionByLabel}
                                 placeholder={departmentId ? "Chọn tin tuyển dụng" : "Chọn phòng ban trước"}
                                 disabled={!departmentId}
                                 value={postingId}
@@ -292,7 +294,7 @@ export default function InterviewQuickCreateModal({
                 <Form.Item label={<Space size={6}><UserOutlined />Ứng viên</Space>} required>
                     <Select
                         showSearch
-                        optionFilterProp="label"
+                        optionFilterProp="label" filterOption={filterOptionByLabel}
                         placeholder={
                             lockedApplicationId || postingId
                                 ? "Chọn hồ sơ ứng tuyển"
@@ -336,7 +338,7 @@ export default function InterviewQuickCreateModal({
                         value={interviewerIds}
                         onChange={setInterviewerIds}
                         showSearch
-                        optionFilterProp="label"
+                        optionFilterProp="label" filterOption={filterOptionByLabel}
                         options={interviewerOptions}
                         optionRender={(option) => (
                             <div

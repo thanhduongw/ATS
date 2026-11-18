@@ -38,7 +38,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         Boolean emailVerified = oAuth2User.getAttribute("email_verified");
 
         if (email == null || Boolean.FALSE.equals(emailVerified)) {
-            redirectWithError(response, "Email Google chua duoc xac thuc");
+            redirectWithError(response, "Email Google chưa được xác minh");
             return;
         }
 

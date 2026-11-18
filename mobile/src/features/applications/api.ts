@@ -5,7 +5,10 @@ import type { ApplicationCreateRequest, CandidateApplication } from "@/types/api
  * Ứng viên tự nộp: KHÔNG gửi `candidateId` (backend suy từ JWT) và KHÔNG gửi `resumeUrl`
  * (backend lấy CV trong hồ sơ; chưa có CV → 400). `recruitmentSourceId` là BẮT BUỘC.
  */
-export type ApplyRequest = Pick<ApplicationCreateRequest, "jobPostingId" | "recruitmentSourceId" | "note">;
+export type ApplyRequest = Pick<
+  ApplicationCreateRequest,
+  "jobPostingId" | "recruitmentSourceId" | "note" | "consentAccepted"
+>;
 
 export const applicationsApi = {
   apply: (body: ApplyRequest) =>

@@ -60,6 +60,8 @@ export const applyToJob = (data: {
   recruitmentSourceId: number;
   resumeUrl?: string | null;
   note?: string | null;
+  /** Ứng viên đồng ý xử lý dữ liệu cá nhân — backend bắt buộc là true. */
+  consentAccepted: boolean;
 }) => axiosClient.post<CandidateApplicationResponse>("/application/applications", data);
 
 export const advanceApplicationStage = (id: number, data: ApplicationAdvanceStageRequest) =>

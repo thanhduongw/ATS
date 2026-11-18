@@ -38,8 +38,9 @@ export const PERMISSION_MATRIX: { name: string; recruiter: PermissionCell; hm: P
     { name: "Lên lịch phỏng vấn", recruiter: true, hm: false, admin: false },
     { name: "Phỏng vấn và nộp đánh giá", recruiter: "Khi được phân công", hm: "Khi được phân công", admin: false },
     { name: "Soạn và gửi thư mời", recruiter: true, hm: false, admin: false },
-    { name: "Sửa danh mục", recruiter: true, hm: false, admin: false },
+    { name: "Sửa danh mục", recruiter: true, hm: false, admin: true },
     { name: "Xem số liệu tổng hợp", recruiter: true, hm: "Phòng ban mình", admin: true },
+    { name: "Xem nhật ký hệ thống", recruiter: false, hm: false, admin: true },
     { name: "Quản lý người dùng", recruiter: false, hm: false, admin: true },
     { name: "Thông tin doanh nghiệp, trang tuyển dụng", recruiter: false, hm: false, admin: true },
 ];

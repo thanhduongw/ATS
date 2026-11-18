@@ -5,11 +5,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 public record VerifyEmailRequest(
-        @NotBlank(message = "Email is required")
-        @Email(message = "Email is invalid")
+        @NotBlank(message = "Vui lòng nhập email")
+        @Email(message = "Email không hợp lệ")
         String email,
 
-        @NotBlank(message = "OTP is required")
-        @Pattern(regexp = "\\d{6}", message = "OTP must contain exactly 6 digits")
+        @NotBlank(message = "Vui lòng nhập mã xác minh")
+        @Pattern(regexp = "\\d{6}", message = "Mã xác minh gồm đúng 6 chữ số")
         String otpCode
 ) {}

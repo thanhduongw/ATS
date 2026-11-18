@@ -17,6 +17,8 @@ public class RabbitMQConfig {
     public static final String AUDIT_LOG_ROUTING_KEY = "audit.log";
     public static final String CANDIDATE_REGISTERED_QUEUE = "candidate.registered.queue";
     public static final String CANDIDATE_REGISTERED_ROUTING_KEY = "candidate.registered";
+    /** Ứng viên tự xoá dữ liệu cá nhân — các service khác nghe để ẩn danh hoá bản sao của mình. */
+    public static final String CANDIDATE_DATA_DELETED_ROUTING_KEY = "candidate.data_deleted";
 
     @Bean
     public TopicExchange atsExchange() {

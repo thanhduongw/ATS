@@ -67,7 +67,7 @@ class OfferSendExpiryTest {
         assertThat(offer.getIssuedAt()).isNotNull();
         assertThat(offer.getSealedAt()).isNotNull();
         assertThat(offer.getApproverId()).isEqualTo(60L);
-        verify(offerEventPublisher).publishOfferApproved(offer.getId(), APPLICATION_ID, 60L, 7L);
+        verify(offerEventPublisher).publishOfferApproved(offer.getId(), APPLICATION_ID, 60L, 7L, offer.getJobTitleSnapshot());
     }
 
     @Test

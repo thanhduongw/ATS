@@ -27,7 +27,7 @@ public class InterviewEvaluationPendingJob {
 
     private final InterviewRepository interviewRepository;
 
-    @Scheduled(cron = "0 */15 * * * *")
+    @Scheduled(cron = "0 */5 * * * *")
     @Transactional
     public void sweepOverdueInterviews() {
         LocalDateTime now = LocalDateTime.now();
@@ -37,12 +37,21 @@ public class InterviewEvaluationPendingJob {
                 .filter(i -> i.getScheduledAt().plusMinutes(i.getDurationMinutes()).isBefore(now))
                 .toList();
 
-        if (overdue.isEmpty()) {
-            return;
+        if (!overdue.isEmpty()) {
+            overdue.forEach(i -> i.setStatus(InterviewStatus.EVALUATION_PENDING));
+            interviewRepository.saveAll(overdue);
+            log.info("Chuyển {} buổi phỏng vấn quá giờ sang trạng thái Chờ đánh giá", overdue.size());
         }
 
-        overdue.forEach(i -> i.setStatus(InterviewStatus.EVALUATION_PENDING));
-        interviewRepository.saveAll(overdue);
-        log.info("Chuyển {} buổi phỏng vấn quá giờ sang trạng thái Chờ đánh giá", overdue.size());
+        // Lịch quá giờ hẹn mà chưa được xác nhận đủ (người phỏng vấn hoặc ứng viên) → Hết hạn.
+        List<Interview> expired = interviewRepository
+                .findByStatusIn(List.copyOf(InterviewStatus.EXPIRABLE)).stream()
+                .filter(i -> i.getScheduledAt().isBefore(now))
+                .toList();
+        if (!expired.isEmpty()) {
+            expired.forEach(i -> i.setStatus(InterviewStatus.EXPIRED));
+            interviewRepository.saveAll(expired);
+            log.info("Đánh dấu hết hạn {} lịch phỏng vấn quá giờ chưa xác nhận", expired.size());
+        }
     }
 }

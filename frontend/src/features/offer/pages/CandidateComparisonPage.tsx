@@ -13,6 +13,7 @@ import { COLORS } from "../../../app/theme";
 import EmptyState from "../../../components/ui/EmptyState";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import { listCardStyle, listCardBodyStyle } from "../../../components/ui/listStyles";
+import { filterOptionByLabel } from "../../../app/text";
 
 /** Tin đã đóng không còn tuyển nên không đưa vào danh sách chọn để so sánh. */
 const COMPARABLE_STATUSES = ["OPEN", "PAUSED"];
@@ -95,7 +96,7 @@ export default function CandidateComparisonPage() {
                             placeholder="1. Chọn phòng ban"
                             showSearch
                             allowClear
-                            optionFilterProp="label"
+                            optionFilterProp="label" filterOption={filterOptionByLabel}
                             value={departmentId ?? undefined}
                             onChange={(v) => pickDepartment(v ?? null)}
                             loading={loadingDepartments}
@@ -106,7 +107,7 @@ export default function CandidateComparisonPage() {
                             style={{ minWidth: 320 }}
                             placeholder={departmentId == null ? "Chọn phòng ban trước" : "2. Chọn tin tuyển dụng"}
                             showSearch
-                            optionFilterProp="label"
+                            optionFilterProp="label" filterOption={filterOptionByLabel}
                             disabled={departmentId == null}
                             loading={loadingPostings}
                             value={selectedId ?? undefined}

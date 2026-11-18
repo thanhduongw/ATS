@@ -1,3 +1,4 @@
+import { matchesKeyword } from "../../../app/text";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { App, Button, Form, Input, InputNumber, Select, Switch} from "antd";
 import type { ColumnsType } from "antd/es/table";
@@ -113,7 +114,7 @@ export default function CatalogPanel({ config, breadcrumb }: Props) {
             if (status === "ACTIVE" && !it.active) return false;
             if (status === "HIDDEN" && it.active) return false;
             if (!k) return true;
-            return config.fields.some((f) => String(it[f.name] ?? "").toLowerCase().includes(k));
+            return matchesKeyword(k, ...config.fields.map((f) => it[f.name]));
         });
     }, [items, keyword, status, config.fields]);
 

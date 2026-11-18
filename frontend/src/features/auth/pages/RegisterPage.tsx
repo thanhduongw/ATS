@@ -41,7 +41,7 @@ export default function RegisterPage() {
 
     const onSubmit = async (data: RegisterFormValues) => {
         try {
-            await registerCandidate({ fullName: data.fullName.trim(), email: data.email.trim(), password: data.password, confirmPassword: data.password, phone: null });
+            await registerCandidate({ fullName: data.fullName.trim(), email: data.email.trim(), password: data.password, confirmPassword: data.password, phone: null, consentAccepted: data.consent });
             message.success("Đã tạo tài khoản. Hãy nhập mã xác minh gửi tới email của bạn.");
             navigate(`/verify-email${location.search}`, { state: { email: data.email.trim() } });
         } catch (error) {

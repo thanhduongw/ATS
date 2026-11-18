@@ -3,6 +3,8 @@
  * (`careers_page`: bản nháp + bản đã xuất bản). Quyết định 05/11/2026: 6 khối THỨ TỰ CỐ ĐỊNH, chỉ ẩn/hiện;
  * biểu tượng phúc lợi chọn từ bộ có sẵn.
  */
+import { DEFAULT_BRAND, ensureContrast, isHexColor } from "../../app/brand";
+
 export type BlockKey = "hero" | "featured" | "life" | "benefits" | "offices" | "footer";
 
 export const BLOCK_ORDER: BlockKey[] = ["hero", "featured", "life", "benefits", "offices", "footer"];
@@ -27,6 +29,17 @@ export const BENEFIT_ICON_LABEL: Record<BenefitIconKey, string> = {
     gift: "Quà tặng", heart: "Chăm sóc",
 };
 
+export type HeroBackground = "brand" | "color" | "gradient";
+
+/** CSS nền của phần đầu trang theo cấu hình; `brand` là dải màu thương hiệu của toàn hệ thống. */
+export function heroBackgroundCss(hero: CareersConfig["hero"], brand: string): string {
+    const c1 = ensureContrast(isHexColor(hero.color1) ? hero.color1 : DEFAULT_BRAND);
+    const c2 = ensureContrast(isHexColor(hero.color2) ? hero.color2 : c1);
+    if (hero.background === "color") return c1;
+    if (hero.background === "gradient") return `linear-gradient(135deg, ${c1}, ${c2})`;
+    return brand;
+}
+
 export interface CareersBenefit { icon: BenefitIconKey; title: string; description: string }
 export interface CareersPhoto { url: string; caption: string }
 
@@ -40,6 +53,13 @@ export interface CareersConfig {
         description: string;
         quote: string;
         quoteAuthor: string;
+        /**
+         * Nền phần đầu trang (mục 4.2): "brand" = dải màu thương hiệu (mặc định) · "color" = một màu ·
+         * "gradient" = chuyển từ `color1` sang `color2`. Chữ trên nền luôn màu trắng nên màu quá nhạt được tự làm đậm.
+         */
+        background?: HeroBackground;
+        color1?: string;
+        color2?: string;
     };
     featured: { title: string; count: number };
     life: { title: string; photos: CareersPhoto[] };

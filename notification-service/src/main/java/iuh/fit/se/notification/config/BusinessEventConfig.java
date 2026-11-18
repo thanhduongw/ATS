@@ -14,8 +14,11 @@ public class BusinessEventConfig {
     public static final String INTERVIEW_SCHEDULED_QUEUE = "notification.interview-scheduled.queue";
     public static final String INTERVIEW_HM_CONFIRMED_QUEUE = "notification.interview-hm-confirmed.queue";
     public static final String INTERVIEW_CONFIRMED_QUEUE = "notification.interview-confirmed.queue";
+    public static final String INTERVIEW_REMINDER_QUEUE = "notification.interview-reminder.queue";
     public static final String INTERVIEW_CANDIDATE_DECLINED_QUEUE = "notification.interview-candidate-declined.queue";
+    public static final String INTERVIEW_CANCELLED_QUEUE = "notification.interview-cancelled.queue";
     public static final String REQUISITION_SUBMITTED_QUEUE = "notification.requisition-submitted.queue";
+    public static final String REQUISITION_REVIEWED_QUEUE = "notification.requisition-reviewed.queue";
     public static final String OFFER_APPROVED_QUEUE = "notification.offer-approved.queue";
     public static final String OFFER_ACCEPTED_QUEUE = "notification.offer-accepted.queue";
     public static final String OFFER_DECLINED_QUEUE = "notification.offer-declined.queue";
@@ -57,6 +60,16 @@ public class BusinessEventConfig {
     }
 
     @Bean
+    public Queue interviewReminderQueue() {
+        return new Queue(INTERVIEW_REMINDER_QUEUE, true);
+    }
+
+    @Bean
+    public Binding interviewReminderEventBinding(Queue interviewReminderQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(interviewReminderQueue).to(atsExchange).with("interview.reminder");
+    }
+
+    @Bean
     public Queue interviewConfirmedQueue() {
         return new Queue(INTERVIEW_CONFIRMED_QUEUE, true);
     }
@@ -77,6 +90,16 @@ public class BusinessEventConfig {
     }
 
     @Bean
+    public Queue interviewCancelledQueue() {
+        return new Queue(INTERVIEW_CANCELLED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding interviewCancelledBinding(Queue interviewCancelledQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(interviewCancelledQueue).to(atsExchange).with("interview.cancelled");
+    }
+
+    @Bean
     public Queue requisitionSubmittedQueue() {
         return new Queue(REQUISITION_SUBMITTED_QUEUE, true);
     }
@@ -84,6 +107,16 @@ public class BusinessEventConfig {
     @Bean
     public Binding requisitionSubmittedBinding(Queue requisitionSubmittedQueue, TopicExchange atsExchange) {
         return BindingBuilder.bind(requisitionSubmittedQueue).to(atsExchange).with("requisition.submitted");
+    }
+
+    @Bean
+    public Queue requisitionReviewedQueue() {
+        return new Queue(REQUISITION_REVIEWED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding requisitionReviewedBinding(Queue requisitionReviewedQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(requisitionReviewedQueue).to(atsExchange).with("requisition.reviewed");
     }
 
     @Bean

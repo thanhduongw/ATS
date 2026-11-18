@@ -17,12 +17,39 @@ public class ApplicationEventPublisher {
             Long candidateId,
             Long assignedRecruiterId,
             String candidateName) {
-        rabbitTemplate.convertAndSend(
+        publishApplicationCreated(jobPostingId, applicationId, candidateId, assignedRecruiterId, candidateName, null);
+    }
+
+    public void publishApplicationCreated(
+            Long jobPostingId,
+            Long applicationId,
+            Long candidateId,
+            Long assignedRecruiterId,
+            String candidateName,
+            String jobTitle) {
+        // Phát SAU KHI giao dịch ghi xong: ai-service nhận sự kiện là gọi lại lấy hồ sơ ngay,
+        // phát sớm thì có lúc hồ sơ chưa kịp ghi và không được chấm điểm.
+        afterCommit(() -> rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.APPLICATION_CREATED_ROUTING_KEY,
                 new ApplicationCreatedEvent(
-                        applicationId, jobPostingId, candidateId, assignedRecruiterId, candidateName)
-        );
+                        applicationId, jobPostingId, candidateId, assignedRecruiterId, candidateName, jobTitle)
+        ));
+    }
+
+    private void afterCommit(Runnable action) {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+                && org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            action.run();
+                        }
+                    });
+            return;
+        }
+        action.run();
     }
 
     public void publishApplicationStatusChanged(
@@ -33,12 +60,39 @@ public class ApplicationEventPublisher {
             String fromStageName,
             String toStageName,
             String toStageType) {
+        publishApplicationStatusChanged(applicationId, jobPostingId, candidateId, assignedRecruiterId,
+                fromStageName, toStageName, toStageType, null);
+    }
+
+    public void publishApplicationStatusChanged(
+            Long applicationId,
+            Long jobPostingId,
+            Long candidateId,
+            Long assignedRecruiterId,
+            String fromStageName,
+            String toStageName,
+            String toStageType,
+            String closedReason) {
+        publishApplicationStatusChanged(applicationId, jobPostingId, candidateId, assignedRecruiterId,
+                fromStageName, toStageName, toStageType, closedReason, null);
+    }
+
+    public void publishApplicationStatusChanged(
+            Long applicationId,
+            Long jobPostingId,
+            Long candidateId,
+            Long assignedRecruiterId,
+            String fromStageName,
+            String toStageName,
+            String toStageType,
+            String closedReason,
+            String jobTitle) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.APPLICATION_STATUS_CHANGED_ROUTING_KEY,
                 new ApplicationStatusChangedEvent(
                         applicationId, jobPostingId, candidateId, null,
-                        assignedRecruiterId, fromStageName, toStageName, toStageType)
+                        assignedRecruiterId, fromStageName, toStageName, toStageType, closedReason, jobTitle)
         );
     }
 

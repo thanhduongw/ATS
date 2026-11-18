@@ -52,6 +52,6 @@ public class CandidatePortalController {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireCandidate(actor);
         candidateService.requestOwnDataDeletion(actor.userId());
-        return ResponseEntity.ok(Map.of("message", "Yeu cau xoa du lieu da duoc xu ly"));
+        return ResponseEntity.ok(Map.of("message", "Đã xoá dữ liệu cá nhân của bạn"));
     }
 }

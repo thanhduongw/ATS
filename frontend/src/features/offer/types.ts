@@ -111,7 +111,8 @@ export interface OfferRejectRequest {
 }
 
 export interface OfferDeclineRequest {
-  declineReasonId: number;
+  /** Mục tương ứng trong danh mục "Lý do từ chối" của công ty; không có mục khớp thì null. */
+  declineReasonId: number | null;
   note?: string | null;
 }
 

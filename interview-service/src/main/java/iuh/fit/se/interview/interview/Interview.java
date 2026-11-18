@@ -64,6 +64,19 @@ public class Interview {
     @Column(name = "hm_confirmed_at")
     private LocalDateTime hmConfirmedAt;
 
+    /** Mốc đã phát lời nhắc "còn 24 giờ" / "còn 1 giờ" cho giờ hẹn hiện tại; đổi giờ thì xoá để nhắc lại. */
+    @Column(name = "reminder_24h_sent_at")
+    private LocalDateTime reminder24hSentAt;
+
+    @Column(name = "reminder_1h_sent_at")
+    private LocalDateTime reminder1hSentAt;
+
+    /** Gọi mỗi khi giờ hẹn đổi: lời nhắc của giờ cũ không còn giá trị. */
+    public void resetReminders() {
+        this.reminder24hSentAt = null;
+        this.reminder1hSentAt = null;
+    }
+
     /**
      * Nhóm các buổi được tạo cùng một lần/cùng khung giờ để giao diện gom lại.
      * Trạng thái vẫn độc lập từng buổi — no-show và đánh giá là theo từng ứng viên.

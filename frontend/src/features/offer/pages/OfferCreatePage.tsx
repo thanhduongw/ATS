@@ -25,6 +25,7 @@ import { salaryText } from "../../public/jobFormat";
 import DateField from "../../../components/ui/DateField";
 import { Panel, ScreenTitle } from "../../../components/ui/designKit";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
+import { filterOptionByLabel } from "../../../app/text";
 
 /**
  * R24 · Soạn thư mời (theo bản mẫu `docs/UI/HR.html`): bên trái "Điều khoản" (lưới 3 cột) + "Tham chiếu"
@@ -284,19 +285,19 @@ export default function OfferCreatePage() {
                 <Panel title="Chọn ứng viên">
                     <div style={GRID3}>
                         <Field label="Phòng ban" required>
-                            <Select allowClear showSearch optionFilterProp="label" placeholder="Chọn phòng ban" style={FULL}
+                            <Select allowClear showSearch optionFilterProp="label" filterOption={filterOptionByLabel} placeholder="Chọn phòng ban" style={FULL}
                                 value={departmentId ?? undefined} onChange={(v) => void pickDepartment(v ?? null)}
                                 options={departments.map((d) => ({ value: d.id, label: String(d.name) }))} />
                         </Field>
                         <Field label="Việc làm" required>
-                            <Select allowClear showSearch optionFilterProp="label" style={FULL} disabled={departmentId == null}
+                            <Select allowClear showSearch optionFilterProp="label" filterOption={filterOptionByLabel} style={FULL} disabled={departmentId == null}
                                 placeholder={departmentId == null ? "Chọn phòng ban trước" : "Chọn việc làm"}
                                 value={postingId ?? undefined} onChange={(v) => void pickPosting(v ?? null)}
                                 options={postings.map((p) => ({ value: p.id, label: p.title }))} />
                         </Field>
                         <Field label="Ứng viên (giai đoạn Thư mời)" required error={errors.applicationId?.message}>
                             <Controller name="applicationId" control={control} render={({ field }) => (
-                                <Select showSearch optionFilterProp="label" style={FULL} disabled={postingId == null}
+                                <Select showSearch optionFilterProp="label" filterOption={filterOptionByLabel} style={FULL} disabled={postingId == null}
                                     placeholder={postingId == null ? "Chọn việc làm trước" : "Chọn ứng viên"}
                                     notFoundContent="Chưa có ứng viên ở giai đoạn Thư mời"
                                     value={field.value} options={applications.map((a) => ({ value: a.id, label: a.candidateName }))}

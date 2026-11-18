@@ -30,5 +30,6 @@ public record JobRequisitionUpdateRequest(
         String requirements,
         String benefits,
         List<Long> skillIds,
-        @NotNull Long approverId
+        /** Không còn dùng — xem JobRequisitionCreateRequest. */
+        Long approverId
 ) {}

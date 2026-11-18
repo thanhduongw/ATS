@@ -40,9 +40,9 @@ public class LoginService {
     @Transactional
     public LoginResponse login(LoginRequest req) {
         AppUser user = appUserRepository.findByEmailIgnoreCase(normalizeEmail(req.email()))
-                .orElseThrow(() -> new BusinessException("Email hoac mat khau khong chinh xac"));
+                .orElseThrow(() -> new iuh.fit.se.auth.exception.UnauthorizedException("Email hoặc mật khẩu không chính xác"));
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
-            throw new BusinessException("Email hoac mat khau khong chinh xac");
+            throw new iuh.fit.se.auth.exception.UnauthorizedException("Email hoặc mật khẩu không chính xác");
         }
         requireActive(user);
         Role role = requiredRole(user);
@@ -56,7 +56,7 @@ public class LoginService {
     public LoginResponse loginWithGoogle(String email) {
         AppUser user = appUserRepository.findByEmailIgnoreCase(normalizeEmail(email))
                 .orElseThrow(() -> new BusinessException(
-                        "Tai khoan chua duoc dang ky. Vui long lien he quan tri vien."));
+                        "Tài khoản chưa được đăng ký. Vui lòng liên hệ quản trị viên."));
         requireActive(user);
         Role role = requiredRole(user);
         LoginResponse response = issueTokens(user, role.getName().name());
@@ -70,16 +70,16 @@ public class LoginService {
     public LoginResponse refreshToken(String rawRefreshToken) {
         String tokenHash = OpaqueTokenUtil.sha256(rawRefreshToken);
         RefreshToken stored = refreshTokenRepository.findForUpdateByTokenHash(tokenHash)
-                .orElseThrow(() -> new BusinessException("Refresh token khong hop le"));
+                .orElseThrow(() -> new BusinessException("Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại"));
 
         LocalDateTime now = LocalDateTime.now();
         if (stored.isRevoked() || stored.getExpiryDate() == null
                 || !stored.getExpiryDate().isAfter(now)) {
-            throw new BusinessException("Refresh token da het han hoac bi thu hoi");
+            throw new BusinessException("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
         }
 
         AppUser user = appUserRepository.findById(stored.getUserId())
-                .orElseThrow(() -> new BusinessException("Khong tim thay tai khoan"));
+                .orElseThrow(() -> new BusinessException("Không tìm thấy tài khoản"));
         requireActive(user);
         Role role = requiredRole(user);
 
@@ -123,18 +123,18 @@ public class LoginService {
 
     private Role requiredRole(AppUser user) {
         return roleRepository.findById(user.getRoleId())
-                .orElseThrow(() -> new BusinessException("Vai tro khong hop le"));
+                .orElseThrow(() -> new BusinessException("Vai trò không hợp lệ"));
     }
 
     private void requireActive(AppUser user) {
         if (user.getStatus() == UserStatus.LOCKED) {
-            throw new BusinessException("Tai khoan da bi khoa");
+            throw new BusinessException("Tài khoản đã bị khoá. Liên hệ quản trị viên.");
         }
         if (user.getStatus() == UserStatus.INACTIVE) {
-            throw new BusinessException("Tai khoan da bi vo hieu hoa");
+            throw new BusinessException("Tài khoản đã bị vô hiệu hoá. Liên hệ quản trị viên.");
         }
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new BusinessException("Tai khoan chua duoc kich hoat");
+            throw new BusinessException("Tài khoản chưa được kích hoạt. Hãy xác minh email trước khi đăng nhập.");
         }
     }
 

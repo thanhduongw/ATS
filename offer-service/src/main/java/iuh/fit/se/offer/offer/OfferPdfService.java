@@ -69,7 +69,7 @@ public class OfferPdfService {
                     "Chúng tôi rất mong nhận được sự đồng hành của bạn. Trân trọng!", 24, 0));
 
         } catch (Exception e) {
-            throw new RuntimeException("Không thể tạo file PDF Offer Letter", e);
+            throw new RuntimeException("Không tạo được file PDF thư mời", e);
         } finally {
             document.close();
         }
@@ -90,6 +90,7 @@ public class OfferPdfService {
 
     private String formatCurrency(java.math.BigDecimal value) {
         if (value == null) return "—";
-        return String.format("%,.0f", value);
+        // Cách viết số của Việt Nam (22.000.000), giống giao diện; không phụ thuộc locale của máy chủ.
+        return String.format(java.util.Locale.forLanguageTag("vi-VN"), "%,.0f", value);
     }
 }

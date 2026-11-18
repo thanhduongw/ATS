@@ -1,3 +1,4 @@
+import { brandAlpha } from "../../../app/brand";
 import { useCallback, useEffect, useState } from "react";
 import {
     App,
@@ -224,7 +225,7 @@ export default function PipelinePanel() {
                                         cursor: "pointer",
                                         borderTop: index === 0 ? "none" : `1px solid ${COLORS.borderLight}`,
                                         borderLeft: `3px solid ${selected ? COLORS.primary : "transparent"}`,
-                                        background: selected ? `${COLORS.primary}0D` : undefined,
+                                        background: selected ? brandAlpha(5) : undefined,
                                     }}
                                 >
                                     <span style={{ minWidth: 0 }}>
@@ -308,7 +309,7 @@ export default function PipelinePanel() {
                                                                 width: 24,
                                                                 height: 24,
                                                                 borderRadius: "50%",
-                                                                background: `${COLORS.primary}14`,
+                                                                background: brandAlpha(8),
                                                                 color: COLORS.primary,
                                                                 display: "flex",
                                                                 alignItems: "center",

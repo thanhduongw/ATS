@@ -114,13 +114,21 @@ export const isActivePosting = (p: JobPostingResponse) => p.status === "OPEN" ||
 
 export const hiredOf = (apps: ApplicationResponse[]) => apps.filter((a) => toFixedStage(a.currentStageType) === "HIRED");
 
-/** Số ngày trung bình từ mở tin đến nhận việc của các hồ sơ đã tuyển trong kỳ. */
-export function avgDaysToHire(apps: ApplicationResponse[], postingById: Map<number, JobPostingResponse>, p: Period): number | null {
-    const days = hiredOf(apps).filter((a) => inPeriod(a.hiredAt, p)).map((a) => {
-        const opened = postingById.get(a.jobPostingId)?.publishedAt ?? a.appliedAt;
-        return dayjs(a.hiredAt).diff(dayjs(opened), "day");
-    });
+/**
+ * Số ngày trung bình từ ngày ứng tuyển đến ngày nhận việc của các hồ sơ đã tuyển.
+ * MỘT công thức cho mọi màn (Tổng quan, chi tiết phòng ban, Kết quả tuyển dụng của trưởng bộ phận) để số
+ * không lệch nhau. Truyền `p` để chỉ tính hồ sơ nhận việc trong kỳ; bỏ trống = tính tất cả.
+ */
+export function avgDaysToHire(apps: ApplicationResponse[], p?: Period): number | null {
+    const days = hiredOf(apps)
+        .filter((a) => a.hiredAt && (!p || inPeriod(a.hiredAt, p)))
+        .map((a) => Math.max(0, dayjs(a.hiredAt).diff(dayjs(a.appliedAt), "day")));
     return days.length ? Math.round(days.reduce((s, d) => s + d, 0) / days.length) : null;
+}
+
+/** Kỳ đang xem lấy từ `?quarter=` trên URL (để giữ nguyên khi vào chi tiết phòng ban rồi quay lại). */
+export function periodFromQuery(periods: Period[], key: string | null): Period {
+    return periods.find((x) => x.key === key) ?? periods[0];
 }
 
 /** Phễu: số hồ sơ ứng tuyển trong kỳ đã đi tới từng giai đoạn (hồ sơ bị từ chối chỉ tính ở "Ứng tuyển"). */

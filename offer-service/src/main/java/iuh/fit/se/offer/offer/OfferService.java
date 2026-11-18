@@ -178,7 +178,7 @@ public class OfferService {
 
         if (!STAGE_TYPE_OFFER.equals(application.currentStageType())) {
             throw new BusinessException(
-                    "Chỉ tạo Offer khi hồ sơ đã đến giai đoạn Offer trong quy trình tuyển dụng");
+                    "Chỉ tạo thư mời khi hồ sơ đã đến giai đoạn Thư mời");
         }
 
         boolean hasActiveOffer = offerRepository
@@ -186,9 +186,10 @@ public class OfferService {
                 .stream()
                 .anyMatch(o -> NON_TERMINAL.contains(o.getStatus()) || o.getStatus() == OfferStatus.ACCEPTED);
         if (hasActiveOffer) {
-            throw new BusinessException("Hồ sơ này đã có Offer đang xử lý hoặc đã được chấp nhận");
+            throw new BusinessException("Hồ sơ này đã có thư mời đang xử lý hoặc đã được nhận");
         }
 
+        requireDeadlineBeforeStart(req.responseDeadline(), req.startDate());
         validateContractType(req.contractTypeId());
         validateApprover(req.approverId());
         JobPostingSummaryResponse posting = requireHeadcountAvailable(application.jobPostingId());
@@ -237,9 +238,10 @@ public class OfferService {
         AuthorizationPolicy.requireOwnerOrAdmin(actor, offer.getRequesterId());
 
         if (offer.getStatus() != OfferStatus.DRAFT) {
-            throw new BusinessException("Chỉ chỉnh sửa được Offer ở trạng thái bản nháp");
+            throw new BusinessException("Chỉ sửa được thư mời ở trạng thái nháp");
         }
 
+        requireDeadlineBeforeStart(req.responseDeadline(), req.startDate());
         validateContractType(req.contractTypeId());
         validateApprover(req.approverId());
 
@@ -272,7 +274,7 @@ public class OfferService {
         AuthorizationPolicy.requireOwnerOrAdmin(actor, offer.getRequesterId());
 
         if (offer.getStatus() != OfferStatus.DRAFT) {
-            throw new BusinessException("Chỉ gửi duyệt được Offer đang ở trạng thái bản nháp");
+            throw new BusinessException("Chỉ gửi được thư mời đang ở trạng thái nháp");
         }
         offer.setStatus(OfferStatus.PENDING_APPROVAL);
         offer.setSubmittedAt(LocalDateTime.now());
@@ -310,7 +312,8 @@ public class OfferService {
                 offer.getId(),
                 offer.getApplicationId(),
                 offer.getRequesterId(),
-                offer.getCandidateId());
+                offer.getCandidateId(),
+                offer.getJobTitleSnapshot());
         auditEventPublisher.publish(actor.userId(), "OFFER_SENT", "OFFER", offer.getId(), null);
         return getById(id);
     }
@@ -321,7 +324,7 @@ public class OfferService {
         AuthorizationPolicy.requireAssignedOrAdmin(actor, offer.getApproverId());
 
         if (offer.getStatus() != OfferStatus.PENDING_APPROVAL) {
-            throw new BusinessException("Chỉ phê duyệt được Offer đang chờ duyệt");
+            throw new BusinessException("Chỉ duyệt được thư mời đang chờ duyệt");
         }
         offer.setStatus(OfferStatus.APPROVED);
         offer.setApprovedAt(LocalDateTime.now());
@@ -333,7 +336,8 @@ public class OfferService {
                 offer.getId(),
                 offer.getApplicationId(),
                 offer.getRequesterId(),
-                offer.getCandidateId());
+                offer.getCandidateId(),
+                offer.getJobTitleSnapshot());
         auditEventPublisher.publish(actor.userId(), "OFFER_APPROVED", "OFFER", offer.getId(), null);
 
         return getById(id);
@@ -345,7 +349,7 @@ public class OfferService {
         AuthorizationPolicy.requireAssignedOrAdmin(actor, offer.getApproverId());
 
         if (offer.getStatus() != OfferStatus.PENDING_APPROVAL) {
-            throw new BusinessException("Chỉ từ chối được Offer đang chờ duyệt");
+            throw new BusinessException("Chỉ từ chối được thư mời đang chờ duyệt");
         }
         offer.setStatus(OfferStatus.REJECTED);
         offer.setRejectReason(req.reason());
@@ -363,11 +367,11 @@ public class OfferService {
         assertCandidateOwns(actor.userId(), offer);
 
         if (offer.getStatus() != OfferStatus.APPROVED) {
-            throw new BusinessException("Chỉ ghi nhận chấp nhận cho Offer đã được duyệt");
+            throw new BusinessException("Chỉ nhận được thư mời đã gửi");
         }
         if (offer.getResponseDeadline() != null
                 && offer.getResponseDeadline().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("Offer đã hết hạn phản hồi");
+            throw new BusinessException("Thư mời đã hết hạn phản hồi");
         }
 
         seal(offer); // thư gửi trước khi có niêm phong
@@ -382,7 +386,7 @@ public class OfferService {
         offerEventPublisher.publishOfferAccepted(
                 offer.getId(), offer.getApplicationId(),
                 offer.getRequesterId(), offer.getCandidateNameSnapshot(),
-                actor.userId());
+                actor.userId(), offer.getJobTitleSnapshot());
         auditEventPublisher.publish(actor.userId(), "OFFER_ACCEPTED", "OFFER", offer.getId(), null);
         // Candidate-facing DTO: the internal OfferResponse needs an internal-staff name map the
         // candidate is not allowed to read, and it would expose requester/approver identities.
@@ -400,11 +404,11 @@ public class OfferService {
         assertCandidateOwns(actor.userId(), offer);
 
         if (offer.getStatus() != OfferStatus.APPROVED) {
-            throw new BusinessException("Chỉ ghi nhận từ chối cho Offer đã được duyệt");
+            throw new BusinessException("Chỉ từ chối được thư mời đã gửi");
         }
         if (offer.getResponseDeadline() != null
                 && offer.getResponseDeadline().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("Offer đã hết hạn phản hồi");
+            throw new BusinessException("Thư mời đã hết hạn phản hồi");
         }
 
         seal(offer); // thư gửi trước khi có niêm phong
@@ -420,7 +424,7 @@ public class OfferService {
         offerEventPublisher.publishOfferDeclined(
                 offer.getId(), offer.getApplicationId(),
                 offer.getRequesterId(), offer.getCandidateNameSnapshot(), req.note(),
-                req.declineReasonId(), actor.userId());
+                req.declineReasonId(), actor.userId(), offer.getJobTitleSnapshot());
         auditEventPublisher.publish(
                 actor.userId(), "OFFER_DECLINED", "OFFER", offer.getId(), req.note());
         // See accept(): candidate responses use the candidate-facing DTO.
@@ -473,7 +477,7 @@ public class OfferService {
         fetchApplicationSummary(offer.getApplicationId());
         AuthorizationPolicy.requireOwnerOrAdmin(actor, offer.getRequesterId());
         if (offer.getStatus() == OfferStatus.ACCEPTED) {
-            throw new BusinessException("Không thể xóa Offer đã được chấp nhận");
+            throw new BusinessException("Không xoá được thư mời ứng viên đã nhận");
         }
         offer.setDeletedAt(LocalDateTime.now());
         offerRepository.save(offer);
@@ -492,7 +496,7 @@ public class OfferService {
         if (role == AuthorizationPolicy.Role.HIRING_MANAGER) {
             // Manager chi theo doi ket qua offer cua phong ban, khong con quyen duyet.
             if (!sameDepartment) {
-                throw new AccessDeniedException("Offer thuộc phòng ban khác");
+                throw new AccessDeniedException("Thư mời thuộc phòng ban khác");
             }
             return;
         }
@@ -501,19 +505,19 @@ public class OfferService {
             requireCandidateVisible(offer);
             return;
         }
-        throw new AccessDeniedException("Bạn không có quyền xem Offer này");
+        throw new AccessDeniedException("Bạn không có quyền xem thư mời này");
     }
 
     private void assertCandidateOwns(Long userId, Offer offer) {
         long candidateId = resolveCandidateId(userId);
         if (!Objects.equals(offer.getCandidateId(), candidateId)) {
-            throw new AccessDeniedException("Đây không phải Offer của bạn");
+            throw new AccessDeniedException("Đây không phải thư mời của bạn");
         }
     }
 
     private void requireCandidateVisible(Offer offer) {
         if (!CANDIDATE_VISIBLE_STATUSES.contains(offer.getStatus())) {
-            throw new AccessDeniedException("Offer chua duoc cong bo cho ung vien");
+            throw new AccessDeniedException("Thư mời chưa được gửi cho ứng viên");
         }
     }
 
@@ -566,6 +570,13 @@ public class OfferService {
      * Chan tao them offer khi tin tuyen dung da dung het so luong tuyen cua requisition.
      * Offer tao truoc khi co cot job_posting_id mang gia tri null nen khong tinh vao han muc.
      */
+    /** Ứng viên phải trả lời trước ngày đi làm (ràng buộc ck_offer_deadline_before_start ở DB) — báo rõ thay vì lỗi 500. */
+    private void requireDeadlineBeforeStart(LocalDateTime responseDeadline, java.time.LocalDate startDate) {
+        if (responseDeadline != null && startDate != null && !responseDeadline.toLocalDate().isBefore(startDate)) {
+            throw new BusinessException("Hạn phản hồi phải trước ngày bắt đầu làm việc");
+        }
+    }
+
     private JobPostingSummaryResponse requireHeadcountAvailable(Long jobPostingId) {
         if (jobPostingId == null) return null;
 
@@ -582,7 +593,7 @@ public class OfferService {
         if (issued >= posting.headcount()) {
             throw new BusinessException(
                     "Tin tuyển dụng này đã dùng hết " + posting.headcount()
-                            + " suất tuyển. Hãy hủy một offer đang xử lý trước khi tạo offer mới.");
+                            + " suất tuyển. Hãy huỷ một thư mời đang xử lý trước khi tạo thư mời mới.");
         }
         return posting;
     }
@@ -641,7 +652,7 @@ public class OfferService {
 
     private Offer findById(Long id) {
         return offerRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new BusinessException("Không tìm thấy Offer"));
+                .orElseThrow(() -> new BusinessException("Không tìm thấy thư mời"));
     }
 
     /**

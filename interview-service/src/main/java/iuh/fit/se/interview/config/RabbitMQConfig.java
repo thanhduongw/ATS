@@ -12,10 +12,14 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
     public static final String ATS_EXCHANGE = "ats.events";
+    /** Nhật ký hệ thống — notification-service gom về bảng audit_log. */
+    public static final String AUDIT_LOG_ROUTING_KEY = "audit.log";
     public static final String INTERVIEW_SCHEDULED_ROUTING_KEY = "interview.scheduled";
     public static final String INTERVIEW_HM_CONFIRMED_ROUTING_KEY = "interview.hm-confirmed";
     public static final String INTERVIEW_CONFIRMED_ROUTING_KEY = "interview.confirmed";
+    public static final String INTERVIEW_REMINDER_ROUTING_KEY = "interview.reminder";
     public static final String INTERVIEW_CANDIDATE_DECLINED_ROUTING_KEY = "interview.candidate-declined";
+    public static final String INTERVIEW_CANCELLED_ROUTING_KEY = "interview.cancelled";
     /** Nghe trạng thái hồ sơ để huỷ lịch còn treo khi hồ sơ kết thúc (xem ApplicationClosedListener). */
     public static final String APPLICATION_STATUS_CHANGED_QUEUE = "interview.application-status-changed.queue";
     public static final String APPLICATION_STATUS_CHANGED_ROUTING_KEY = "application.status_changed";
@@ -35,6 +39,22 @@ public class RabbitMQConfig {
             Queue interviewApplicationStatusChangedQueue, TopicExchange atsExchange) {
         return BindingBuilder.bind(interviewApplicationStatusChangedQueue)
                 .to(atsExchange).with(APPLICATION_STATUS_CHANGED_ROUTING_KEY);
+    }
+
+    /** Ứng viên tự xoá dữ liệu cá nhân (candidate-service phát) — đổi tên ứng viên trong lịch phỏng vấn. */
+    public static final String CANDIDATE_DATA_DELETED_QUEUE = "interview.candidate-data-deleted.queue";
+    public static final String CANDIDATE_DATA_DELETED_ROUTING_KEY = "candidate.data_deleted";
+
+    @Bean
+    public org.springframework.amqp.core.Queue candidateDataDeletedQueue() {
+        return org.springframework.amqp.core.QueueBuilder.durable(CANDIDATE_DATA_DELETED_QUEUE).build();
+    }
+
+    @Bean
+    public org.springframework.amqp.core.Binding candidateDataDeletedBinding(
+            org.springframework.amqp.core.Queue candidateDataDeletedQueue, TopicExchange atsExchange) {
+        return org.springframework.amqp.core.BindingBuilder.bind(candidateDataDeletedQueue)
+                .to(atsExchange).with(CANDIDATE_DATA_DELETED_ROUTING_KEY);
     }
 
     @Bean

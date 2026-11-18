@@ -30,5 +30,6 @@ public record JobRequisitionCreateRequest(
         String requirements,
         String benefits,
         List<Long> skillIds,
-        @NotNull(message = "Vui lòng chọn người phê duyệt") Long approverId
+        /** Không còn dùng: mọi Chuyên viên tuyển dụng đều duyệt được. Giữ để client cũ không lỗi. */
+        Long approverId
 ) {}

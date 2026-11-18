@@ -9,7 +9,7 @@ import { COLORS } from "../../app/theme";
  * Ô chọn ảnh dùng trong Form.Item (value = đường dẫn ảnh): xem trước, tải lên S3, xoá.
  * Dùng cho logo ở A08 (Thông tin doanh nghiệp).
  */
-export default function ImageUploadField({ value, onChange, folder, previewSize = 64, accept = "image/png,image/svg+xml,image/jpeg,image/webp" }: {
+export default function ImageUploadField({ value, onChange, folder, previewSize = 64, accept = "image/png,image/jpeg,image/webp" }: {
     value?: string | null;
     onChange?: (url: string | null) => void;
     folder: ImageFolder;

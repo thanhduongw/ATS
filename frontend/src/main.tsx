@@ -7,9 +7,12 @@ import "dayjs/locale/vi";
 import { store } from "./app/store";
 import { ThemedApp } from "./app/ThemedApp";
 import "./index.css";
+import { applyBrandVars, cachedBrand, derivePalette } from "./app/brand";
 import { I18nProvider } from "./i18n/I18nProvider";
 
 dayjs.locale("vi");
+// Ghi màu thương hiệu đã lưu lên :root trước khi vẽ, tránh nháy màu mặc định.
+applyBrandVars(derivePalette(cachedBrand()));
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

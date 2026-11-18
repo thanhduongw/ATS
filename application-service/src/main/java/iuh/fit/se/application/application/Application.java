@@ -84,6 +84,22 @@ public class Application {
     @Column(name = "ai_updated_at", insertable = false, updatable = false)
     private LocalDateTime aiUpdatedAt;
 
+    /** CV có đoạn văn nhằm điều khiển AI (prompt injection) — bản sao cờ từ ai-service để hiện badge ở danh sách. */
+    @Column(name = "ai_injection_detected", insertable = false, updatable = false)
+    private Boolean aiInjectionDetected;
+
+    /**
+     * Lý do đơn kết thúc mà KHÔNG phải do công ty từ chối: {@link ApplicationService#CLOSED_WITHDRAWN} (ứng viên rút đơn),
+     * {@link ApplicationService#CLOSED_HIRED_ELSEWHERE} (đã nhận việc ở vị trí khác), {@link ApplicationService#CLOSED_DATA_DELETED}
+     * (ứng viên xoá dữ liệu). Đơn vẫn nằm ở bước REJECTED của quy trình; giao diện đọc cột này để hiện đúng nhãn.
+     */
+    @Column(name = "closed_reason", length = 30)
+    private String closedReason;
+
+    /** Thời điểm ứng viên đồng ý xử lý dữ liệu cá nhân khi tự nộp đơn (null khi HR thêm hộ). */
+    @Column(name = "consent_at")
+    private LocalDateTime consentAt;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 

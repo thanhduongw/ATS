@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Pagination, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
-import { getNotifications, markAllAsRead, markAsRead } from "../notificationApi";
+import { NOTIFICATIONS_CHANGED_EVENT, getNotifications, markAllAsRead, markAsRead } from "../notificationApi";
 import type { NotificationResponse } from "../types";
 import { resolveNotificationPath } from "../notificationRoutes";
 import { NotificationIcon } from "../components/NotificationIcon";
@@ -56,7 +56,10 @@ export default function NotificationsPage() {
     useEffect(() => { void load(); }, [load]);
 
     const open = async (n: NotificationResponse) => {
-        if (!n.read) await markAsRead(n.id).catch(() => undefined);
+        if (!n.read) {
+            await markAsRead(n.id).catch(() => undefined);
+            window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
+        }
         const path = resolveNotificationPath(n, role);
         if (path && path !== "/notifications") navigate(path);
         else void load();
@@ -75,7 +78,7 @@ export default function NotificationsPage() {
         <ListPage
             title="Thông báo"
             actions={unread > 0 ? (
-                <Button onClick={async () => { await markAllAsRead().catch(() => undefined); void load(); }}>
+                <Button onClick={async () => { await markAllAsRead().catch(() => undefined); void load(); window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT)); }}>
                     Đánh dấu tất cả đã đọc
                 </Button>
             ) : undefined}

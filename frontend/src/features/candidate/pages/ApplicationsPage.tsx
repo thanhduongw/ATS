@@ -37,6 +37,7 @@ import { rowArrowColumn, useStatusCounts } from "../../../components/ui/listHelp
 import { Avatar } from "../../../components/ui/designKit";
 import { fullDate } from "../../../app/datetime";
 import CandidateFormModal from "../components/CandidateFormModal";
+import ApplicationCreateModal from "../components/ApplicationCreateModal";
 import { useMyInterviewStatus } from "../useMyInterviewStatus";
 import StatusTag from "../../../components/ui/StatusTag";
 import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
@@ -45,21 +46,23 @@ import { AI_TIER_OPTIONS, aiTierMeta } from "../../ai/aiScore";
 import { rescorePosting } from "../../ai/aiApi";
 import { useFitPageSize } from "../../../components/ui/useFitPageSize";
 import type { CandidateFormValues } from "../schemas/candidateSchema";
+import { filterOptionByLabel } from "../../../app/text";
 
 /** Bộ lọc giai đoạn theo 6 nhóm cố định (DS06) — giá trị là danh sách stageType gửi lên API. */
 const STAGE_FILTER_OPTIONS = FIXED_STAGES.map((g) => ({ value: stageTypeFilterOf(g), label: FIXED_STAGE_LABEL[g] }));
 
 /** R16: 4 tab. "Đang trong quy trình" = mọi giai đoạn trừ Đã tuyển và Từ chối. */
-type Tab = "ACTIVE" | "HIRED" | "REJECTED" | "ALL";
+type Tab = "ACTIVE" | "HIRED" | "REJECTED" | "WITHDRAWN" | "ALL";
 const ACTIVE_STAGES: FixedStage[] = FIXED_STAGES.filter((s) => s !== "HIRED" && s !== "REJECTED");
 const TAB_STAGE_FILTER: Record<Tab, string | undefined> = {
     ACTIVE: ACTIVE_STAGES.map(stageTypeFilterOf).join(","),
     HIRED: stageTypeFilterOf("HIRED"),
     REJECTED: stageTypeFilterOf("REJECTED"),
+    WITHDRAWN: "WITHDRAWN",
     ALL: undefined,
 };
-const TAB_KEYS: Tab[] = ["ACTIVE", "HIRED", "REJECTED", "ALL"];
-const TAB_LABEL: Record<Tab, string> = { ACTIVE: "Đang trong quy trình", HIRED: "Đã tuyển", REJECTED: "Từ chối", ALL: "Tất cả" };
+const TAB_KEYS: Tab[] = ["ACTIVE", "HIRED", "REJECTED", "WITHDRAWN", "ALL"];
+const TAB_LABEL: Record<Tab, string> = { ACTIVE: "Đang trong quy trình", HIRED: "Đã tuyển", REJECTED: "Từ chối", WITHDRAWN: "Đã rút đơn", ALL: "Tất cả" };
 
 
 
@@ -124,6 +127,7 @@ export default function ApplicationsPage() {
 
     // Them ung vien thu cong, hoac de AI doc CV roi dien san vao chinh form do.
     const [candidateFormOpen, setCandidateFormOpen] = useState(false);
+    const [attachCandidateId, setAttachCandidateId] = useState<number | null>(null);
     const [aiUploadOpen, setAiUploadOpen] = useState(false);
     const [aiPrefill, setAiPrefill] = useState<Partial<CandidateFormValues> | null>(null);
     const [aiPrefillFile, setAiPrefillFile] = useState<File | null>(null);
@@ -324,7 +328,7 @@ export default function ApplicationsPage() {
             sorter: true,
             sortOrder: aiScoreOrder,
             sortDirections: ["descend", "ascend"],
-            render: (_, r) => <AiScoreBadge score={r.aiScore} tier={r.aiTier} status={r.aiStatus} />,
+            render: (_, r) => <AiScoreBadge score={r.aiScore} tier={r.aiTier} status={r.aiStatus} injection={!!r.aiInjectionDetected} />,
         },
         ...(isHm ? [{
             title: "Phỏng vấn của bạn",
@@ -405,7 +409,7 @@ export default function ApplicationsPage() {
                     <Select
                         allowClear
                         showSearch
-                        optionFilterProp="label"
+                        optionFilterProp="label" filterOption={filterOptionByLabel}
                         placeholder="Việc làm"
                         style={{ width: 240 }}
                         value={jobPostingId}
@@ -541,7 +545,7 @@ export default function ApplicationsPage() {
                     >
                         <Select
                             showSearch
-                            optionFilterProp="label"
+                            optionFilterProp="label" filterOption={filterOptionByLabel}
                             options={recruiters.map((r) => ({ value: r.id, label: r.fullName }))}
                         />
                     </Form.Item>
@@ -558,6 +562,15 @@ export default function ApplicationsPage() {
                     setAiPrefill(null);
                     setAiPrefillFile(null);
                 }}
+                onSuccess={load}
+                onCreated={(id) => setAttachCandidateId(id)}
+            />
+
+            {/* 3.10: trang này liệt kê theo ĐƠN ứng tuyển, nên ứng viên vừa tạo phải được gắn vào một tin thì mới hiện. */}
+            <ApplicationCreateModal
+                open={attachCandidateId != null}
+                presetCandidateId={attachCandidateId ?? undefined}
+                onClose={() => setAttachCandidateId(null)}
                 onSuccess={load}
             />
 

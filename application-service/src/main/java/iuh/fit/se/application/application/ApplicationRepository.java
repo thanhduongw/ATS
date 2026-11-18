@@ -24,6 +24,25 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
 
     boolean existsByCandidateIdAndJobPostingIdAndDeletedAtIsNull(Long candidateId, Long jobPostingId);
 
+    Optional<Application> findFirstByCandidateIdAndJobPostingIdAndDeletedAtIsNull(Long candidateId, Long jobPostingId);
+
+    boolean existsByCandidateIdAndCurrentStageTypeAndDeletedAtIsNull(Long candidateId, String currentStageType);
+
+    /** Cờ prompt injection đi kèm kết quả chấm AI — tách riêng để không đụng 3 câu UPDATE điểm bên dưới. */
+    @Modifying
+    @Transactional
+    @Query(value = "UPDATE application SET ai_injection_detected = :flag WHERE id = :id", nativeQuery = true)
+    int updateAiInjection(@Param("id") Long id, @Param("flag") boolean flag);
+
+    /** Ẩn danh hoá mọi đơn của một ứng viên đã xoá dữ liệu: tên, email, liên kết CV. */
+    @Modifying
+    @Transactional
+    @Query(value = """
+            UPDATE application SET candidate_name_snapshot = :name, candidate_email_snapshot = NULL, resume_url = NULL
+            WHERE candidate_id = :candidateId
+            """, nativeQuery = true)
+    int anonymizeCandidate(@Param("candidateId") Long candidateId, @Param("name") String name);
+
     /** Hồ sơ chưa kết thúc quy trình (không HIRED/REJECTED) và không đổi giai đoạn quá lâu — dùng cho nhắc nhở tự động. */
     List<Application> findByDeletedAtIsNullAndCurrentStageTypeNotInAndUpdatedAtBefore(
             List<String> excludedStageTypes, LocalDateTime threshold);

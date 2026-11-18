@@ -45,6 +45,8 @@ const STAGE_TONE: Record<keyof typeof STRINGS.status.stage, StatusTone> = {
  * `string` nên nhận string.
  */
 export function stageStatus(stageType?: string, stageName?: string): StatusView {
+  // "Đã rút đơn": loại giai đoạn ảo backend trả khi ứng viên tự rút đơn / xoá dữ liệu.
+  if (stageType === "WITHDRAWN") return { label: STRINGS.applications.withdrawnChip, tone: "neutral" };
   if (stageType && stageType in STAGE_TONE) {
     const key = stageType as keyof typeof STAGE_TONE;
     // Luôn hiện 1 trong 6 giai đoạn cố định, kể cả vòng CUSTOM (xếp vào Sàng lọc).
@@ -64,6 +66,7 @@ const INTERVIEW_TONE: Record<InterviewStatus, StatusTone> = {
   NO_SHOW: "danger",
   CANCELLED: "neutral",
   CANDIDATE_DECLINED: "warning",
+  EXPIRED: "neutral",
 };
 
 /**
@@ -140,6 +143,8 @@ export type ApplicationPhase = {
   rejected: boolean;
   hired: boolean;
   ended: boolean;
+  /** Ứng viên tự rút đơn (không phải công ty từ chối). */
+  withdrawn?: boolean;
 };
 
 export function applicationPhase(stageType?: string): ApplicationPhase {
@@ -156,6 +161,8 @@ export function applicationPhase(stageType?: string): ApplicationPhase {
       return { step: 3, rejected: false, hired: true, ended: true };
     case "REJECTED":
       return { step: 0, rejected: true, hired: false, ended: true };
+    case "WITHDRAWN":
+      return { step: 0, rejected: true, hired: false, ended: true, withdrawn: true };
     // CV_SCREENING, HR_SCREENING và vòng CUSTOM của công ty → coi là đang sơ tuyển.
     default:
       return { step: 1, rejected: false, hired: false, ended: false };

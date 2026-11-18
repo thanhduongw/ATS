@@ -1,5 +1,6 @@
 import { STAGE_COLORS } from "../../app/theme";
-import { FIXED_STAGE_LABEL, toFixedStage } from "../../app/stages";
+import { fixedStageLabel, isWithdrawnStage, toFixedStage } from "../../app/stages";
+import { COLORS } from "../../app/theme";
 
 /**
  * Thẻ giai đoạn của hồ sơ — luôn hiển thị 1 trong 6 giai đoạn cố định (DS01, DS06),
@@ -7,7 +8,8 @@ import { FIXED_STAGE_LABEL, toFixedStage } from "../../app/stages";
  */
 export default function StageTag({ stageType }: { stageType?: string | null }) {
     const stage = toFixedStage(stageType);
-    const c = STAGE_COLORS[stage];
+    // "Đã rút đơn" dùng màu trung tính: không phải công ty từ chối.
+    const c = isWithdrawnStage(stageType) ? { bg: COLORS.fill, text: COLORS.textSecondary } : STAGE_COLORS[stage];
     return (
         <span
             style={{
@@ -17,7 +19,7 @@ export default function StageTag({ stageType }: { stageType?: string | null }) {
             }}
         >
             <span style={{ width: 6, height: 6, borderRadius: 3, background: c.text, flexShrink: 0 }} />
-            {FIXED_STAGE_LABEL[stage]}
+            {fixedStageLabel(stageType)}
         </span>
     );
 }

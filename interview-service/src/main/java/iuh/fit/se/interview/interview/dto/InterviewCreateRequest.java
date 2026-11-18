@@ -14,5 +14,7 @@ public record InterviewCreateRequest(
         Long workLocationId,
         String meetingLink,
         String note,
-        @NotEmpty(message = "Phải chọn ít nhất 1 người phỏng vấn") List<Long> interviewerIds
+        @NotEmpty(message = "Phải chọn ít nhất 1 người phỏng vấn") List<Long> interviewerIds,
+        /** Lịch mới thay cho buổi ứng viên đã xin dời — buổi cũ được đóng lại. Không bắt buộc. */
+        Long replaceInterviewId
 ) {}

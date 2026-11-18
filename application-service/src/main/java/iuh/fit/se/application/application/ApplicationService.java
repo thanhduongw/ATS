@@ -371,7 +371,13 @@ public class ApplicationService {
         try {
             return recruitmentServiceClient.getPostingById(application.getJobPostingId()).title();
         } catch (Exception e) {
-            return null;
+            // Xử lý sự kiện (ứng viên nhận thư mời, xoá dữ liệu…) không có người dùng nên API nội bộ từ chối;
+            // tin đang tuyển vẫn đọc được tên qua API công khai.
+            try {
+                return recruitmentServiceClient.getPublicPosting(application.getJobPostingId()).title();
+            } catch (Exception ignored) {
+                return null;
+            }
         }
     }
 

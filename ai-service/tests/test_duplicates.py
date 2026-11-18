@@ -2,7 +2,8 @@
 
 import pytest
 
-from app.services.cv_indexing import build_cv_profile
+from app.services.cv_indexing import CVSource, build_index
+from app.services.talent_profile import TalentProfile
 from app.services.duplicates import (
     NAME_THRESHOLD, SAME_FILE, SAME_PHONE, SIMILAR_PROFILE, hash_value, is_high_confidence,
     name_similarity, normalize_email, normalize_name, normalize_phone,
@@ -64,14 +65,15 @@ def test_confidence_levels():
 
 def test_identity_is_hashed_from_raw_cv_and_not_embedded():
     from app.services.duplicates import identity_hashes
-    from app.services.privacy import contact_identity, redact
+    from app.services.privacy import contact_identity, redact_for_talent
     raw = chr(10).join(["ĐÀO ĐỨC TÂM", "Email: Tam@X.com", "ĐT: (+84) 825159401", "Java developer, 2020 - nay"]) + chr(10)
     ident = identity_hashes(contact_identity(raw))
     assert ident["name_norm"] == "dao duc tam"
     assert ident["email_hash"] == hash_value("tam@x.com")
     assert ident["phone_hash"] == hash_value("0825159401")
     # văn bản gửi AI/embed là bản đã che: không còn các giá trị đó
-    masked = redact(raw).lower()
+    masked = redact_for_talent(raw).lower()
     assert "tam@x.com" not in masked and "825159401" not in masked and "đào đức tâm" not in masked
-    p = build_cv_profile({"facts": [{"category": "SKILLS", "quote": "Java", "note": "kỹ năng"}]}, ident)
-    assert p.email_hash == ident["email_hash"] and "tam@x.com" not in p.doc_text.lower()
+    idx = build_index(CVSource("f" * 64, redact_for_talent(raw), ident), TalentProfile(skills=["Java"]))
+    assert idx.identity["email_hash"] == ident["email_hash"]
+    assert "tam@x.com" not in idx.doc_text.lower() and "tam@x.com" not in idx.search_text

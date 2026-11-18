@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.core.database import async_session_factory, get_db
 from app.core.vector_schema import vector_enabled
 from app.models import CandidateSearchProfile, CVDocumentChunk
+from app.core.java_services import JavaServiceError, get_candidate_summary, get_talent_pool_eligible
 from app.services.cv_indexing import backfill
 
 logger = logging.getLogger(__name__)
@@ -52,5 +53,26 @@ async def start_backfill(force: bool = Query(False), user: CurrentUser = Depends
         raise HTTPException(status_code=503, detail="pgvector chưa bật trên Postgres — không lập chỉ mục được")
     if _running is not None and not _running.done():
         raise HTTPException(status_code=409, detail="Đang có một lượt lập chỉ mục chạy")
-    _running = asyncio.create_task(backfill(async_session_factory, force=force))
-    return {"started": True, "force": force}
+    extra = await _cv_urls_from_candidate_service(user)
+    _running = asyncio.create_task(backfill(async_session_factory, force=force, extra_sources=extra))
+    return {"started": True, "force": force, "candidatesFromCandidateService": len(extra)}
+
+
+async def _cv_urls_from_candidate_service(user: CurrentUser) -> dict[int, str]:
+    """{candidate_id: cvFileUrl} của ứng viên trong Talent Pool (đã đồng ý). Lỗi thì trả rỗng: backfill vẫn chạy với cv_facts."""
+    try:
+        eligible = await get_talent_pool_eligible(user.headers())
+    except JavaServiceError as exc:
+        logger.warning("Backfill: không đọc được danh sách ứng viên: %s", exc)
+        return {}
+    out: dict[int, str] = {}
+    for c in eligible:
+        if not c.get("hasCv"):
+            continue
+        try:
+            summary = await get_candidate_summary(int(c["id"]), user.headers())
+        except JavaServiceError:
+            continue
+        if summary and summary.get("cvFileUrl"):
+            out[int(c["id"])] = summary["cvFileUrl"]
+    return out

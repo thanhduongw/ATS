@@ -425,7 +425,7 @@ function AiTab({ applicationId }: { applicationId: number }) {
           <Text style={styles.sub}>{A.scoredAt(formatDate(d.scoredAt && !/[zZ]|[+-]\d\d:?\d\d$/.test(d.scoredAt) ? `${d.scoredAt}Z` : d.scoredAt))}</Text>
         </View>
       </View>
-      {d.result ? (
+      {d.result && Array.isArray(d.result.criteria) ? (
         <>
           <Text style={styles.rowTitle}>{A.tierReason}</Text>
           <Text style={styles.body}>{d.result.tier_reason}</Text>
@@ -433,6 +433,9 @@ function AiTab({ applicationId }: { applicationId: number }) {
             <CriterionRow key={c.key} c={c} />
           ))}
         </>
+      ) : d.result ? (
+        // Kết quả theo định dạng chấm điểm cũ (không có từng tiêu chí): báo rõ thay vì làm hỏng màn hình.
+        <InfoNote>{A.legacyResult}</InfoNote>
       ) : (
         <Text style={styles.sub}>{A.detailsDeleted}</Text>
       )}

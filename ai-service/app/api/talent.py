@@ -20,11 +20,12 @@ from app.core.java_services import (
     JavaServiceError, get_posting, get_skill_names, get_talent_pool_eligible, list_applications,
 )
 from app.core.vector_schema import vector_enabled
+from app.services import recruit_status, skill_catalog
 from app.services.embeddings import EmbeddingError
 from app.services.jd_embedding import get_or_embed_jd
 from app.services.job_info import JobInfo
 from app.services.talent_search import (
-    ParsedQuery, SearchFilters, embed_search_query, parse_query, search_candidates, similarity_for_candidates,
+    ParsedQuery, SearchFilters, clean_display, embed_search_query, parse_query, search_candidates, similarity_for_candidates,
 )
 
 router = APIRouter()
@@ -37,11 +38,13 @@ class TalentSearchRequest(BaseModel):
     skills: list[str] | None = Field(None, max_length=8)
     pool_status: Literal["IN_POOL", "ALL"] = Field("ALL", alias="poolStatus")
     limit: int = Field(20, ge=1, le=50)
+    # Trạng thái tuyển dụng được hiện (NONE | IN_PROGRESS | REJECTED | HIRED). Không gửi = mặc định, KHÔNG gồm người đã được tuyển.
+    statuses: list[Literal["NONE", "IN_PROGRESS", "REJECTED", "HIRED"]] | None = None
 
     model_config = {"populate_by_name": True}
 
 
-def _result_dto(h, c: dict, *, contact: bool = True) -> dict:
+def _result_dto(h, c: dict, *, contact: bool = True, recruitment: dict | None = None) -> dict:
     """Một kết quả tìm / gợi ý. `contact=False` (Hiring Manager): không trả email, số điện thoại."""
     return {
         "candidateId": h.candidate_id,
@@ -51,7 +54,12 @@ def _result_dto(h, c: dict, *, contact: bool = True) -> dict:
         "tags": c.get("tags") or [],
         "score": round(h.score, 4),
         "totalYears": h.total_years, "skills": h.skills[:15], "titles": h.titles[:3],
-        "matched": {"type": h.matched_type, "text": h.matched_text},
+        "matched": {"type": h.matched_type, "text": clean_display(h.matched_text)},
+        # Bằng chứng: câu thật trong CV cho từng điều kiện (có vị trí tô đậm) + công việc có ngày làm cơ sở số năm.
+        "evidence": h.evidence, "jobs": h.jobs,
+        "recruitment": recruitment or recruit_status.summarize([]),
+        # Tỉ lệ điều kiện của câu hỏi mà CV chứng minh được bằng câu thật (None: không có điều kiện để kiểm, vd gợi ý theo JD).
+        "coverage": round(sum(1 for e in h.evidence if e["found"]) / len(h.evidence), 2) if h.evidence else None,
     }
 
 
@@ -104,28 +112,47 @@ async def search(req: TalentSearchRequest, user: CurrentUser = Depends(current_u
         eligible = await get_talent_pool_eligible(user.headers(), "IN_POOL" if req.pool_status == "IN_POOL" else None)
     except JavaServiceError as exc:
         raise HTTPException(status_code=502, detail="Không đọc được danh sách ứng viên") from exc
-    by_id = {c["id"]: c for c in eligible}
+    # Trạng thái tuyển dụng từ các hồ sơ ứng tuyển; lọc theo trạng thái TRƯỚC khi xếp hạng để đủ `limit` kết quả.
+    try:
+        statuses = recruit_status.by_candidate(await list_applications(None, user.headers()))
+    except JavaServiceError as exc:
+        raise HTTPException(status_code=502, detail="Không đọc được trạng thái tuyển dụng của ứng viên") from exc
+    wanted = set(req.statuses) if req.statuses is not None else set(recruit_status.DEFAULT_STATUSES)
+    none = recruit_status.summarize([])
+    all_by_id = {c["id"]: c for c in eligible}
+    by_id = {cid: c for cid, c in all_by_id.items() if statuses.get(cid, none)["status"] in wanted}
+    status_counts = {s: 0 for s in recruit_status.STATUSES}
+    for cid in all_by_id:
+        status_counts[statuses.get(cid, none)["status"]] += 1
 
     parsed = await parse_query(req.query)
     min_years = req.min_years if req.min_years is not None else parsed.min_years
+    if req.skills is not None:
+        skills = [s.strip() for s in req.skills if s.strip()]
+    else:
+        # AI đôi lúc bỏ sót công nghệ HR gõ rõ ("biết Kafka"): bổ sung từ danh mục để bộ lọc không phụ thuộc may rủi của AI.
+        skills = list(parsed.required_skills)
+        known = {skill_catalog.canonical(s) or s.lower() for s in skills}
+        skills += [c for c in skill_catalog.detect_skills(req.query) if c not in known]
     filters = SearchFilters(
         min_years=min_years if min_years and min_years > 0 else None,  # 0 = giao diện gỡ bộ lọc số năm
-        skills=[s.strip() for s in req.skills if s.strip()] if req.skills is not None else parsed.required_skills,
+        skills=skills,
     )
     try:
         qvec = await embed_search_query(parsed.semantic_query)
     except EmbeddingError as exc:
         raise HTTPException(status_code=503, detail="Dịch vụ embedding tạm thời không dùng được") from exc
 
-    hits = await search_candidates(db, qvec, list(by_id), filters, req.limit)
+    hits = await search_candidates(db, qvec, list(by_id), filters, req.limit, query_text=parsed.semantic_query)
 
-    results = [_result_dto(h, by_id[h.candidate_id]) for h in hits]
+    results = [_result_dto(h, by_id[h.candidate_id], recruitment=statuses.get(h.candidate_id)) for h in hits]
     return {
         "query": req.query,
         "applied": {"semanticQuery": parsed.semantic_query,
                     "minYears": filters.min_years, "skills": filters.skills},
         "parsed": _parsed_dto(parsed),
-        "eligibleTotal": len(by_id),
+        "eligibleTotal": len(all_by_id),
+        "statusCounts": status_counts,
         "results": results,
     }
 

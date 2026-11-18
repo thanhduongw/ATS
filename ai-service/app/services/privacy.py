@@ -13,7 +13,8 @@ import unicodedata
 EMAIL = re.compile(r"(?i)\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b")
 URL = re.compile(r"(?i)\b(?:https?://|www\.|(?:linkedin|github|facebook)\.com/)\S+")
 PHONE = re.compile(r"(?<!\w)(?:\+?84|0)(?:[\s.\-]?\d){9,10}(?!\w)")
-# Dạng "(+84) 825…" mà PHONE (chép từ research) bỏ sót: dùng khi che PII và khi băm danh tính.
+# Dạng "(+84) 825…" mà PHONE (chép từ research) bỏ sót. CHỈ Talent Pool dùng (`redact_for_talent`, băm danh tính):
+# luồng chấm điểm vẫn dùng `redact` y nguyên để dữ kiện CV (`cv_facts`) không đổi.
 PHONE_LOOSE = re.compile(r"(?<!\w)\(?\+?84\)?[\s.\-]?(?:\d[\s.\-]?){9,10}(?!\w)")
 PERSONAL_LABEL = re.compile(
     r"(?i)^\s*(?:họ\s*(?:và\s*)?tên|tên ứng viên|full\s*name|candidate\s*name|name|địa chỉ|address|nơi ở|nơi sinh|"
@@ -86,9 +87,14 @@ def redact(text: str) -> str:
             continue
         line = EMAIL.sub("[EMAIL_ẨN]", line)
         line = URL.sub("[URL_ẨN]", line)
-        line = PHONE_LOOSE.sub("[SĐT_ẨN]", PHONE.sub("[SĐT_ẨN]", line))
+        line = PHONE.sub("[SĐT_ẨN]", line)
         lines.append(line)
     return "\n".join(lines).strip() + "\n"
+
+
+def redact_for_talent(text: str) -> str:
+    """`redact` + che thêm số điện thoại dạng "(+84) 825…". Chỉ dùng cho văn bản của Talent Pool."""
+    return PHONE_LOOSE.sub("[SĐT_ẨN]", redact(text))
 
 
 def remaining_contact_indicators(text: str) -> list[str]:
@@ -97,7 +103,7 @@ def remaining_contact_indicators(text: str) -> list[str]:
         indicators.append("email")
     if URL.search(text):
         indicators.append("url")
-    if PHONE.search(text) or PHONE_LOOSE.search(text):
+    if PHONE.search(text):
         indicators.append("phone")
     if PERSONAL_LABEL.search(text):
         indicators.append("personal_label")

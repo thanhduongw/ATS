@@ -1,42 +1,17 @@
-"""Lập chỉ mục vector: dựng đoạn văn bản từ kết quả trích xuất CV và chuẩn hoá embedding — không DB, không gọi Gemini."""
+"""Embedding (chuẩn hoá, chia lô, thử lại) và đọc số năm từ văn bản CV — không DB, không gọi Gemini.
+Dựng hồ sơ/đoạn Talent Pool: xem test_talent_profile.py."""
 
 import math
 
 import pytest
 
-from app.services.cv_indexing import (
-    CERTIFICATION, EDUCATION, PROJECT, SKILLS, SUMMARY, WORK_EXPERIENCE, build_cv_profile, estimate_years,
-)
+from app.services.experience_years import estimate_years
 from app.services.embeddings import GeminiEmbedder, l2_normalize
 
 
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
-
-
-def _facts(**extra) -> dict:
-    facts = [
-        {"category": "WORK_EXPERIENCE", "quote": "Backend Developer tại FPT, 03/2021 - nay: xây dựng microservice Java, Kafka",
-         "note": "công việc hiện tại"},
-        {"category": "WORK_EXPERIENCE", "quote": "Junior Developer tại VNG, 06/2019 - 02/2021", "note": "công việc trước"},
-        {"category": "SKILLS", "quote": "Ngôn ngữ: Java, Kafka, java, Spring Boot", "note": "kỹ năng"},
-        {"category": "EDUCATION", "quote": "Cử nhân Công nghệ thông tin, IUH", "note": "học vấn"},
-        {"category": "CERTIFICATIONS", "quote": "AWS Solutions Architect Associate", "note": "chứng chỉ"},
-        {"category": "PROJECT", "quote": "ATS: hệ thống tuyển dụng, Spring Boot", "note": "dự án"},
-    ]
-    return {"facts": facts + extra.get("more", []), "limitations": []}
-
-
-def test_chunk_types_and_filter_fields():
-    p = build_cv_profile(_facts())
-    types = [c.chunk_type for c in p.chunks]
-    assert types[0] == SUMMARY and SKILLS in types
-    assert types.count(WORK_EXPERIENCE) == 2
-    assert PROJECT in types and EDUCATION in types and CERTIFICATION in types
-    assert p.skills == ["Java", "Kafka", "Spring Boot"]  # bỏ nhãn "Ngôn ngữ:", bỏ trùng không phân biệt hoa thường
-    assert p.total_years is not None and p.total_years > 5  # 06/2019–02/2021 + 03/2021–nay
-    assert p.titles == []  # CVFacts không có trường chức danh có cấu trúc
 
 
 def test_estimate_years_merges_overlaps_and_handles_unreadable():
@@ -67,29 +42,6 @@ def test_years_range_survives_lost_dash_and_name_skips_headings():
     assert years_from_cv_text(cv, datetime(2026, 11, 19)) == 1.1
     assert contact_identity(cv)["name"] == "Bui Anh Vu"
     assert contact_identity(chr(10).join(["KINH NGHIỆM LÀM VIỆC", "Java"]))["name"] is None
-
-
-def test_identity_experience_years_override_quote_estimate():
-    p = build_cv_profile(_facts(), {"experience_years": 2.5})
-    assert p.total_years == 2.5
-
-
-def test_identity_comes_from_hashes_not_text():
-    p = build_cv_profile(_facts(), {"name_norm": "nguyen van a", "email_hash": "h1", "phone_hash": "h2"})
-    assert (p.name_norm, p.email_hash, p.phone_hash) == ("nguyen van a", "h1", "h2")
-    assert build_cv_profile(_facts()).email_hash is None
-
-
-def test_empty_cv_has_no_chunks():
-    p = build_cv_profile({"facts": []})
-    assert p.chunks == [] and p.doc_text == "" and p.skills == []
-
-
-def test_chunk_and_doc_length_are_capped():
-    big = {"category": "WORK_EXPERIENCE", "quote": "x " * 5000, "note": "dài"}
-    p = build_cv_profile(_facts(more=[big]))
-    assert all(len(c.content) <= 2000 for c in p.chunks)
-    assert len(p.doc_text) <= 4000
 
 
 def test_l2_normalize():

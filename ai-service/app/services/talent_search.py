@@ -7,10 +7,14 @@ Luồng một lần tìm:
    LLM lỗi thì dùng nguyên câu hỏi, không lọc (tìm vẫn chạy). Bộ lọc người dùng chọn trên giao diện luôn thắng.
 2. Tập ứng viên hợp lệ (đã đồng ý Talent Pool, chưa xoá, đúng pool) do candidate-service quyết định — ai-service
    không tự suy ra, nên rút đồng ý có hiệu lực ngay.
-3. Xếp hạng: độ tương đồng cosine giữa câu hỏi và (a) embedding cả hồ sơ, (b) đoạn CV khớp nhất.
-   Điểm = DOC_WEIGHT * (a) + (1 - DOC_WEIGHT) * (b). Trọng số là giá trị khởi đầu, chưa hiệu chỉnh
-   (xem giai đoạn đo recall trong kế hoạch).
-4. Trả kèm đoạn CV khớp nhất để HR thấy VÌ SAO ứng viên khớp.
+3. Xếp hạng lai: độ tương đồng cosine giữa câu hỏi và (a) embedding cả hồ sơ, (b) đoạn CV khớp nhất, cộng
+   (c) độ phủ từ khoá: tỉ lệ từ quan trọng của câu hỏi (kèm tên gọi khác của kỹ năng) có mặt trong văn bản CV.
+   Điểm = W_DOC*(a) + W_CHUNK*(b) + W_LEXICAL*(c). Vector bắt ý nghĩa, từ khoá bắt tên riêng/công nghệ hiếm mà vector
+   hay bỏ lỡ. Trọng số là giá trị khởi đầu, hiệu chỉnh bằng `benchmark/talent_eval.py`.
+4. Trả kèm BẰNG CHỨNG để HR thấy VÌ SAO ứng viên khớp. Tìm kiếm (vector) và chỉ ra bằng chứng là hai việc khác nhau:
+   vector cho biết hồ sơ GẦN nghĩa, còn bằng chứng là câu thật trong CV chứa từng điều kiện (kỹ năng, từ khoá) kèm vị
+   trí để tô đậm, và các công việc có ngày tháng làm cơ sở cho số năm. Điều kiện không tìm thấy câu nào được ghi rõ
+   là "không có trong văn bản CV" thay vì lờ đi (xem `build_evidence`).
 
 Chi phí: truy vấn quét mọi chunk của tập hợp lệ (không đi qua chỉ mục HNSW). Hợp lý đến vài chục nghìn chunk;
 lớn hơn thì cần đẩy lọc xuống chỉ mục.
@@ -20,22 +24,28 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
+import unicodedata
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.llm_client import LLMError, LLMManager, make_client
 from app.models import CandidateSearchProfile, CVDocumentChunk
+from app.services import skill_catalog
 from app.services.embeddings import Embedder, embed_query
 
 logger = logging.getLogger(__name__)
 
-DOC_WEIGHT = 0.5
+DOC_WEIGHT = 0.5  # giữ cho tương thích; xem W_* bên dưới
+W_DOC = 0.40
+W_CHUNK = 0.35
+W_LEXICAL = 0.25
 MAX_QUERY_CHARS = 500
 MAX_YEARS = 50.0
 MAX_SKILLS = 8
@@ -136,9 +146,65 @@ async def parse_query(query: str, manager: LLMManager | None = None) -> ParsedQu
 
 
 def skill_matches(required: str, candidate_skills: list[str]) -> bool:
-    """Khớp không phân biệt hoa thường theo chuỗi con ('Kafka' khớp 'Apache Kafka')."""
-    r = required.strip().lower()
-    return any(r in s.lower() for s in candidate_skills)
+    """Khớp không phân biệt hoa thường/dấu theo chuỗi con ('Kafka' khớp 'Apache Kafka') hoặc theo tên chuẩn của danh
+    mục ('SpringBoot' khớp 'Spring Boot')."""
+    r = skill_catalog.fold(required).strip()
+    canon = skill_catalog.canonical(required)
+    for s in candidate_skills:
+        if r and _has_word(skill_catalog.fold(s), r):  # theo từ riêng: 'Java' không khớp 'JavaScript'
+            return True
+        if canon and skill_catalog.canonical(s) == canon:
+            return True
+        if canon and any(_has_word(skill_catalog.fold(s), v) for v in skill_catalog.variants(required)):
+            return True  # tên gọi khác / công cụ cụ thể (CI/CD ⊃ GitHub Actions)
+    return False
+
+
+_BOUNDARY = r"[0-9a-z+#]"
+
+
+def _word_regex(term: str) -> str:
+    """Biểu thức POSIX (Postgres `~`) khớp `term` đứng thành từ riêng: 'java' không khớp 'javascript'."""
+    return f"(^|[^0-9a-z+#]){re.escape(skill_catalog.fold(term))}($|[^0-9a-z+#])"
+
+
+def _has_word(folded_text: str, term: str) -> bool:
+    return re.search(rf"(?<!{_BOUNDARY}){re.escape(skill_catalog.fold(term))}(?!{_BOUNDARY})", folded_text) is not None
+
+
+_STOP = {
+    "co", "va", "la", "cho", "can", "tim", "ung", "vien", "nguoi", "kinh", "nghiem", "nam", "it", "nhat", "tren",
+    "voi", "cac", "nhung", "mot", "trong", "tai", "the", "and", "with", "for", "years", "year", "experience",
+    "developer", "engineer", "senior", "junior", "work", "working", "skills", "skill", "ky", "nang", "lam", "viec",
+    "vi", "tri", "chuyen", "mon", "ung", "tuyen", "phu", "hop",
+    "biet", "tung", "ve", "den", "nhu", "hoac", "cung", "da", "dang", "duoc", "nhieu", "minh", "gioi", "tot", "tu", "hay",
+    "muon", "can", "ai", "nao", "khong", "bi",
+}
+
+
+def query_terms(query_text: str, skills: list[str]) -> list[list[str]]:
+    """Các "ý" cần có mặt trong CV: mỗi kỹ năng bắt buộc (kèm tên gọi khác) và mỗi từ khoá riêng trong câu hỏi. Mỗi ý là
+    danh sách cách viết; chỉ cần một cách xuất hiện là tính."""
+    out: list[list[str]] = [skill_catalog.variants(s) for s in skills]
+    known = {skill_catalog.fold(v) for group in out for v in group}
+    # Công nghệ trong danh mục xuất hiện trong chính câu hỏi cũng là một ý.
+    for canon in skill_catalog.detect_skills(query_text):
+        if skill_catalog.fold(canon) not in known:
+            out.append(skill_catalog.variants(canon))
+            known.add(skill_catalog.fold(canon))
+    for tok in re.findall(r"[0-9a-z+#.]{3,}", skill_catalog.fold(query_text)):
+        tok = tok.strip(".")
+        if tok and tok not in _STOP and tok not in known and not tok.isdigit():
+            out.append([tok])
+            known.add(tok)
+    return out[:12]
+
+
+def lexical_coverage(folded_text: str, terms: list[list[str]]) -> float:
+    """Tỉ lệ các ý trong `terms` có mặt trong văn bản (0..1). Không có ý nào → 0 (không thưởng không phạt)."""
+    if not terms or not folded_text:
+        return 0.0
+    return sum(any(_has_word(folded_text, v) for v in group) for group in terms) / len(terms)
 
 
 def _escape_like(text: str) -> str:
@@ -162,6 +228,8 @@ class SearchHit:
     titles: list[str]
     matched_type: str | None
     matched_text: str | None
+    evidence: list[dict] = field(default_factory=list)
+    jobs: list[dict] = field(default_factory=list)
 
 
 async def search_candidates(
@@ -170,6 +238,7 @@ async def search_candidates(
     eligible_ids: list[int],
     filters: SearchFilters,
     limit: int,
+    query_text: str = "",
 ) -> list[SearchHit]:
     """Xếp hạng ứng viên trong `eligible_ids` thoả bộ lọc theo độ tương đồng với `query_vector`."""
     if not eligible_ids:
@@ -180,6 +249,8 @@ async def search_candidates(
         CandidateSearchProfile.total_years,
         CandidateSearchProfile.skills,
         CandidateSearchProfile.titles,
+        CandidateSearchProfile.search_text,
+        CandidateSearchProfile.profile,
         CandidateSearchProfile.doc_embedding.cosine_distance(query_vector).label("dist"),
     ).where(CandidateSearchProfile.candidate_id.in_(eligible_ids))
     if filters.min_years is not None:
@@ -187,16 +258,28 @@ async def search_candidates(
 
     rows = (await session.execute(prof_q)).all()
 
-    # Kỹ năng bắt buộc: khớp ở mục Kỹ năng của CV HOẶC trong nội dung bất kỳ đoạn CV nào (kinh nghiệm, dự án) —
-    # nhiều CV nêu công nghệ trong mô tả công việc mà không liệt kê ở mục Kỹ năng.
+    # Kỹ năng bắt buộc: khớp ở danh sách kỹ năng của hồ sơ (đã chuẩn hoá theo danh mục) HOẶC nơi nào đó trong văn bản
+    # CV (kinh nghiệm, dự án) — nhiều CV nêu công nghệ trong mô tả công việc mà không liệt kê ở mục Kỹ năng. Khớp theo
+    # TỪ riêng (không để 'Java' khớp 'JavaScript') và theo mọi tên gọi của kỹ năng ('Spring Boot' = 'SpringBoot').
     in_text: dict[str, set[int]] = {}
+    ids = [r.candidate_id for r in rows]
     for skill in filters.skills:
+        pats = [_word_regex(v) for v in skill_catalog.variants(skill)]
         found = await session.execute(
-            select(CVDocumentChunk.candidate_id).where(
-                CVDocumentChunk.candidate_id.in_([r.candidate_id for r in rows]),
-                CVDocumentChunk.content.ilike(f"%{_escape_like(skill)}%", escape="\\"),
-            ).distinct())
-        in_text[skill] = set(found.scalars().all())
+            select(CandidateSearchProfile.candidate_id).where(
+                CandidateSearchProfile.candidate_id.in_(ids),
+                or_(*(CandidateSearchProfile.search_text.op("~")(p) for p in pats))))
+        hit = set(found.scalars().all())
+        # Hồ sơ cũ chưa có search_text: dùng nội dung các đoạn CV như trước.
+        legacy = [r.candidate_id for r in rows if not r.search_text]
+        if legacy:
+            more = await session.execute(
+                select(CVDocumentChunk.candidate_id).where(
+                    CVDocumentChunk.candidate_id.in_(legacy),
+                    or_(*(CVDocumentChunk.content.ilike(f"%{_escape_like(v)}%", escape="\\")
+                          for v in skill_catalog.variants(skill)))).distinct())
+            hit |= set(more.scalars().all())
+        in_text[skill] = hit
 
     profiles = {}
     for row in rows:
@@ -216,11 +299,16 @@ async def search_candidates(
     )
     best = {r.candidate_id: r for r in (await session.execute(chunk_q)).all()}
 
+    terms = query_terms(query_text, filters.skills)
     hits: list[SearchHit] = []
     for cid, p in profiles.items():
         chunk = best.get(cid)
         chunk_sim = similarity(chunk.dist) if chunk else 0.0
-        score = DOC_WEIGHT * similarity(p.dist) + (1 - DOC_WEIGHT) * chunk_sim
+        if terms:
+            score = (W_DOC * similarity(p.dist) + W_CHUNK * chunk_sim
+                     + W_LEXICAL * lexical_coverage(p.search_text or "", terms))
+        else:  # không có từ khoá để so (vd gợi ý theo JD đã có vector): chỉ xếp theo vector
+            score = DOC_WEIGHT * similarity(p.dist) + (1 - DOC_WEIGHT) * chunk_sim
         hits.append(SearchHit(
             candidate_id=cid, score=score,
             total_years=float(p.total_years) if p.total_years is not None else None,
@@ -229,7 +317,106 @@ async def search_candidates(
             matched_text=chunk.content if chunk else None,
         ))
     hits.sort(key=lambda h: h.score, reverse=True)
-    return hits[:limit]
+    hits = hits[:limit]
+    await attach_evidence(session, hits, terms, {cid: profiles[cid] for cid in (h.candidate_id for h in hits)})
+    return hits
+
+
+# --- Bằng chứng -----------------------------------------------------------------------------------
+
+EVIDENCE_WINDOW = 110          # số ký tự lấy quanh chỗ khớp
+_SECTION_PRIORITY = {"WORK_EXPERIENCE": 0, "PROJECT": 1, "CERTIFICATION": 2, "SKILLS": 3, "EDUCATION": 4}
+
+
+def _fold_map(text: str) -> tuple[str, list[int]]:
+    """Bỏ dấu + chữ thường như `skill_catalog.fold` nhưng giữ bảng đổi vị trí → chỉ số trong văn bản gốc."""
+    chars: list[str] = []
+    index: list[int] = []
+    for i, ch in enumerate(text):
+        for c in unicodedata.normalize("NFD", ch.replace("đ", "d").replace("Đ", "D")):
+            if unicodedata.category(c) != "Mn":
+                chars.append(c.lower())
+                index.append(i)
+    return "".join(chars), index
+
+
+def find_snippet(group: list[str], chunks: list[tuple[str, str]]) -> dict | None:
+    """Câu/đoạn trong CV chứa một trong các cách viết của điều kiện, ưu tiên mục Kinh nghiệm → Dự án → Kỹ năng.
+    Trả {section, text, highlights: [[start, end]]} (vị trí tô đậm tính trong `text`) hoặc None."""
+    pats = [re.compile(rf"(?<!{_BOUNDARY}){re.escape(f)}(?!{_BOUNDARY})")
+            for f in (skill_catalog.fold(v) for v in group) if f]
+    for ctype, content in sorted((c for c in chunks if c[0] != "SUMMARY"),
+                                 key=lambda c: _SECTION_PRIORITY.get(c[0], 9)):
+        folded, index = _fold_map(content)
+        for pat in pats:
+            m = pat.search(folded)
+            if not m:
+                continue
+            start, end = index[m.start()], index[m.end() - 1] + 1
+            a, b = max(0, start - EVIDENCE_WINDOW), min(len(content), end + EVIDENCE_WINDOW)
+            if a > 0 and (sp := content.rfind(" ", 0, a + 15)) != -1:   # cắt ở ranh giới từ, không giữa chữ
+                a = sp + 1
+            if b < len(content) and (sp := content.find(" ", b - 15)) != -1:
+                b = sp
+            prefix = "… " if a > 0 else ""
+            text = prefix + content[a:b].strip() + (" …" if b < len(content) else "")
+            shift = len(prefix) - a
+            return {"section": ctype, "text": text, "highlights": [[start + shift, end + shift]]}
+    return None
+
+
+_PLACEHOLDER = re.compile(r"\[(?:TÊN ỨNG VIÊN|EMAIL|SỐ ĐIỆN THOẠI|ĐỊA CHỈ)[^\]]*\]\s*", re.I)
+
+
+def clean_display(text: str | None) -> str | None:
+    """Bỏ nhãn che thông tin cá nhân khỏi đoạn hiện cho HR (chỉ để đọc; dữ liệu đã lưu không đổi)."""
+    return _PLACEHOLDER.sub("", text).strip() if text else text
+
+
+def _tried(group: list[str]) -> list[str]:
+    seen, out = set(), []
+    for v in group:
+        k = skill_catalog.fold(v)
+        if k and k not in seen:
+            seen.add(k)
+            out.append(v)
+    return out[:5]
+
+
+def build_evidence(terms: list[list[str]], chunks: list[tuple[str, str]], skills: list[str]) -> list[dict]:
+    """Mỗi điều kiện của câu hỏi → bằng chứng thật trong CV. `found = False` nghĩa là CV không có câu nào nhắc tới
+    (vd ứng viên chỉ khớp ngữ nghĩa): giao diện nói rõ điều đó thay vì để HR tưởng đã khớp."""
+    out = []
+    for group in terms:
+        label = group[0]
+        snip = find_snippet(group, [(t, clean_display(c) or "") for t, c in chunks])
+        out.append({
+            "label": label, "found": snip is not None,
+            "tried": _tried(group),
+            "inSkillList": skill_matches(label, skills),
+            "section": snip["section"] if snip else None,
+            "text": snip["text"] if snip else None,
+            "highlights": snip["highlights"] if snip else [],
+        })
+    # Bằng chứng mạnh nhất trước: có câu trích (ưu tiên Kinh nghiệm/Dự án) rồi mới tới điều kiện không tìm thấy.
+    out.sort(key=lambda e: (not e["found"], _SECTION_PRIORITY.get(e["section"] or "", 9)))
+    return out
+
+
+async def attach_evidence(session: AsyncSession, hits: list[SearchHit], terms: list[list[str]], rows: dict) -> None:
+    """Gắn bằng chứng và danh sách công việc (có ngày) vào các kết quả cuối cùng (chỉ vài chục ứng viên: một truy vấn)."""
+    if not hits:
+        return
+    got = (await session.execute(
+        select(CVDocumentChunk.candidate_id, CVDocumentChunk.chunk_type, CVDocumentChunk.content)
+        .where(CVDocumentChunk.candidate_id.in_([h.candidate_id for h in hits])))).all()
+    chunks: dict[int, list[tuple[str, str]]] = {}
+    for cid, ctype, content in got:
+        chunks.setdefault(cid, []).append((ctype, content))
+    for h in hits:
+        h.evidence = build_evidence(terms, chunks.get(h.candidate_id, []), h.skills)
+        profile = getattr(rows.get(h.candidate_id), "profile", None) or {}
+        h.jobs = list(profile.get("jobs") or [])[:6]
 
 
 async def embed_search_query(text: str, embedder: Embedder | None = None) -> list[float]:

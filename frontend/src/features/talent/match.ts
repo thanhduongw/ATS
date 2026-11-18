@@ -5,7 +5,16 @@
 const SCORE_STRONG = 0.74;
 const SCORE_GOOD = 0.7;
 
-export function matchLabel(score: number): { text: string; color: string } {
+/**
+ * Nhãn mức khớp. Có điều kiện để kiểm (kỹ năng, từ khoá) thì dựa vào BẰNG CHỨNG: CV chứng minh được bao nhiêu điều kiện.
+ * Điểm ngữ nghĩa chỉ chặn nhãn cao khi hồ sơ lệch hẳn câu hỏi. Không có điều kiện (gợi ý theo tin) thì dùng điểm.
+ */
+export function matchLabel(score: number, coverage?: number | null): { text: string; color: string } {
+    if (coverage != null && score >= SCORE_GOOD - 0.05) {
+        if (coverage >= 1) return { text: "Rất khớp", color: "green" };
+        if (coverage >= 0.5) return { text: "Khớp", color: "blue" };
+        return { text: "Khớp một phần", color: "default" };
+    }
     if (score >= SCORE_STRONG) return { text: "Rất khớp", color: "green" };
     if (score >= SCORE_GOOD) return { text: "Khớp", color: "blue" };
     return { text: "Liên quan thấp", color: "default" };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { App, Button, Input, InputNumber, Select, Table, Tag, Tooltip } from "antd";
+import { App, Button, Checkbox, Input, InputNumber, Select, Table, Tag, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { SearchOutlined, UserAddOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
@@ -13,7 +13,8 @@ import { searchTalentPool } from "../talentApi";
 import { listDuplicates } from "../duplicateApi";
 import DuplicatePairsTable from "../components/DuplicatePairsTable";
 import { CHUNK_LABEL, matchLabel } from "../match";
-import type { TalentPoolFilter, TalentSearchResponse, TalentSearchResult } from "../types";
+import { MatchEvidence, YearsWithJobs } from "../components/MatchEvidence";
+import type { RecruitStatus, TalentPoolFilter, TalentSearchResponse, TalentSearchResult } from "../types";
 
 /**
  * Kho ứng viên (Talent Pool): HR tìm ứng viên ĐÃ ĐỒNG Ý lưu hồ sơ bằng ngôn ngữ tự nhiên.
@@ -34,6 +35,15 @@ const POOL_OPTIONS: { value: TalentPoolFilter; label: string }[] = [
     { value: "IN_POOL", label: "Đã bị từ chối ở vị trí khác" },
 ];
 
+const STATUS_OPTIONS: { value: RecruitStatus; label: string }[] = [
+    { value: "NONE", label: "Chưa ứng tuyển" },
+    { value: "IN_PROGRESS", label: "Đang tuyển dụng" },
+    { value: "REJECTED", label: "Đã bị loại" },
+    { value: "HIRED", label: "Đã được tuyển" },
+];
+const DEFAULT_STATUSES: RecruitStatus[] = ["NONE", "IN_PROGRESS", "REJECTED"]; // mặc định không hiện người đã được tuyển
+const STATUS_TONE: Record<RecruitStatus, string> = { NONE: "default", IN_PROGRESS: "blue", REJECTED: "red", HIRED: "green" };
+
 type Tab = "SEARCH" | "DUPLICATES";
 
 export default function TalentPoolPage() {
@@ -42,19 +52,20 @@ export default function TalentPoolPage() {
     const [dupCount, setDupCount] = useState<number | undefined>(undefined);
     const [query, setQuery] = useState("");
     const [pool, setPool] = useState<TalentPoolFilter>("ALL");
+    const [statuses, setStatuses] = useState<RecruitStatus[]>(DEFAULT_STATUSES);
     const [minYearsInput, setMinYearsInput] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<TalentSearchResponse | null>(null);
     const [addFor, setAddFor] = useState<number | null>(null);
 
     /** Chạy tìm. `override` = bộ lọc người dùng vừa chỉnh (gỡ thẻ, đổi số năm); không có thì để AI tự tách. */
-    const run = async (q: string, override?: { minYears?: number | null; skills?: string[] }, poolStatus = pool) => {
+    const run = async (q: string, override?: { minYears?: number | null; skills?: string[] }, poolStatus = pool, statusList = statuses) => {
         const text = q.trim();
         if (text.length < 2) { message.warning("Nhập ít nhất 2 ký tự"); return; }
         setLoading(true);
         try {
             const r = await searchTalentPool({
-                query: text, poolStatus, limit: 30,
+                query: text, poolStatus, statuses: statusList, limit: 30,
                 ...(override?.minYears !== undefined ? { minYears: override.minYears ?? 0 } : {}),
                 ...(override?.skills !== undefined ? { skills: override.skills } : {}),
             });
@@ -91,19 +102,40 @@ export default function TalentPoolPage() {
         {
             title: "Khớp", key: "score", width: 130,
             render: (_, r) => {
-                const m = matchLabel(r.score);
+                const m = matchLabel(r.score, r.coverage);
                 return <Tag color={m.color} style={{ marginInlineEnd: 0 }}>{m.text}</Tag>;
             },
         },
         {
-            title: "Kinh nghiệm", key: "years", width: 120,
-            render: (_, r) => (r.totalYears != null ? `${r.totalYears.toLocaleString("vi-VN")} năm` : <span style={{ color: COLORS.textMuted }}>Chưa rõ</span>),
+            title: "Trạng thái tuyển dụng", key: "recruitment", width: 190,
+            render: (_, r) => {
+                const rc = r.recruitment;
+                const label = STATUS_OPTIONS.find((o) => o.value === rc.status)?.label ?? rc.status;
+                return (
+                    <div style={{ minWidth: 0 }}>
+                        <Tag color={STATUS_TONE[rc.status]} style={{ marginInlineEnd: 0 }}>{label}</Tag>
+                        {rc.status !== "NONE" && (rc.jobTitle || rc.stageName) && (
+                            <div style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 4, lineHeight: 1.4 }}>
+                                {rc.stageName && <div style={{ fontWeight: 500 }}>{rc.stageName}</div>}
+                                {rc.jobTitle && <div>{rc.jobTitle}</div>}
+                                {rc.applications > 1 && <div style={{ color: COLORS.textMuted }}>{rc.applications} hồ sơ ứng tuyển</div>}
+                            </div>
+                        )}
+                    </div>
+                );
+            },
         },
         {
-            title: "Vì sao khớp", key: "why",
+            title: "Kinh nghiệm", key: "years", width: 120,
+            render: (_, r) => <YearsWithJobs years={r.totalYears} jobs={r.jobs ?? []} />,
+        },
+        {
+            title: "Vì sao khớp", key: "why", width: 440,
             render: (_, r) => (
                 <div style={{ fontSize: 13 }}>
-                    {r.matched.text ? (
+                    {r.evidence?.length ? (
+                        <MatchEvidence evidence={r.evidence} semantic={r.matched} score={r.score} />
+                    ) : r.matched.text ? (
                         <Tooltip title={r.matched.text} placement="topLeft" styles={{ root: { maxWidth: 480 } }}>
                             <div style={{ color: COLORS.textSecondary, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                                 <b style={{ color: "inherit" }}>{CHUNK_LABEL[r.matched.type ?? ""] ?? "CV"}:</b> {r.matched.text}
@@ -166,6 +198,14 @@ export default function TalentPoolPage() {
                         loading={loading}
                         onChange={(e) => setQuery(e.target.value)}
                         onSearch={(v) => submit(v)}
+                    />
+                    <Checkbox.Group
+                        value={statuses}
+                        onChange={(v) => { const next = v as RecruitStatus[]; setStatuses(next); if (data) void run(data.query, undefined, pool, next); }}
+                        options={STATUS_OPTIONS.map((o) => ({
+                            value: o.value,
+                            label: `${o.label}${data ? ` (${data.statusCounts?.[o.value] ?? 0})` : ""}`,
+                        }))}
                     />
                     <Select<TalentPoolFilter>
                         value={pool}

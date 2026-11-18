@@ -86,6 +86,11 @@ class CandidateSearchProfile(Base):
     titles = Column(ARRAY(Text), nullable=False, default=list)
     doc_embedding = Column(Vector(1024))
     model = Column(String(100))
+    # Hồ sơ Talent Pool dựng từ văn bản CV (không phải từ cv_facts): từng công việc, lĩnh vực, tóm tắt, nguồn (llm/rules).
+    profile = Column(JSONB)
+    profile_version = Column(String(30))
+    # Văn bản CV đã che thông tin cá nhân, bỏ dấu + chữ thường: để xếp hạng theo từ khoá (tìm kết hợp).
+    search_text = Column(Text)
     # Dùng phát hiện ứng viên trùng: email/SĐT ghi trong CV lưu dạng băm sha256 (chỉ cần so bằng),
     # tên lưu dạng chuẩn hoá (bỏ dấu, chữ thường) để so gần đúng.
     name_norm = Column(String(200))

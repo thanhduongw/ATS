@@ -248,7 +248,7 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
                 />
             )}
 
-            {result ? (
+            {result && Array.isArray(result.criteria) ? (
                 <>
                     <Alert type={alertType} showIcon title="Lý do xếp loại" description={result.tier_reason} />
                     <Collapse
@@ -261,6 +261,9 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
                         }))}
                     />
                 </>
+            ) : result ? (
+                // Kết quả lưu theo định dạng chấm điểm cũ (không có từng tiêu chí): không vẽ được chi tiết, báo rõ để HR chấm lại.
+                <Alert type="info" showIcon title="Kết quả chấm theo phiên bản cũ" description="Hồ sơ này được chấm trước khi hệ thống đổi cách chấm nên chưa có chi tiết từng tiêu chí. Bấm “Chấm lại” để cập nhật." />
             ) : (
                 <div style={{ ...mutedText, fontStyle: "italic" }}>Chi tiết đã xoá theo yêu cầu của ứng viên</div>
             )}

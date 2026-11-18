@@ -173,7 +173,8 @@ export default function UserDetailPage() {
                                 Gửi lại lời mời
                             </Button>
                         )}
-                        {user.status === "LOCKED" ? (
+                        {/* Không tự khoá / mở khoá chính mình (backend cũng chặn). */}
+                        {user.id === myId ? null : user.status === "LOCKED" ? (
                             <Button loading={busy} onClick={() => run(() => updateUserStatus(user.id, { status: "ACTIVE" }), "Đã mở khoá tài khoản")}>
                                 Mở khoá tài khoản
                             </Button>

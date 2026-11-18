@@ -4,6 +4,7 @@ import iuh.fit.se.recruitment.client.AuthServiceClient;
 import iuh.fit.se.recruitment.client.dto.UserSummaryResponse;
 import iuh.fit.se.recruitment.event.AuditEventPublisher;
 import iuh.fit.se.recruitment.event.RequisitionEventPublisher;
+import iuh.fit.se.recruitment.event.RequisitionReviewedEvent;
 import iuh.fit.se.recruitment.exception.BusinessException;
 import iuh.fit.se.recruitment.common.PageResponse;
 import iuh.fit.se.recruitment.requisition.dto.*;
@@ -209,6 +210,8 @@ public class JobRequisitionService {
 
         auditEventPublisher.publish(actor.userId(), "REQUISITION_APPROVED", "REQUISITION", saved.getId(),
                 null);
+        requisitionEventPublisher.publishReviewed(new RequisitionReviewedEvent(
+                saved.getId(), saved.getRequesterId(), saved.getTitle(), "APPROVED", saved.getHrNote()));
 
         return toResponse(saved, buildUserNameMap());
     }
@@ -229,6 +232,8 @@ public class JobRequisitionService {
 
         auditEventPublisher.publish(actor.userId(), "REQUISITION_REJECTED", "REQUISITION", saved.getId(),
                 req.reason());
+        requisitionEventPublisher.publishReviewed(new RequisitionReviewedEvent(
+                saved.getId(), saved.getRequesterId(), saved.getTitle(), "REJECTED", req.reason()));
 
         return toResponse(saved, buildUserNameMap());
     }
@@ -256,6 +261,8 @@ public class JobRequisitionService {
 
         auditEventPublisher.publish(actor.userId(), "REQUISITION_CHANGES_REQUESTED", "REQUISITION",
                 saved.getId(), req.note());
+        requisitionEventPublisher.publishReviewed(new RequisitionReviewedEvent(
+                saved.getId(), saved.getRequesterId(), saved.getTitle(), "CHANGES_REQUESTED", req.note()));
 
         return toResponse(saved, buildUserNameMap());
     }

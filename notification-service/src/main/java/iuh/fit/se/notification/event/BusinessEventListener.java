@@ -53,6 +53,40 @@ public class BusinessEventListener {
                 event.requisitionId());
     }
 
+    // ===== 1b. Yêu cầu tuyển dụng đã được xử lý — báo người lập =====
+    @RabbitListener(queues = BusinessEventConfig.REQUISITION_REVIEWED_QUEUE)
+    public void onRequisitionReviewed(RequisitionReviewedEvent event) {
+        log.info("Nhận event requisition.reviewed, requisitionId={}, outcome={}", event.requisitionId(), event.outcome());
+        String name = "Yêu cầu \"" + nullSafe(event.title()) + "\"";
+        String note = event.note() != null && !event.note().isBlank() ? event.note().trim() : null;
+        String title;
+        String body;
+        switch (event.outcome() == null ? "" : event.outcome()) {
+            case "APPROVED" -> {
+                title = "Yêu cầu tuyển dụng đã được duyệt";
+                body = name + " đã được duyệt." + (note != null ? " Ghi chú: " + note : "");
+            }
+            case "REJECTED" -> {
+                title = "Yêu cầu tuyển dụng bị từ chối";
+                body = name + " bị từ chối." + (note != null ? " Lý do: " + note : "");
+            }
+            case "CHANGES_REQUESTED" -> {
+                title = "Yêu cầu tuyển dụng cần sửa";
+                body = name + " cần bổ sung trước khi duyệt." + (note != null ? " Nội dung: " + note : "");
+            }
+            default -> {
+                return;
+            }
+        }
+        notificationService.createAndPush(
+                event.requesterId(),
+                NotificationType.REQUISITION_REVIEWED,
+                title,
+                body,
+                "REQUISITION",
+                event.requisitionId());
+    }
+
     // ===== 2. Application created =====
     @RabbitListener(queues = BusinessEventConfig.APPLICATION_CREATED_QUEUE)
     public void onApplicationCreated(ApplicationCreatedEvent event) {
@@ -486,7 +520,8 @@ public class BusinessEventListener {
                     event.requesterId(),
                     NotificationType.OFFER_PENDING_CONFIRMATION,
                     "Thư mời đã gửi cho ứng viên",
-                    "Thư mời nhận việc" + ofCandidate(candidateNameOf(event.applicationId())) + " đã được gửi, đang chờ ứng viên phản hồi.",
+                    "Thư mời nhận việc" + forJob(event.jobTitle()) + ofCandidate(candidateNameOf(event.applicationId()))
+                            + " đã được gửi, đang chờ ứng viên phản hồi.",
                     "OFFER",
                     event.offerId());
         }
@@ -500,7 +535,7 @@ public class BusinessEventListener {
                     candidateUserId,
                     NotificationType.OFFER_READY_FOR_CANDIDATE,
                     "Bạn nhận được thư mời nhận việc",
-                    "Công ty đã gửi thư mời nhận việc cho bạn. Hãy xem và phản hồi trước hạn.",
+                    "Công ty đã gửi thư mời nhận việc" + forJob(event.jobTitle()) + " cho bạn. Hãy xem và phản hồi trước hạn.",
                     "OFFER",
                     event.offerId());
         }
@@ -519,7 +554,7 @@ public class BusinessEventListener {
                 NotificationType.OFFER_ACCEPTED,
                 "Ứng viên đã nhận lời",
                 (event.candidateName() != null ? event.candidateName() : "Ứng viên")
-                        + " đã chấp nhận thư mời nhận việc.",
+                        + " đã chấp nhận thư mời nhận việc" + forJob(event.jobTitle()) + ".",
                 "OFFER",
                 event.offerId());
     }
@@ -538,7 +573,7 @@ public class BusinessEventListener {
                 NotificationType.OFFER_DECLINED,
                 "Ứng viên từ chối thư mời",
                 (event.candidateName() != null ? event.candidateName() : "Ứng viên")
-                        + " đã từ chối thư mời nhận việc." + extra,
+                        + " đã từ chối thư mời nhận việc" + forJob(event.jobTitle()) + "." + extra,
                 "OFFER",
                 event.offerId());
     }

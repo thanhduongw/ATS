@@ -2,6 +2,7 @@ package iuh.fit.se.notification.notification;
 
 public enum NotificationType {
     REQUISITION_PENDING_APPROVAL,
+    REQUISITION_REVIEWED,
     APPLICATION_CREATED,
     APPLICATION_STAGE_CHANGED,
     APPLICATION_REJECTED,

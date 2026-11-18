@@ -18,6 +18,7 @@ public class BusinessEventConfig {
     public static final String INTERVIEW_CANDIDATE_DECLINED_QUEUE = "notification.interview-candidate-declined.queue";
     public static final String INTERVIEW_CANCELLED_QUEUE = "notification.interview-cancelled.queue";
     public static final String REQUISITION_SUBMITTED_QUEUE = "notification.requisition-submitted.queue";
+    public static final String REQUISITION_REVIEWED_QUEUE = "notification.requisition-reviewed.queue";
     public static final String OFFER_APPROVED_QUEUE = "notification.offer-approved.queue";
     public static final String OFFER_ACCEPTED_QUEUE = "notification.offer-accepted.queue";
     public static final String OFFER_DECLINED_QUEUE = "notification.offer-declined.queue";
@@ -106,6 +107,16 @@ public class BusinessEventConfig {
     @Bean
     public Binding requisitionSubmittedBinding(Queue requisitionSubmittedQueue, TopicExchange atsExchange) {
         return BindingBuilder.bind(requisitionSubmittedQueue).to(atsExchange).with("requisition.submitted");
+    }
+
+    @Bean
+    public Queue requisitionReviewedQueue() {
+        return new Queue(REQUISITION_REVIEWED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding requisitionReviewedBinding(Queue requisitionReviewedQueue, TopicExchange atsExchange) {
+        return BindingBuilder.bind(requisitionReviewedQueue).to(atsExchange).with("requisition.reviewed");
     }
 
     @Bean

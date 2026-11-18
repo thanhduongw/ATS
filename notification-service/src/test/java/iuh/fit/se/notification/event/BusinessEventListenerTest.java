@@ -110,4 +110,25 @@ class BusinessEventListenerTest {
         verify(notifications).createAndPush(eq(30L), eq(NotificationType.INTERVIEW_CANCELLED), eq("Lịch phỏng vấn đã huỷ"),
                 contains("đã huỷ"), eq("INTERVIEW"), eq(12L));
     }
+
+    @Test
+    void offerNotificationsNameThePosition() {
+        listener.onOfferDeclined(new OfferDeclinedEvent(8L, 9L, 2L, "Nguyễn Thị Thanh Hằng", "Lương thấp", 3L, 17L,
+                "Lập trình viên Mobile React Native"));
+
+        verify(notifications).createAndPush(eq(2L), eq(NotificationType.OFFER_DECLINED), eq("Ứng viên từ chối thư mời"),
+                eq("Nguyễn Thị Thanh Hằng đã từ chối thư mời nhận việc vị trí Lập trình viên Mobile React Native."
+                        + " Lý do: Lương thấp"), eq("OFFER"), eq(8L));
+    }
+
+    @Test
+    void requisitionChangeRequestTellsTheRequester() {
+        listener.onRequisitionReviewed(new RequisitionReviewedEvent(7L, 9L, "Kỹ sư AI/Machine Learning",
+                "CHANGES_REQUESTED", "Bổ sung ngân sách"));
+
+        verify(notifications).createAndPush(eq(9L), eq(NotificationType.REQUISITION_REVIEWED),
+                eq("Yêu cầu tuyển dụng cần sửa"),
+                eq("Yêu cầu \"Kỹ sư AI/Machine Learning\" cần bổ sung trước khi duyệt. Nội dung: Bổ sung ngân sách"),
+                eq("REQUISITION"), eq(7L));
+    }
 }

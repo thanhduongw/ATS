@@ -267,7 +267,9 @@ export default function InterviewDetailPage() {
                     {/* Ứng viên chỉ biết buổi này từ khi phòng ban chốt giờ — trước đó không báo huỷ cho ứng viên. */}
                     {iv.status === "HM_CONFIRMED" || iv.status === "CANDIDATE_CONFIRMED"
                         ? "Người phỏng vấn và ứng viên sẽ nhận thông báo huỷ. Không hoàn tác được."
-                        : "Người phỏng vấn sẽ nhận thông báo huỷ; ứng viên chưa được báo lịch này. Không hoàn tác được."}
+                        : iv.status === "CANDIDATE_DECLINED"
+                            ? "Người phỏng vấn sẽ nhận thông báo huỷ; ứng viên đã xin dời lịch này nên không nhận thêm thông báo. Không hoàn tác được."
+                            : "Người phỏng vấn sẽ nhận thông báo huỷ; ứng viên chưa được báo lịch này. Không hoàn tác được."}
                 </span>
             </SmallDialog>
 

@@ -21,6 +21,27 @@ function Highlighted({ text, highlights }: { text: string; highlights: number[][
 
 const SHOWN_BY_DEFAULT = 2;
 
+/** Một điều kiện có bằng chứng: câu trích đầu tiên, bấm "Xem thêm bằng chứng" để xem các chỗ khác trong CV. */
+function FoundEvidence({ ev }: { ev: TalentEvidence }) {
+    const [more, setMore] = useState(false);
+    const others = ev.others ?? [];
+    return (
+        <div style={{ color: COLORS.textSecondary, lineHeight: 1.45 }}>
+            <div><b style={{ color: "inherit" }}>{CHUNK_LABEL[ev.section ?? ""] ?? "CV"}:</b> <Highlighted text={ev.text ?? ""} highlights={ev.highlights} /></div>
+            {more && others.map((o, i) => (
+                <div key={i} style={{ marginTop: 4, paddingLeft: 8, borderLeft: `2px solid ${COLORS.fill}` }}>
+                    <b style={{ color: "inherit" }}>{CHUNK_LABEL[o.section] ?? "CV"}:</b> <Highlighted text={o.text} highlights={o.highlights} />
+                </div>
+            ))}
+            {others.length > 0 && (
+                <Button type="link" size="small" style={{ padding: 0, height: "auto" }} onClick={() => setMore(!more)}>
+                    {more ? "Ẩn bớt" : `Xem thêm bằng chứng (${others.length})`}
+                </Button>
+            )}
+        </div>
+    );
+}
+
 /** Giải thích CỤ THỂ vì sao một điều kiện không có trong CV mà ứng viên vẫn được xếp: nêu cách viết đã thử và đoạn gần nghĩa nhất. */
 function SemanticOnly({ ev, semantic }: { ev: TalentEvidence; semantic?: TalentMatchedChunk }) {
     const tried = ev.tried.map((t) => `“${t}”`).join(", ");
@@ -56,9 +77,7 @@ export function MatchEvidence({ evidence, semantic }: { evidence: TalentEvidence
                     <Tag color={ev.found ? "green" : "default"} style={{ marginInlineEnd: 0, flexShrink: 0 }}
                         icon={ev.found ? <CheckCircleFilled /> : <MinusCircleOutlined />}>{ev.label}</Tag>
                     {ev.found && ev.text ? (
-                        <div style={{ color: COLORS.textSecondary, lineHeight: 1.45 }}>
-                            <b style={{ color: "inherit" }}>{CHUNK_LABEL[ev.section ?? ""] ?? "CV"}:</b> <Highlighted text={ev.text} highlights={ev.highlights} />
-                        </div>
+                        <FoundEvidence ev={ev} />
                     ) : <SemanticOnly ev={ev} semantic={semantic} />}
                 </div>
             ))}

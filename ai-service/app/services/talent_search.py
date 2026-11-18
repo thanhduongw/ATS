@@ -340,19 +340,21 @@ def _fold_map(text: str) -> tuple[str, list[int]]:
     return "".join(chars), index
 
 
-def find_snippet(group: list[str], chunks: list[tuple[str, str]]) -> dict | None:
-    """Câu/đoạn trong CV chứa một trong các cách viết của điều kiện, ưu tiên mục Kinh nghiệm → Dự án → Kỹ năng.
-    Trả {section, text, highlights: [[start, end]]} (vị trí tô đậm tính trong `text`) hoặc None."""
+def find_snippets(group: list[str], chunks: list[tuple[str, str]], limit: int = 4) -> list[dict]:
+    """Các câu/đoạn trong CV chứa một trong các cách viết của điều kiện, ưu tiên mục Kinh nghiệm → Dự án → Kỹ năng,
+    bỏ các chỗ chồng lên nhau. Mỗi phần tử {section, text, highlights: [[start, end]]} (vị trí tô đậm tính trong `text`)."""
     pats = [re.compile(rf"(?<!{_BOUNDARY}){re.escape(f)}(?!{_BOUNDARY})")
             for f in (skill_catalog.fold(v) for v in group) if f]
+    out: list[dict] = []
     for ctype, content in sorted((c for c in chunks if c[0] != "SUMMARY"),
                                  key=lambda c: _SECTION_PRIORITY.get(c[0], 9)):
         folded, index = _fold_map(content)
-        for pat in pats:
-            m = pat.search(folded)
-            if not m:
+        last_end = -10**9
+        spans = sorted((m.start(), m.end()) for pat in pats for m in pat.finditer(folded))
+        for ms, me in spans:
+            start, end = index[ms], index[me - 1] + 1
+            if start < last_end + EVIDENCE_WINDOW:   # cùng một chỗ với câu trích trước đó
                 continue
-            start, end = index[m.start()], index[m.end() - 1] + 1
             a, b = max(0, start - EVIDENCE_WINDOW), min(len(content), end + EVIDENCE_WINDOW)
             if a > 0 and (sp := content.rfind(" ", 0, a + 15)) != -1:   # cắt ở ranh giới từ, không giữa chữ
                 a = sp + 1
@@ -361,8 +363,17 @@ def find_snippet(group: list[str], chunks: list[tuple[str, str]]) -> dict | None
             prefix = "… " if a > 0 else ""
             text = prefix + content[a:b].strip() + (" …" if b < len(content) else "")
             shift = len(prefix) - a
-            return {"section": ctype, "text": text, "highlights": [[start + shift, end + shift]]}
-    return None
+            out.append({"section": ctype, "text": text, "highlights": [[start + shift, end + shift]]})
+            last_end = end
+            if len(out) >= limit:
+                return out
+    return out
+
+
+def find_snippet(group: list[str], chunks: list[tuple[str, str]]) -> dict | None:
+    """Câu trích tốt nhất (đầu tiên của `find_snippets`) hoặc None."""
+    found = find_snippets(group, chunks, 1)
+    return found[0] if found else None
 
 
 _PLACEHOLDER = re.compile(r"\[(?:TÊN ỨNG VIÊN|EMAIL|SỐ ĐIỆN THOẠI|ĐỊA CHỈ)[^\]]*\]\s*", re.I)
@@ -389,7 +400,8 @@ def build_evidence(terms: list[list[str]], chunks: list[tuple[str, str]], skills
     out = []
     for group in terms:
         label = group[0]
-        snip = find_snippet(group, [(t, clean_display(c) or "") for t, c in chunks])
+        snips = find_snippets(group, [(t, clean_display(c) or "") for t, c in chunks])
+        snip = snips[0] if snips else None
         out.append({
             "label": label, "found": snip is not None,
             "tried": _tried(group),
@@ -397,6 +409,7 @@ def build_evidence(terms: list[list[str]], chunks: list[tuple[str, str]], skills
             "section": snip["section"] if snip else None,
             "text": snip["text"] if snip else None,
             "highlights": snip["highlights"] if snip else [],
+            "others": snips[1:],   # các chỗ khác trong CV cũng nhắc tới (HR bấm "xem thêm bằng chứng")
         })
     # Bằng chứng mạnh nhất trước: có câu trích (ưu tiên Kinh nghiệm/Dự án) rồi mới tới điều kiện không tìm thấy.
     out.sort(key=lambda e: (not e["found"], _SECTION_PRIORITY.get(e["section"] or "", 9)))

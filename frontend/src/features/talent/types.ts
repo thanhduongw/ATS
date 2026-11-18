@@ -43,6 +43,8 @@ export interface TalentEvidence {
   section: string | null;
   text: string | null;
   highlights: number[][];
+  /** Các chỗ khác trong CV cũng nhắc tới điều kiện này (tối đa 3). */
+  others: { section: string; text: string; highlights: number[][] }[];
 }
 
 export interface TalentJob {

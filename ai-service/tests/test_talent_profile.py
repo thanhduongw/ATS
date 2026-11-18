@@ -235,3 +235,12 @@ def test_recruit_status_priority():
     s = by_candidate(apps)
     assert (s[1]["status"], s[1]["jobTitle"], s[1]["stageName"]) == ("IN_PROGRESS", "B", "PV cuối")
     assert s[2]["status"] == "REJECTED" and s[3]["status"] == "HIRED" and s[4]["status"] == "REJECTED"
+
+
+def test_evidence_keeps_other_mentions_for_see_more():
+    from app.services.talent_search import build_evidence
+    chunks = [("WORK_EXPERIENCE", "Dùng Kafka cho đơn hàng " + "x " * 200 + "sau đó tối ưu Kafka consumer"),
+              ("PROJECT", "Dự án chat dùng Kafka"), ("SKILLS", "Kafka")]
+    ev, = build_evidence([["Kafka"]], chunks, ["Kafka"])
+    assert ev["found"] and len(ev["others"]) == 3 and ev["section"] == "WORK_EXPERIENCE"
+    assert all(o["text"][o["highlights"][0][0]:o["highlights"][0][1]] == "Kafka" for o in ev["others"])

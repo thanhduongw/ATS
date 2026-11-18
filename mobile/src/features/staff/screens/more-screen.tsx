@@ -5,7 +5,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/buttons";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ScreenHeader } from "@/components/ui/screen-chrome";
-import { Card } from "@/components/ui/surfaces";
+import { Card, IconTile } from "@/components/ui/surfaces";
+import type { StatusTone } from "@/theme";
 import { WEB_URL } from "@/config";
 import { useUnreadCount } from "@/features/notifications/hooks";
 import { STRINGS } from "@/lib/strings";
@@ -55,44 +56,47 @@ export function StaffMoreScreen() {
         actions={<IconButton icon="bell" label={S.bell} badge={unread} onPress={() => router.push(`/${area}/notifications`)} />}
       />
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-        <Card>
+        <Card onPress={() => router.push(`/${area}/settings` as Href)} accessibilityLabel={L.settings}>
           <View style={styles.profile}>
             <Avatar name={profile.data?.fullName} uri={profile.data?.avatarUrl} size={SIZES.iconTile + SPACING.sm} />
             <View style={styles.flex}>
               <Text style={styles.name}>{profile.data?.fullName ?? ""}</Text>
               <Text style={styles.sub}>{L.roleAt(roleName, isHr ? (company.data ?? "") : dept)}</Text>
             </View>
+            <Icon name="chevronRight" size={FONT_SIZE.md} color={COLORS.textMuted} />
           </View>
         </Card>
 
         <Text style={styles.section}>{L.features}</Text>
         <Card>
-          <Row icon="document" title={L.requisitions} sub={isHr ? L.reqPending(pending) : L.reqHm(fix, draft)}
+          <Row icon="document" tone="brand" title={L.requisitions} sub={isHr ? L.reqPending(pending) : L.reqHm(fix, draft)}
             onPress={() => router.push(`/${area}/requisitions` as Href)} />
           {isHr ? (
-            <Row icon="mail" title={L.offers} sub={L.offersSub(offerDraft, offerWaiting)} last
+            <Row icon="mail" tone="warning" title={L.offers} sub={L.offersSub(offerDraft, offerWaiting)} last
               onPress={() => router.push("/hr/offers" as Href)} />
           ) : (
-            <Row icon="clipboardCheck" title={L.results} sub={L.resultsSub(openPostings.length, dept)} last
+            <Row icon="clipboardCheck" tone="success" title={L.results} sub={L.resultsSub(openPostings.length, dept)} last
               onPress={() => router.push("/hm/results" as Href)} />
           )}
         </Card>
 
         <Text style={styles.section}>{L.other}</Text>
         <Card>
-          <Row icon="settings" title={L.settings} sub={L.settingsSub} onPress={() => router.push(`/${area}/settings` as Href)} />
+          <Row icon="person" title={L.settings} sub={L.settingsSub} last={!WEB_URL} onPress={() => router.push(`/${area}/settings` as Href)} />
           {WEB_URL ? (
-            <Row icon="link" title={L.web} sub={L.webSub} onPress={() => void Linking.openURL(WEB_URL)} />
+            <Row icon="link" title={L.web} sub={L.webSub} last onPress={() => void Linking.openURL(WEB_URL)} />
           ) : null}
-          <Row icon="logout" title={L.signOut} danger last onPress={() => void signOut()} />
         </Card>
+        <Pressable accessibilityRole="button" onPress={() => void signOut()} style={styles.signOut}>
+          <Text style={styles.signOutText}>{L.signOut}</Text>
+        </Pressable>
       </ScrollView>
     </>
   );
 }
 
-function Row({ icon, title, sub, onPress, last, danger }: {
-  icon: IconName; title: string; sub?: string; onPress: () => void; last?: boolean; danger?: boolean;
+function Row({ icon, title, sub, onPress, last, tone }: {
+  icon: IconName; title: string; sub?: string; onPress: () => void; last?: boolean; tone?: StatusTone;
 }): ReactNode {
   return (
     <Pressable
@@ -100,12 +104,12 @@ function Row({ icon, title, sub, onPress, last, danger }: {
       onPress={onPress}
       style={({ pressed }) => [styles.row, !last && styles.divider, pressed && styles.pressed]}
     >
-      <Icon name={icon} color={danger ? COLORS.errorText : COLORS.textSecondary} />
+      {tone ? <IconTile icon={icon} tone={tone} /> : <Icon name={icon} color={COLORS.textSecondary} />}
       <View style={styles.flex}>
-        <Text style={[styles.rowTitle, danger && styles.danger]}>{title}</Text>
+        <Text style={styles.rowTitle}>{title}</Text>
         {sub ? <Text style={styles.sub}>{sub}</Text> : null}
       </View>
-      {!danger ? <Icon name="chevronRight" size={FONT_SIZE.md} color={COLORS.textMuted} /> : null}
+      <Icon name="chevronRight" size={FONT_SIZE.md} color={COLORS.textMuted} />
     </Pressable>
   );
 }
@@ -122,5 +126,6 @@ const styles = StyleSheet.create({
   divider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.divider },
   pressed: { opacity: 0.7 },
   rowTitle: { fontFamily: FONT.medium, fontSize: FONT_SIZE.md, color: COLORS.textPrimary },
-  danger: { color: COLORS.errorText },
+  signOut: { alignItems: "center", paddingVertical: SPACING.md },
+  signOutText: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.lg, color: COLORS.error },
 });

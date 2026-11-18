@@ -18,7 +18,7 @@ import { STRINGS } from "@/lib/strings";
 import { useNow } from "@/lib/use-now";
 import { useAuthStore } from "@/store/authStore";
 import { COLORS, FONT, FONT_SIZE, SPACING } from "@/theme";
-import { useInterviewAction, useMyId, useStaffInterview, useStaffPosting } from "../hooks";
+import { useInterviewAction, useMyId, useStaffApplication, useStaffInterview, useStaffPosting } from "../hooks";
 import { areaOf, EVALUABLE } from "../tasks";
 
 const S = STRINGS.staff;
@@ -41,6 +41,7 @@ export function StaffInterviewScreen() {
   const notify = useSnackbar();
   const iv = useStaffInterview(Number(id));
   const posting = useStaffPosting(iv.data?.jobPostingId ?? 0);
+  const application = useStaffApplication(iv.data?.applicationId ?? 0);
   const locations = useWorkLocationNames();
   const action = useInterviewAction();
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -75,7 +76,7 @@ export function StaffInterviewScreen() {
         ? "declined"
         : "staff";
   const place = d.format === "ONLINE" ? S.online : (d.workLocationId != null && locations.get(d.workLocationId)) || S.onsite;
-  const jobTitle = posting.data?.title ?? "";
+  const jobTitle = posting.data?.title ?? application.data?.jobTitle ?? "";
 
   const run = (a: Parameters<typeof action.mutate>[0], ok: string, after?: () => void) =>
     action.mutate(a, {

@@ -206,7 +206,15 @@ function InterviewRow({ iv, me, now, isHr, area, title }: {
 }
 
 const styles = StyleSheet.create({
-  strip: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, marginBottom: SPACING.sm },
+  strip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
+    padding: SPACING.sm,
+    borderRadius: RADIUS.xl,
+    backgroundColor: COLORS.cardBg,
+  },
   days: { flex: 1, flexDirection: "row", justifyContent: "space-between" },
   day: { alignItems: "center", gap: SPACING.xxs, paddingVertical: SPACING.xs, borderRadius: RADIUS.md, flex: 1 },
   daySelected: { backgroundColor: COLORS.primary },

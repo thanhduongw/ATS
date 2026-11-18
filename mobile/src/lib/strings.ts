@@ -653,7 +653,13 @@ export const STRINGS = {
       confirmed: "Đã xác nhận tham gia",
       cancel: "Huỷ buổi phỏng vấn",
       cancelTitle: "Huỷ buổi phỏng vấn?",
-      cancelBody: (name: string) => `Ứng viên ${name} và người phỏng vấn sẽ nhận thông báo huỷ.`,
+      /** Ứng viên chỉ được báo huỷ khi đã thấy buổi (từ lúc phòng ban chốt giờ) — cùng quy tắc với interview-service. */
+      cancelBody: (name: string, audience: "both" | "declined" | "staff") =>
+        audience === "both"
+          ? `Ứng viên ${name} và người phỏng vấn sẽ nhận thông báo huỷ.`
+          : audience === "declined"
+            ? `Người phỏng vấn sẽ nhận thông báo huỷ; ứng viên ${name} đã xin dời lịch này nên không nhận thêm thông báo.`
+            : `Người phỏng vấn sẽ nhận thông báo huỷ; ứng viên ${name} chưa được báo lịch này.`,
       cancelConfirm: "Huỷ buổi",
       keep: "Giữ lịch",
       cancelled: "Đã huỷ buổi phỏng vấn",
@@ -777,6 +783,7 @@ export const STRINGS = {
       responded: "Ứng viên phản hồi",
       declineReason: "Lý do từ chối",
       desktop: "Sửa hoặc thu hồi thư mời trên máy tính.",
+      desktopDraft: "Bản nháp chưa gửi cho ứng viên — kiểm tra và gửi thư mời trên máy tính.",
       call: "Gọi ứng viên",
     },
 

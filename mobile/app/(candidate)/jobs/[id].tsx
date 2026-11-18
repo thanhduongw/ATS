@@ -1,28 +1,29 @@
+import { Fragment } from "react";
 import { RefreshControl, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useJob } from "@/features/jobs/hooks";
+import { jobSalary } from "@/features/jobs/job-card";
 import { useAppliedJobs } from "@/features/applications/hooks";
 import { apiErrorMessage } from "@/api/client";
 import { BOTTOM_BAR_SPACE, BottomActionBar, ScreenHeader } from "@/components/ui/screen-chrome";
-import { Card, CardTitle, IconTile } from "@/components/ui/surfaces";
-import { Icon, type IconName } from "@/components/ui/icon";
+import { Card, CardTitle, Divider } from "@/components/ui/surfaces";
 import { WEB_URL } from "@/config";
-import { ToneTag } from "@/components/ui/status-chip";
+import { Tag, ToneTag } from "@/components/ui/status-chip";
 import { IconButton, PillButton } from "@/components/ui/buttons";
 import { ErrorState, SkeletonList } from "@/components/ui/feedback";
 import { useSnackbar } from "@/components/ui/snackbar";
 import { STRINGS } from "@/lib/strings";
-import { formatDate, formatSalary } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { COLORS, FONT, FONT_SIZE, LINE_HEIGHT, RADIUS, SIZES, SPACING } from "@/theme";
 import type { JobPostingResponse } from "@/types/api";
 
 const S = STRINGS.jobDetail;
 
 /**
- * UC02 · Chi tiết việc làm (Mobile.html): thẻ đầu + lưới thông tin, "Về công việc" (mô tả, yêu cầu), "Phúc lợi",
- * nút "Ứng tuyển ngay" mở UC18. Nút chia sẻ gửi đường dẫn trang tin trên web. Khác HTML: không có ♡ lưu tin
- * (backend chưa có); bỏ ô "Quy trình" như web (quyết định 13/11/2026).
+ * Chi tiết việc làm — Redesign-Final `views.jobDetail`: khối đầu (phòng ban, tên vị trí, lưới 4 ô thông tin, tag),
+ * thẻ Mô tả · Yêu cầu · Quyền lợi, thẻ "Thông tin ứng tuyển", nút "Ứng tuyển ngay" dính đáy. Nút chia sẻ gửi đường dẫn
+ * trang tin trên web. Bỏ nút ♡ Lưu (backend không có) và không lặp tên vị trí hai lần như bản HTML.
  */
 export default function JobDetailScreen() {
   const { id: idParam } = useLocalSearchParams<{ id: string }>();
@@ -35,7 +36,7 @@ export default function JobDetailScreen() {
       <ScreenHeader
         variant="compact"
         back
-        title=""
+        title={S.title}
         actions={
           job.data?.id != null && WEB_URL ? (
             <IconButton
@@ -54,7 +55,9 @@ export default function JobDetailScreen() {
           <SkeletonList count={2} />
         </View>
       ) : job.isError ? (
-        <ErrorState message={apiErrorMessage(job.error, "")} onRetry={() => void job.refetch()} />
+        <View style={styles.pad}>
+          <ErrorState message={apiErrorMessage(job.error, "")} onRetry={() => void job.refetch()} />
+        </View>
       ) : (
         <>
           <ScrollView
@@ -78,98 +81,86 @@ export default function JobDetailScreen() {
 }
 
 function JobBody({ job }: { job: JobPostingResponse }) {
-  const place = [job.workLocationName, job.workArrangement ? STRINGS.arrangement[job.workArrangement] : null]
-    .filter(Boolean)
-    .join(" · ");
-  const facts: { icon: IconName; label: string; value?: string | null }[] = [
-    { icon: "money", label: S.salary, value: formatSalary(job.salaryMin, job.salaryMax) },
-    { icon: "briefcase", label: S.experience, value: job.experienceRequired?.trim() || S.notSpecified },
-    { icon: "clock", label: S.employmentType, value: job.employmentTypeName },
-    { icon: "calendar", label: S.deadline, value: job.applicationDeadline ? formatDate(job.applicationDeadline) : null },
+  const facts: { label: string; value: string; accent?: boolean }[] = [
+    { label: S.salary, value: jobSalary(job), accent: true },
+    { label: S.employmentType, value: job.employmentTypeName || "—" },
+    { label: S.location, value: job.workLocationName || "—" },
+    { label: S.experience, value: job.experienceRequired?.trim() || S.notSpecified },
   ];
-  const benefits = splitItems(job.benefits);
+  const tags = [
+    job.workArrangement ? STRINGS.arrangement[job.workArrangement] : null,
+    job.applicationDeadline ? S.deadlineTag(formatDate(job.applicationDeadline)) : null,
+    job.publishedAt ? S.postedOn(formatDate(job.publishedAt)) : null,
+  ].filter(Boolean) as string[];
+  const sections = [
+    { title: S.description, content: job.description },
+    { title: S.requirements, content: job.requirements },
+    { title: S.benefits, content: job.benefits },
+  ];
 
   return (
     <>
-      {/* UC02: thẻ đầu — nhãn, tên việc, địa điểm, lưới 2×2 ô thông tin. */}
-      <Card>
-        {job.departmentName || job.urgent ? (
-          <View style={styles.tags}>
-            {job.departmentName ? <ToneTag label={job.departmentName} tone="brand" /> : null}
-            {job.urgent ? <ToneTag label={STRINGS.jobs.urgent} tone="danger" /> : null}
+      {/* `.detailhero`: nền phớt màu thương hiệu. */}
+      <View style={styles.hero}>
+        <View style={styles.heroHead}>
+          <View style={styles.flex}>
+            {job.departmentName ? <Text style={styles.dept}>{job.departmentName}</Text> : null}
+            <Text style={styles.jobTitle} accessibilityRole="header">
+              {job.title}
+            </Text>
           </View>
-        ) : null}
-        <Text style={styles.jobTitle} accessibilityRole="header">
-          {job.title}
-        </Text>
-        {place ? (
-          <View style={styles.meta}>
-            <Icon name="pin" size={SIZES.iconXs} color={COLORS.textSecondary} />
-            <Text style={styles.metaText}>{place}</Text>
-          </View>
-        ) : null}
-        <View style={styles.facts}>
-          {facts
-            .filter((f) => f.value)
-            .map((f) => (
-              <View key={f.label} style={styles.fact}>
-                <IconTile icon={f.icon} size={SIZES.iconTile} />
-                <View style={styles.flex}>
-                  <Text style={styles.factLabel}>{f.label}</Text>
-                  <Text style={styles.factValue} numberOfLines={2}>
-                    {f.value}
-                  </Text>
-                </View>
-              </View>
-            ))}
+          {job.urgent ? <ToneTag label={STRINGS.jobs.urgent} tone="warning" /> : null}
         </View>
+        <Divider />
+        <View style={styles.facts}>
+          {facts.map((f) => (
+            <View key={f.label} style={styles.factCell}>
+              <View style={styles.fact}>
+                <Text style={styles.factLabel}>{f.label}</Text>
+                <Text style={[styles.factValue, f.accent && styles.factAccent]} numberOfLines={2}>
+                  {f.value}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+        {tags.length ? (
+          <View style={styles.tags}>
+            {tags.map((t) => (
+              <Tag key={t} label={t} />
+            ))}
+          </View>
+        ) : null}
+      </View>
+
+      <Card>
+        {sections.map((sec, i) => (
+          <Fragment key={sec.title}>
+            {i > 0 ? <Divider /> : null}
+            <Text style={styles.subhead}>{sec.title}</Text>
+            <Lines content={sec.content} />
+          </Fragment>
+        ))}
       </Card>
 
-      {job.description?.trim() || job.requirements?.trim() ? (
-        <Card>
-          <CardTitle>{S.about}</CardTitle>
-          <Lines content={job.description} />
-          {job.requirements?.trim() ? (
-            <>
-              <Text style={styles.subhead}>{S.requirements}</Text>
-              <Lines content={job.requirements} />
-            </>
-          ) : null}
-        </Card>
-      ) : null}
-
-      {benefits.length ? (
-        <Card>
-          <CardTitle>{S.benefits}</CardTitle>
-          <View style={styles.tags}>
-            {benefits.map((b) => (
-              <ToneTag key={b} label={b} tone="neutral" icon="check" />
-            ))}
-          </View>
-        </Card>
-      ) : null}
+      <Card>
+        <CardTitle right={<ToneTag label={S.applyOnline} tone="brand" />}>{S.applyInfo}</CardTitle>
+        <Text style={styles.note}>{S.applyInfoNote}</Text>
+      </Card>
     </>
   );
 }
 
-/** Phúc lợi lưu chữ thường: tách theo dòng / dấu chấm phẩy thành từng chip. */
-function splitItems(text?: string) {
-  return (text ?? "")
-    .split(/\r?\n|;/)
-    .map((l) => l.trim().replace(/^[-•*+]\s*/, ""))
-    .filter(Boolean);
-}
-
 /**
- * Mô tả / yêu cầu lưu văn bản thường (web hiển thị `pre-wrap`). Nhiều dòng → mỗi dòng một gạch đầu dòng chấm xanh
- * như UC02; một dòng → đoạn văn.
+ * Mô tả / yêu cầu / quyền lợi lưu văn bản thường (web hiển thị `pre-wrap`). Nhiều dòng → mỗi dòng một gạch đầu dòng
+ * chấm màu thương hiệu; một dòng → đoạn văn; trống → "Thông tin đang được cập nhật."
  */
 function Lines({ content }: { content?: string }) {
   const lines = (content ?? "")
     .split(/\r?\n/)
     .map((l) => l.trim().replace(/^[-•*+]\s*/, ""))
     .filter(Boolean);
-  if (!lines.length) return null;
+  if (!lines.length) return <Text style={[styles.body, styles.muted]}>{S.noInfo}</Text>;
   if (lines.length === 1) return <Text style={styles.body}>{lines[0]}</Text>;
   return (
     <View style={styles.lines}>
@@ -183,7 +174,7 @@ function Lines({ content }: { content?: string }) {
   );
 }
 
-/** Một nút duy nhất dưới đáy (canvas N27). Đã nộp thì thành nút xem hồ sơ ứng tuyển. */
+/** Một nút dưới đáy. Đã nộp thì thành nút xem đơn ứng tuyển. */
 function ApplyBar({ job }: { job: JobPostingResponse }) {
   const notify = useSnackbar();
   const applied = useAppliedJobs();
@@ -202,7 +193,7 @@ function ApplyBar({ job }: { job: JobPostingResponse }) {
       ) : (
         <PillButton
           label={S.applyNow}
-          icon="arrowRight"
+          iconRight="arrowRight"
           fullWidth
           style={styles.flex}
           // Không khóa nút khi tin đã đóng: bấm vào thì nói rõ lý do, thay vì một nút mờ câm.
@@ -220,39 +211,62 @@ function ApplyBar({ job }: { job: JobPostingResponse }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.body },
   pad: { padding: SPACING.page },
-  content: { paddingHorizontal: SPACING.page, gap: SPACING.sm2 },
+  content: { paddingHorizontal: SPACING.page, paddingTop: SPACING.xs, gap: SPACING.sm2 },
   flex: { flex: 1 },
 
+  hero: {
+    gap: SPACING.sm2,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: SIZES.border,
+    borderColor: COLORS.primarySoft,
+    backgroundColor: COLORS.primaryFaint,
+  },
+  heroHead: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm },
+  dept: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
   jobTitle: {
     fontFamily: FONT.bold,
-    fontSize: FONT_SIZE.h2,
-    // Một-lần: canvas để tiêu đề tin 1.3 (giữa title 1.2 và body 1.45).
-    lineHeight: FONT_SIZE.h2 * 1.3,
+    fontSize: FONT_SIZE.h3,
+    lineHeight: FONT_SIZE.h3 * LINE_HEIGHT.title,
     color: COLORS.textPrimary,
   },
+  facts: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -SPACING.xs },
+  factCell: { width: "50%", padding: SPACING.xs },
+  // `.infobox`: ô thông tin trắng nhỏ trong lưới 2×2.
+  fact: {
+    flex: 1,
+    gap: SPACING.xxs,
+    padding: SPACING.sm2 - SPACING.xxs,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.cardBg,
+  },
+  factLabel: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
+  factValue: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.caption, color: COLORS.textPrimary },
+  factAccent: { fontFamily: FONT.bold, color: COLORS.primary },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.xs + SPACING.xxs },
 
+  subhead: { fontFamily: FONT.bold, fontSize: FONT_SIZE.md, color: COLORS.textPrimary },
   lines: { gap: SPACING.xs + SPACING.xxs },
   body: {
     fontFamily: FONT.regular,
-    fontSize: FONT_SIZE.md,
-    lineHeight: FONT_SIZE.md * LINE_HEIGHT.body,
+    fontSize: FONT_SIZE.base,
+    lineHeight: FONT_SIZE.base * LINE_HEIGHT.body,
     color: COLORS.textPrimary,
   },
+  muted: { color: COLORS.textSecondary },
   bulletRow: { flexDirection: "row", gap: SPACING.sm2 },
-  // Chấm xanh đầu dòng UC02, căn giữa dòng chữ đầu tiên.
+  // Chấm đầu dòng, căn giữa dòng chữ đầu tiên.
   bulletDot: {
     width: SIZES.dot,
     height: SIZES.dot,
     borderRadius: RADIUS.full,
     backgroundColor: COLORS.primary,
-    marginTop: (FONT_SIZE.md * LINE_HEIGHT.body - SIZES.dot) / 2,
+    marginTop: (FONT_SIZE.base * LINE_HEIGHT.body - SIZES.dot) / 2,
   },
-  meta: { flexDirection: "row", alignItems: "center", gap: SPACING.xs },
-  metaText: { flex: 1, fontFamily: FONT.regular, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
-  facts: { flexDirection: "row", flexWrap: "wrap", rowGap: SPACING.sm2, marginTop: SPACING.xs },
-  fact: { width: "50%", flexDirection: "row", alignItems: "center", gap: SPACING.sm, paddingRight: SPACING.sm },
-  factLabel: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
-  factValue: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
-  subhead: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.md, color: COLORS.textPrimary, marginTop: SPACING.xs },
+  note: {
+    fontFamily: FONT.regular,
+    fontSize: FONT_SIZE.caption,
+    lineHeight: FONT_SIZE.caption * LINE_HEIGHT.body,
+    color: COLORS.textSecondary,
+  },
 });

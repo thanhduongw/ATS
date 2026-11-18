@@ -14,7 +14,7 @@ import { MAIN_STAGES, toFixedStage, type FixedStage } from "@/lib/stages";
 import { postingStatus } from "@/lib/status";
 import { STRINGS } from "@/lib/strings";
 import { useNow } from "@/lib/use-now";
-import { COLORS, FONT, FONT_SIZE, RADIUS, SPACING } from "@/theme";
+import { COLORS, FONT, FONT_SIZE, RADIUS, SPACING, SIZES } from "@/theme";
 import { CandidateCard } from "../candidate-card";
 import { useMyId, useStaffApplications, useStaffInterviews, useStaffOffers, useStaffPosting, useStaffRequisitions } from "../hooks";
 import { candidateNote } from "../notes";
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   owner: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
   sub: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
   tiles: { flexDirection: "row", gap: SPACING.xs },
-  tile: { flex: 1, alignItems: "center", gap: SPACING.xxs, paddingVertical: SPACING.sm2, borderRadius: RADIUS.md, backgroundColor: COLORS.cardBg },
+  tile: { flex: 1, alignItems: "center", gap: SPACING.xxs, paddingVertical: SPACING.sm2, borderRadius: RADIUS.md, borderWidth: SIZES.border, borderColor: COLORS.border, backgroundColor: COLORS.cardBg },
   tileOn: { backgroundColor: COLORS.primary },
   tileValue: { fontFamily: FONT.bold, fontSize: FONT_SIZE.lg, color: COLORS.textPrimary },
   tileLabel: { fontFamily: FONT.regular, fontSize: FONT_SIZE.micro, color: COLORS.textSecondary },

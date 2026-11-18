@@ -14,9 +14,10 @@ import { useConfirmInterview } from "./hooks";
 const S = STRINGS.interviews;
 
 /**
- * Nút hành động của một buổi phỏng vấn phía ứng viên (UC08, M09) — lịch 1 giờ cố định (04/11/2026):
- * - phòng ban đã chốt giờ, ứng viên chưa trả lời → "Từ chối" · "Đồng ý"
- * - đã đồng ý, chưa tới giờ → "Từ chối" (bận đột xuất) · "Vào phòng" nếu họp trực tuyến
+ * Nút hành động của một buổi phỏng vấn phía ứng viên (màn Chi tiết lịch phỏng vấn) — lịch 1 giờ cố định (04/11/2026):
+ * - phòng ban đã chốt giờ, ứng viên chưa trả lời → "Xin dời lịch" · "Tôi sẽ tham gia"
+ * - đã đồng ý, chưa tới giờ → "Xin dời lịch" (bận đột xuất) · "Tham gia phỏng vấn" nếu họp trực tuyến
+ * "Xin dời lịch" mở sheet: xin dời kèm lý do hoặc không tham gia nữa (rút đơn).
  * Không có gì để làm thì không vẽ gì.
  */
 export function InterviewAction({
@@ -44,7 +45,7 @@ export function InterviewAction({
   return (
     <View style={[styles.row, fullWidth && styles.full]}>
       {(waiting || accepted) && future ? (
-        <PillButton label={S.decline.action} variant="danger" size={size} style={grow} onPress={() => setDeclining(true)} />
+        <PillButton label={S.decline.action} variant="outline" size={size} style={grow} onPress={() => setDeclining(true)} />
       ) : null}
       {waiting ? (
         <PillButton

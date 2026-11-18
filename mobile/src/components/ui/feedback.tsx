@@ -59,7 +59,7 @@ export function EmptyState({
 }) {
   return (
     <View style={styles.center}>
-      <IconTile icon={icon} shape="circle" size={SIZES.otpHeight + SPACING.sm} />
+      <IconTile icon={icon} size={SIZES.otpHeight} />
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
       {action ? <PillButton label={action.label} onPress={action.onPress} variant="tonal" style={styles.action} /> : null}
@@ -71,7 +71,7 @@ export function EmptyState({
 export function ErrorState({ message, onRetry }: { message?: string; onRetry: () => void }) {
   return (
     <View style={styles.center}>
-      <IconTile icon="alert" tone="danger" shape="circle" size={SIZES.otpHeight + SPACING.sm} />
+      <IconTile icon="alert" tone="danger" size={SIZES.otpHeight} />
       <Text style={styles.title}>{STRINGS.errorState.title}</Text>
       <Text style={styles.message}>{message || STRINGS.errorState.fallback}</Text>
       <PillButton label={STRINGS.common.retry} icon="refresh" onPress={onRetry} variant="tonal" style={styles.action} />
@@ -84,6 +84,8 @@ const styles = StyleSheet.create({
   skeletonCard: {
     backgroundColor: COLORS.cardBg,
     borderRadius: RADIUS.xl,
+    borderWidth: SIZES.border,
+    borderColor: COLORS.border,
     padding: SPACING.md,
     gap: SPACING.sm2,
   },
@@ -96,23 +98,29 @@ const styles = StyleSheet.create({
   barNarrow: { width: "45%" },
   barMid: { width: "60%" },
 
+  // Redesign-Final `.empty`: khung trắng viền nét đứt, căn giữa.
   center: {
     alignItems: "center",
-    paddingVertical: SPACING.xxl,
+    paddingVertical: SPACING.xl,
     paddingHorizontal: SPACING.lg,
     gap: SPACING.sm,
+    borderRadius: RADIUS.xl,
+    borderWidth: SIZES.border,
+    borderStyle: "dashed",
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.cardBg,
   },
   title: {
     marginTop: SPACING.sm,
     fontFamily: FONT.bold,
-    fontSize: FONT_SIZE.section,
+    fontSize: FONT_SIZE.lg,
     color: COLORS.textPrimary,
     textAlign: "center",
   },
   message: {
     fontFamily: FONT.regular,
-    fontSize: FONT_SIZE.base,
-    lineHeight: FONT_SIZE.base * LINE_HEIGHT.body,
+    fontSize: FONT_SIZE.caption,
+    lineHeight: FONT_SIZE.caption * LINE_HEIGHT.body,
     color: COLORS.textSecondary,
     textAlign: "center",
   },

@@ -30,11 +30,11 @@ export function useTabScreenOptions(): BottomTabNavigationOptions {
       paddingTop: SPACING.xs + SPACING.xxs,
       paddingBottom: bottom,
       backgroundColor: COLORS.barBg,
-      borderTopColor: COLORS.divider,
-      borderTopWidth: SIZES.hairline,
+      borderTopColor: COLORS.border,
+      borderTopWidth: SIZES.border,
       elevation: 0,
     },
-    tabBarLabelStyle: { fontFamily: FONT.medium, fontSize: FONT_SIZE.micro },
+    tabBarLabelStyle: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.micro },
     // Số đỏ trên tab (canvas N26). errorText thay cho error: chữ trắng 11px trên #FA2A2D chỉ 3.9:1.
     tabBarBadgeStyle: {
       backgroundColor: COLORS.errorText,

@@ -13,7 +13,7 @@ import { MAIN_STAGES, toFixedStage } from "@/lib/stages";
 import { stageStatus } from "@/lib/status";
 import { STRINGS } from "@/lib/strings";
 import { useNow } from "@/lib/use-now";
-import { COLORS, FONT, FONT_SIZE, RADIUS, SPACING } from "@/theme";
+import { COLORS, FONT, FONT_SIZE, RADIUS, SPACING, SIZES } from "@/theme";
 import type { ApplicationResponse, InterviewResponse } from "@/types/api";
 import { useApplicationEvaluations, useMyId, useStaffApplications, useStaffInterviews, useStaffPostings } from "../hooks";
 
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.body },
   content: { padding: SPACING.page, gap: SPACING.sm2, paddingBottom: SPACING.xl },
   metrics: { flexDirection: "row", gap: SPACING.sm },
-  metric: { flex: 1, backgroundColor: COLORS.cardBg, borderRadius: RADIUS.lg, padding: SPACING.sm2, gap: SPACING.xxs },
+  metric: { flex: 1, backgroundColor: COLORS.cardBg, borderRadius: RADIUS.control, borderWidth: SIZES.border, borderColor: COLORS.border, padding: SPACING.sm2, gap: SPACING.xxs },
   metricValue: { fontFamily: FONT.bold, fontSize: FONT_SIZE.lg, color: COLORS.textPrimary },
   funnelRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
   funnelLabel: { width: SPACING.xxl + SPACING.lg, fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },

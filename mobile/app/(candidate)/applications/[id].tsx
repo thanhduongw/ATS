@@ -1,18 +1,16 @@
+import { useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { awaitsReply } from "@/features/interviews/rules";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useState } from "react";
 import { useMyApplication, useWithdrawApplication } from "@/features/applications/hooks";
+import { useMyInterviews } from "@/features/interviews/hooks";
+import { awaitsReply } from "@/features/interviews/rules";
+import { useMyOffers } from "@/features/offers/hooks";
+import { apiErrorMessage } from "@/api/client";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useSnackbar } from "@/components/ui/snackbar";
-import { useMyInterviews } from "@/features/interviews/hooks";
-import { InterviewAction, interviewPlace } from "@/features/interviews/interview-actions";
-import { useMyOffers } from "@/features/offers/hooks";
-import { useWorkLocationNames } from "@/features/masterdata/hooks";
-import { apiErrorMessage } from "@/api/client";
 import { ScreenHeader } from "@/components/ui/screen-chrome";
-import { Card, CardTitle, IconTile, ListRow } from "@/components/ui/surfaces";
+import { Card, Divider, Eyebrow } from "@/components/ui/surfaces";
 import { StatusChip } from "@/components/ui/status-chip";
 import { PillButton } from "@/components/ui/buttons";
 import { Icon } from "@/components/ui/icon";
@@ -20,14 +18,21 @@ import { ErrorState, SkeletonList } from "@/components/ui/feedback";
 import { STRINGS } from "@/lib/strings";
 import { useNow } from "@/lib/use-now";
 import { applicationPhase, interviewStatus, offerStatus, stageStatus } from "@/lib/status";
-import { cvFileName, formatDate, formatLongDate, formatTimeRange } from "@/lib/format";
-import { COLORS, FONT, FONT_SIZE, RADIUS, SIZES, SPACING } from "@/theme";
-import type { CandidateApplication, CandidateInterview } from "@/types/api";
+import { cvFileName, formatDate, formatTime } from "@/lib/format";
+import { COLORS, FONT, FONT_SIZE, LETTER_SPACING, LINE_HEIGHT, RADIUS, SIZES, SPACING } from "@/theme";
+import type { CandidateApplication, CandidateInterview, CandidateOffer } from "@/types/api";
 
 const S = STRINGS.applicationDetail;
 const P = STRINGS.applications.timeline;
+const I = STRINGS.interviewDetail;
+/** Buổi không còn diễn ra — không dùng làm "buổi sắp tới". */
+const INACTIVE = new Set(["CANCELLED", "EXPIRED", "NO_SHOW", "CANDIDATE_DECLINED"]);
 
-/** M09 — Chi tiết đơn (B4): tiến trình, lịch phỏng vấn, thư mời của đơn này. */
+/**
+ * Chi tiết đơn ứng tuyển — Redesign-Final `views.applicationDetail`: thẻ đơn (mã, trạng thái, vòng hiện tại, chuyên viên
+ * phụ trách, tiến trình 4 bước, CV đã nộp) · mục "Phỏng vấn" (mọi buổi của đơn, bấm mở chi tiết buổi) · mục
+ * "Thư mời nhận việc" (thư mời của đơn) · nút rút đơn.
+ */
 export default function ApplicationDetailScreen() {
   const now = useNow();
   const { id: idParam } = useLocalSearchParams<{ id: string }>();
@@ -35,13 +40,11 @@ export default function ApplicationDetailScreen() {
   const app = useMyApplication(id);
   const interviews = useMyInterviews();
   const offers = useMyOffers();
-  const locations = useWorkLocationNames();
   const insets = useSafeAreaInsets();
   const withdraw = useWithdrawApplication(id);
   const notify = useSnackbar();
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
-  const stage = app.data?.currentStageType;
-  const canWithdraw = !!app.data && stage !== "HIRED" && stage !== "REJECTED";
+  const canWithdraw = !!app.data && !applicationPhase(app.data.currentStageType).ended;
 
   const refetchAll = () => {
     void app.refetch();
@@ -49,26 +52,31 @@ export default function ApplicationDetailScreen() {
     void offers.refetch();
   };
 
-  // Buổi PV của đơn này: ưu tiên buổi sắp tới gần nhất, không có thì buổi gần đây nhất.
   const mine = (interviews.data ?? [])
-    .filter((iv) => iv.applicationId === id && iv.scheduledAt)
-    .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
-  const interview: CandidateInterview | undefined =
-    mine.find((iv) => new Date(iv.scheduledAt!).getTime() >= now) ?? mine[mine.length - 1];
-  const offer = (offers.data ?? []).find((o) => o.applicationId === id);
+    .filter((iv) => iv.applicationId === id)
+    .sort((a, b) => new Date(a.scheduledAt ?? 0).getTime() - new Date(b.scheduledAt ?? 0).getTime());
+  const myOffers = (offers.data ?? [])
+    .filter((o) => o.applicationId === id)
+    .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
+  // Buổi sắp tới gần nhất còn hiệu lực — dùng cho dòng "Phỏng vấn" trong tiến trình (bỏ buổi đã huỷ/hết hạn/bị từ chối).
+  const next = mine.find(
+    (iv) => new Date(iv.scheduledAt ?? 0).getTime() >= now && !INACTIVE.has(iv.status ?? "")
+  );
 
   return (
     <View style={styles.root}>
-      <ScreenHeader variant="compact" back title={app.data?.jobTitle ?? S.title} />
+      <ScreenHeader variant="compact" back title={S.title} />
       {app.isPending ? (
         <View style={styles.pad}>
           <SkeletonList count={2} />
         </View>
       ) : app.isError ? (
-        <ErrorState message={apiErrorMessage(app.error, "")} onRetry={() => void app.refetch()} />
+        <View style={styles.pad}>
+          <ErrorState message={apiErrorMessage(app.error, "")} onRetry={() => void app.refetch()} />
+        </View>
       ) : (
         <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + SPACING.lg }]}
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + SPACING.xl }]}
           refreshControl={
             <RefreshControl
               refreshing={app.isRefetching}
@@ -78,68 +86,39 @@ export default function ApplicationDetailScreen() {
             />
           }
         >
-          {/* Việc cần làm ngay lên đầu (canvas N30). */}
-          {interview && awaitsReply(interview, now) ? (
-            <Card style={styles.actionCard}>
-              <Text style={styles.actionTitle}>{S.confirmInvite}</Text>
-              <Text style={styles.sub}>
-                {formatLongDate(interview.scheduledAt)} · {formatTimeRange(interview.scheduledAt, interview.durationMinutes)}
-              </Text>
-              <InterviewAction interview={interview} size="md" fullWidth />
-            </Card>
-          ) : null}
+          <SummaryCard app={app.data} interview={next} />
 
-          <SummaryCard app={app.data} />
-          <ProgressCard app={app.data} interview={interview} />
-
-          {interview ? (
+          <SectionHead kicker={S.interviewsKicker} title={S.interviewsTitle} note={mine.length ? S.interviewCount(mine.length) : undefined} />
+          {mine.length ? (
+            mine.map((iv) => <InterviewCard key={iv.id} interview={iv} now={now} />)
+          ) : (
             <Card>
-              <CardTitle right={<StatusChip {...interviewStatus(interview.status, "CANDIDATE")} />}>
-                {S.interview}
-              </CardTitle>
-              <ListRow
-                icon="clock"
-                title={formatLongDate(interview.scheduledAt)}
-                subtitle={formatTimeRange(interview.scheduledAt, interview.durationMinutes)}
-              />
-              <ListRow icon={interview.format === "ONLINE" ? "video" : "home"} title={interviewPlace(interview, locations)} last />
-              {/* Nút Đồng ý / Từ chối đã nằm ở thẻ hành động trên cùng — không lặp lại ở đây. */}
-              {!awaitsReply(interview, now) ? <InterviewAction interview={interview} size="md" fullWidth /> : null}
+              <Text style={styles.sub}>{S.noInterview}</Text>
             </Card>
-          ) : null}
+          )}
 
-          {offer ? (
+          <SectionHead kicker={S.offersKicker} title={S.offersTitle} />
+          {myOffers.length ? (
+            myOffers.map((o) => <OfferCard key={o.id} offer={o} fallbackTitle={app.data.jobTitle ?? ""} />)
+          ) : (
             <Card>
-              <CardTitle right={<StatusChip {...offerStatus(offer.status, "CANDIDATE")} />}>{S.offer}</CardTitle>
+              <Text style={styles.sub}>{S.noOffer}</Text>
+            </Card>
+          )}
+
+          <View style={styles.actions}>
+            {app.data.jobPostingId != null ? (
               <PillButton
-                label={S.viewOffer}
+                label={S.viewJob}
+                variant="outline"
                 fullWidth
-                onPress={() => router.push({ pathname: "/offers/[id]", params: { id: String(offer.id) } })}
+                onPress={() => router.push({ pathname: "/jobs/[id]", params: { id: String(app.data.jobPostingId) } })}
               />
-            </Card>
-          ) : null}
-
-          {app.data.resumeUrl ? (
-            <Card>
-              <CardTitle>{S.submitted}</CardTitle>
-              <ListRow icon="file" title={cvFileName(app.data.resumeUrl)} subtitle={formatDate(app.data.appliedAt)} last />
-            </Card>
-          ) : null}
-
-          {app.data.jobPostingId != null ? (
-            <PillButton
-              label={S.viewJob}
-              variant="tonal"
-              fullWidth
-              onPress={() =>
-                router.push({ pathname: "/jobs/[id]", params: { id: String(app.data.jobPostingId) } })
-              }
-            />
-          ) : null}
-
-          {canWithdraw ? (
-            <PillButton label={S.withdraw} variant="danger" fullWidth onPress={() => setConfirmWithdraw(true)} />
-          ) : null}
+            ) : null}
+            {canWithdraw ? (
+              <PillButton label={S.withdraw} variant="danger" fullWidth onPress={() => setConfirmWithdraw(true)} />
+            ) : null}
+          </View>
         </ScrollView>
       )}
 
@@ -173,31 +152,70 @@ export default function ApplicationDetailScreen() {
   );
 }
 
-function SummaryCard({ app }: { app: CandidateApplication }) {
+function SectionHead({ kicker, title, note }: { kicker: string; title: string; note?: string }) {
+  return (
+    <View style={styles.sectionHead}>
+      <View style={styles.flex}>
+        <Eyebrow>{kicker}</Eyebrow>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          {title}
+        </Text>
+      </View>
+      {note ? <Text style={styles.sub}>{note}</Text> : null}
+    </View>
+  );
+}
+
+function SummaryCard({ app, interview }: { app: CandidateApplication; interview?: CandidateInterview }) {
   return (
     <Card>
-      <View style={styles.summaryHead}>
-        <IconTile icon="briefcase" size={SIZES.otpWidth} />
-        <View style={styles.flex}>
-          <Text style={styles.jobTitle}>{app.jobTitle}</Text>
-          {app.departmentName ? <Text style={styles.sub}>{app.departmentName}</Text> : null}
-        </View>
-      </View>
-      <View style={styles.summaryFoot}>
+      <View style={styles.row}>
+        {app.id != null ? <Eyebrow>{S.code(app.id)}</Eyebrow> : <View />}
         <StatusChip {...stageStatus(app.currentStageType, app.currentStageName)} />
-        <Text style={styles.sub}>{STRINGS.applications.appliedOn(formatDate(app.appliedAt))}</Text>
       </View>
+      <View style={styles.titleBlock}>
+        <Text style={styles.jobTitle} accessibilityRole="header">
+          {app.jobTitle}
+        </Text>
+        <Text style={styles.sub}>
+          {[app.departmentName, S.appliedOn(formatDate(app.appliedAt))].filter(Boolean).join(" · ")}
+        </Text>
+      </View>
+      <Divider />
+      <View style={styles.kv}>
+        <Text style={styles.sub}>{S.currentStatus}</Text>
+        <Text style={styles.kvValue}>{app.currentStageName || stageStatus(app.currentStageType).label}</Text>
+      </View>
+      {app.recruiterName ? (
+        <View style={styles.kv}>
+          <Text style={styles.sub}>{S.recruiter}</Text>
+          <Text style={styles.kvValue}>{app.recruiterName}</Text>
+        </View>
+      ) : null}
+      <Divider />
+      <Eyebrow>{S.progressKicker}</Eyebrow>
+      <Timeline app={app} interview={interview} />
+      {app.resumeUrl ? (
+        <>
+          <Divider />
+          <View style={styles.kv}>
+            <Text style={styles.sub}>{S.cvSubmitted}</Text>
+            <Text style={styles.kvValue} numberOfLines={1}>
+              {cvFileName(app.resumeUrl)}
+            </Text>
+          </View>
+        </>
+      ) : null}
     </Card>
   );
 }
 
 /**
- * Dòng thời gian dọc 4 chặng (canvas M09). Backend chỉ trả vòng hiện tại, không có ngày của
- * từng vòng → chặng đã qua ghi "Đã qua", chặng đầu ghi ngày nộp.
+ * Dòng thời gian dọc 4 bước (`.timeline`). Backend chỉ trả vòng hiện tại, không có ngày của từng vòng → bước đã qua
+ * ghi "Đã qua", bước đầu ghi ngày nộp, bước phỏng vấn ghi giờ buổi sắp tới nếu có.
  */
-function ProgressCard({ app, interview }: { app: CandidateApplication; interview?: CandidateInterview }) {
+function Timeline({ app, interview }: { app: CandidateApplication; interview?: CandidateInterview }) {
   const phase = applicationPhase(app.currentStageType);
-
   type Item = { title: string; subtitle: string; state: "done" | "current" | "upcoming" | "stopped" };
   const items: Item[] = phase.rejected
     ? [
@@ -215,7 +233,7 @@ function ProgressCard({ app, interview }: { app: CandidateApplication; interview
         if (i === 0) subtitle = formatDate(app.appliedAt);
         else if (current && app.currentStageName) subtitle = app.currentStageName;
         if (current && i === 2 && interview?.scheduledAt)
-          subtitle = `${formatDate(interview.scheduledAt)} · ${formatTimeRange(interview.scheduledAt, interview.durationMinutes)}`;
+          subtitle = `${formatDate(interview.scheduledAt)} · ${formatTime(interview.scheduledAt)}`;
         return {
           title: phase.hired && i === P.length - 1 ? S.hiredTitle : title,
           subtitle,
@@ -224,39 +242,109 @@ function ProgressCard({ app, interview }: { app: CandidateApplication; interview
       });
 
   return (
-    <Card>
-      <CardTitle>{S.progress}</CardTitle>
-      <View>
-        {items.map((it, i) => {
-          const last = i === items.length - 1;
-          return (
-            <View key={i} style={styles.tlRow}>
-              <View style={styles.tlRail}>
-                <View
-                  style={[
-                    styles.tlDot,
-                    it.state === "done" && styles.tlDotDone,
-                    it.state === "current" && styles.tlDotCurrent,
-                    it.state === "stopped" && styles.tlDotStopped,
-                  ]}
-                >
-                  {it.state === "done" ? (
-                    <Icon name="check" size={SIZES.iconXs} color={COLORS.textOnPrimary} strokeWidth={2} />
-                  ) : it.state === "stopped" ? (
-                    <Icon name="close" size={SIZES.iconXs} color={COLORS.textOnPrimary} strokeWidth={2} />
-                  ) : null}
-                </View>
-                {!last ? <View style={[styles.tlLine, it.state === "done" && styles.tlLineDone]} /> : null}
-              </View>
-              <View style={[styles.tlText, !last && styles.tlTextGap]}>
-                <Text style={[styles.tlTitle, it.state === "upcoming" && styles.muted]}>{it.title}</Text>
-                {it.subtitle ? <Text style={styles.sub}>{it.subtitle}</Text> : null}
-              </View>
+    <View>
+      {items.map((it, i) => {
+        const last = i === items.length - 1;
+        return (
+          <View key={i} style={styles.tlRow}>
+            <View style={styles.tlRail}>
+              <View
+                style={[
+                  styles.tlDot,
+                  it.state === "done" && styles.tlDotDone,
+                  it.state === "current" && styles.tlDotCurrent,
+                  it.state === "stopped" && styles.tlDotStopped,
+                ]}
+              />
+              {!last ? <View style={[styles.tlLine, it.state === "done" && styles.tlLineDone]} /> : null}
             </View>
-          );
-        })}
+            <View style={[styles.tlText, !last && styles.tlTextGap]}>
+              <Text style={[styles.tlTitle, it.state === "upcoming" && styles.muted]}>{it.title}</Text>
+              {it.subtitle ? <Text style={styles.small}>{it.subtitle}</Text> : null}
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function InterviewCard({ interview, now }: { interview: CandidateInterview; now: number }) {
+  const waiting = awaitsReply(interview, now);
+  const hint = waiting
+    ? S.ivNeedsReply
+    : interview.status === "CANDIDATE_CONFIRMED"
+      ? S.ivConfirmed
+      : S.ivView;
+  return (
+    <Card
+      onPress={() =>
+        interview.id != null && router.push({ pathname: "/interviews/[id]", params: { id: String(interview.id) } })
+      }
+      accessibilityLabel={`${S.interviewsTitle} ${formatDate(interview.scheduledAt)}`}
+      style={waiting && styles.cardHighlight}
+    >
+      <View style={styles.row}>
+        <Text style={styles.ivWhen}>
+          {formatDate(interview.scheduledAt)} · {formatTime(interview.scheduledAt)}
+        </Text>
+        <StatusChip {...interviewStatus(interview.status, "CANDIDATE")} />
+      </View>
+      <View style={styles.titleBlock}>
+        <Text style={styles.sub}>
+          {I.timeAndLength(
+            interview.format === "ONLINE" ? I.formatOnline : I.formatOffline,
+            interview.durationMinutes ?? 60
+          )}
+        </Text>
+        {interview.interviewerNames?.length ? (
+          <Text style={styles.sub}>{S.interviewers(interview.interviewerNames.join(", "))}</Text>
+        ) : null}
+      </View>
+      <View style={styles.row}>
+        <Text style={[styles.sub, waiting && styles.hintStrong]}>{hint}</Text>
+        <Link label={S.detailLink} />
       </View>
     </Card>
+  );
+}
+
+function OfferCard({ offer, fallbackTitle }: { offer: CandidateOffer; fallbackTitle: string }) {
+  const awaiting = offer.status === "APPROVED";
+  const hint = awaiting ? S.offerAwaiting : offer.status === "ACCEPTED" ? S.offerAccepted : S.offerReview;
+  const meta = [
+    offer.startDate ? S.offerStart(formatDate(offer.startDate)) : S.offerStartTbd,
+    offer.responseDeadline ? S.offerDeadline(formatDate(offer.responseDeadline)) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <Card
+      onPress={() => offer.id != null && router.push({ pathname: "/offers/[id]", params: { id: String(offer.id) } })}
+      accessibilityLabel={S.offerCard(offer.jobTitle || fallbackTitle)}
+      style={awaiting && styles.cardHighlight}
+    >
+      <View style={styles.row}>
+        <Text style={[styles.ivWhen, styles.flex]} numberOfLines={2}>
+          {S.offerCard(offer.jobTitle || fallbackTitle)}
+        </Text>
+        <StatusChip {...offerStatus(offer.status, "CANDIDATE")} />
+      </View>
+      <Text style={styles.sub}>{meta}</Text>
+      <View style={styles.row}>
+        <Text style={[styles.sub, awaiting && styles.hintStrong]}>{hint}</Text>
+        <Link label={S.openOffer} />
+      </View>
+    </Card>
+  );
+}
+
+function Link({ label }: { label: string }) {
+  return (
+    <View style={styles.link}>
+      <Text style={styles.linkText}>{label}</Text>
+      <Icon name="arrowRight" size={SIZES.iconXs} color={COLORS.primaryDark} strokeWidth={1.8} />
+    </View>
   );
 }
 
@@ -265,37 +353,53 @@ const styles = StyleSheet.create({
   pad: { padding: SPACING.page },
   content: { paddingHorizontal: SPACING.page, paddingTop: SPACING.xs, gap: SPACING.sm2 },
   flex: { flex: 1, gap: SPACING.xxs },
-
-  actionCard: { backgroundColor: COLORS.primarySoft },
-  actionTitle: { fontFamily: FONT.bold, fontSize: FONT_SIZE.lg, color: COLORS.textPrimary },
-  summaryHead: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2 },
-  summaryFoot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },
-  jobTitle: { fontFamily: FONT.bold, fontSize: FONT_SIZE.lg, color: COLORS.textPrimary },
-  sub: { fontFamily: FONT.regular, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },
+  titleBlock: { gap: SPACING.xxs },
+  jobTitle: {
+    fontFamily: FONT.bold,
+    fontSize: FONT_SIZE.section,
+    lineHeight: FONT_SIZE.section * LINE_HEIGHT.title,
+    color: COLORS.textPrimary,
+  },
+  sub: {
+    fontFamily: FONT.regular,
+    fontSize: FONT_SIZE.caption,
+    lineHeight: FONT_SIZE.caption * LINE_HEIGHT.body,
+    color: COLORS.textSecondary,
+  },
+  small: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
   muted: { color: COLORS.textSecondary },
+  kv: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm2 },
+  kvValue: { flexShrink: 1, textAlign: "right", fontFamily: FONT.semibold, fontSize: FONT_SIZE.caption, color: COLORS.textPrimary },
+  sectionHead: { flexDirection: "row", alignItems: "flex-end", gap: SPACING.sm, marginTop: SPACING.sm2 },
+  sectionTitle: {
+    fontFamily: FONT.bold,
+    fontSize: FONT_SIZE.section,
+    letterSpacing: LETTER_SPACING.title,
+    color: COLORS.textPrimary,
+  },
+  cardHighlight: { borderColor: COLORS.primary },
+  ivWhen: { fontFamily: FONT.bold, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
+  hintStrong: { fontFamily: FONT.semibold, color: COLORS.primaryDark },
+  link: { flexDirection: "row", alignItems: "center", gap: SPACING.xxs },
+  linkText: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.caption, color: COLORS.primaryDark },
+  actions: { gap: SPACING.sm2, marginTop: SPACING.sm2 },
 
   tlRow: { flexDirection: "row", gap: SPACING.sm2 },
-  tlRail: { alignItems: "center", gap: SPACING.xs },
+  // Chấm tròn nhỏ + đường dọc mảnh (`.step:before`, `.timeline:before`).
+  tlRail: { alignItems: "center", width: SIZES.stepDot + SPACING.xs, paddingTop: SPACING.xs },
   tlDot: {
-    width: SIZES.tag,
-    height: SIZES.tag,
+    width: SIZES.stepDot,
+    height: SIZES.stepDot,
     borderRadius: RADIUS.full,
     backgroundColor: COLORS.fillStrong,
-    alignItems: "center",
-    justifyContent: "center",
   },
   tlDotDone: { backgroundColor: COLORS.primary },
-  tlDotCurrent: { backgroundColor: COLORS.primarySoft, borderWidth: SIZES.track, borderColor: COLORS.primary },
+  tlDotCurrent: { backgroundColor: COLORS.cardBg, borderWidth: SIZES.track, borderColor: COLORS.primary },
   tlDotStopped: { backgroundColor: COLORS.errorText },
-  tlLine: {
-    width: SIZES.track,
-    flexGrow: 1,
-    minHeight: SPACING.lg,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.fillStrong,
-  },
+  tlLine: { width: SIZES.border, flexGrow: 1, minHeight: SPACING.md2, marginTop: SPACING.xs, backgroundColor: COLORS.border },
   tlLineDone: { backgroundColor: COLORS.primary },
   tlText: { flex: 1, gap: SPACING.xxs },
-  tlTextGap: { paddingBottom: SPACING.md },
-  tlTitle: { fontFamily: FONT.medium, fontSize: FONT_SIZE.md, color: COLORS.textPrimary },
+  tlTextGap: { paddingBottom: SPACING.sm2 },
+  tlTitle: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
 });

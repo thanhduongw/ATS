@@ -1,6 +1,6 @@
 import { NotificationsScreen } from "@/features/notifications/notifications-screen";
 
-/** M14 — Thông báo. Ở khu ứng viên là một tab (thay tab "Tin nhắn" của canvas Mobile v2). */
+/** Thông báo — mở từ nút chuông ở thanh trên cùng (Redesign-Final), có nút quay lại. */
 export default function CandidateNotifications() {
-  return <NotificationsScreen asTab />;
+  return <NotificationsScreen />;
 }

@@ -4,6 +4,6 @@ export { SPACING } from "./spacing";
 export { RADIUS } from "./radius";
 export { SHADOWS } from "./shadows";
 export { SIZES } from "./sizes";
-export { FONT, FONT_SIZE, FONT_ASSETS, LINE_HEIGHT } from "./typography";
+export { FONT, FONT_SIZE, FONT_ASSETS, LINE_HEIGHT, LETTER_SPACING } from "./typography";
 export { paperTheme } from "./paper";
-export { readCachedCompanyName, syncBrandFromServer } from "./brand";
+export { readCachedCompanyName, readCachedLogoUrl, syncBrandFromServer, heroColor } from "./brand";

@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   groupHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: SPACING.sm },
   groupTitle: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
   groupCount: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
-  card: { flexDirection: "row", gap: SPACING.sm2, backgroundColor: COLORS.cardBg, borderRadius: RADIUS.lg, padding: SPACING.md },
+  card: { flexDirection: "row", gap: SPACING.sm2, backgroundColor: COLORS.cardBg, borderRadius: RADIUS.xl, borderWidth: SIZES.border, borderColor: COLORS.border, padding: SPACING.md },
   cardPressed: { opacity: 0.85 },
   time: { width: SPACING.xxl, gap: SPACING.xxs },
   timeText: { fontFamily: FONT.bold, fontSize: FONT_SIZE.md, color: COLORS.textPrimary },

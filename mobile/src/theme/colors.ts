@@ -29,16 +29,16 @@ export const COLORS = {
   navy2: BRAND.deep2,
 
   /* Bề mặt */
-  /** Nền trang — canvas `background-secondary`. */
-  body: "#F1F3F5",
+  /** Nền trang (Redesign-Final `--bg`, bỏ sắc xanh lá để hợp mọi màu thương hiệu). */
+  body: "#F6F7F8",
   /** Nền thẻ, sheet — canvas `comp-background`. */
   cardBg: "#FFFFFF",
   /** Nền ô nhập, chip chưa chọn, nút tròn — canvas `#1824310c` (~5%). */
   fill: "#1824310C",
   /** Nền nút phụ (tonal) và ô trống của thanh tiến trình — canvas `#18243119` (~10%). */
   fillStrong: "#18243119",
-  /** Thanh tab dưới và thanh hành động dưới: nền trang, gần như đục. */
-  barBg: "#F1F3F5F2",
+  /** Thanh trên cùng, thanh tab dưới, thanh hành động dưới: trắng đục (Redesign-Final `rgba(255,255,255,.98)`, làm đục hẳn để nội dung cuộn bên dưới không lộ ra). */
+  barBg: "#FFFFFF",
   /** Nền mờ phía sau sheet. */
   backdrop: "#00000033",
 
@@ -52,10 +52,18 @@ export const COLORS = {
   /** 40% — CHỈ cho placeholder, chữ vô hiệu, chấm trạng thái trung tính. Không dùng cho nội dung. */
   textMuted: "#A3A7AD",
   textOnPrimary: "#FFFFFF",
+  /** Chữ phụ trên nền màu đậm (mô tả trong khối đầu Trang chủ) — trắng 82%. */
+  textOnDarkMuted: "#FFFFFFD1",
+  /** Nền nhãn nhỏ trên nền màu đậm (dòng "12 vị trí đang mở" ở khối đầu) — trắng 14%. */
+  onDarkFill: "#FFFFFF24",
 
   /* Viền */
-  /** Đường kẻ 0.5px giữa các dòng, viền trên thanh tab — canvas `#18243133`. */
-  divider: "#18243133",
+  /** Đường kẻ mảnh giữa các dòng trong thẻ. */
+  divider: "#E7EAED",
+  /** Viền 1px của thẻ, ô nhập, chip, nút viền, thanh trên/dưới (Redesign-Final `--line`). */
+  border: "#E1E5E9",
+  /** Nền ô thông tin nhỏ lồng trong thẻ (lưới "Mức lương · Hình thức…"). */
+  surfaceMuted: "#F4F6F7",
 
   /* Ngữ nghĩa — tên theo canvas */
   /** Canvas `warning`. Dùng cho chấm, icon, viền. KHÔNG dùng làm màu chữ trên nền xám (2.9:1). */
@@ -81,11 +89,12 @@ export const COLORS = {
  */
 export const STATUS_TONES = {
   neutral: { bg: COLORS.fill, dot: COLORS.textSecondary, text: COLORS.textSecondary },
-  brand: { bg: COLORS.primarySoft, dot: COLORS.primary, text: COLORS.primary },
-  interview: { bg: "#7C4DFF1A", dot: COLORS.interview, text: COLORS.interview },
-  warning: { bg: "#FF75001F", dot: COLORS.warning, text: COLORS.warning },
-  success: { bg: "#00CB8724", dot: COLORS.success, text: COLORS.success },
-  danger: { bg: "#FA2A2D17", dot: COLORS.error, text: COLORS.error },
+  brand: { bg: COLORS.primarySoft, dot: COLORS.primary, text: COLORS.primaryDark },
+  // Chữ của nhãn dùng bản đậm (như `.pill.amber/.red` của Redesign-Final) để đạt 4.5:1 trên nền nhạt.
+  interview: { bg: "#7C4DFF1A", dot: COLORS.interview, text: "#5B32D6" },
+  warning: { bg: "#FF75001F", dot: COLORS.warning, text: "#A44A00" },
+  success: { bg: "#00CB8724", dot: COLORS.success, text: "#00704B" },
+  danger: { bg: "#FA2A2D17", dot: COLORS.error, text: COLORS.errorText },
 } as const;
 
 /** Dải màu AI (DS01) — CHỈ cho điểm AI, nhãn AI. Vẽ bằng react-native-svg (quyết định X5). */

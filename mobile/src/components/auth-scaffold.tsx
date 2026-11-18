@@ -2,10 +2,10 @@ import type { ReactNode } from "react";
 import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { COLORS, FONT, FONT_SIZE, LINE_HEIGHT, RADIUS, SIZES, SPACING } from "@/theme";
+import { COLORS, FONT, FONT_SIZE, LETTER_SPACING, LINE_HEIGHT, RADIUS, SIZES, SPACING } from "@/theme";
 import { STRINGS } from "@/lib/strings";
 import { IconButton, PillButton } from "./ui/buttons";
-import { BrandMark, IconTile } from "./ui/surfaces";
+import { CompanyLogo, IconTile } from "./ui/surfaces";
 import type { IconName } from "./ui/icon";
 
 type Leading = "brand" | "back" | { icon: IconName };
@@ -61,7 +61,7 @@ export function AuthScaffold({
             {leading === "brand" ? (
               <Brand />
             ) : leading === "back" ? null : (
-              <IconTile icon={leading.icon} shape="circle" size={SIZES.otpHeight + SPACING.sm} />
+              <IconTile icon={leading.icon} size={SIZES.otpWidth} />
             )}
 
             <View style={styles.titleBlock}>
@@ -96,11 +96,11 @@ function goBack() {
   else router.replace("/(auth)/login");
 }
 
-/** Logo chữ + tên app (canvas M01). */
+/** Logo doanh nghiệp (Quản trị tải lên ở web; chưa có thì chữ cái đầu) + tên — Redesign-Final `.authlogo`. */
 function Brand() {
   return (
     <View style={styles.brand} accessibilityRole="header" accessibilityLabel={STRINGS.brand.name}>
-      <BrandMark />
+      <CompanyLogo size={SIZES.otpWidth} />
       <View>
         <Text style={styles.brandName}>{STRINGS.brand.name}</Text>
         <Text style={styles.brandTagline}>{STRINGS.brand.tagline}</Text>
@@ -167,22 +167,26 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     backgroundColor: COLORS.cardBg,
     borderRadius: RADIUS.xl,
+    borderWidth: SIZES.border,
+    borderColor: COLORS.border,
     padding: SPACING.xl,
   },
   head: { gap: SPACING.md2, marginBottom: SPACING.lg },
   titleBlock: { gap: SPACING.sm },
   titleRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2 },
+  // Redesign-Final `.authscreen h1` 24 đậm, câu dẫn 14 xám.
   title: {
     flexShrink: 1,
     fontFamily: FONT.bold,
-    fontSize: FONT_SIZE.h1,
-    lineHeight: FONT_SIZE.h1 * LINE_HEIGHT.title,
+    fontSize: FONT_SIZE.h2,
+    lineHeight: FONT_SIZE.h2 * LINE_HEIGHT.title,
+    letterSpacing: LETTER_SPACING.title,
     color: COLORS.textPrimary,
   },
   subtitle: {
     fontFamily: FONT.regular,
-    fontSize: FONT_SIZE.lg,
-    lineHeight: FONT_SIZE.lg * LINE_HEIGHT.body,
+    fontSize: FONT_SIZE.base,
+    lineHeight: FONT_SIZE.base * LINE_HEIGHT.body,
     color: COLORS.textSecondary,
   },
   form: { gap: SPACING.md },
@@ -193,10 +197,9 @@ const styles = StyleSheet.create({
   brand: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2 },
   brandName: { fontFamily: FONT.bold, fontSize: FONT_SIZE.section, color: COLORS.textPrimary },
   brandTagline: {
-    fontFamily: FONT.medium,
-    fontSize: FONT_SIZE.xs,
-    // Một-lần: giãn chữ cho dòng chữ in hoa dưới logo, như canvas (0.04em).
-    letterSpacing: 0.5,
+    fontFamily: FONT.bold,
+    fontSize: FONT_SIZE.micro,
+    letterSpacing: LETTER_SPACING.eyebrow,
     color: COLORS.textSecondary,
   },
 

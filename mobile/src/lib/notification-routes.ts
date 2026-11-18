@@ -16,8 +16,8 @@ export function notificationHref(n: NotificationResponse, role?: Role): string |
       case "APPLICATION":
         return id != null ? `/applications/${id}` : "/applications";
       case "INTERVIEW":
-        // Không có màn chi tiết buổi PV riêng: mở tab lịch phỏng vấn.
-        return "/interviews";
+        // Màn chi tiết buổi PV (Redesign-Final); thiếu id thì về Đơn của tôi — lịch nằm trong chi tiết đơn.
+        return id != null ? `/interviews/${id}` : "/applications";
       case "OFFER":
         return id != null ? `/offers/${id}` : "/offers";
       default:

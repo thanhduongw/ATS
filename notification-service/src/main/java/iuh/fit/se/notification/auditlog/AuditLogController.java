@@ -17,6 +17,7 @@ import java.util.List;
 public class AuditLogController {
 
     private final AuditLogService service;
+    private final AuditResourceAccess access;
 
     @GetMapping
     public ResponseEntity<List<AuditLogResponse>> search(
@@ -36,7 +37,13 @@ public class AuditLogController {
     public ResponseEntity<List<AuditLogResponse>> forResource(
             @RequestParam String resourceType,
             @RequestParam List<Long> resourceIds) {
-        AuthorizationPolicy.requireInternal(CurrentUser.required());
-        return ResponseEntity.ok(service.forResource(resourceType, resourceIds));
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireInternal(actor);
+        // Đại diện phòng ban chỉ xem lịch sử của đối tượng thuộc phòng mình (không lộ hồ sơ phòng khác).
+        List<Long> visible = access.visibleIds(actor, resourceType, resourceIds);
+        if (visible.isEmpty() && !resourceIds.isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem lịch sử này");
+        }
+        return ResponseEntity.ok(service.forResource(resourceType, visible));
     }
 }

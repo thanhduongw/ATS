@@ -44,7 +44,7 @@ import { HR_ROLES } from "../../../app/roles";
 import EmptyState from "../../../components/ui/EmptyState";
 import CvParseResultPanel from "../../ai/components/CvParseResultPanel";
 import AiScoreCard from "../../ai/components/AiScoreCard";
-import type { CVExtractionResult, ExtractionProvenance, CVExtractionResponse } from "../../ai/types";
+import type { CVFacts, CvFactsProvenance, CVFactsResponse } from "../../ai/types";
 import { getCvExtraction, reExtractCv } from "../../ai/aiApi";
 import StageTag from "../../../components/ui/StageTag";
 import { advanceSteps, planNextFixedStage } from "../stageAdvance";
@@ -119,8 +119,8 @@ export default function CandidateApplicationDetailPage() {
 
     const [interviewModalOpen, setInterviewModalOpen] = useState(false);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
-    const [aiResult, setAiResult] = useState<CVExtractionResult | null>(null);
-    const [aiProvenance, setAiProvenance] = useState<ExtractionProvenance | null>(null);
+    const [aiResult, setAiResult] = useState<CVFacts | null>(null);
+    const [aiProvenance, setAiProvenance] = useState<CvFactsProvenance | null>(null);
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
 
@@ -207,7 +207,7 @@ export default function CandidateApplicationDetailPage() {
         setAiError(null);
         try {
             const res = force ? await reExtractCv(applicationId) : await getCvExtraction(applicationId);
-            const data: CVExtractionResponse = res.data;
+            const data: CVFactsResponse = res.data;
             if (data.status === "error" || !data.result) {
                 setAiResult(null);
                 setAiProvenance(null);
@@ -643,10 +643,10 @@ export default function CandidateApplicationDetailPage() {
                 )}
 
                 {/* ── AI Result with scrollbar ── */}
-                {!aiLoading && !aiError && aiResult && aiProvenance && (
+                {!aiLoading && !aiError && aiResult && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>AI Trích Xuất CV</Tag>
+                            <Tag color="purple" style={{ margin: 0, borderRadius: 6, fontWeight: 600 }}>Phân tích CV</Tag>
                             {isHr && (
                                 <Button size="small" icon={<RobotOutlined />} onClick={handleReExtract} loading={aiLoading}>Phân tích lại</Button>
                             )}

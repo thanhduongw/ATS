@@ -40,12 +40,10 @@ import CandidateFormModal from "../components/CandidateFormModal";
 import ApplicationCreateModal from "../components/ApplicationCreateModal";
 import { useMyInterviewStatus } from "../useMyInterviewStatus";
 import StatusTag from "../../../components/ui/StatusTag";
-import AiCvUploadModal from "../../ai/components/AiCvUploadModal";
 import AiScoreBadge from "../../ai/components/AiScoreBadge";
 import { AI_TIER_OPTIONS, aiTierMeta } from "../../ai/aiScore";
 import { rescorePosting } from "../../ai/aiApi";
 import { useFitPageSize } from "../../../components/ui/useFitPageSize";
-import type { CandidateFormValues } from "../schemas/candidateSchema";
 import { filterOptionByLabel } from "../../../app/text";
 
 /** Bộ lọc giai đoạn theo 6 nhóm cố định (DS06) — giá trị là danh sách stageType gửi lên API. */
@@ -113,8 +111,6 @@ export default function ApplicationsPage() {
     const [contactById, setContactById] = useState<Map<number, { email: string; phone: string }>>(new Map());
     const [recruiters, setRecruiters] = useState<UserDirectoryResponse[]>([]);
     // AI doc CV tra ve ten ky nang/hoc van dang chuoi; can danh muc de anh xa sang id.
-    const [skills, setSkills] = useState<CatalogItem[]>([]);
-    const [educationLevels, setEducationLevels] = useState<CatalogItem[]>([]);
     const [reasons, setReasons] = useState<CatalogItem[]>([]);
 
     // Bulk actions
@@ -125,12 +121,9 @@ export default function ApplicationsPage() {
     const [bulkAssignForm] = Form.useForm();
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
 
-    // Them ung vien thu cong, hoac de AI doc CV roi dien san vao chinh form do.
+    // Thêm ứng viên thủ công.
     const [candidateFormOpen, setCandidateFormOpen] = useState(false);
     const [attachCandidateId, setAttachCandidateId] = useState<number | null>(null);
-    const [aiUploadOpen, setAiUploadOpen] = useState(false);
-    const [aiPrefill, setAiPrefill] = useState<Partial<CandidateFormValues> | null>(null);
-    const [aiPrefillFile, setAiPrefillFile] = useState<File | null>(null);
 
     // Debounce ô tìm kiếm
     useEffect(() => {
@@ -172,8 +165,6 @@ export default function ApplicationsPage() {
 
     useEffect(() => {
         getCatalogItems("/masterdata/rejection-reasons").then((r) => setReasons(r.data));
-        getCatalogItems("/masterdata/skills").then((r) => setSkills(r.data));
-        getCatalogItems("/masterdata/education-levels").then((r) => setEducationLevels(r.data));
         getPostings({ size: 1000 }).then((r) => setPostings(r.data.content));
         if (myDeptId != null) {
             getCatalogItems("/masterdata/departments")
@@ -381,7 +372,6 @@ export default function ApplicationsPage() {
                             </Button>
                         </Tooltip>
                     )}
-                    {isHr && <Button icon={<RobotOutlined />} onClick={() => setAiUploadOpen(true)}>AI đọc CV</Button>}
                     {isHr && (
                         <Button type="primary" icon={<PlusOutlined />} onClick={() => setCandidateFormOpen(true)}>
                             Thêm ứng viên
@@ -557,13 +547,7 @@ export default function ApplicationsPage() {
             <CandidateFormModal
                 open={candidateFormOpen}
                 editingItem={null}
-                initialValues={aiPrefill}
-                initialFile={aiPrefillFile}
-                onClose={() => {
-                    setCandidateFormOpen(false);
-                    setAiPrefill(null);
-                    setAiPrefillFile(null);
-                }}
+                onClose={() => setCandidateFormOpen(false)}
                 onSuccess={load}
                 onCreated={(id) => setAttachCandidateId(id)}
             />
@@ -574,19 +558,6 @@ export default function ApplicationsPage() {
                 presetCandidateId={attachCandidateId ?? undefined}
                 onClose={() => setAttachCandidateId(null)}
                 onSuccess={load}
-            />
-
-            <AiCvUploadModal
-                open={aiUploadOpen}
-                availableSkills={skills}
-                availableEducationLevels={educationLevels}
-                onClose={() => setAiUploadOpen(false)}
-                onFillCandidate={(data, file) => {
-                    setAiPrefill(data);
-                    setAiPrefillFile(file ?? null);
-                    setAiUploadOpen(false);
-                    setCandidateFormOpen(true);
-                }}
             />
         </ListPage>
     );

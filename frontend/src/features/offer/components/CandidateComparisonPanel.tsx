@@ -415,7 +415,7 @@ export default function CandidateComparisonPanel({ jobPostingId, showHeader = tr
                     type="warning"
                     showIcon
                     style={{ marginBottom: 12 }}
-                    message={`Tin này đã dùng hết ${headcount} suất tuyển`}
+                    title={`Tin này đã dùng hết ${headcount} suất tuyển`}
                     description="Muốn gửi đề nghị cho ứng viên khác, hãy hủy một đề nghị đang xử lý hoặc tăng số lượng tuyển trong yêu cầu tuyển dụng. Đề nghị bị ứng viên từ chối sẽ tự trả lại suất."
                 />
             )}

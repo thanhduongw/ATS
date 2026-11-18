@@ -152,7 +152,7 @@ export default function CvParseResultPanel({ result, provenance }: Props) {
             type="warning"
             showIcon
             style={{ marginTop: 10, borderRadius: 8 }}
-            message={`Chênh lệch ${yoeDiff.toFixed(1)} năm giữa kinh nghiệm tính toán và tự khai`}
+            title={`Chênh lệch ${yoeDiff.toFixed(1)} năm giữa kinh nghiệm tính toán và tự khai`}
           />
         )}
       </Card>

@@ -632,7 +632,7 @@ export default function CandidateApplicationDetailPage() {
                         <Alert
                             type="error"
                             showIcon
-                            message="Không thể phân tích CV"
+                            title="Không thể phân tích CV"
                             description={aiError}
                             style={{ borderRadius: 10, marginBottom: 12 }}
                         />

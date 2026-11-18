@@ -4,3 +4,4 @@ data/raw/
 build/
 # Kết quả tải về từ Kaggle (lớn) — chỉ commit summary/report
 results/kaggle/
+.embedding_cache.json

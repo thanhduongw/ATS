@@ -16,6 +16,9 @@ from app.api.health import router as health_router
 from app.api.extraction import router as extraction_router
 from app.api.cv_extraction import router as cv_extraction_router
 from app.api.application_scores import router as application_scores_router
+from app.api.embeddings import router as embeddings_router
+from app.api.talent import router as talent_router
+from app.api.duplicates import router as duplicates_router
 
 # Configure logging
 logging.basicConfig(
@@ -44,11 +47,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Không tạo được bảng của ai-service: %s", e)
 
+    # Bảng vector (tìm kiếm): DDL idempotent; thiếu pgvector thì tính năng tìm kiếm tự tắt, phần còn lại vẫn chạy.
+    try:
+        from app.core.database import engine as _engine
+        from app.core.vector_schema import ensure_vector_schema
+        await ensure_vector_schema(_engine, settings.embedding_dimensions)
+    except Exception as e:
+        logger.warning("Không khởi tạo được schema vector: %s", e)
+
     try:
         await rabbitmq_manager.connect()
         logger.info("RabbitMQ connected successfully.")
         from app.workers.scoring_worker import start_scoring_worker
         await start_scoring_worker()
+        from app.workers.candidate_events import start_candidate_event_workers
+        await start_candidate_event_workers()
     except Exception as e:
         logger.warning("RabbitMQ connection failed (service will start without queue): %s", e)
 
@@ -81,6 +94,9 @@ def create_app() -> FastAPI:
     app.include_router(extraction_router, prefix="/api/v1/ai", tags=["Text Extraction"], dependencies=internal)
     app.include_router(cv_extraction_router, prefix="/api/v1/ai", tags=["CV Extraction"], dependencies=internal)
     app.include_router(application_scores_router, prefix="/api/v1/ai", tags=["CV Scoring"], dependencies=internal)
+    app.include_router(embeddings_router, prefix="/api/v1/ai", tags=["Search Index"], dependencies=internal)
+    app.include_router(talent_router, prefix="/api/v1/ai", tags=["Talent Pool"], dependencies=internal)
+    app.include_router(duplicates_router, prefix="/api/v1/ai", tags=["Duplicates"], dependencies=internal)
 
     return app
 

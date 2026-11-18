@@ -34,6 +34,7 @@ from app.core.llm_client import LLMError, LLMManager, get_llm_manager
 from app.models import AIJob, AIScore
 from app.services.cv_extraction_store import COMPLETED as EXTRACTION_COMPLETED
 from app.services.cv_extraction_store import CVUnavailableError, get_or_extract
+from app.services.cv_indexing import schedule_indexing
 from app.services.experience import today_in
 from app.schemas.jd_extraction import ExtractedJD
 from app.services.jd_extraction_store import COMPLETED as JD_EXTRACTION_COMPLETED
@@ -234,6 +235,8 @@ async def score_application(
             # Trích xuất thất bại thì dừng, không chấm trên dữ liệu hỏng.
             if extraction.status != EXTRACTION_COMPLETED:
                 raise ScoringFailure(f"Không trích xuất được CV: {extraction.error_message}")
+            # Lập chỉ mục tìm kiếm vector chạy nền, best-effort: lỗi ở đây không ảnh hưởng điểm chấm.
+            schedule_indexing(session_factory, candidate_id, extraction)
 
             # ----- CHẤM (Bước 3–6) -----
             # names: tên ứng viên, KHÔNG gửi cho AI mà dùng để tìm và CHE tên trong đoạn văn (chấm mù).

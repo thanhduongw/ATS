@@ -1,0 +1,87 @@
+{
+ "pairs": 210,
+ "labels": {
+  "0": 70,
+  "1": 70,
+  "2": 70
+ },
+ "configs": {
+  "embedding: CV raw / JD query": {
+   "n": 210,
+   "auc_fit_vs_nofit": 0.657,
+   "auc_good_vs_rest": 0.592,
+   "spearman_vs_label": 0.235
+  },
+  "embedding: CV raw / JD document": {
+   "n": 210,
+   "auc_fit_vs_nofit": 0.642,
+   "auc_good_vs_rest": 0.579,
+   "spearman_vs_label": 0.209
+  },
+  "embedding: CV profile / JD query": {
+   "n": 210,
+   "auc_fit_vs_nofit": 0.651,
+   "auc_good_vs_rest": 0.601,
+   "spearman_vs_label": 0.237
+  },
+  "embedding: CV profile / JD document": {
+   "n": 210,
+   "auc_fit_vs_nofit": 0.622,
+   "auc_good_vs_rest": 0.567,
+   "spearman_vs_label": 0.179
+  },
+  "baseline: tfidf": {
+   "n": 210,
+   "auc_fit_vs_nofit": 0.564,
+   "auc_good_vs_rest": 0.623,
+   "spearman_vs_label": 0.176
+  },
+  "baseline: keyword": {
+   "n": 210,
+   "auc_fit_vs_nofit": 0.483,
+   "auc_good_vs_rest": 0.501,
+   "spearman_vs_label": -0.015
+  }
+ },
+ "best_embedding_config": "embedding: CV raw / JD query",
+ "prefilter": {
+  "config": "embedding: CV raw / JD query",
+  "rows": [
+   {
+    "skip": 0.1,
+    "threshold": 0.5648,
+    "good_kept": 0.957,
+    "potential_kept": 0.971,
+    "nofit_skipped": 0.229
+   },
+   {
+    "skip": 0.2,
+    "threshold": 0.5796,
+    "good_kept": 0.857,
+    "potential_kept": 0.871,
+    "nofit_skipped": 0.329
+   },
+   {
+    "skip": 0.3,
+    "threshold": 0.5904,
+    "good_kept": 0.743,
+    "potential_kept": 0.757,
+    "nofit_skipped": 0.4
+   },
+   {
+    "skip": 0.4,
+    "threshold": 0.6034,
+    "good_kept": 0.643,
+    "potential_kept": 0.686,
+    "nofit_skipped": 0.529
+   },
+   {
+    "skip": 0.5,
+    "threshold": 0.6141,
+    "good_kept": 0.571,
+    "potential_kept": 0.571,
+    "nofit_skipped": 0.643
+   }
+  ]
+ }
+}

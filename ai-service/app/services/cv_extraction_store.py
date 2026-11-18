@@ -89,6 +89,11 @@ async def _download(resume_url: str) -> tuple[bytes, str]:
     return data, key.rsplit("/", 1)[-1]
 
 
+# Khoá theo link CV (trong một tiến trình): CV vừa tải lên có thể được yêu cầu trích xuất đồng thời từ nhiều nơi
+# (sự kiện cv.uploaded và chấm điểm hồ sơ); người đến sau chờ rồi dùng kết quả đã lưu, khỏi gọi Gemini hai lần.
+_url_locks: dict[str, asyncio.Lock] = {}
+
+
 # [GIẢI THÍCH] TRÍCH XUẤT MỘT LẦN, DÙNG LẠI NHIỀU LẦN.
 # 1. Tìm theo link CV -> có bản thành công thì trả về luôn (không gọi AI).
 # 2. Chưa có -> tải file từ S3, tính mã băm -> tìm theo mã băm -> có thì trả về.
@@ -113,6 +118,25 @@ async def get_or_extract(
     Raises:
         CVUnavailableError: không tải được file CV — không có gì để lưu.
     """
+    lock = _url_locks.setdefault(resume_url, asyncio.Lock())
+    try:
+        async with lock:
+            return await _get_or_extract_locked(
+                session_factory, resume_url, candidate_id, force=force, manager=manager, cv_bytes=cv_bytes)
+    finally:
+        if not lock.locked() and not getattr(lock, "_waiters", None):
+            _url_locks.pop(resume_url, None)
+
+
+async def _get_or_extract_locked(
+    session_factory: async_sessionmaker[AsyncSession],
+    resume_url: str,
+    candidate_id: int | None,
+    *,
+    force: bool,
+    manager: LLMManager | None,
+    cv_bytes: bytes | None,
+) -> CVExtraction:
     async with session_factory() as session:
         if not force:
             row = await find_by_resume_url(session, resume_url)

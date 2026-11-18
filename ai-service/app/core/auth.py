@@ -14,6 +14,7 @@ from fastapi import Header, HTTPException
 
 INTERNAL_ROLES = {"COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER"}
 HR_ROLES = {"COMPANY_ADMIN", "RECRUITER"}
+ADMIN_ROLES = {"COMPANY_ADMIN"}
 
 # Danh tính khi ai-service tự gọi service Java (worker chạy nền). Các service Java chấp nhận
 # role SYSTEM trong TrustedHeaderAuthenticationFilter (X-User-Id phải dương — giống notification-service).
@@ -63,6 +64,11 @@ def require_internal(user: CurrentUser) -> None:
 def require_hr(user: CurrentUser) -> None:
     if user.role not in HR_ROLES:
         raise HTTPException(status_code=403, detail="Chỉ HR được thực hiện thao tác này")
+
+
+def require_admin(user: CurrentUser) -> None:
+    if user.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Chỉ quản trị viên được thực hiện thao tác này")
 
 
 def internal_only(

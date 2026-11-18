@@ -149,14 +149,63 @@ class AIScore(Base):
     application_id = Column(BigInteger, nullable=False, unique=True)
     job_posting_id = Column(BigInteger, nullable=False, index=True)
     candidate_id = Column(BigInteger, nullable=False)
-    cv_extraction_id = Column(BigInteger, ForeignKey("cv_extractions.id"))
+    cv_facts_id = Column(BigInteger)   # cv_facts.id đã dùng để chấm (null khi ứng viên xoá dữ liệu)
+    jd_facts_id = Column(BigInteger)   # jd_facts.id đã dùng để chấm
     ai_job_id = Column(BigInteger, ForeignKey("ai_jobs.id"))
     status = Column(String(20), nullable=False)
     total_score = Column(Numeric(5, 1))
     tier = Column(String(20))
-    result = Column(JSONB)       # ScoreResult
+    result = Column(JSONB)       # ScoreResult (app/schemas/ssrc.py)
     provenance = Column(JSONB)   # ScoringProvenance
     error_message = Column(Text)
     scored_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CVFactsRecord(Base):
+    """Dữ kiện CV (`CVFacts`) trích từ CV đã che PII — một dòng cho mỗi (file CV, phiên bản prompt).
+
+    Khoá theo sha256 nội dung file nên cùng một CV nộp vào nhiều tin chỉ gọi LLM một lần.
+    """
+
+    __tablename__ = "cv_facts"
+    __table_args__ = (UniqueConstraint("file_hash", "prompt_version", name="uq_cv_facts_file_prompt"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    file_hash = Column(String(64), nullable=False)
+    prompt_version = Column(String(40), nullable=False)
+    resume_url = Column(Text, index=True)
+    candidate_id = Column(BigInteger, index=True)
+    status = Column(String(20), nullable=False)   # COMPLETED | FAILED
+    model = Column(String(100))
+    result = Column(JSONB)          # CVFacts
+    provenance = Column(JSONB)      # model, prompt_version, token, chi phí, độ trễ
+    text_metadata = Column(JSONB)   # bước đọc file (OCR, chèn lệnh) + cảnh báo PII còn sót
+    error_code = Column(String(50))
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class JDFactsRecord(Base):
+    """Yêu cầu của JD (`JDFacts`) — một dòng cho mỗi (nội dung JD, phiên bản prompt).
+
+    Khoá theo mã băm NỘI DUNG JD: mọi CV của cùng một JD dùng chung một bản; HR sửa JD thì trích xuất lại.
+    """
+
+    __tablename__ = "jd_facts"
+    __table_args__ = (UniqueConstraint("content_hash", "prompt_version", name="uq_jd_facts_content_prompt"),)
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    content_hash = Column(String(64), nullable=False)
+    prompt_version = Column(String(40), nullable=False)
+    job_posting_id = Column(BigInteger)  # tin đầu tiên có nội dung này (chỉ để tra cứu)
+    status = Column(String(20), nullable=False)   # COMPLETED | FAILED
+    model = Column(String(100))
+    result = Column(JSONB)          # JDFacts
+    provenance = Column(JSONB)
+    error_code = Column(String(50))
+    error_message = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

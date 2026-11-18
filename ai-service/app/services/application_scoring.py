@@ -3,10 +3,12 @@ Chấm điểm một hồ sơ ứng tuyển thật trong hệ thống.
 
 Dùng chung cho:
 - worker nghe `application.created` (danh tính SYSTEM, chạy nền);
-- HR "Chấm lại" một hồ sơ và "Chấm tất cả hồ sơ của tin" (chuyển tiếp danh tính HR).
+- HR "Chấm lại" một hồ sơ, "Chấm tất cả hồ sơ của tin"; Admin "Chấm lại toàn bộ" (chuyển tiếp danh tính người bấm).
 
-Luồng: summary hồ sơ (+ resumeUrl) → tin tuyển dụng → trích xuất CV (lưu DB, dùng lại)
-→ chấm (Python thuần + một lời gọi LLM) → lưu `ai_scores` + `ai_jobs` → phát `ai.scoring.completed`.
+Luồng (theo nghiên cứu SSRC 2026, docs/KE_HOACH_AI_THEO_RESEARCH.md):
+summary hồ sơ (+ resumeUrl) → tin tuyển dụng → JDFacts (lưu DB, dùng lại) → tải CV, đọc chữ, che PII → CVFacts (lưu DB,
+dùng lại) → chính sách chứng chỉ suy từ JD → prompt B → 4 điểm 1–5 → code tính điểm 0–100 và xếp loại
+→ lưu `ai_scores` + `ai_jobs` → phát `ai.scoring.completed`.
 Sự kiện được phát ở mọi lần đổi trạng thái (PENDING / PROCESSING / COMPLETED / FAILED) để application-service
 giữ bản sao điểm cho danh sách; `updatedAt` giúp bên nhận bỏ qua sự kiện đến muộn.
 
@@ -21,7 +23,8 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -31,18 +34,15 @@ from app.core.config import get_settings
 from app.core.database import async_session_factory
 from app.core.java_services import JavaServiceError, get_application_summary, get_posting, get_skill_names
 from app.core.llm_client import LLMError, LLMManager, get_llm_manager
-from app.core.public_errors import AI_BUSY, extraction_error_message, is_ai_overload
+from app.core.public_errors import AI_BUSY, CITATION_MESSAGE, extraction_error_message, is_ai_overload
 from app.models import AIJob, AIScore
-from app.services.cv_extraction_store import COMPLETED as EXTRACTION_COMPLETED
-from app.services.cv_extraction_store import CVUnavailableError, get_or_extract
-from app.services.experience import today_in
-from app.schemas.jd_extraction import ExtractedJD
-from app.services.jd_extraction_store import COMPLETED as JD_EXTRACTION_COMPLETED
-from app.services.jd_extraction_store import get_or_extract_jd
-from app.schemas.scoring import TIER_LABELS, Tier
-from app.services.scoring.aggregate import Thresholds, headline
-from app.services.scoring.engine import score_candidate
-from app.services.scoring.prompt import JobInfo
+from app.schemas.ssrc import CVFacts, JDFacts, ScoringProvenance
+from app.services.facts_store import COMPLETED as FACTS_COMPLETED
+from app.services.facts_store import CVUnavailableError, get_or_extract_cv, get_or_extract_jd
+from app.services.job_info import JobInfo
+from app.services.prompts.ssrc import PROMPT_B_VERSION, PROMPT_VERSIONS, prompt_b_hash
+from app.services.scoring_ssrc import Thresholds, build_result, cert_policy_from_jd
+from app.services.ssrc_pipeline import CitationError, InvalidOutputError, score_four
 
 logger = logging.getLogger(__name__)
 
@@ -76,10 +76,14 @@ class ScoringFailure(Exception):
         self.detail = detail
 
 
-# [GIẢI THÍCH] Đọc ngưỡng xếp loại T và δ (khởi đầu 62,5 và 5) từ cấu hình (.env / config.py) mỗi lần chấm.
+# Ngưỡng xếp loại đọc từ cấu hình (.env / config.py) mỗi lần chấm.
 def scoring_options() -> Thresholds:
     s = get_settings()
-    return Thresholds(threshold=s.scoring_threshold, uncertainty=s.scoring_uncertainty)
+    return Thresholds(fit=s.scoring_fit_threshold, not_fit=s.scoring_not_fit_threshold)
+
+
+def _today(tz_name: str) -> date:
+    return datetime.now(ZoneInfo(tz_name)).date()
 
 
 # [GIẢI THÍCH] "Giành quyền chấm" một hồ sơ bằng MỘT câu SQL:
@@ -109,7 +113,9 @@ async def _claim(session: AsyncSession, application_id: int, job_posting_id: int
 
 # [GIẢI THÍCH] Dùng cho nút "AI chấm hồ sơ của tin": đánh dấu PENDING (đang chờ) cho các hồ sơ chưa có điểm
 # hoặc chấm lỗi, để giao diện hiện "Chờ chấm" ngay. Hồ sơ đã COMPLETED thì giữ nguyên (điều kiện where).
-async def mark_pending(session_factory: async_sessionmaker[AsyncSession], applications: list[dict]) -> None:
+# `include_completed=True` (Admin "chấm lại toàn bộ"): đánh dấu cả hồ sơ đã COMPLETED, trừ hồ sơ đang PROCESSING.
+async def mark_pending(session_factory: async_sessionmaker[AsyncSession], applications: list[dict],
+                       *, include_completed: bool = False) -> None:
     """Chấm bù: đánh dấu PENDING cho hồ sơ chưa có điểm / FAILED (để giao diện hiện "đang chờ")."""
     if not applications:
         return
@@ -123,7 +129,7 @@ async def mark_pending(session_factory: async_sessionmaker[AsyncSession], applic
             ).on_conflict_do_update(
                 index_elements=[AIScore.application_id],
                 set_={"status": PENDING, "updated_at": now},
-                where=AIScore.status != COMPLETED,
+                where=(AIScore.status != PROCESSING) if include_completed else (AIScore.status != COMPLETED),
             ).returning(AIScore.application_id, AIScore.job_posting_id, AIScore.status,
                         AIScore.total_score, AIScore.tier, AIScore.updated_at)
             row = (await session.execute(stmt)).one_or_none()
@@ -146,6 +152,10 @@ def _failure_message(exc: Exception) -> tuple[str, str]:
                 f"JavaServiceError: {exc}")
     if isinstance(exc, CVUnavailableError):
         return "Không tải được file CV của hồ sơ, vui lòng kiểm tra CV rồi chấm lại.", f"CVUnavailableError: {exc}"
+    if isinstance(exc, CitationError):
+        return CITATION_MESSAGE, f"CitationError: {exc}"
+    if isinstance(exc, InvalidOutputError):
+        return "AI trả kết quả không hợp lệ, vui lòng chấm lại.", f"InvalidOutputError: {exc}"
     if isinstance(exc, LLMError):
         return f"Lỗi gọi AI: {AI_BUSY}.", f"LLMError: {exc}"
     return "Lỗi không xác định khi chấm điểm, vui lòng chấm lại.", f"{type(exc).__name__}: {exc}"
@@ -182,21 +192,21 @@ async def _publish_status(score) -> None:
         logger.warning("Không phát được ai.scoring.completed cho hồ sơ %s: %s", score.application_id, exc)
 
 
-# [GIẢI THÍCH] Ứng viên xoá dữ liệu cá nhân: gỡ bản trích xuất CV khỏi các dòng điểm, xoá phần chi tiết kết quả
-# (dẫn chứng trích nguyên văn từ CV) rồi xoá các bản trích xuất. Giữ total_score / tier để thống kê không đổi.
+# [GIẢI THÍCH] Ứng viên xoá dữ liệu cá nhân: gỡ dữ kiện CV khỏi các dòng điểm, xoá phần chi tiết kết quả
+# (dẫn chứng trích nguyên văn từ CV) rồi xoá `cv_facts` của ứng viên. Giữ total_score / tier để thống kê không đổi.
 async def purge_candidate_data(
     candidate_id: int,
     *,
     session_factory: async_sessionmaker[AsyncSession] = async_session_factory,
 ) -> int:
     from sqlalchemy import delete
-    from app.models import CVExtraction
+    from app.models import CVFactsRecord
     async with session_factory() as session:
         await session.execute(
             update(AIScore).where(AIScore.candidate_id == candidate_id)
-            .values(cv_extraction_id=None, result=None, provenance=None, error_message=None)
+            .values(cv_facts_id=None, result=None, provenance=None, error_message=None)
         )
-        removed = await session.execute(delete(CVExtraction).where(CVExtraction.candidate_id == candidate_id))
+        removed = await session.execute(delete(CVFactsRecord).where(CVFactsRecord.candidate_id == candidate_id))
         await session.commit()
         return removed.rowcount or 0
 
@@ -244,76 +254,67 @@ async def score_application(
             # Hỏi recruitment-service: nội dung tin tuyển dụng (tiêu đề, mô tả, yêu cầu).
             posting = await get_posting(job_posting_id, headers)
 
-            # ----- TRÍCH XUẤT JD (Bước 1) -----
-            # get_or_extract_jd: cùng nội dung JD đã tách rồi thì lấy từ DB (mọi CV của tin dùng chung một danh sách
-            # yêu cầu); HR sửa JD thì nội dung đổi -> tách lại. Lỗi LLM được lưu FAILED trong jd_extractions.
+            # ----- TRÍCH XUẤT JD -----
+            # Cùng nội dung JD đã trích xuất thì lấy từ DB (mọi CV của tin dùng chung một danh sách yêu cầu);
+            # HR sửa JD thì nội dung đổi -> trích xuất lại. Lỗi được lưu FAILED trong jd_facts.
             job.current_stage = "JD_EXTRACT"
             job_info = JobInfo.from_posting(posting, await _posting_skill_names(posting))
             jd_row = await get_or_extract_jd(session_factory, job_info, job_posting_id, manager=manager)
-            if jd_row.status != JD_EXTRACTION_COMPLETED:
+            if jd_row.status != FACTS_COMPLETED:
+                if jd_row.error_code == "CITATION_MISMATCH":
+                    raise ScoringFailure(CITATION_MESSAGE, detail=jd_row.error_message)
                 reason = AI_BUSY if is_ai_overload(jd_row.error_message) else "AI trả kết quả không hợp lệ, vui lòng chấm lại"
                 raise ScoringFailure(f"Không trích xuất được JD: {reason}.", detail=jd_row.error_message)
-            jd = ExtractedJD.model_validate(jd_row.result)
+            jd = JDFacts.model_validate(jd_row.result)
 
             # ----- TRÍCH XUẤT CV -----
-            # get_or_extract: CV này đã trích xuất rồi thì lấy từ DB (không gọi AI); chưa thì tải S3 -> đọc chữ -> gọi Gemini -> lưu.
+            # CV này đã trích xuất rồi thì lấy từ DB (không gọi AI); chưa thì tải S3 -> đọc chữ -> che PII -> Gemini -> lưu.
             job.current_stage = "EXTRACT"
-            extraction = await get_or_extract(session_factory, resume_url, candidate_id, manager=manager)
-            job.extraction_model = extraction.model
-            job.extraction_prompt_version = extraction.prompt_version
-            # Ghi vào nhật ký: CV có phải đọc bằng OCR (ảnh scan) không, có bị nghi chèn lệnh không.
-            job.ocr_used = bool((extraction.text_metadata or {}).get("ocr_used"))
-            job.injection_detected = bool((extraction.text_metadata or {}).get("injection_detected"))
-            # Trích xuất thất bại thì dừng, không chấm trên dữ liệu hỏng.
-            if extraction.status != EXTRACTION_COMPLETED:
-                raise ScoringFailure(extraction_error_message(extraction.error_code, extraction.error_message),
-                                     detail=extraction.error_message)
+            cv_row = await get_or_extract_cv(session_factory, resume_url, candidate_id, manager=manager)
+            job.extraction_model = cv_row.model
+            job.extraction_prompt_version = cv_row.prompt_version
+            meta = cv_row.text_metadata or {}
+            job.ocr_used = bool(meta.get("ocr_used"))
+            job.injection_detected = bool(meta.get("injection_detected"))
+            if meta.get("pii_remaining"):
+                job.guardrail_warnings = {"pii_remaining": meta["pii_remaining"]}
+            if cv_row.status != FACTS_COMPLETED:
+                raise ScoringFailure(extraction_error_message(cv_row.error_code, cv_row.error_message),
+                                     detail=cv_row.error_message)
+            cv = CVFacts.model_validate(cv_row.result)
 
-            # ----- CHẤM (Bước 3–6) -----
-            # names: tên ứng viên, KHÔNG gửi cho AI mà dùng để tìm và CHE tên trong đoạn văn (chấm mù).
+            # ----- CHẤM (prompt B) -----
+            # Chính sách chứng chỉ do code suy từ JD. AI chỉ cho điểm 1–5 từng tiêu chí; điểm 0–100 và xếp loại do code tính.
             job.current_stage = "SCORE"
-            names = [summary.get("candidateName") or ""]
-            # Đưa vào danh sách yêu cầu JD + KẾT QUẢ TRÍCH XUẤT CV (không phải file gốc). Trả về:
-            #   result = điểm, xếp loại, lý do, 5 tiêu chí, yêu cầu bắt buộc;
-            #   provenance = model, phiên bản prompt, bản trích xuất CV và JD, token, chi phí.
-            # Không tính được điểm (không tiêu chí nào chấm được) thì vẫn COMPLETED với xếp loại Chưa phân loại.
-            result, provenance = await score_candidate(
-                jd,
-                extraction.result["extracted_cv"],
-                manager,
-                today_in(get_settings().app_timezone),
-                candidate_names=names,
-                thresholds=scoring_options(),
-                extraction_id=extraction.id,
-                extraction_prompt_version=extraction.prompt_version,
-                jd_extraction_id=jd_row.id,
-                jd_extraction_prompt_version=jd_row.prompt_version,
-            )
-            # CV có đoạn văn nhằm điều khiển AI: lưu cờ vào kết quả để HR thấy cảnh báo, và không bao giờ tự xếp
-            # "Phù hợp" cho hồ sơ như vậy — hạ về Chưa phân loại để HR xem tay.
-            meta = extraction.text_metadata or {}
-            if meta.get("injection_detected"):
-                result.injection_detected = True
-                result.injection_patterns = [str(p) for p in (meta.get("injection_patterns") or [])]
-                if result.tier == Tier.FIT:
-                    result.tier = Tier.UNCLASSIFIED
-                    result.tier_label = TIER_LABELS[Tier.UNCLASSIFIED]
-                    result.tier_reason = ("CV có nội dung bất thường nhằm điều khiển AI nên không tự xếp Phù hợp; "
-                                          "HR cần xem trực tiếp hồ sơ.")
-                    result.comment = f"{headline(result.total_score, result.tier, result.tier_reason)} {result.summary}".strip()
+            policy = cert_policy_from_jd(jd)
+            out, stats = await score_four(cv, jd, policy, manager)
+            result = build_result(
+                out, policy, scoring_options(), scored_on=_today(get_settings().app_timezone),
+                injection_detected=bool(meta.get("injection_detected")),
+                injection_patterns=[str(p) for p in (meta.get("injection_patterns") or [])])
+            provenance = ScoringProvenance(
+                model=stats.model, prompt_versions=PROMPT_VERSIONS, prompt_hash=prompt_b_hash(),
+                cv_facts_id=cv_row.id, jd_facts_id=jd_row.id, input_tokens=stats.input_tokens,
+                output_tokens=stats.output_tokens, estimated_cost_usd=round(stats.estimated_cost_usd, 6),
+                latency_ms=stats.latency_ms, retries=stats.retries, validation_retries=stats.validation_retries)
             values = {
-                "status": COMPLETED, "cv_extraction_id": extraction.id, "total_score": result.total_score,
-                "tier": result.tier.value, "result": result.model_dump(mode="json"),
-                "provenance": provenance.model_dump(mode="json"), "error_message": None,
-                "scored_at": datetime.utcnow(),
+                "status": COMPLETED, "cv_facts_id": cv_row.id, "jd_facts_id": jd_row.id,
+                "total_score": result.total_score, "tier": result.tier.value,
+                "result": result.model_dump(mode="json"), "provenance": provenance.model_dump(mode="json"),
+                "error_message": None, "scored_at": datetime.utcnow(),
             }
-            # Thành công: values ở trên là các giá trị sẽ ghi vào bảng ai_scores; ghi thêm thông tin vào nhật ký.
+            # Thành công: ghi nhật ký ai_jobs; token/chi phí gồm cả bước trích xuất nếu lần này có gọi AI mới.
             job.status = COMPLETED
             job.scoring_model = provenance.model
-            job.scoring_prompt_version = provenance.prompt_version
-            job.total_input_tokens = provenance.input_tokens
-            job.total_output_tokens = provenance.output_tokens
-            job.estimated_cost_usd = round(provenance.estimated_cost_usd, 4)
+            job.scoring_prompt_version = PROMPT_B_VERSION
+            in_tok, out_tok, cost = provenance.input_tokens, provenance.output_tokens, provenance.estimated_cost_usd
+            for row in (jd_row, cv_row):
+                if row.updated_at and row.updated_at >= started and row.provenance:
+                    in_tok += row.provenance.get("input_tokens", 0)
+                    out_tok += row.provenance.get("output_tokens", 0)
+                    cost += row.provenance.get("estimated_cost_usd", 0.0)
+            job.total_input_tokens, job.total_output_tokens = in_tok, out_tok
+            job.estimated_cost_usd = round(cost, 4)
         # Bất kỳ lỗi nào ở trên: ghi FAILED + lý do tiếng Việt, xoá điểm cũ (total_score = None).
         except Exception as exc:  # noqa: BLE001 — mọi lỗi đều phải kết thúc bằng FAILED
             message, detail = _failure_message(exc)

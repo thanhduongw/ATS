@@ -5,6 +5,8 @@ API điểm AI của hồ sơ ứng tuyển (giao diện HR).
 - POST /scores/{applicationId}/rescore          chấm lại ngay (đồng bộ, ~10–40 giây). Chỉ Admin / Recruiter
 - POST /scores/rescore-posting?jobPostingId=    chấm bù mọi hồ sơ chưa có điểm hoặc FAILED của một tin
                                                 (chạy nền). Chỉ Admin / Recruiter
+- POST /scores/rescore-all                      chấm lại TOÀN BỘ hồ sơ có CV (kể cả đã COMPLETED), chạy nền.
+                                                Dùng sau khi đổi cách chấm. Chỉ Admin
 
 Phạm vi quyền do application-service kiểm tra bằng chính danh tính người gọi (Hiring Manager chỉ
 thấy hồ sơ phòng ban mình).
@@ -19,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.access import require_application_access
-from app.core.auth import CurrentUser, current_user, require_hr, require_internal
+from app.core.auth import CurrentUser, current_user, require_admin, require_hr, require_internal
 from app.core.database import async_session_factory, get_db
 from app.core.java_services import JavaServiceError, list_applications
 from app.models import AIScore
@@ -114,3 +116,29 @@ async def rescore_posting(
     schedule_scoring([a["id"] for a in todo], user.headers())
     return {"jobPostingId": job_posting_id, "total": len(applications), "queued": len(todo),
             "skipped": len(applications) - len(todo)}
+
+
+# POST .../rescore-all: sau khi đổi cách chấm, đưa MỌI hồ sơ có CV vào hàng chấm lại (kể cả đã COMPLETED).
+# Chỉ COMPANY_ADMIN. Hồ sơ đang PROCESSING chưa quá hạn thì bỏ qua (đang được chấm ở nơi khác). Chạy nền, trả ngay.
+@router.post("/scores/rescore-all", summary="Chấm lại toàn bộ hồ sơ có CV (Admin)")
+async def rescore_all(
+    user: CurrentUser = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    require_admin(user)
+    try:
+        applications = await list_applications(None, user.headers())
+    except JavaServiceError as exc:
+        raise HTTPException(status_code=502, detail="Không đọc được danh sách hồ sơ") from exc
+
+    with_cv = [a for a in applications if a.get("resumeUrl")]
+    ids = [a["id"] for a in with_cv]
+    rows = (await db.execute(select(AIScore).where(AIScore.application_id.in_(ids)))).scalars() if ids else []
+    now = datetime.utcnow()
+    busy = {r.application_id for r in rows
+            if r.status == PROCESSING and r.updated_at and now - r.updated_at < STALE_PROCESSING}
+    todo = [a for a in with_cv if a["id"] not in busy]
+    await mark_pending(async_session_factory, todo, include_completed=True)
+    schedule_scoring([a["id"] for a in todo], user.headers())
+    return {"total": len(applications), "withCv": len(with_cv), "queued": len(todo),
+            "skipped": len(with_cv) - len(todo), "noCv": len(applications) - len(with_cv)}

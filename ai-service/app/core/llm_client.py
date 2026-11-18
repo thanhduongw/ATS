@@ -2,9 +2,8 @@
 LLM Client Abstraction Layer.
 
 Provides a unified interface for calling LLMs with structured output support:
-- Google Gemini — google-genai SDK with response_schema (sản phẩm)
+- Google Gemini — google-genai SDK với `response_json_schema` (sản phẩm)
 - OpenAI — Structured Outputs via .parse()
-- Kaggle Benchmarks (`kbench:` prefix) — SDK `kaggle_benchmarks`, chỉ dùng trên Kaggle cho benchmark
 
 Features:
 - Automatic retry with exponential backoff (2 retries, 2s/4s)
@@ -13,8 +12,7 @@ Features:
 - Pydantic schema enforcement at the provider level
 
 Chế độ một tin nhắn: gọi `generate_structured(prompt, Model)` không kèm `system_prompt` thì toàn bộ
-hướng dẫn + dữ liệu nằm trong MỘT tin nhắn user. Chấm điểm và trích xuất CV dùng chế độ này để
-sản phẩm (Gemini API) và benchmark (Kaggle — không hỗ trợ system prompt) gửi đúng cùng một prompt.
+hướng dẫn + dữ liệu nằm trong MỘT tin nhắn user. Trích xuất CV/JD và chấm điểm đều dùng chế độ này.
 """
 
 from __future__ import annotations
@@ -24,7 +22,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
@@ -33,8 +31,6 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
-
-KBENCH_PREFIX = "kbench:"
 
 # ============================================================
 # Cost tables (USD per 1M tokens)
@@ -187,12 +183,48 @@ class OpenAIClient(BaseLLMClient):
 
 
 # ============================================================
+# JSON Schema gửi cho Gemini (chép từ research/gemini_client.py)
+# ============================================================
+
+# Gemini chỉ nhận một phần từ khoá của JSON Schema; schema pydantic có thêm `extra="forbid"`, `minLength`... nên phải lọc.
+_ALLOWED_SCHEMA_KEYS = {
+    "$id", "$defs", "$ref", "$anchor",
+    "type", "format", "title", "description",
+    "enum", "items", "prefixItems",
+    "minItems", "maxItems",
+    "minimum", "maximum",
+    "anyOf", "oneOf",
+    "properties", "additionalProperties", "required",
+}
+
+
+def _clean_schema(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_clean_schema(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    cleaned = {}
+    for key, entry in value.items():
+        if key not in _ALLOWED_SCHEMA_KEYS:
+            continue
+        if key in ("properties", "$defs") and isinstance(entry, dict):
+            cleaned[key] = {name: _clean_schema(item) for name, item in entry.items()}
+        else:
+            cleaned[key] = _clean_schema(entry)
+    return cleaned
+
+
+def json_schema_for(response_model: type[BaseModel]) -> dict:
+    return _clean_schema(response_model.model_json_schema())
+
+
+# ============================================================
 # Gemini Client
 # ============================================================
 
 # [GIẢI THÍCH] Gọi Google Gemini (model của sản phẩm: gemini-3.5-flash-lite).
 class GeminiClient(BaseLLMClient):
-    """Google Gemini client using google-genai SDK with response_schema."""
+    """Google Gemini client using google-genai SDK with response_json_schema."""
 
     def __init__(self, model: str):
         super().__init__(model)
@@ -221,7 +253,7 @@ class GeminiClient(BaseLLMClient):
             from google.genai import types
 
             # Gửi prompt cho Gemini. Cấu hình quan trọng:
-            # - response_mime_type JSON + response_schema: Gemini CHỈ được trả JSON đúng khuôn (lớp kiểm soát 1).
+            # - response_mime_type JSON + response_json_schema: Gemini CHỈ được trả JSON đúng khuôn (lớp kiểm soát 1).
             # - temperature=0, seed=42 (trong config.py): giảm tính ngẫu nhiên, chấm lại ra gần như cùng kết quả.
             response = await client.aio.models.generate_content(
                 model=self._model,
@@ -229,12 +261,14 @@ class GeminiClient(BaseLLMClient):
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt or None,
                     response_mime_type="application/json",
-                    response_schema=response_model,
+                    response_json_schema=json_schema_for(response_model),
                     temperature=settings.llm_temperature,
                     seed=settings.llm_seed,
                 ),
             )
-            # pydantic kiểm tra lại JSON (lớp kiểm soát 2): sai kiểu / thiếu trường / level ngoài 0-4 -> lỗi -> LLMError.
+            # pydantic kiểm tra lại JSON (lớp kiểm soát 2): sai kiểu / thiếu trường / điểm ngoài 1-5 -> lỗi -> LLMError.
+            if not response.text:
+                raise ValueError("Gemini không trả về JSON")
             parsed = response_model.model_validate_json(response.text)
             meta = response.usage_metadata
             return parsed, _usage(
@@ -252,63 +286,11 @@ class GeminiClient(BaseLLMClient):
 
 
 # ============================================================
-# Kaggle Benchmarks Client (chỉ chạy trên Kaggle)
-# ============================================================
-
-class KbenchClient(BaseLLMClient):
-    """Gọi model qua SDK `kaggle_benchmarks` (quota AI của Kaggle Benchmarks).
-
-    - Model theo tên Kaggle, vd "google/gemini-3.5-flash-lite" (tạo bằng `make_client("kbench:google/...")`).
-    - SDK không có system prompt → nếu có thì ghép vào đầu tin nhắn.
-    - `llm.prompt` giữ lịch sử hội thoại → mỗi lời gọi nằm trong `kbench.chats.new()` riêng.
-    - SDK đồng bộ → chạy trong thread. SDK không trả số token → usage token = 0.
-    """
-
-    def __init__(self, model: str):
-        super().__init__(model)
-
-    def provider_name(self) -> str:
-        return "kbench"
-
-    def _call(self, message: str, response_model: type[T]) -> T:
-        import kaggle_benchmarks as kbench
-
-        settings = get_settings()
-        llm = kbench.llms[self._model]
-        with kbench.chats.new(f"ats-{time.monotonic_ns()}"):
-            out = llm.prompt(
-                message,
-                schema=response_model,
-                temperature=settings.llm_temperature,
-                seed=settings.llm_seed,
-            )
-        if isinstance(out, response_model):
-            return out
-        if isinstance(out, BaseModel):
-            return response_model.model_validate(out.model_dump())
-        if isinstance(out, str):
-            return response_model.model_validate_json(out)
-        return response_model.model_validate(out)
-
-    async def generate_structured(self, user_prompt, response_model, system_prompt=None):
-        start = time.monotonic()
-        message = f"{system_prompt}\n\n{user_prompt}" if system_prompt else user_prompt
-        try:
-            parsed = await asyncio.to_thread(self._call, message, response_model)
-            return parsed, _usage(f"{KBENCH_PREFIX}{self._model}", 0, 0, start)
-        except Exception as e:
-            logger.error("kbench structured output failed: model=%s error=%s", self._model, e)
-            raise LLMError(f"kbench call failed: {e}", provider="kbench") from e
-
-
-# ============================================================
 # Client factory — auto-detect provider from model name
 # ============================================================
 
 def make_client(model_name: str) -> BaseLLMClient:
-    """`kbench:<vendor/model>` → Kaggle Benchmarks; `gemini*` → Gemini; còn lại → OpenAI."""
-    if model_name.startswith(KBENCH_PREFIX):
-        return KbenchClient(model=model_name[len(KBENCH_PREFIX):])
+    """`gemini*` → Gemini; còn lại → OpenAI."""
     if model_name.startswith("gemini"):
         return GeminiClient(model=model_name)
     return OpenAIClient(model=model_name)
@@ -325,7 +307,7 @@ class LLMManager:
 
     Usage:
         manager = get_llm_manager()
-        result, usage = await manager.generate_structured(prompt, ExtractedCV)
+        result, usage = await manager.generate_structured(prompt, CVFacts)
     """
 
     # Thử lại tối đa 2 lần (tổng 3 lần), chờ 2 giây rồi 4 giây giữa các lần.

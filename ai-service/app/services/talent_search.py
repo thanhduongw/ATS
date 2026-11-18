@@ -339,7 +339,7 @@ async def search_candidates(
         ))
     hits.sort(key=lambda h: h.score, reverse=True)
     hits = hits[:limit]
-    await attach_evidence(session, hits, terms, {cid: profiles[cid] for cid in (h.candidate_id for h in hits)}, filters)
+    await attach_evidence(session, hits, terms, {cid: profiles[cid] for cid in (h.candidate_id for h in hits)}, filters, query_vector)
     return hits
 
 
@@ -462,21 +462,60 @@ def years_evidence(h: "SearchHit", filters: SearchFilters) -> dict | None:
             "text": text, "highlights": [], "others": []}
 
 
+SEMANTIC_PASSAGES = 2
+_NOT_EVIDENCE_TYPES = ("SUMMARY", "OTHER")   # tóm tắt do hệ thống dựng; phần đầu CV (tên, liên hệ, đã che)
+
+
+def jobs_evidence(jobs: list[dict]) -> dict | None:
+    """Quá trình làm việc đã đọc được (chức danh, nơi làm, thời gian) — bằng chứng cho câu hỏi về nơi/loại công việc đã làm."""
+    rows = []
+    for j in jobs[:5]:
+        where = f" tại {j['company']}" if j.get("company") else ""
+        rows.append(f"{j.get('title') or 'Công việc'}{where} ({j.get('start') or '?'} → {j.get('end') or '?'})")
+    if not rows:
+        return None
+    return {"label": "Quá trình làm việc", "found": True, "tried": [], "inSkillList": False, "section": "WORK_EXPERIENCE",
+            "text": "; ".join(rows), "highlights": [], "others": [], "kind": "jobs"}
+
+
+def semantic_evidence(passages: list[tuple[str, str, float]]) -> list[dict]:
+    """Đoạn CV gần nghĩa nhất với câu hỏi (đã bỏ phần đầu CV/tóm tắt) khi câu hỏi không có từ khoá cụ thể để chỉ ra.
+    Đây là KHỚP NGỮ NGHĨA: giao diện ghi rõ, không trình bày như bằng chứng từ khoá."""
+    out = []
+    for ctype, content, sim in passages[:SEMANTIC_PASSAGES]:
+        text = clean_display(content) or ""
+        if len(text) < 30:
+            continue
+        out.append({"label": "Đoạn gần nghĩa nhất", "found": True, "tried": [], "inSkillList": False, "section": ctype,
+                    "text": text[:260].rstrip() + (" …" if len(text) > 260 else ""), "highlights": [], "others": [],
+                    "kind": "semantic", "similarity": round(sim, 3)})
+    return out
+
+
 async def attach_evidence(session: AsyncSession, hits: list[SearchHit], terms: list[list[str]], rows: dict,
-                          filters: SearchFilters | None = None) -> None:
+                          filters: SearchFilters | None = None, query_vector: list[float] | None = None) -> None:
     """Gắn bằng chứng và danh sách công việc (có ngày) vào các kết quả cuối cùng (chỉ vài chục ứng viên: một truy vấn)."""
     if not hits:
         return
-    got = (await session.execute(
-        select(CVDocumentChunk.candidate_id, CVDocumentChunk.chunk_type, CVDocumentChunk.content)
-        .where(CVDocumentChunk.candidate_id.in_([h.candidate_id for h in hits])))).all()
+    ids = [h.candidate_id for h in hits]
+    cols = [CVDocumentChunk.candidate_id, CVDocumentChunk.chunk_type, CVDocumentChunk.content]
+    if query_vector is not None:
+        cols.append(CVDocumentChunk.embedding.cosine_distance(query_vector).label("dist"))
+    got = (await session.execute(select(*cols).where(CVDocumentChunk.candidate_id.in_(ids)))).all()
     chunks: dict[int, list[tuple[str, str]]] = {}
-    for cid, ctype, content in got:
-        chunks.setdefault(cid, []).append((ctype, content))
+    ranked: dict[int, list[tuple[str, str, float]]] = {}
+    for row in got:
+        chunks.setdefault(row[0], []).append((row[1], row[2]))
+        if len(row) > 3 and row[3] is not None and row[1] not in _NOT_EVIDENCE_TYPES:
+            ranked.setdefault(row[0], []).append((row[1], row[2], similarity(row[3])))
     for h in hits:
         h.evidence = build_evidence(terms, chunks.get(h.candidate_id, []), h.skills)
         profile = getattr(rows.get(h.candidate_id), "profile", None) or {}
         h.jobs = list(profile.get("jobs") or [])[:6]
+        if not h.evidence:   # câu hỏi không có điều kiện từ khoá/kỹ năng → chỉ ra quá trình làm việc và đoạn gần nghĩa nhất
+            if je := jobs_evidence(h.jobs):
+                h.evidence.append(je)
+            h.evidence += semantic_evidence(sorted(ranked.get(h.candidate_id, []), key=lambda p: -p[2]))
         if filters is not None and (ye := years_evidence(h, filters)):
             h.evidence.insert(0, ye)
 

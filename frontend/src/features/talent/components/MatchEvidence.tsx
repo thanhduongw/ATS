@@ -74,9 +74,16 @@ export function MatchEvidence({ evidence, semantic }: { evidence: TalentEvidence
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {visible.map((ev) => (
                 <div key={ev.label} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                    <Tag color={ev.found ? "green" : "default"} style={{ marginInlineEnd: 0, flexShrink: 0 }}
+                    <Tag color={ev.kind === "semantic" ? "geekblue" : ev.found ? "green" : "default"} style={{ marginInlineEnd: 0, flexShrink: 0 }}
                         icon={ev.found ? <CheckCircleFilled /> : <MinusCircleOutlined />}>{ev.label}</Tag>
-                    {ev.found && ev.text ? (
+                    {ev.kind === "semantic" ? (
+                        <div style={{ color: COLORS.textSecondary, lineHeight: 1.45 }}>
+                            <b style={{ color: "inherit" }}>{CHUNK_LABEL[ev.section ?? ""] ?? "CV"}:</b> {ev.text}
+                            <div style={{ color: COLORS.textMuted, fontStyle: "italic" }}>Khớp theo ngữ nghĩa với câu hỏi, không phải từ khoá — đọc CV để xác nhận.</div>
+                        </div>
+                    ) : ev.kind === "jobs" ? (
+                        <div style={{ color: COLORS.textSecondary, lineHeight: 1.45 }}>{ev.text}</div>
+                    ) : ev.found && ev.text ? (
                         <FoundEvidence ev={ev} />
                     ) : <SemanticOnly ev={ev} semantic={semantic} />}
                 </div>

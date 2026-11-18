@@ -269,3 +269,13 @@ def test_years_evidence_for_fresher():
     h.total_years = None
     assert "chưa có kinh nghiệm" in years_evidence(h, SearchFilters(max_years=1))["text"]
     assert years_evidence(h, SearchFilters()) is None
+
+
+def test_query_without_keywords_still_points_at_jobs_and_nearest_passages():
+    from app.services.talent_search import jobs_evidence, semantic_evidence
+    je = jobs_evidence([{"title": "Backend Dev", "company": "ATOM Solution", "start": "2025-02", "end": "2025-09"}])
+    assert "ATOM Solution" in je["text"] and je["kind"] == "jobs"
+    sem = semantic_evidence([("WORK_EXPERIENCE", "Phát triển hệ thống POS cho khách hàng ngân hàng, tối ưu truy vấn", 0.74),
+                             ("PROJECT", "ngắn", 0.7), ("SKILLS", "Java, Spring Boot, PostgreSQL, Docker, Kafka và nhiều hơn nữa", 0.6)])
+    assert [e["section"] for e in sem] == ["WORK_EXPERIENCE"] and sem[0]["kind"] == "semantic"
+    assert jobs_evidence([]) is None

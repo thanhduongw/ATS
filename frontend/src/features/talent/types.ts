@@ -45,6 +45,8 @@ export interface TalentEvidence {
   section: string | null;
   text: string | null;
   highlights: number[][];
+  /** jobs = quá trình làm việc; semantic = đoạn gần nghĩa nhất (không phải từ khoá). Không có = điều kiện từ khoá/kỹ năng. */
+  kind?: "jobs" | "semantic";
   /** Các chỗ khác trong CV cũng nhắc tới điều kiện này (tối đa 3). */
   others: { section: string; text: string; highlights: number[][] }[];
 }

@@ -45,6 +45,12 @@ class TalentSearchRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+def _coverage(evidence: list[dict]) -> float | None:
+    """Chỉ tính các điều kiện từ khoá/kỹ năng; số năm, quá trình làm việc và đoạn gần nghĩa không phải điều kiện kiểm chứng."""
+    checks = [e for e in evidence if not e.get("kind") and e.get("section") != "YEARS"]
+    return round(sum(1 for e in checks if e["found"]) / len(checks), 2) if checks else None
+
+
 def _result_dto(h, c: dict, *, contact: bool = True, recruitment: dict | None = None) -> dict:
     """Một kết quả tìm / gợi ý. `contact=False` (Hiring Manager): không trả email, số điện thoại."""
     return {
@@ -60,7 +66,7 @@ def _result_dto(h, c: dict, *, contact: bool = True, recruitment: dict | None = 
         "evidence": h.evidence, "jobs": h.jobs,
         "recruitment": recruitment or recruit_status.summarize([]),
         # Tỉ lệ điều kiện của câu hỏi mà CV chứng minh được bằng câu thật (None: không có điều kiện để kiểm, vd gợi ý theo JD).
-        "coverage": round(sum(1 for e in h.evidence if e["found"]) / len(h.evidence), 2) if h.evidence else None,
+        "coverage": _coverage(h.evidence),
     }
 
 

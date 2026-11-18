@@ -68,15 +68,17 @@ public class CatalogAuditInterceptor implements HandlerInterceptor {
                 break;
             }
         }
+        // Mục danh mục không xoá hẳn: DELETE chỉ ẩn khỏi danh sách chọn, PATCH .../activate hiện lại.
+        boolean reactivate = "activate".equals(parts[parts.length - 1]);
         String verb = switch (method) {
             case "POST" -> resourceId == null ? "Thêm mới" : "Cập nhật";
-            case "DELETE" -> "Xoá";
-            default -> "Cập nhật";
+            case "DELETE" -> "Ẩn";
+            default -> reactivate ? "Hiện lại" : "Cập nhật";
         };
         String action = switch (method) {
             case "POST" -> resourceId == null ? "CATALOG_CREATED" : "CATALOG_UPDATED";
-            case "DELETE" -> "CATALOG_DELETED";
-            default -> "CATALOG_UPDATED";
+            case "DELETE" -> "CATALOG_DEACTIVATED";
+            default -> reactivate ? "CATALOG_ACTIVATED" : "CATALOG_UPDATED";
         };
         try {
             rabbitTemplate.convertAndSend(RabbitMQConfig.ATS_EXCHANGE, RabbitMQConfig.AUDIT_LOG_ROUTING_KEY,

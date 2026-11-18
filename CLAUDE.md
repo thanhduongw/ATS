@@ -34,6 +34,8 @@ web (React + Vite + Ant Design) và app di động (Expo / React Native). Quy ư
 - `application-service` và `offer-service` chỉ có `mvnw.cmd` (không có `mvnw`).
 - `JAVA_HOME` trống, java lấy từ PATH. Phải đặt `JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Ho_Chi_Minh` (các script đã đặt).
 - Service chạy bằng spring-boot-devtools: **biên dịch lại (kể cả `mvnw test`) làm service đang chạy tự khởi động lại.**
+  Riêng `application-service` và `offer-service` **không có devtools**: sửa mã xong phải
+  `scripts/dev/svc.sh restart <service>` thì mã mới mới chạy.
   Đừng chạy test của một service khi đang có việc dài phụ thuộc vào nó (ví dụ script tạo dữ liệu demo).
 - Gateway chỉ mở sẵn một số đường dẫn công khai (`JwtAuthGlobalFilter`). Thêm API công khai mới ở service thì phải thêm ở đó.
 - Trong Python trên Windows, `bash` thường là bash của WSL; script dùng Git Bash (`reset_db.git_bash()`).

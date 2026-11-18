@@ -624,8 +624,8 @@ def align_ai_timestamps() -> None:
             from _t t where s.application_id = t.app_id;
         update ai_jobs j set created_at = s.created_at, started_at = s.created_at, completed_at = s.scored_at
             from ai_scores s where s.ai_job_id = j.id;
-        update cv_extractions c set created_at = s.created_at, updated_at = s.created_at
-            from ai_scores s where s.cv_extraction_id = c.id;""", check=False)
+        update cv_facts c set created_at = s.created_at, updated_at = s.created_at
+            from ai_scores s where s.cv_facts_id = c.id;""", check=False)
     psql("ats_application", "update application set ai_updated_at = applied_at + interval '1 minute' where ai_updated_at is not null;")
 
 

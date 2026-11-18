@@ -8,7 +8,7 @@ import { getPublicCompany, getPublicJobs } from "../publicApi";
 import type { PublicCompanyResponse, PublicJobPosting } from "../types";
 import { arrangementLabel } from "../jobFormat";
 import { JobCard } from "../components/JobCard";
-import { COLORS, GRADIENTS } from "../../../app/theme";
+import { COLORS } from "../../../app/theme";
 import { InlineNotice } from "../../../components/ui/designKit";
 
 /**
@@ -86,18 +86,18 @@ export default function CompanyJobsPage() {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Dải đầu C02: nền xanh đậm tràn hết chiều ngang, tiêu đề trắng, ô tìm kiếm dạng viên nhộng. */}
+            {/* Dải đầu C02: nền trắng tràn hết chiều ngang (bớt màu thương hiệu), tiêu đề + ô tìm kiếm viên nhộng căn giữa. */}
             <div style={{
-                width: "100vw", marginLeft: "calc(50% - 50vw)", marginTop: -28, padding: "36px 24px 40px",
-                background: GRADIENTS.hero,
+                width: "100vw", marginLeft: "calc(50% - 50vw)", marginTop: -28, padding: "40px 24px 44px",
+                background: COLORS.cardBg, borderBottom: `1px solid ${COLORS.border}`,
             }}>
-                <div style={{ maxWidth: 1152, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
-                    <span style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.01em", color: COLORS.textOnDark }}>
+                <div style={{ maxWidth: 1152, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
+                    <span style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.01em", color: COLORS.textPrimary, textAlign: "center" }}>
                         Việc làm tại {company?.name ?? "chúng tôi"}
                     </span>
                     <div style={{
-                        display: "flex", alignItems: "center", gap: 8, maxWidth: 820, padding: 6, paddingLeft: 18,
-                        borderRadius: 28, background: COLORS.cardBg,
+                        display: "flex", alignItems: "center", gap: 8, width: "100%", maxWidth: 820, padding: 6, paddingLeft: 18,
+                        borderRadius: 28, background: COLORS.fill,
                     }}>
                         <SearchOutlined style={{ color: COLORS.textMuted }} />
                         <Input variant="borderless" allowClear placeholder="Tên vị trí, kỹ năng…" value={draft}
@@ -141,7 +141,7 @@ export default function CompanyJobsPage() {
                         {activeChips.map(({ g, v }) => (
                             <button key={`${g}-${v}`} type="button" onClick={() => toggle(g, v)} style={{
                                 display: "inline-flex", alignItems: "center", gap: 6, height: 26, padding: "0 10px", border: 0,
-                                borderRadius: 13, background: COLORS.primarySoft, color: COLORS.primary, fontSize: 12, cursor: "pointer",
+                                borderRadius: 13, background: COLORS.fill, color: COLORS.textPrimary, fontSize: 12, cursor: "pointer",
                             }}>
                                 {v} <CloseOutlined style={{ fontSize: 10 }} />
                             </button>
@@ -155,7 +155,7 @@ export default function CompanyJobsPage() {
                         <>
                             <div style={{ background: COLORS.cardBg, borderRadius: 20, padding: "40px 24px", textAlign: "center", display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
                                 <span style={{
-                                    width: 64, height: 64, borderRadius: 18, background: COLORS.primarySoft, color: COLORS.primary, fontSize: 26, marginBottom: 8,
+                                    width: 64, height: 64, borderRadius: 18, background: COLORS.fill, color: COLORS.textSecondary, fontSize: 26, marginBottom: 8,
                                     display: "inline-flex", alignItems: "center", justifyContent: "center",
                                 }}><SearchOutlined /></span>
                                 <b style={{ fontSize: 16 }}>{jobs.length === 0 ? "Hiện chưa có vị trí đang tuyển" : "Không tìm thấy việc làm phù hợp"}</b>

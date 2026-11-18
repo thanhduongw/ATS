@@ -1009,6 +1009,12 @@ h6 {
     .careers-life { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; grid-auto-rows: 160px !important; }
     .careers-life > :first-child { grid-row: auto !important; grid-column: span 2; }
     .careers-benefits { grid-template-columns: minmax(0, 1fr) !important; padding: 32px 24px !important; gap: 24px !important; }
+    /* Xếp 1 cột: ảnh nằm trên, mờ dần xuống dưới; chừa chỗ cho ảnh trước tiêu đề. */
+    .careers-benefits:has(.careers-benefits-photo) { padding-top: 180px !important; }
+    .careers-benefits-photo {
+        width: 100% !important; height: 260px !important; bottom: auto !important;
+        -webkit-mask-image: linear-gradient(180deg, #000 40%, transparent) !important; mask-image: linear-gradient(180deg, #000 40%, transparent) !important;
+    }
     .careers-footer { grid-template-columns: minmax(0, 1fr) !important; }
 }
 @media (max-width: 600px) {

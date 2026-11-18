@@ -159,6 +159,8 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
     CATALOG_CREATED: "Thêm mục danh mục",
     CATALOG_UPDATED: "Sửa danh mục",
     CATALOG_DELETED: "Xoá mục danh mục",
+    CATALOG_DEACTIVATED: "Ẩn mục danh mục",
+    CATALOG_ACTIVATED: "Hiện lại mục danh mục",
     APPLICATION_WITHDRAWN: "Ứng viên rút đơn",
     APPLICATION_CLOSED: "Ngừng xử lý hồ sơ",
     APPLICATION_DELETED: "Xoá hồ sơ ứng tuyển",

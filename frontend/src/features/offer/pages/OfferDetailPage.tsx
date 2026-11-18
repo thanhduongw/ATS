@@ -183,8 +183,10 @@ export default function OfferDetailPage() {
                 </InlineNotice>
             )}
             {offer.rejectReason && <InlineNotice tone="danger">Thư mời không được duyệt: {offer.rejectReason}</InlineNotice>}
-            {offer.declineReasonName && (
-                <InlineNotice tone="danger">Ứng viên từ chối: {offer.declineReasonName}{offer.declineNote ? ` — ${offer.declineNote}` : ""}</InlineNotice>
+            {(offer.declineReasonName || offer.declineNote) && (
+                <InlineNotice tone="danger">
+                    Ứng viên từ chối: {[offer.declineReasonName, offer.declineNote].filter(Boolean).join(" · ")}
+                </InlineNotice>
             )}
             {offer.status === "ACCEPTED" && <InlineNotice tone="success">Ứng viên đã nhận việc. Ngày đầu tiên {d(offer.startDate)}.</InlineNotice>}
 

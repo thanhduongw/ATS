@@ -11,7 +11,7 @@ export interface HistoryEntry extends AuditLogResponse { who: string | null }
  * thời gian, mới nhất trước. Tên người thực hiện ghép từ danh bạ nội bộ; ai không có trong danh bạ (ứng viên) → null.
  * Lỗi mạng thì trả mảng rỗng: lịch sử là phần phụ, không được làm hỏng trang.
  */
-export function useResourceHistory(groups: HistoryGroup[], enabled = true): HistoryEntry[] {
+export function useResourceHistory(groups: HistoryGroup[], enabled = true, refreshKey?: string | number | null): HistoryEntry[] {
     const [entries, setEntries] = useState<HistoryEntry[]>([]);
     const key = groups.map((g) => `${g.type}:${[...g.ids].sort((a, b) => a - b).join(".")}`).join("|");
 
@@ -32,7 +32,7 @@ export function useResourceHistory(groups: HistoryGroup[], enabled = true): Hist
         });
         return () => { alive = false; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [key, enabled]);
+    }, [key, enabled, refreshKey]);
 
     return entries;
 }

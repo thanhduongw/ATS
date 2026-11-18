@@ -62,7 +62,7 @@ export default function JobTitleQuickAddSelect({ value, onChange, placeholder }:
             allowClear
             showSearch
             loading={loading}
-            placeholder={placeholder ?? "Chọn hoặc thêm chức vụ..."}
+            placeholder={placeholder ?? (canEditCatalog ? "Chọn hoặc thêm chức vụ..." : "Chọn chức vụ...")}
             value={value}
             onChange={onChange}
             options={options}

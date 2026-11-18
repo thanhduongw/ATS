@@ -33,7 +33,7 @@ import { useBareCandidatePage, useCandidateShell } from "../../../layouts/candid
 const WEEKDAY_FULL = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 const PAY_SUFFIX: Record<string, string> = { MONTHLY: " / tháng", YEARLY: " / năm" };
 const DECLINE_CHOICES = [
-    { key: "OTHER_OFFER", label: "Đã nhận thư mời khác", match: null },
+    { key: "OTHER_OFFER", label: "Đã nhận thư mời khác", match: "công ty khác" },
     { key: "SALARY", label: "Mức lương chưa phù hợp", match: "lương" },
     { key: "LOCATION", label: "Địa điểm / hình thức làm việc", match: "địa điểm" },
     { key: "PERSONAL", label: "Lý do cá nhân", match: null },
@@ -131,15 +131,14 @@ export default function OfferCandidateViewPage() {
     const decline = async () => {
         const choice = DECLINE_CHOICES.find((c) => c.key === declineKey);
         if (!choice) return;
+        // Gắn vào mục khớp trong danh mục "Lý do từ chối" (để thống kê) nếu có; lời ứng viên chọn luôn ghi ở ghi chú,
+        // vì danh mục của công ty không có sẵn mọi lý do của ứng viên (vd. "Lý do cá nhân").
         const matched = choice.match ? reasons.find((r) => String(r.name).toLowerCase().includes(choice.match!)) : undefined;
-        const fallback = reasons.find((r) => String(r.name).toLowerCase().includes("tự rút"));
-        const reasonId = matched?.id ?? fallback?.id;
-        if (reasonId == null) { message.error("Chưa tải được danh mục lý do, vui lòng thử lại"); return; }
         setBusy(true);
         try {
             await declineOffer(offer.id, {
-                declineReasonId: reasonId,
-                note: [matched ? null : choice.label, note.trim() || null].filter(Boolean).join(": ") || null,
+                declineReasonId: matched?.id ?? null,
+                note: [choice.label, note.trim() || null].filter(Boolean).join(": "),
             });
             setDeclineOpen(false);
             message.success("Đã gửi phản hồi từ chối");
@@ -213,7 +212,8 @@ export default function OfferCandidateViewPage() {
             </button>
             <Band
                 eyebrow="THƯ MỜI NHẬN VIỆC"
-                title={`Chúc mừng ${firstName || "bạn"}!`}
+                title={offer.status === "DECLINED" ? "Bạn đã từ chối thư mời"
+                    : offer.status === "EXPIRED" ? "Thư mời đã hết hạn" : `Chúc mừng ${firstName || "bạn"}!`}
                 subtitle={offer.jobTitle ?? ""}
                 aside={deadline && offer.status === "APPROVED" ? (
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
@@ -227,7 +227,7 @@ export default function OfferCandidateViewPage() {
 
             {offer.status === "DECLINED" && (
                 <InlineNotice tone="neutral">
-                    Bạn đã từ chối thư mời này{offer.declineReasonName ? ` · ${offer.declineReasonName}` : ""}. Cảm ơn bạn đã phản hồi.
+                    Bạn đã từ chối thư mời này{offer.declineNote ? ` · ${offer.declineNote}` : ""}. Cảm ơn bạn đã phản hồi.
                 </InlineNotice>
             )}
             {expired && <InlineNotice tone="warning">Thư mời đã hết hạn phản hồi. Liên hệ bộ phận tuyển dụng nếu bạn vẫn quan tâm.</InlineNotice>}

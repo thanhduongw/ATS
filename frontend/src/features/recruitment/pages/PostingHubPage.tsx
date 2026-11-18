@@ -35,6 +35,7 @@ import StatusTag from "../../../components/ui/StatusTag";
 import { Avatar, Panel } from "../../../components/ui/designKit";
 import { rowArrowColumn } from "../../../components/ui/listHelpers";
 import { formatSalaryShort } from "../../../app/money";
+import { useResourceHistory } from "../../auditlog/useResourceHistory";
 
 
 function fmtStamp(v: string) {
@@ -148,6 +149,11 @@ export default function PostingHubPage() {
             setActionLoading(false);
         }
     };
+
+    // 3.11: sửa nội dung khi đang tuyển và đổi trạng thái tin lấy từ nhật ký (tin không lưu lịch sử các lần sửa).
+    // Tải lại khi trạng thái tin đổi (mở lại / tạm dừng ngay trên trang) để dòng mới hiện luôn.
+    const postingLogs = useResourceHistory([{ type: "JOB_POSTING", ids: Number.isFinite(jobPostingId) ? [jobPostingId] : [] }],
+        true, posting?.status ?? null);
 
     if (loading && !posting) return <div style={{ padding: 80, textAlign: "center" }}><Spin size="large" /></div>;
     if (!posting) return <div style={{ padding: 40, color: COLORS.textSecondary }}>Không tìm thấy việc làm.</div>;
@@ -274,12 +280,19 @@ export default function PostingHubPage() {
         </Panel>
     );
 
-    const steps = [
-        { label: "Tạo tin", at: posting.createdAt },
-        { label: "Xác nhận nội dung", at: posting.approvedAt, who: posting.approvedByName },
-        { label: "Đăng tin", at: posting.publishedAt },
-        { label: "Đóng tin", at: posting.closedAt },
-    ].filter((s) => s.at);
+    const LOG_LABEL: Record<string, string> = { POSTING_UPDATED: "Sửa nội dung tin", POSTING_STATUS_CHANGED: "Đổi trạng thái tin" };
+    const steps: { key: string; label: string; at: string; who?: string | null; detail?: string | null }[] = [
+        { key: "created", label: "Tạo tin", at: posting.createdAt },
+        { key: "approved", label: "Xác nhận nội dung", at: posting.approvedAt, who: posting.approvedByName },
+        { key: "published", label: "Đăng tin", at: posting.publishedAt },
+        { key: "closed", label: "Đóng tin", at: posting.closedAt },
+        ...postingLogs.filter((l) => LOG_LABEL[l.action]).map((l) => ({
+            key: `log-${l.id}`, label: LOG_LABEL[l.action], at: l.createdAt, who: l.who,
+            // "Sửa khi đang tuyển: mô tả, nhãn tuyển gấp" → "mô tả, nhãn tuyển gấp"
+            detail: l.metadata?.replace(/^Sửa khi [^:]*:\s*/, "") ?? null,
+        })),
+    ].filter((s): s is typeof s & { at: string } => !!s.at)
+        .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
     const activityTab = (
         <Panel>
             {requisition && (
@@ -288,8 +301,11 @@ export default function PostingHubPage() {
                 </a>
             )}
             {steps.map((s) => (
-                <div key={s.label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: `0.5px solid ${COLORS.border}`, fontSize: 13 }}>
-                    <span><b style={{ fontWeight: 600 }}>{s.label}</b>{s.who ? <span style={{ color: COLORS.textSecondary }}> · {s.who}</span> : null}</span>
+                <div key={s.key} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderTop: `0.5px solid ${COLORS.border}`, fontSize: 13 }}>
+                    <span>
+                        <b style={{ fontWeight: 600 }}>{s.label}</b>{s.who ? <span style={{ color: COLORS.textSecondary }}> · {s.who}</span> : null}
+                        {s.detail ? <span style={{ display: "block", color: COLORS.textSecondary }}>{s.detail}</span> : null}
+                    </span>
                     <span style={{ color: COLORS.textMuted }}>{fmtStamp(s.at as string)}</span>
                 </div>
             ))}

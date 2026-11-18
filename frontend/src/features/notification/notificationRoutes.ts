@@ -82,6 +82,7 @@ export function resolveNotificationPath(
 
 export const NOTIFICATION_TYPE_LABEL: Record<string, string> = {
     REQUISITION_PENDING_APPROVAL: "Yêu cầu tuyển dụng",
+    REQUISITION_REVIEWED: "Kết quả duyệt yêu cầu",
     APPLICATION_CREATED: "Hồ sơ mới",
     APPLICATION_STAGE_CHANGED: "Cập nhật hồ sơ",
     APPLICATION_REJECTED: "Kết quả hồ sơ",

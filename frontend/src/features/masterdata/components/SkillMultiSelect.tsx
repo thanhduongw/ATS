@@ -65,7 +65,7 @@ export default function SkillMultiSelect({ value, onChange, placeholder, disable
             showSearch
             loading={loading}
             disabled={disabled || undefined}
-            placeholder={placeholder ?? "Chọn hoặc thêm kỹ năng yêu cầu..."}
+            placeholder={placeholder ?? (canEditCatalog ? "Chọn hoặc thêm kỹ năng yêu cầu..." : "Chọn kỹ năng yêu cầu...")}
             value={value}
             onChange={onChange}
             options={options}

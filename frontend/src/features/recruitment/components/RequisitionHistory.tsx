@@ -20,7 +20,8 @@ const VERB: Record<string, string> = {
  * từ chối. Yêu cầu tạo trước khi có nhật ký thì vẫn có mốc "tạo yêu cầu" lấy từ createdAt.
  */
 export default function RequisitionHistory({ requisition: r }: { requisition: JobRequisitionResponse }) {
-    const logs = useResourceHistory([{ type: "REQUISITION", ids: [r.id] }]);
+    // Đọc lại khi trạng thái đổi (duyệt / từ chối / yêu cầu sửa ngay trên trang) để dòng mới hiện luôn.
+    const logs = useResourceHistory([{ type: "REQUISITION", ids: [r.id] }], true, r.status);
     const hasCreated = logs.some((l) => l.action === "REQUISITION_CREATED");
     const rows = [
         ...logs.map((l) => ({

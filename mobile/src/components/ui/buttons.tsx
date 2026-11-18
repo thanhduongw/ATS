@@ -1,21 +1,23 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { COLORS, FONT, FONT_SIZE, RADIUS, SIZES, SPACING } from "@/theme";
+import { COLORS, FONT, FONT_SIZE, RADIUS, SIZES, SPACING, STATUS_TONES } from "@/theme";
 import { Icon, type IconName } from "./icon";
 
-type Variant = "primary" | "tonal" | "danger" | "text";
+type Variant = "primary" | "tonal" | "outline" | "danger" | "text";
 
-const VARIANT: Record<Variant, { bg: string; fg: string }> = {
+const VARIANT: Record<Variant, { bg: string; fg: string; border?: string }> = {
   primary: { bg: COLORS.primary, fg: COLORS.textOnPrimary },
-  // DS03 "Nút phụ": chữ xanh trên nền xám nhạt; dùng primaryDark cho đủ tương phản.
-  tonal: { bg: COLORS.fillStrong, fg: COLORS.primaryDark },
-  // Canvas để chữ #FA2A2D trên nền 10% — 3.2:1. Dùng errorText.
-  danger: { bg: COLORS.fillStrong, fg: COLORS.errorText },
+  // Redesign-Final `.btn.secondary`: nền nhạt của màu thương hiệu, chữ đậm hơn cho đủ tương phản.
+  tonal: { bg: COLORS.primarySoft, fg: COLORS.primaryDark },
+  // `.btn.ghost`: nền trắng, viền mảnh, chữ chính.
+  outline: { bg: COLORS.cardBg, fg: COLORS.textPrimary, border: COLORS.border },
+  // `.btn.danger`: nền đỏ nhạt, chữ đỏ đậm (errorText đạt 4.5:1).
+  danger: { bg: STATUS_TONES.danger.bg, fg: COLORS.errorText },
   text: { bg: "transparent", fg: COLORS.primaryDark },
 };
 
 /**
- * Nút dạng viên nhộng của canvas. `md` cao 44 (nút chính của màn), `sm` cao 32 cho nút
- * trong thẻ — `sm` được nới vùng chạm bằng hitSlop cho đủ 44.
+ * Nút của app (tên giữ là PillButton cho khỏi đổi khắp nơi). Redesign-Final: bo 10, `md` cao 44 cho mọi kiểu
+ * (hai nút đặt cạnh nhau luôn bằng nhau), `sm` cao 36 trong thẻ — `sm` được nới vùng chạm bằng hitSlop cho đủ 44.
  */
 export function PillButton({
   label,
@@ -23,6 +25,7 @@ export function PillButton({
   variant = "primary",
   size = "md",
   icon,
+  iconRight,
   loading = false,
   disabled = false,
   fullWidth = false,
@@ -33,6 +36,8 @@ export function PillButton({
   variant?: Variant;
   size?: "md" | "sm";
   icon?: IconName;
+  /** Icon sau chữ ("Ứng tuyển ngay →"). */
+  iconRight?: IconName;
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
@@ -40,9 +45,9 @@ export function PillButton({
 }) {
   const v = VARIANT[variant];
   const inactive = disabled || loading;
-  // Nút chính cao 48 (DS02 46–50, quyết định X6); nút phụ và ô nhập giữ 44.
-  const height = size === "md" ? (variant === "primary" ? SIZES.primaryAction : SIZES.control) : SIZES.chip;
+  const height = size === "md" ? SIZES.primaryAction : variant === "text" ? SIZES.chip : SIZES.buttonSm;
   const slop = (SIZES.control - height) / 2;
+  const iconSize = size === "md" ? SIZES.iconSm : SIZES.iconXs + SPACING.xxs;
 
   return (
     <Pressable
@@ -56,8 +61,9 @@ export function PillButton({
         {
           height,
           backgroundColor: v.bg,
-          paddingHorizontal: variant === "text" ? SPACING.sm : size === "md" ? SPACING.md2 : SPACING.sm2,
+          paddingHorizontal: variant === "text" ? SPACING.xs : size === "md" ? SPACING.md : SPACING.sm2,
         },
+        v.border ? { borderWidth: SIZES.border, borderColor: v.border } : null,
         fullWidth && styles.fullWidth,
         inactive && styles.disabled,
         pressed && styles.pressed,
@@ -67,32 +73,36 @@ export function PillButton({
       {loading ? (
         <ActivityIndicator size="small" color={v.fg} />
       ) : icon ? (
-        <Icon name={icon} size={SIZES.iconSm} color={v.fg} />
+        <Icon name={icon} size={iconSize} color={v.fg} strokeWidth={1.8} />
       ) : null}
       <Text
-        style={[styles.label, { color: v.fg, fontSize: size === "md" ? FONT_SIZE.lg : FONT_SIZE.base }]}
+        style={[styles.label, { color: v.fg, fontSize: size === "md" ? FONT_SIZE.md : FONT_SIZE.caption }]}
         numberOfLines={1}
       >
         {label}
       </Text>
+      {iconRight && !loading ? <Icon name={iconRight} size={iconSize} color={v.fg} strokeWidth={1.8} /> : null}
     </Pressable>
   );
 }
 
-/** Nút tròn chỉ có icon (quay lại, thông báo, tải PDF). Bắt buộc có nhãn cho trình đọc màn hình. */
+/**
+ * Nút vuông bo 10 chỉ có icon (quay lại, chuông, tải PDF) — Redesign-Final `.iconbtn`/`.backbtn`: nền trắng, viền mảnh.
+ * Bắt buộc có nhãn cho trình đọc màn hình.
+ */
 export function IconButton({
   icon,
   label,
   onPress,
-  variant = "fill",
+  variant = "surface",
   badge,
 }: {
   icon: IconName;
   label: string;
   onPress: () => void;
-  /** `fill` trên nền trang; `surface` là nền trắng (nút thông báo ở header, canvas M06). */
+  /** `surface` nền trắng có viền (mặc định); `fill` nền xám nhạt không viền (đặt trên thẻ trắng). */
   variant?: "fill" | "surface";
-  /** Chấm đỏ kèm số ở góc (số thông báo chưa đọc). 0/undefined → không hiện. */
+  /** Số đỏ ở góc (số thông báo chưa đọc). 0/undefined → không hiện. */
   badge?: number;
 }) {
   return (
@@ -103,7 +113,7 @@ export function IconButton({
       hitSlop={(SIZES.control - SIZES.iconButton) / 2}
       style={({ pressed }) => [
         styles.iconButton,
-        { backgroundColor: variant === "fill" ? COLORS.fill : COLORS.cardBg },
+        variant === "fill" ? styles.iconFill : styles.iconSurface,
         pressed && styles.pressed,
       ]}
     >
@@ -124,24 +134,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignSelf: "flex-start",
     gap: SPACING.xs + SPACING.xxs,
-    borderRadius: RADIUS.full,
+    borderRadius: RADIUS.control,
   },
   fullWidth: { alignSelf: "stretch" },
-  label: { fontFamily: FONT.medium },
+  label: { fontFamily: FONT.semibold },
   // Một-lần: độ mờ khi nhấn/vô hiệu, không phải màu nên không thành token.
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.5 },
   iconButton: {
     width: SIZES.iconButton,
     height: SIZES.iconButton,
-    borderRadius: RADIUS.full,
+    borderRadius: RADIUS.control,
     alignItems: "center",
     justifyContent: "center",
   },
+  iconSurface: { backgroundColor: COLORS.cardBg, borderWidth: SIZES.border, borderColor: COLORS.border },
+  iconFill: { backgroundColor: COLORS.fill },
   badge: {
     position: "absolute",
-    top: 0,
-    right: 0,
+    top: -SPACING.xs,
+    right: -SPACING.xs,
     minWidth: SIZES.dot * 3,
     height: SIZES.dot * 3,
     paddingHorizontal: SPACING.xs,

@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { COLORS, FONT, FONT_SIZE, LINE_HEIGHT, RADIUS, SIZES, SPACING, STATUS_TONES, type StatusTone } from "@/theme";
+import { Image, Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import {
+  COLORS, FONT, FONT_SIZE, LETTER_SPACING, LINE_HEIGHT, RADIUS, SIZES, SPACING, STATUS_TONES, readCachedLogoUrl, type StatusTone,
+} from "@/theme";
 import { STRINGS } from "@/lib/strings";
 import { Icon, type IconName } from "./icon";
 
 /**
- * Thẻ trắng bo 20 của canvas (`section`). Truyền `onPress` thì cả thẻ bấm được.
+ * Thẻ trắng phẳng của Redesign-Final (`.card`): viền 1px, bo 15, không đổ bóng. Truyền `onPress` thì cả thẻ bấm được.
  * Nội dung bên trong xếp dọc, cách nhau 12.
  */
 export function Card({
@@ -80,10 +82,42 @@ export function IconTile({
 /** Logo chữ của app trên nền màu chính (canvas M01 đăng nhập, M12 thư mời). */
 export function BrandMark({ size = SIZES.otpWidth }: { size?: number }) {
   return (
-    <View style={[styles.mark, { width: size, height: size }]} accessible={false}>
+    <View style={[styles.mark, { width: size, height: size, borderRadius: Math.round(size / 3.6) }]} accessible={false}>
       <Text style={[styles.markText, { fontSize: Math.round(size / 2) }]}>{STRINGS.brand.mark}</Text>
     </View>
   );
+}
+
+/**
+ * Logo doanh nghiệp do Quản trị tải lên ở web (`logoUrl` của `/auth/public/company`); chưa có logo thì chữ cái đầu
+ * trên nền màu thương hiệu (`BrandMark`). Không truyền `uri` → dùng logo đã lưu ở lần mở trước.
+ */
+export function CompanyLogo({ uri, size = SIZES.logo }: { uri?: string | null; size?: number }) {
+  const src = uri ?? readCachedLogoUrl();
+  if (!src) return <BrandMark size={size} />;
+  return (
+    <Image
+      source={{ uri: src }}
+      resizeMode="contain"
+      style={[styles.logo, { width: size, height: size, borderRadius: Math.round(size / 3.6) }]}
+      accessibilityIgnoresInvertColors
+      accessible={false}
+    />
+  );
+}
+
+/** Dòng chữ nhỏ viết hoa phía trên tiêu đề (`.eyebrow`: "CƠ HỘI NGHỀ NGHIỆP", "ĐƠN #12"). */
+export function Eyebrow({ children, tone = "muted", style }: { children: string; tone?: "muted" | "brand"; style?: StyleProp<TextStyle> }) {
+  return (
+    <Text style={[styles.eyebrow, tone === "brand" && styles.eyebrowBrand, style]} numberOfLines={1}>
+      {children.toLocaleUpperCase("vi-VN")}
+    </Text>
+  );
+}
+
+/** Đường kẻ ngang mảnh giữa các phần trong một thẻ (`.divider`). */
+export function Divider() {
+  return <View style={styles.rule} />;
 }
 
 /** Dòng nhãn — giá trị, kẻ mảnh bên dưới (canvas M12 "Chi tiết đề nghị"). */
@@ -147,12 +181,14 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.cardBg,
     borderRadius: RADIUS.xl,
+    borderWidth: SIZES.border,
+    borderColor: COLORS.border,
     padding: SPACING.md,
     gap: SPACING.sm2,
   },
   cardPressed: { backgroundColor: COLORS.body },
   cardTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },
-  cardTitle: { fontFamily: FONT.bold, fontSize: FONT_SIZE.section, color: COLORS.textPrimary },
+  cardTitle: { flexShrink: 1, fontFamily: FONT.bold, fontSize: FONT_SIZE.lg, color: COLORS.textPrimary },
 
   tile: { alignItems: "center", justifyContent: "center", flexShrink: 0 },
   mark: {
@@ -164,6 +200,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   markText: { fontFamily: FONT.bold, fontSize: FONT_SIZE.h2, color: COLORS.textOnPrimary },
+  logo: { backgroundColor: COLORS.cardBg },
+  eyebrow: {
+    fontFamily: FONT.bold,
+    fontSize: FONT_SIZE.micro,
+    letterSpacing: LETTER_SPACING.eyebrow,
+    color: COLORS.textSecondary,
+  },
+  eyebrowBrand: { color: COLORS.primary },
+  rule: { height: SIZES.border, backgroundColor: COLORS.divider },
 
   kv: {
     flexDirection: "row",
@@ -174,12 +219,12 @@ const styles = StyleSheet.create({
   },
   divider: { borderBottomWidth: SIZES.hairline, borderBottomColor: COLORS.divider },
   // Nhãn không co lại: giá trị dài (địa chỉ, kỹ năng) xuống dòng ở cột phải, nhãn giữ một dòng.
-  kvLabel: { flexShrink: 0, fontFamily: FONT.regular, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },
+  kvLabel: { flexShrink: 0, fontFamily: FONT.regular, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
   kvValue: {
     flexShrink: 1,
     textAlign: "right",
-    fontFamily: FONT.medium,
-    fontSize: FONT_SIZE.md,
+    fontFamily: FONT.semibold,
+    fontSize: FONT_SIZE.base,
     color: COLORS.textPrimary,
   },
 

@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { COLORS, FONT, FONT_SIZE, LINE_HEIGHT, SIZES, SPACING } from "@/theme";
+import { COLORS, FONT, FONT_SIZE, LETTER_SPACING, LINE_HEIGHT, SIZES, SPACING } from "@/theme";
 import { STRINGS } from "@/lib/strings";
 import { IconButton } from "./buttons";
+import { Eyebrow } from "./surfaces";
 
 /**
  * Tiêu đề đầu màn theo canvas — thay cho thanh tiêu đề tối cũ.
@@ -19,12 +20,15 @@ import { IconButton } from "./buttons";
 export function ScreenHeader({
   title,
   subtitle,
+  eyebrow,
   variant = "large",
   back,
   actions,
 }: {
   title: string;
   subtitle?: string;
+  /** Dòng chữ nhỏ viết hoa trên tiêu đề lớn (Redesign-Final `.eyebrow`). */
+  eyebrow?: string;
   variant?: "large" | "compact";
   /** `true` → quay lại màn trước; hàm → tự xử lý. Bỏ trống → không có nút quay lại. */
   back?: boolean | (() => void);
@@ -53,10 +57,43 @@ export function ScreenHeader({
     <View style={[styles.large, { paddingTop: insets.top + SPACING.sm2 }]}>
       <View style={styles.topRow}>
         {backButton}
-        <Text style={styles.largeTitle} numberOfLines={1} accessibilityRole="header">
+        {/* Dòng chữ nhỏ nằm cùng cột với tiêu đề, để nút quay lại căn giữa cả khối. */}
+        <View style={styles.titleCol}>
+          {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
+          <Text style={styles.largeTitle} numberOfLines={1} accessibilityRole="header">
+            {title}
+          </Text>
+        </View>
+        {actions ? <View style={styles.actions}>{actions}</View> : null}
+      </View>
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+    </View>
+  );
+}
+
+/**
+ * Khối tiêu đề NẰM TRONG nội dung cuộn của màn tab khu ứng viên (Redesign-Final: dòng chữ nhỏ viết hoa · tiêu đề 24 ·
+ * câu dẫn), dưới `AppBar`. Màn nhân viên vẫn dùng `ScreenHeader` large.
+ */
+export function PageTitle({
+  eyebrow,
+  title,
+  subtitle,
+  right,
+}: {
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+  right?: ReactNode;
+}) {
+  return (
+    <View style={styles.page}>
+      {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
+      <View style={styles.pageRow}>
+        <Text style={styles.pageTitle} accessibilityRole="header">
           {title}
         </Text>
-        {actions ? <View style={styles.actions}>{actions}</View> : null}
+        {right}
       </View>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
@@ -87,15 +124,32 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.body,
   },
   topRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2, minHeight: SIZES.control },
+  titleCol: { flex: 1, gap: SPACING.xxs },
   actions: { flexDirection: "row", gap: SPACING.sm },
+  // Redesign-Final `.h1` 23: tiêu đề màn 24 đậm, hơi khít chữ.
   largeTitle: {
-    flex: 1,
     fontFamily: FONT.bold,
-    fontSize: FONT_SIZE.h1,
-    lineHeight: FONT_SIZE.h1 * LINE_HEIGHT.title,
+    fontSize: FONT_SIZE.h2,
+    lineHeight: FONT_SIZE.h2 * LINE_HEIGHT.title,
+    letterSpacing: LETTER_SPACING.title,
     color: COLORS.textPrimary,
   },
-  subtitle: { fontFamily: FONT.regular, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },
+  subtitle: {
+    fontFamily: FONT.regular,
+    fontSize: FONT_SIZE.caption,
+    lineHeight: FONT_SIZE.caption * LINE_HEIGHT.body,
+    color: COLORS.textSecondary,
+  },
+  page: { gap: SPACING.xs },
+  pageRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
+  pageTitle: {
+    flex: 1,
+    fontFamily: FONT.bold,
+    fontSize: FONT_SIZE.h2,
+    lineHeight: FONT_SIZE.h2 * LINE_HEIGHT.title,
+    letterSpacing: LETTER_SPACING.title,
+    color: COLORS.textPrimary,
+  },
 
   compact: {
     flexDirection: "row",
@@ -106,7 +160,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.body,
   },
   compactText: { flex: 1, gap: SPACING.xxs },
-  compactTitle: { fontFamily: FONT.bold, fontSize: FONT_SIZE.h3, color: COLORS.textPrimary },
+  compactTitle: { fontFamily: FONT.bold, fontSize: FONT_SIZE.section, color: COLORS.textPrimary },
   compactSubtitle: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
 
   bottomBar: {
@@ -119,7 +173,7 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.sm2,
     paddingHorizontal: SPACING.page,
     backgroundColor: COLORS.barBg,
-    borderTopWidth: SIZES.hairline,
-    borderTopColor: COLORS.divider,
+    borderTopWidth: SIZES.border,
+    borderTopColor: COLORS.border,
   },
 });

@@ -3,22 +3,24 @@ import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View
 import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import { useMyAccount, useMyProfile, useRequestDeletion, useUploadResume } from "@/features/profile/hooks";
-import { EditProfileSheet } from "@/features/profile/edit-profile-sheet";
 import { useMyOffers } from "@/features/offers/hooks";
+import { usePublicCompany } from "@/features/company/hooks";
 import { apiErrorMessage } from "@/api/client";
-import { ScreenHeader } from "@/components/ui/screen-chrome";
+import { CandidateAppBar } from "@/components/app-bar";
+import { PageTitle } from "@/components/ui/screen-chrome";
 import { Card, CardTitle, IconTile, KeyValueRow } from "@/components/ui/surfaces";
 import { Avatar } from "@/components/ui/avatar";
-import { PillButton } from "@/components/ui/buttons";
+import { IconButton, PillButton } from "@/components/ui/buttons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ToneTag } from "@/components/ui/status-chip";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ErrorState, SkeletonList } from "@/components/ui/feedback";
 import { useSnackbar } from "@/components/ui/snackbar";
 import { STRINGS } from "@/lib/strings";
 import { cvFileName, formatDate, initials } from "@/lib/format";
 import { useSignOut } from "@/lib/use-sign-out";
-import { COLORS, FONT, FONT_SIZE, LINE_HEIGHT, RADIUS, SIZES, SPACING } from "@/theme";
+import { COLORS, FONT, FONT_SIZE, LINE_HEIGHT, RADIUS, SIZES, SPACING, STATUS_TONES } from "@/theme";
 import type { CandidateSelf } from "@/types/api";
 
 const S = STRINGS.profile;
@@ -29,58 +31,52 @@ const CV_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
-/** Tôi — hồ sơ & CV (B8), giao diện canvas Mobile v2 N35. */
+/**
+ * Cá nhân — Redesign-Final `views.profile`: thẻ đầu (ảnh/chữ cái, tên, email, "Ứng viên", % hoàn thiện), thẻ CV,
+ * thẻ thông tin cá nhân (KHÔNG còn kỹ năng — chốt 19/11/2026), danh sách liên kết (thư mời, thông báo, quyền riêng tư,
+ * đăng xuất). Chỉnh sửa hồ sơ là màn riêng (`/profile-edit`).
+ */
 export default function ProfileScreen() {
   const profile = useMyProfile();
-  const [editing, setEditing] = useState(false);
 
   return (
     <View style={styles.root}>
-      <ScreenHeader title={S.title} />
-      {profile.isPending ? (
-        <View style={styles.pad}>
+      <CandidateAppBar />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={profile.isRefetching}
+            onRefresh={() => void profile.refetch()}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
+        }
+      >
+        <PageTitle eyebrow={S.eyebrow} title={S.title} />
+        {profile.isPending ? (
           <SkeletonList count={3} />
-        </View>
-      ) : profile.isError ? (
-        <ErrorState message={apiErrorMessage(profile.error, "")} onRetry={() => void profile.refetch()} />
-      ) : (
-        <>
-          <ScrollView
-            contentContainerStyle={styles.content}
-            refreshControl={
-              <RefreshControl
-                refreshing={profile.isRefetching}
-                onRefresh={() => void profile.refetch()}
-                colors={[COLORS.primary]}
-                tintColor={COLORS.primary}
-              />
-            }
-          >
+        ) : profile.isError ? (
+          <ErrorState message={apiErrorMessage(profile.error, "")} onRetry={() => void profile.refetch()} />
+        ) : (
+          <>
             <IdentityCard profile={profile.data} />
             <CvCard profile={profile.data} />
-            <InfoCard profile={profile.data} onEdit={() => setEditing(true)} />
-            <LinksCard />
-          </ScrollView>
-          <EditProfileSheet visible={editing} onDismiss={() => setEditing(false)} profile={profile.data} />
-        </>
-      )}
+            <InfoCard profile={profile.data} />
+          </>
+        )}
+        <LinksCard />
+        <Footer />
+      </ScrollView>
     </View>
   );
 }
 
-/** Tỉ lệ hoàn thiện: 9 mục có/không — đủ để nhắc ứng viên điền nốt, không phải điểm số. */
+const editProfile = () => router.push("/profile-edit");
+
+/** Tỉ lệ hoàn thiện: 8 mục có/không (không tính kỹ năng) — đủ để nhắc ứng viên điền nốt, không phải điểm số. */
 function completion(p: CandidateSelf): number {
-  const checks = [
-    p.fullName,
-    p.phone,
-    p.dateOfBirth,
-    p.gender,
-    p.address,
-    p.currentPosition,
-    p.educationLevelId,
-    p.skillNames?.length,
-    p.resumeUploaded,
-  ];
+  const checks = [p.fullName, p.phone, p.dateOfBirth, p.gender, p.address, p.currentPosition, p.educationLevelId, p.resumeUploaded];
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }
 
@@ -98,9 +94,19 @@ function IdentityCard({ profile }: { profile: CandidateSelf }) {
           </View>
         )}
         <View style={styles.flex}>
-          <Text style={styles.name}>{profile.fullName}</Text>
-          <Text style={styles.sub}>{profile.email}</Text>
+          <Text style={styles.name} numberOfLines={2}>
+            {profile.fullName}
+          </Text>
+          <Text style={styles.sub} numberOfLines={1}>
+            {profile.email}
+          </Text>
+          <ToneTag label={S.roleTag} tone="brand" />
         </View>
+        <IconButton icon="edit" label={S.editProfile} onPress={editProfile} />
+      </View>
+      <View style={styles.completionRow}>
+        <Text style={styles.completionLabel}>{S.completionTitle}</Text>
+        <Text style={styles.completionValue}>{S.completion(pct)}</Text>
       </View>
       <View
         style={styles.progressTrack}
@@ -109,7 +115,7 @@ function IdentityCard({ profile }: { profile: CandidateSelf }) {
       >
         <View style={[styles.progressFill, { width: `${pct}%` }]} />
       </View>
-      <Text style={styles.sub}>{S.completion(pct)}</Text>
+      <Text style={styles.sub}>{pct < 100 ? S.completionHint : S.completionDone}</Text>
     </Card>
   );
 }
@@ -140,15 +146,17 @@ function CvCard({ profile }: { profile: CandidateSelf }) {
 
   return (
     <Card>
-      <CardTitle>{S.cv}</CardTitle>
+      <CardTitle right={<ToneTag label={has ? S.cvUploadedTag : S.cvMissingTag} tone={has ? "success" : "warning"} />}>
+        {S.cv}
+      </CardTitle>
       <View style={styles.cvRow}>
-        <IconTile icon="file" tone={has ? "brand" : "neutral"} />
+        <IconTile icon="file" tone={has ? "brand" : "neutral"} size={SIZES.iconButton} />
         <View style={styles.flex}>
           <Text style={styles.cvName} numberOfLines={1}>
-            {has ? cvFileName(profile.resumeUrl) : S.noCv}
+            {has ? cvFileName(profile.resumeUrl) : S.uploadCv}
           </Text>
           <Text style={styles.sub}>
-            {has ? (profile.resumeUploadedAt ? S.cvUploadedOn(formatDate(profile.resumeUploadedAt)) : S.cvInUse) : S.noCvHint}
+            {has ? (profile.resumeUploadedAt ? S.cvUpdatedOn(formatDate(profile.resumeUploadedAt)) : S.cvInUse) : S.noCvHint}
           </Text>
         </View>
         <PillButton
@@ -163,35 +171,27 @@ function CvCard({ profile }: { profile: CandidateSelf }) {
   );
 }
 
-function InfoCard({ profile, onEdit }: { profile: CandidateSelf; onEdit: () => void }) {
+function InfoCard({ profile }: { profile: CandidateSelf }) {
   const gender = profile.gender?.toUpperCase() as keyof typeof S.genders | undefined;
   const rows: [string, string | undefined][] = [
+    [S.fullName, profile.fullName],
     [S.phone, profile.phone],
     [S.dateOfBirth, profile.dateOfBirth ? formatDate(profile.dateOfBirth) : undefined],
     [S.gender, gender ? (S.genders[gender] ?? profile.gender) : undefined],
-    [S.currentPosition, profile.currentPosition],
     [S.address, profile.address],
+    [S.currentPosition, profile.currentPosition],
     [S.education, profile.educationLevelName],
-    [S.skills, profile.skillNames?.length ? profile.skillNames.join(", ") : undefined],
   ];
 
   return (
     <Card style={styles.infoCard}>
-      <CardTitle right={<PillButton label={S.edit} icon="edit" variant="text" size="sm" onPress={onEdit} />}>
-        {S.info}
-      </CardTitle>
+      <CardTitle right={<PillButton label={S.edit} variant="text" size="sm" onPress={editProfile} />}>{S.info}</CardTitle>
       <View>
         {rows.map(([label, value], i) => (
           <KeyValueRow
             key={label}
             label={label}
-            value={
-              value ? (
-                value
-              ) : (
-                <Text style={styles.notSet}>{S.notSet}</Text>
-              )
-            }
+            value={value ? value : <Text style={styles.notSet}>{S.notSet}</Text>}
             last={i === rows.length - 1}
           />
         ))}
@@ -204,18 +204,31 @@ function LinksCard() {
   const offers = useMyOffers();
   const signOut = useSignOut();
   const [deleting, setDeleting] = useState(false);
-  const awaiting = (offers.data ?? []).filter((o) => o.status === "APPROVED").length;
+  const list = offers.data ?? [];
+  const awaiting = list.filter((o) => o.status === "APPROVED").length;
 
   return (
     <>
       <Card style={styles.linksCard}>
-        <LinkRow icon="mail" label={S.offers} count={awaiting} onPress={() => router.push("/offers")} />
-        <LinkRow icon="lock" label={S.privacy} onPress={() => setDeleting(true)} />
-        <LinkRow icon="logout" label={S.signOut} danger last onPress={() => void signOut()} />
+        <LinkRow
+          icon="mail"
+          label={S.offers}
+          subtitle={awaiting ? S.offersAwaiting(awaiting) : S.offersCount(list.length)}
+          count={awaiting}
+          onPress={() => router.push("/offers")}
+        />
+        <LinkRow icon="bell" label={S.notifications} subtitle={S.notificationsSub} onPress={() => router.push("/notifications")} />
+        <LinkRow icon="lock" label={S.privacy} subtitle={S.privacySub} onPress={() => setDeleting(true)} />
+        <LinkRow icon="logout" label={S.signOut} subtitle={S.signOutSub} danger last onPress={() => void signOut()} />
       </Card>
       <DeleteProfileSheet visible={deleting} onDismiss={() => setDeleting(false)} />
     </>
   );
+}
+
+function Footer() {
+  const company = usePublicCompany();
+  return <Text style={styles.footer}>{S.footer(company.data?.name?.trim() || STRINGS.brand.name)}</Text>;
 }
 
 /**
@@ -267,6 +280,7 @@ function DeleteProfileSheet({ visible, onDismiss }: { visible: boolean; onDismis
 function LinkRow({
   icon,
   label,
+  subtitle,
   count,
   danger,
   last,
@@ -274,12 +288,12 @@ function LinkRow({
 }: {
   icon: IconName;
   label: string;
+  subtitle?: string;
   count?: number;
   danger?: boolean;
   last?: boolean;
   onPress: () => void;
 }) {
-  const color = danger ? COLORS.errorText : COLORS.textPrimary;
   return (
     <Pressable
       accessibilityRole="button"
@@ -287,14 +301,19 @@ function LinkRow({
       onPress={onPress}
       style={({ pressed }) => [styles.linkRow, !last && styles.divider, pressed && styles.pressed]}
     >
-      <Icon name={icon} color={color} />
-      <Text style={[styles.linkLabel, { color }]}>{label}</Text>
+      <View style={[styles.linkIcon, danger && styles.linkIconDanger]}>
+        <Icon name={icon} size={SIZES.iconSm} color={danger ? COLORS.errorText : COLORS.primaryDark} />
+      </View>
+      <View style={styles.flex}>
+        <Text style={[styles.linkLabel, danger && styles.danger]}>{label}</Text>
+        {subtitle ? <Text style={styles.small}>{subtitle}</Text> : null}
+      </View>
       {count ? (
         <View style={styles.count}>
           <Text style={styles.countText}>{count}</Text>
         </View>
       ) : null}
-      {!danger ? <Icon name="chevronRight" size={SIZES.iconSm} color={COLORS.textSecondary} /> : null}
+      <Icon name="chevronRight" size={SIZES.iconSm} color={COLORS.textSecondary} />
     </Pressable>
   );
 }
@@ -303,55 +322,70 @@ const AVATAR = SIZES.otpHeight;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.body },
-  pad: { padding: SPACING.page },
-  content: { paddingHorizontal: SPACING.page, paddingTop: SPACING.xs, paddingBottom: SPACING.lg, gap: SPACING.sm2 },
+  content: { padding: SPACING.page, paddingBottom: SPACING.xl, gap: SPACING.sm2 },
   flex: { flex: 1, gap: SPACING.xxs },
-  sub: { fontFamily: FONT.regular, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
+  sub: {
+    fontFamily: FONT.regular,
+    fontSize: FONT_SIZE.caption,
+    lineHeight: FONT_SIZE.caption * LINE_HEIGHT.body,
+    color: COLORS.textSecondary,
+  },
+  small: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
 
   identity: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2 },
+  // `.profilehead .avatar`: ô vuông bo lớn, chữ cái đầu màu thương hiệu.
   avatar: {
     width: AVATAR,
     height: AVATAR,
-    borderRadius: RADIUS.full,
+    borderRadius: RADIUS.hero,
     backgroundColor: COLORS.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { fontFamily: FONT.bold, fontSize: FONT_SIZE.h3, color: COLORS.primaryDark },
-  name: { fontFamily: FONT.bold, fontSize: FONT_SIZE.section, color: COLORS.textPrimary },
+  avatarText: { fontFamily: FONT.bold, fontSize: FONT_SIZE.section, color: COLORS.primaryDark },
+  name: { fontFamily: FONT.bold, fontSize: FONT_SIZE.lg, color: COLORS.textPrimary },
+  completionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: SPACING.xs },
+  completionLabel: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.caption, color: COLORS.textPrimary },
+  completionValue: { fontFamily: FONT.bold, fontSize: FONT_SIZE.caption, color: COLORS.primary },
   progressTrack: { height: SIZES.progress, borderRadius: RADIUS.full, backgroundColor: COLORS.fillStrong },
   progressFill: { height: "100%", borderRadius: RADIUS.full, backgroundColor: COLORS.primary },
 
   cvRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2 },
-  cvName: { fontFamily: FONT.medium, fontSize: FONT_SIZE.md, color: COLORS.textPrimary },
+  cvName: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
 
   infoCard: { gap: 0 },
   notSet: { fontFamily: FONT.regular, fontSize: FONT_SIZE.md, color: COLORS.textMuted },
 
   linksCard: { paddingVertical: SPACING.xs, gap: 0 },
-  linkRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm2,
-    minHeight: SIZES.control + SPACING.sm,
-  },
+  linkRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2, paddingVertical: SPACING.sm2 },
   divider: { borderBottomWidth: SIZES.hairline, borderBottomColor: COLORS.divider },
   pressed: { opacity: 0.7 },
-  linkLabel: { flex: 1, fontFamily: FONT.medium, fontSize: FONT_SIZE.lg },
+  linkIcon: {
+    width: SIZES.iconButton - SPACING.xs,
+    height: SIZES.iconButton - SPACING.xs,
+    borderRadius: RADIUS.control,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  linkIconDanger: { backgroundColor: STATUS_TONES.danger.bg },
+  linkLabel: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
+  danger: { color: COLORS.errorText },
   count: {
     minWidth: SIZES.tag,
     height: SIZES.tag,
     paddingHorizontal: SPACING.sm,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.primarySoft,
+    backgroundColor: COLORS.errorText,
     alignItems: "center",
     justifyContent: "center",
   },
+  countText: { fontFamily: FONT.bold, fontSize: FONT_SIZE.xs, color: COLORS.textOnPrimary },
   body: {
     fontFamily: FONT.regular,
-    fontSize: FONT_SIZE.md,
-    lineHeight: FONT_SIZE.md * LINE_HEIGHT.body,
+    fontSize: FONT_SIZE.base,
+    lineHeight: FONT_SIZE.base * LINE_HEIGHT.body,
     color: COLORS.textPrimary,
   },
-  countText: { fontFamily: FONT.bold, fontSize: FONT_SIZE.xs, color: COLORS.primaryDark },
+  footer: { textAlign: "center", fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, paddingTop: SPACING.xs },
 });

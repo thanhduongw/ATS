@@ -29,8 +29,8 @@ interface Props<T extends FieldValues> extends NativeInputProps {
 }
 
 /**
- * Ô nhập dùng chung cho mọi form, theo canvas: nhãn phía trên, ô dạng viên nhộng nền xám
- * nhạt, không viền. Nối react-hook-form — quy tắc 5: form KHÔNG dùng useState cho giá trị.
+ * Ô nhập dùng chung cho mọi form, theo Redesign-Final (`.field` + `.input`): nhãn đậm nhỏ phía trên, ô nền trắng
+ * viền mảnh bo 10; đang nhập thì viền màu thương hiệu, lỗi thì viền đỏ. Nối react-hook-form — quy tắc 5: form KHÔNG dùng useState cho giá trị.
  * (`useState` duy nhất ở đây là trạng thái hiện/ẩn mật khẩu, không phải giá trị form.)
  */
 export function FormTextField<T extends FieldValues>({
@@ -113,38 +113,39 @@ export function FormTextField<T extends FieldValues>({
 }
 
 const styles = StyleSheet.create({
-  root: { gap: SPACING.sm },
-  label: { fontFamily: FONT.medium, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },
+  root: { gap: SPACING.xs + SPACING.xxs },
+  label: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
   required: { color: COLORS.error },
   box: {
     flexDirection: "row",
     alignItems: "center",
     gap: SPACING.sm,
     height: SIZES.control,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.fill,
-    // Viền trong suốt giữ chỗ để lúc focus/lỗi hiện viền mà ô không nhảy kích thước.
-    borderWidth: 1.5,
-    borderColor: "transparent",
+    paddingHorizontal: SPACING.sm2,
+    borderRadius: RADIUS.control,
+    backgroundColor: COLORS.cardBg,
+    // Viền luôn có (cùng độ dày) nên lúc focus/lỗi chỉ đổi màu, ô không nhảy kích thước.
+    borderWidth: SIZES.border,
+    borderColor: COLORS.border,
   },
   boxMultiline: {
     height: undefined,
     minHeight: SIZES.control * 2,
     alignItems: "flex-start",
     paddingVertical: SPACING.sm2,
-    borderRadius: RADIUS.xl,
   },
   boxFocused: { borderColor: COLORS.primary },
   boxError: { borderColor: COLORS.error },
   input: {
     flex: 1,
     padding: 0,
+    // Trên web: tắt viền focus mặc định của trình duyệt — ô đã tự đổi viền sang màu thương hiệu khi đang nhập.
+    outlineWidth: 0,
     fontFamily: FONT.regular,
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.md,
     color: COLORS.textPrimary,
   },
-  inputMultiline: { lineHeight: FONT_SIZE.lg * LINE_HEIGHT.body },
+  inputMultiline: { lineHeight: FONT_SIZE.md * LINE_HEIGHT.body },
   hint: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
   error: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.errorText },
 });

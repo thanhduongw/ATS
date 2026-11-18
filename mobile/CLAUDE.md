@@ -128,6 +128,27 @@ vào chỗ trống — `keyboardShouldPersistTaps="handled"` đã lo việc đó
 
 ## Giao diện — theo `docs/UI`, web và mobile dùng CHUNG bảng màu
 
+**Chốt 19/11/2026 — làm lại theo `docs/UI/ATS-Candidate-Mobile-Redesign-Final.html`** (lớp CSS cuối
+`natural-redesign-overrides` là bản chốt). Áp dụng:
+- **Kiểu dáng cho CẢ app** (ứng viên, HR, HM dùng chung component): thẻ phẳng viền 1px bo 15, nút và ô nhập bo 10 cao 44,
+  nút nhỏ cao 36, nhãn trạng thái bo 6 không chấm, chip lọc viên nhộng trắng viền mảnh (đang chọn: nền nhạt màu thương
+  hiệu), ô nhập nền trắng viền mảnh, tiêu đề màn 24, dòng chữ nhỏ viết hoa (`Eyebrow`) trên tiêu đề, thanh trên/dưới trắng.
+- **Bố cục mới chỉ ở khu ứng viên + màn auth.** Khu HR/HM giữ bố cục, thanh tab, tiêu đề cũ.
+- Ứng viên có **4 tab: Trang chủ · Việc làm · Đơn của tôi · Cá nhân** + thanh trên cùng `CandidateAppBar` (logo + tên
+  công ty, nút chuông). Không còn tab Lịch / Thông báo: lịch PV tới qua chuông và nằm trong chi tiết đơn
+  (`applications/[id]` liệt kê mọi buổi và thư mời của đơn); màn mới `interviews/[id]` để xác nhận / xin dời lịch.
+  Thông báo INTERVIEW mở `/interviews/{id}`. Thư mời: trong chi tiết đơn và mục "Thư mời nhận việc" ở Cá nhân.
+- Trang chủ đọc trang tuyển dụng Quản trị soạn trên web (`GET /auth/public/careers-page`, khối "hero" + "featured",
+  `src/features/company/careers-config.ts` — cùng hình dạng với `frontend/src/features/careers/careersConfig.ts`):
+  ảnh bìa (chưa có → ảnh đời sống đầu tiên), dòng nhỏ `{jobs}`, khẩu hiệu, mô tả, nền brand/một màu/dải hai màu,
+  tiêu đề + số vị trí nổi bật, bật/tắt khối. KHÔNG có ô số liệu, thẻ PV sắp tới, khối đời sống/phúc lợi.
+- Đã bỏ hẳn: lưu việc làm (♡ — backend không có), chọn kỹ năng ở hồ sơ (vẫn gửi lại `skillIds` cũ khi lưu).
+- Màu chính vẫn là màu thương hiệu động (xanh lá trong HTML chỉ là màu mẫu). Logo công ty lưu lại như tên
+  (`readCachedLogoUrl()`), hiện ở thanh trên cùng và màn đăng nhập qua `CompanyLogo`.
+- Màn đăng nhập dùng chung mọi vai trò → không ghi "ứng viên" ở tiêu đề.
+
+Phần dưới là quy ước 03/11 vẫn còn hiệu lực (trừ chỗ bảng số đã cập nhật theo bản 19/11):
+
 **Chốt 03/11/2026 (thay quy ước 29/09 và 02/10):** nguồn thiết kế là thư mục **`docs/UI/`** của
 repo — `Mobile.html` (M01–M10, UC01–UC18 ứng viên, UR01–UR19 chuyên viên tuyển dụng,
 UH01–UH14 đại diện phòng ban) và `Interactive UI Prototype.html` (DS01–DS06: màu, chữ,
@@ -148,7 +169,8 @@ Quy tắc giữ nguyên:
 - Chỉ import token qua `@/theme`, đừng import thẳng file con.
 - `src/theme/paper.ts` là chỗ DUY NHẤT nối token vào Paper. Màn hình không tự đặt màu.
 - Chỉ có giao diện SÁNG (`app.json` đặt `userInterfaceStyle: "light"`). Đừng thêm dark mode.
-- Làm một màn: mở đúng khung (mã màn) trong `docs/UI/Mobile.html` trước, chép đúng chữ, rồi ghép từ component chung.
+- Làm một màn: khu ứng viên mở `views.<màn>` trong `docs/UI/ATS-Candidate-Mobile-Redesign-Final.html`, khu nhân viên mở
+  đúng khung trong `docs/UI/Mobile.html`; chép đúng chữ rồi ghép từ component chung.
 
 **Màu thương hiệu động (17/11/2026).** `COLORS.primary`, `primaryDark`, `primarySoft`, `primaryFaint`, `navy`, `navy2`
 không còn là hằng số: `src/theme/brand.ts` tính chúng từ màu Quản trị doanh nghiệp chọn trên web
@@ -165,22 +187,23 @@ Các con số đã chốt:
 | Thứ | Giá trị | Token |
 |---|---|---|
 | Màu chính / chữ trên nền tonal | `#0A59F7` / `#0848C7` | `COLORS.primary` / `primaryDark` |
-| Nền trang / thẻ | `#F1F3F5` / `#FFFFFF` | `COLORS.body` / `cardBg` |
+| Nền trang / thẻ / thanh trên-dưới | `#F6F7F8` / `#FFFFFF` / `#FFFFFF` | `COLORS.body` / `cardBg` / `barBg` |
+| Viền thẻ, ô nhập, chip / kẻ trong thẻ | `#E1E5E9` / `#E7EAED` (1px) | `COLORS.border` / `divider` |
 | Nền ô nhập, chip / nút phụ | `#182431` 5% / 10% | `COLORS.fill` / `fillStrong` |
 | Chữ chính / phụ / mờ | `#182431` · `#6B737B` · `#A3A7AD` | `textPrimary/Secondary/Muted` |
 | Đỏ · cam · xanh lá · tím PV | `#FA2A2D` · `#FF7500` · `#00A06B` · `#7C4DFF` | `error/warning/success/interview` |
 | Chữ đỏ | `#B91C1C` | `COLORS.errorText` |
 | Font | Be Vietnam Pro 400/500/600/700 | `FONT.*` |
-| Cỡ chữ | 10 · 12 · 13 · 14 nền · 15 · 16 · 18 · 20 · 24 · 30 | `FONT_SIZE.*` |
-| Bo góc | 12 · 14 · 16 · 20 thẻ · 32 sheet · viên nhộng | `RADIUS.*` (`full` cho nút/ô/chip) |
-| Nút chính ở đáy / nút phụ, ô nhập | cao 48 / 44 | `SIZES.primaryAction` / `SIZES.control` |
+| Cỡ chữ | 10 · 12 · 13 · 14 nền · 15 · 16 · 18 · 20 · 24 tiêu đề màn · 30 | `FONT_SIZE.*` |
+| Bo góc | 6 nhãn · 10 nút/ô · 12 ô icon · 15 thẻ · 16 khối đầu · 24 sheet · viên nhộng chip | `RADIUS.tag/control/md/xl/hero/sheet/full` |
+| Nút (mọi kiểu) / nút nhỏ / ô nhập | cao 44 / 36 / 44 | `SIZES.primaryAction` / `buttonSm` / `control` |
 | Lề màn | 16 (danh sách) · 24 (auth) | `SPACING.page` / `pageAuth` |
 
 Những chỗ mobile CỐ Ý khác `docs/UI`, đừng "sửa lại cho giống":
 
 1. **Font Be Vietnam Pro**, không phải HarmonyOS Sans — chắc chắn đủ dấu tiếng Việt.
-2. **Ô nhập và nút phụ cao 44, nút chính 48** (quyết định X6; DS02 ghi nút chính 46–50).
-   Chip/nút nhỏ 32 thì nới bằng `hitSlop`.
+2. **Mọi nút `md` và ô nhập cao 44** (Redesign-Final, thay quyết định X6 nút chính 48). Nút `sm` 36, chip 32
+   thì nới bằng `hitSlop`.
 3. **Chữ phụ `#6B737B`** chứ không phải `#18243199` (60%) của DS01: bản HTML chỉ đạt 4.1:1
    trên nền xám. Chữ trên nút tonal dùng `primaryDark`/`errorText` cho đủ 4.5:1.
 4. **Gradient AI vẽ bằng `react-native-svg`** (`AiScoreBadge` trong `status-chip.tsx`, quyết
@@ -196,21 +219,26 @@ Những chỗ mobile CỐ Ý khác `docs/UI`, đừng "sửa lại cho giống":
 MaterialCommunityIcons cho giao diện mới.
 
 **Tiêu đề màn**: không có thanh tiêu đề của navigator (`headerShown: false`). Mỗi màn tự vẽ
-`<ScreenHeader>` — `large` (tiêu đề 30) cho màn tab, `compact` (nút quay lại + tiêu đề 20)
-cho màn chi tiết. `ScreenHeader` tự cộng safe-area phía trên.
+`<ScreenHeader>` — `large` (tiêu đề 24, có thể kèm `eyebrow`) cho màn tab khu nhân viên, `compact` (nút quay lại +
+tiêu đề 18) cho màn chi tiết. Màn tab khu ứng viên thì vẽ `<CandidateAppBar />` rồi `<PageTitle>` trong nội dung cuộn.
+`ScreenHeader` và `CandidateAppBar` tự cộng safe-area phía trên.
 
 Component dùng chung (`src/components/ui/`):
 
 | Component | Dùng cho | Màn (canvas cũ / docs/UI) |
 |---|---|---|
 | `Icon` | mọi icon | tất cả |
-| `PillButton` (`primary`/`tonal`/`danger`/`text`, `md`/`sm`), `IconButton` | nút | Main, M09, M10, M12 |
+| `PillButton` (`primary`/`tonal`/`outline`/`danger`/`text`, `md`/`sm`, `icon`/`iconRight`), `IconButton` (vuông bo 10, viền) | nút | Main, M09, M10, M12 |
 | `FormTextField` (ở `src/components/`) | ô nhập trong form, nhãn trên, `password`, `multiline` | M01–M05, M20 |
 | `SearchField`, `FilterChips`, `SegmentedControl` | tìm/lọc ở client | M06, M08, M10 |
-| `Card`, `CardTitle`, `IconTile`, `KeyValueRow`, `ListRow`, `InfoNote` | nội dung thẻ | M06–M14 |
+| `Card`, `CardTitle`, `IconTile`, `KeyValueRow`, `ListRow`, `InfoNote`, `Divider`, `Eyebrow` | nội dung thẻ | M06–M14, Redesign-Final |
+| `CompanyLogo` | logo công ty (chưa có → `BrandMark`) | thanh trên cùng, auth |
+| `CandidateAppBar` (ở `src/components/app-bar.tsx`) | thanh trên cùng 4 màn tab ứng viên | Redesign-Final `.appbar` |
+| `PageTitle` | dòng chữ nhỏ + tiêu đề 24 + câu dẫn NẰM TRONG nội dung cuộn của màn tab ứng viên | Redesign-Final |
+| `JobCard`, `jobSalary()` (ở `src/features/jobs/job-card.tsx`) | thẻ việc làm ở Trang chủ và Việc làm | Redesign-Final |
 | `StatusChip`, `Tag` | trạng thái (qua `src/lib/status.ts`), nhãn trung tính | Main, M06–M12 |
 | `AiScoreBadge` | điểm AI trên dải màu AI (chỉ nội bộ) | DS01, DS05 |
-| `ScreenHeader`, `BottomActionBar` | đầu màn, thanh nút dính đáy | M06–M14 |
+| `ScreenHeader` (`eyebrow`), `BottomActionBar` | đầu màn, thanh nút dính đáy | M06–M14 |
 | `BottomSheet` | form trượt lên (nộp đơn, chấm đánh giá) | M20 |
 | `AuthScaffold` (`leading`: `brand`/`back`/`{icon}`), `ResendRow`, `PromptLink` (ở `src/components/`) | 5 màn auth | M01–M05 |
 | `FormOtpField` (ở `src/components/`) | ô OTP 6 số (một TextInput ẩn phủ 6 ô — dán/tự điền mã chạy sẵn) | M03, M05 |

@@ -12,7 +12,7 @@ import { formatDate, formatDaysLeft, formatMoney, formatTime } from "@/lib/forma
 import { offerStatus } from "@/lib/status";
 import { STRINGS } from "@/lib/strings";
 import { useNow } from "@/lib/use-now";
-import { COLORS, FONT, FONT_SIZE, RADIUS, SPACING } from "@/theme";
+import { COLORS, FONT, FONT_SIZE, RADIUS, SPACING, SIZES } from "@/theme";
 import type { OfferResponse } from "@/types/api";
 import { useStaffOffers } from "../hooks";
 
@@ -128,7 +128,7 @@ export function StaffOffersScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: { flexDirection: "row", gap: SPACING.sm2, backgroundColor: COLORS.cardBg, borderRadius: RADIUS.lg, padding: SPACING.md },
+  card: { flexDirection: "row", gap: SPACING.sm2, backgroundColor: COLORS.cardBg, borderRadius: RADIUS.xl, borderWidth: SIZES.border, borderColor: COLORS.border, padding: SPACING.md },
   pressed: { opacity: 0.85 },
   body: { flex: 1, gap: SPACING.xs },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },

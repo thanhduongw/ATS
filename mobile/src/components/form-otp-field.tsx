@@ -82,17 +82,18 @@ export function FormOtpField<T extends FieldValues>({
 
 const styles = StyleSheet.create({
   root: { gap: SPACING.sm },
-  label: { fontFamily: FONT.medium, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },
+  label: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
   row: { flexDirection: "row", justifyContent: "space-between" },
   cell: {
     width: SIZES.otpWidth,
     height: SIZES.otpHeight,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.fill,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.cardBg,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "transparent",
+    // Redesign-Final `.otp input`: ô trắng viền mảnh; đang nhập/lỗi đổi màu viền (dày hơn chút cho dễ thấy).
+    borderWidth: SIZES.track,
+    borderColor: COLORS.border,
   },
   cellActive: { borderColor: COLORS.primary },
   cellError: { borderColor: COLORS.error },

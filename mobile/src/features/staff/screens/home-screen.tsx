@@ -22,7 +22,7 @@ import { toFixedStage } from "@/lib/stages";
 import { STRINGS } from "@/lib/strings";
 import { useNow } from "@/lib/use-now";
 import { useAuthStore } from "@/store/authStore";
-import { COLORS, FONT, FONT_SIZE, RADIUS, SPACING } from "@/theme";
+import { COLORS, FONT, FONT_SIZE, RADIUS, SPACING, SIZES } from "@/theme";
 import type { InterviewResponse } from "@/types/api";
 import {
   useMe,
@@ -357,7 +357,9 @@ const styles = StyleSheet.create({
   metric: {
     flex: 1,
     backgroundColor: COLORS.cardBg,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.control,
+    borderWidth: SIZES.border,
+    borderColor: COLORS.border,
     padding: SPACING.sm2,
     gap: SPACING.xxs,
   },

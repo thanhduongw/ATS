@@ -4,7 +4,7 @@ import type { Role } from "@/types/api";
 export const homeForRole = (role?: Role | string) => {
   switch (role) {
     case "CANDIDATE":
-      return "/(candidate)/jobs";
+      return "/(candidate)/home";
     case "HIRING_MANAGER":
       return "/hm";
     case "RECRUITER":

@@ -51,6 +51,13 @@ export const FONT_SIZE = {
   h1: 30,
 } as const;
 
+/** Giãn chữ cho dòng chữ nhỏ viết hoa trên tiêu đề (`.eyebrow` 0.65px). */
+export const LETTER_SPACING = {
+  eyebrow: 0.6,
+  /** Tiêu đề lớn hơi khít lại (`.h1` -0.55px). */
+  title: -0.4,
+} as const;
+
 /** Chiều cao dòng cho đoạn văn nhiều dòng (canvas `line-height: 1.45`). */
 export const LINE_HEIGHT = {
   body: 1.45,

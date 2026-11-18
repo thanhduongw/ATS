@@ -12,7 +12,7 @@ import { useRecruitmentSources } from "@/features/masterdata/hooks";
 import { SourceSheet } from "@/features/applications/source-sheet";
 import { apiErrorMessage } from "@/api/client";
 import { BOTTOM_BAR_SPACE, BottomActionBar, ScreenHeader } from "@/components/ui/screen-chrome";
-import { IconTile } from "@/components/ui/surfaces";
+import { Card, Divider, Eyebrow, IconTile } from "@/components/ui/surfaces";
 import { PillButton } from "@/components/ui/buttons";
 import { Icon } from "@/components/ui/icon";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,7 +20,7 @@ import { useSnackbar } from "@/components/ui/snackbar";
 import { FormTextField } from "@/components/form-text-field";
 import { STRINGS } from "@/lib/strings";
 import { cvFileName } from "@/lib/format";
-import { COLORS, FONT, FONT_SIZE, RADIUS, SIZES, SPACING } from "@/theme";
+import { COLORS, FONT, FONT_SIZE, LINE_HEIGHT, RADIUS, SIZES, SPACING } from "@/theme";
 
 const S = STRINGS.apply;
 const D = STRINGS.jobDetail;
@@ -34,10 +34,10 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 /**
- * Ứng tuyển — giao diện canvas Mobile v2 N28, cắt theo đúng những gì backend nhận:
- * `ApplicationCreateRequest` chỉ có jobPostingId + recruitmentSourceId (bắt buộc) + note.
- * CV lấy từ hồ sơ (không đính kèm). Các ô họ tên/SĐT/lương mong muốn và "AI tự điền" của canvas
- * KHÔNG làm — backend không nhận các trường đó.
+ * Xác nhận ứng tuyển — Redesign-Final `views.apply`: thẻ vị trí + CV trong hồ sơ, nguồn biết tin (bắt buộc), lời nhắn,
+ * ô đồng ý xử lý dữ liệu, hộp "Trước khi gửi hồ sơ"; dưới đáy "Quay lại" · "Gửi hồ sơ ứng tuyển".
+ * `ApplicationCreateRequest` chỉ nhận jobPostingId + recruitmentSourceId (bắt buộc) + note + consentAccepted;
+ * CV lấy từ hồ sơ (không đính kèm).
  */
 export default function ApplyScreen() {
   const { jobId: jobIdParam } = useLocalSearchParams<{ jobId: string }>();
@@ -59,6 +59,7 @@ export default function ApplyScreen() {
   const sourceName = sources.data?.find((s) => s.id === sourceId)?.name;
   const hasCv = !!profile.data?.resumeUploaded;
   const cvName = cvFileName(profile.data?.resumeUrl);
+  const place = [job.data?.departmentName, job.data?.workLocationName].filter(Boolean).join(" · ");
 
   const onSubmit = handleSubmit(
     (v) =>
@@ -70,9 +71,11 @@ export default function ApplyScreen() {
           consentAccepted: v.consent,
         },
         {
-          onSuccess: () => {
+          onSuccess: (created) => {
             notify(D.success);
-            router.navigate("/applications");
+            // Redesign-Final: nộp xong mở luôn chi tiết đơn vừa tạo.
+            if (created.id != null) router.replace({ pathname: "/applications/[id]", params: { id: String(created.id) } });
+            else router.navigate("/applications");
           },
           onError: (e) => {
             const msg = apiErrorMessage(e, D.failed);
@@ -98,24 +101,32 @@ export default function ApplyScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="none"
         >
-          {job.data?.title ? <Text style={styles.jobTitle}>{job.data.title}</Text> : null}
-
-          {/* Thẻ CV (canvas N28): tên file trong hồ sơ, nút "Đổi" sang mục Tôi để thay. */}
-          <View style={[styles.cvCard, !hasCv && styles.cvCardMissing]}>
-            <IconTile icon="file" tone={hasCv ? "danger" : "neutral"} size={SIZES.iconButton} />
-            <View style={styles.flex}>
-              <Text style={styles.cvName} numberOfLines={1}>
-                {hasCv ? cvName : S.noCv}
-              </Text>
-              <Text style={styles.sub}>{hasCv ? S.cvFromProfile : S.noCvHint}</Text>
+          {/* Thẻ vị trí + CV: tên file trong hồ sơ, nút "Đổi CV" sang mục Cá nhân để thay. */}
+          <Card style={!hasCv && styles.cardMissing}>
+            <Eyebrow>{S.positionKicker}</Eyebrow>
+            {job.data ? (
+              <View style={styles.position}>
+                <Text style={styles.jobTitle}>{job.data.title}</Text>
+                {place ? <Text style={styles.sub}>{place}</Text> : null}
+              </View>
+            ) : null}
+            <Divider />
+            <View style={styles.cvRow}>
+              <IconTile icon="file" tone={hasCv ? "brand" : "danger"} size={SIZES.iconButton} />
+              <View style={styles.flex}>
+                <Text style={styles.cvName} numberOfLines={1}>
+                  {hasCv ? cvName : S.noCv}
+                </Text>
+                <Text style={styles.sub}>{hasCv ? S.cvFromProfile : S.noCvHint}</Text>
+              </View>
+              <PillButton
+                label={hasCv ? S.changeCv : S.uploadCv}
+                variant={hasCv ? "text" : "primary"}
+                size="sm"
+                onPress={() => router.navigate("/profile")}
+              />
             </View>
-            <PillButton
-              label={hasCv ? S.changeCv : S.uploadCv}
-              variant={hasCv ? "text" : "primary"}
-              size="sm"
-              onPress={() => router.navigate("/profile")}
-            />
-          </View>
+          </Card>
 
           <View style={styles.field}>
             <Text style={styles.label}>
@@ -135,23 +146,37 @@ export default function ApplyScreen() {
             </Pressable>
             {formState.errors.recruitmentSourceId ? (
               <Text style={styles.error}>{formState.errors.recruitmentSourceId.message}</Text>
-            ) : null}
+            ) : (
+              <Text style={styles.hint}>{S.sourceHint}</Text>
+            )}
           </View>
 
-          <FormTextField control={control} name="note" label={S.note} multiline maxLength={1000} />
+          <FormTextField
+            control={control}
+            name="note"
+            label={S.note}
+            placeholder={S.notePlaceholder}
+            multiline
+            maxLength={1000}
+          />
 
           <Checkbox
             checked={!!consent}
             onChange={(next) => setValue("consent", next, { shouldValidate: formState.isSubmitted })}
             label={S.consent}
           />
+
+          <View style={styles.before}>
+            <Text style={styles.beforeTitle}>{S.beforeTitle}</Text>
+            <Text style={styles.sub}>{S.beforeBody}</Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
       <BottomActionBar>
+        <PillButton label={S.back} variant="outline" onPress={() => router.back()} />
         <PillButton
           label={S.submit}
-          icon="send"
           fullWidth
           style={styles.flex}
           loading={apply.isPending}
@@ -176,35 +201,37 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.body },
   flex: { flex: 1 },
   content: { paddingHorizontal: SPACING.page, paddingTop: SPACING.xs, gap: SPACING.md },
-  jobTitle: { fontFamily: FONT.bold, fontSize: FONT_SIZE.md, color: COLORS.textPrimary },
-  cvCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm2,
-    padding: SPACING.sm2 + SPACING.xxs,
-    borderRadius: RADIUS.xl,
-    backgroundColor: COLORS.cardBg,
+  cardMissing: { borderColor: COLORS.error },
+  position: { gap: SPACING.xxs },
+  jobTitle: { fontFamily: FONT.bold, fontSize: FONT_SIZE.lg, color: COLORS.textPrimary },
+  cvRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2 },
+  cvName: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
+  sub: {
+    fontFamily: FONT.regular,
+    fontSize: FONT_SIZE.caption,
+    lineHeight: FONT_SIZE.caption * LINE_HEIGHT.body,
+    color: COLORS.textSecondary,
   },
-  cvCardMissing: { borderWidth: SIZES.hairline * 2, borderColor: COLORS.error },
-  cvName: { fontFamily: FONT.medium, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
-  sub: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
-  field: { gap: SPACING.sm },
-  label: { fontFamily: FONT.medium, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },
+  field: { gap: SPACING.xs + SPACING.xxs },
+  label: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
   required: { color: COLORS.error },
   select: {
     flexDirection: "row",
     alignItems: "center",
     gap: SPACING.sm,
     height: SIZES.control,
-    paddingLeft: SPACING.md,
-    paddingRight: SPACING.sm2,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.fill,
-    borderWidth: 1.5,
-    borderColor: "transparent",
+    paddingHorizontal: SPACING.sm2,
+    borderRadius: RADIUS.control,
+    backgroundColor: COLORS.cardBg,
+    borderWidth: SIZES.border,
+    borderColor: COLORS.border,
   },
   selectError: { borderColor: COLORS.error },
-  selectText: { flex: 1, fontFamily: FONT.regular, fontSize: FONT_SIZE.lg, color: COLORS.textPrimary },
+  selectText: { flex: 1, fontFamily: FONT.regular, fontSize: FONT_SIZE.md, color: COLORS.textPrimary },
   placeholder: { color: COLORS.textMuted },
+  hint: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
   error: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.errorText },
+  // Hộp "Trước khi gửi hồ sơ" (`.card` nền phớt màu thương hiệu).
+  before: { gap: SPACING.xs, padding: SPACING.md, borderRadius: RADIUS.xl, backgroundColor: COLORS.primaryFaint },
+  beforeTitle: { fontFamily: FONT.bold, fontSize: FONT_SIZE.caption, color: COLORS.primaryDark },
 });

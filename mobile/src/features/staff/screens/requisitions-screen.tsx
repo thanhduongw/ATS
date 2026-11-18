@@ -12,7 +12,7 @@ import { toFixedStage } from "@/lib/stages";
 import { requisitionStatus } from "@/lib/status";
 import { STRINGS } from "@/lib/strings";
 import { useAuthStore } from "@/store/authStore";
-import { COLORS, FONT, FONT_SIZE, RADIUS, SPACING } from "@/theme";
+import { COLORS, FONT, FONT_SIZE, RADIUS, SPACING, SIZES } from "@/theme";
 import type { RequisitionResponse } from "@/types/api";
 import { useMyId, useStaffApplications, useStaffPostings, useStaffRequisitions } from "../hooks";
 import { areaOf } from "../tasks";
@@ -135,7 +135,7 @@ export function StaffRequisitionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: COLORS.cardBg, borderRadius: RADIUS.lg, padding: SPACING.md, gap: SPACING.sm },
+  card: { backgroundColor: COLORS.cardBg, borderRadius: RADIUS.xl, borderWidth: SIZES.border, borderColor: COLORS.border, padding: SPACING.md, gap: SPACING.sm },
   pressed: { opacity: 0.85 },
   top: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm },
   title: { flex: 1, fontFamily: FONT.semibold, fontSize: FONT_SIZE.md, color: COLORS.textPrimary },

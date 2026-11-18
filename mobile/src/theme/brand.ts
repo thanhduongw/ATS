@@ -16,6 +16,7 @@ export const DEFAULT_BRAND = "#0A59F7";
 const MIN_CONTRAST = 4.5;
 const KEY = "ats.brandColor";
 const NAME_KEY = "ats.companyName";
+const LOGO_KEY = "ats.companyLogo";
 
 export interface BrandPalette {
   color: string;
@@ -89,6 +90,14 @@ export function derivePalette(input?: string | null): BrandPalette {
   };
 }
 
+/**
+ * Màu nền do Quản trị tự chọn cho phần đầu trang tuyển dụng (`careers-page` → `hero.color1/color2`). Chữ trên nền luôn
+ * trắng nên màu nhạt được làm đậm như màu thương hiệu; màu không hợp lệ → `fallback`. Cùng `heroBackgroundCss` của web.
+ */
+export function heroColor(input: unknown, fallback: string): string {
+  return isHex(input) ? ensureContrast(input) : fallback;
+}
+
 /** Đọc đồng bộ màu đã lưu; lỗi đọc thì dùng màu mặc định. */
 export function readCachedBrand(): string | null {
   const v = readRaw(KEY);
@@ -126,6 +135,12 @@ export function readCachedCompanyName(): string | null {
   return v && v.trim() ? v.trim() : null;
 }
 
+/** Logo doanh nghiệp đã lưu ở lần mở trước — để thanh trên cùng và màn đăng nhập không nháy chữ cái trong lúc chờ API. */
+export function readCachedLogoUrl(): string | null {
+  const v = readRaw(LOGO_KEY);
+  return v && /^https?:\/\//.test(v) ? v : null;
+}
+
 /**
  * Hỏi API công khai màu thương hiệu hiện tại. Khác với màu đang dùng thì lưu lại; trên trình duyệt tải lại
  * trang để áp dụng ngay, trên điện thoại màu mới có hiệu lực từ lần mở app kế tiếp.
@@ -134,9 +149,12 @@ export async function syncBrandFromServer(apiBaseUrl: string): Promise<void> {
   try {
     const res = await fetch(`${apiBaseUrl}/auth/public/theme`);
     if (!res.ok) return;
-    const body = (await res.json()) as { brandColor?: string | null; companyName?: string | null };
+    const body = (await res.json()) as { brandColor?: string | null; companyName?: string | null; logoUrl?: string | null };
     const next = isHex(body.brandColor) ? body.brandColor.toUpperCase() : null;
     const name = body.companyName?.trim() || null;
+    const logo = body.logoUrl?.trim() || null;
+    // Logo chỉ là ảnh (component đọc lại mỗi lần vẽ) — đổi logo không cần tải lại trang.
+    if (logo !== readCachedLogoUrl()) writeRaw(LOGO_KEY, logo);
     if (next === readCachedBrand() && name === readCachedCompanyName()) return;
     writeRaw(KEY, next);
     writeRaw(NAME_KEY, name);

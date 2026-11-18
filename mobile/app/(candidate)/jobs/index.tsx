@@ -1,33 +1,31 @@
 import { useMemo, useState } from "react";
-import { Pressable, SectionList, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { router } from "expo-router";
-import { useOpenJobs, usePublicCompanyName } from "@/features/jobs/hooks";
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import { useOpenJobs } from "@/features/jobs/hooks";
+import { JobCard } from "@/features/jobs/job-card";
 import { useAppliedJobs } from "@/features/applications/hooks";
-import { useMyProfile } from "@/features/profile/hooks";
 import { apiErrorMessage } from "@/api/client";
-import { ScreenHeader } from "@/components/ui/screen-chrome";
+import { CandidateAppBar } from "@/components/app-bar";
+import { PageTitle } from "@/components/ui/screen-chrome";
 import { FilterChips, SearchField, type ChipOption } from "@/components/ui/search-and-filters";
-import { Card } from "@/components/ui/surfaces";
-import { ToneTag } from "@/components/ui/status-chip";
 import { IconButton, PillButton } from "@/components/ui/buttons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { Icon } from "@/components/ui/icon";
 import { EmptyState, ErrorState, SkeletonList } from "@/components/ui/feedback";
 import { STRINGS } from "@/lib/strings";
-import { formatRelative, formatSalary, normalizeForSearch } from "@/lib/format";
-import { useNow } from "@/lib/use-now";
+import { normalizeForSearch } from "@/lib/format";
 import { COLORS, FONT, FONT_SIZE, RADIUS, SIZES, SPACING } from "@/theme";
 import type { JobPostingResponse } from "@/types/api";
 
 const S = STRINGS.jobs;
 const ALL = "all";
+/** Redesign-Final: mỗi lần hiện 8 vị trí, nút "Hiển thị thêm" mở tiếp 8. */
+const PAGE = 8;
 
-type Scored = { job: JobPostingResponse; matched: number };
 type GroupKey = keyof typeof S.filterGroups;
 type Filters = Record<GroupKey, string[]>;
 const NO_FILTERS: Filters = { location: [], arrangement: [], type: [], experience: [] };
 
-/** Giá trị của một tin theo từng nhóm lọc UC17 (rỗng → tin không thuộc nhóm đó). */
+/** Giá trị của một tin theo từng nhóm lọc (rỗng → tin không thuộc nhóm đó). */
 const valueOf: Record<GroupKey, (j: JobPostingResponse) => string | undefined> = {
   location: (j) => j.workLocationName,
   arrangement: (j) => (j.workArrangement ? STRINGS.arrangement[j.workArrangement] : undefined),
@@ -40,27 +38,32 @@ const valueOf: Record<GroupKey, (j: JobPostingResponse) => string | undefined> =
 };
 
 /**
- * UC01 · Việc làm (Mobile.html): "N vị trí đang tuyển tại {công ty}", ô tìm + nút Bộ lọc (UC17), chip phòng ban
- * có số lượng, thẻ việc làm (phòng ban · Tuyển gấp · ✓ Đã ứng tuyển, tên, địa điểm · hình thức, lương, thời gian).
- * Endpoint công khai trả CẢ mảng, không có keyword/phân trang → tìm, lọc, xếp ở client.
- * Khác HTML: không có nút chuông (đã có tab Thông báo) và không có nút ♡ lưu tin (backend chưa có).
- * "Phù hợp với bạn": tin khớp kỹ năng trong hồ sơ lên nhóm đầu.
+ * Việc làm — Redesign-Final `views.jobs`: tiêu đề, ô tìm + nút bộ lọc, chip phòng ban, "Tất cả vị trí · N vị trí",
+ * thẻ việc làm, "Hiển thị thêm". Endpoint công khai trả CẢ mảng, không có keyword/phân trang → tìm, lọc ở client.
+ * Trang chủ mở tab này kèm `q` (từ khóa), `dept` (phòng ban) hoặc `filter=1` (mở bộ lọc); `t` đổi mỗi lần bấm.
  */
 export default function JobsScreen() {
+  const params = useLocalSearchParams<{ q?: string; dept?: string; filter?: string; t?: string }>();
   const query = useOpenJobs();
   const applied = useAppliedJobs();
-  const profile = useMyProfile();
-  const company = usePublicCompanyName();
-  const now = useNow();
-  const [keyword, setKeyword] = useState("");
-  const [dept, setDept] = useState<string>(ALL);
+  const [keyword, setKeyword] = useState(params.q ?? "");
+  const [dept, setDept] = useState<string>(params.dept ? `dept:${params.dept}` : ALL);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(params.filter === "1");
+  const [limit, setLimit] = useState(PAGE);
+
+  // Trang chủ gửi tham số mới (tab đã mở sẵn nên không dựng lại màn) → áp dụng ngay trong lúc render.
+  const [seenT, setSeenT] = useState(params.t);
+  if (params.t !== seenT) {
+    setSeenT(params.t);
+    setKeyword(params.q ?? "");
+    setDept(params.dept ? `dept:${params.dept}` : ALL);
+    if (params.filter === "1") setSheetOpen(true);
+    setLimit(PAGE);
+  }
 
   const jobs = useMemo(() => query.data ?? [], [query.data]);
-  const mySkills = useMemo(() => new Set(profile.data?.skillIds ?? []), [profile.data]);
 
-  // Chip phòng ban kèm số tin (UC01 "Tất cả 9 · Kỹ thuật 6").
   const chips = useMemo<ChipOption<string>[]>(() => {
     const count = new Map<string, number>();
     for (const j of jobs) if (j.departmentName) count.set(j.departmentName, (count.get(j.departmentName) ?? 0) + 1);
@@ -83,16 +86,9 @@ export default function JobsScreen() {
     ).includes(k);
   };
 
-  const sections = useMemo(() => {
-    const list: Scored[] = jobs
-      .filter((j) => matches(j, filters))
-      .map((job) => ({ job, matched: (job.skillIds ?? []).filter((id) => mySkills.has(id)).length }));
-    const fit = list.filter((s) => s.matched > 0).sort((a, b) => b.matched - a.matched);
-    const rest = list.filter((s) => s.matched === 0);
-    if (!fit.length) return list.length ? [{ title: "", data: list }] : [];
-    return [{ title: S.forYou, data: fit }, ...(rest.length ? [{ title: S.others, data: rest }] : [])];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, keyword, activeDept, filters, mySkills]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const list = useMemo(() => jobs.filter((j) => matches(j, filters)), [jobs, keyword, activeDept, filters]);
+  const shown = list.slice(0, limit);
 
   const sheetCount = Object.values(filters).reduce((n, v) => n + v.length, 0);
   const filtered = !!keyword.trim() || activeDept !== ALL || sheetCount > 0;
@@ -104,19 +100,42 @@ export default function JobsScreen() {
 
   const header = (
     <View style={styles.header}>
+      <PageTitle eyebrow={S.eyebrow} title={S.title} subtitle={S.subtitle} />
       <View style={styles.searchRow}>
         <View style={styles.flex}>
-          <SearchField value={keyword} onChangeText={setKeyword} placeholder={S.searchPlaceholder} />
+          <SearchField
+            value={keyword}
+            onChangeText={(v) => {
+              setKeyword(v);
+              setLimit(PAGE);
+            }}
+            placeholder={S.searchPlaceholder}
+          />
         </View>
         <IconButton icon="filter" label={S.filter} badge={sheetCount} onPress={() => setSheetOpen(true)} />
       </View>
-      {chips.length > 1 ? <FilterChips options={chips} value={activeDept} onChange={setDept} /> : null}
+      {chips.length > 1 ? (
+        <FilterChips
+          options={chips}
+          value={activeDept}
+          onChange={(k) => {
+            setDept(k);
+            setLimit(PAGE);
+          }}
+        />
+      ) : null}
+      {query.data ? (
+        <View style={styles.countRow}>
+          <Text style={styles.countLabel}>{filtered ? S.results : S.allJobs}</Text>
+          <Text style={styles.countValue}>{S.count(list.length)}</Text>
+        </View>
+      ) : null}
     </View>
   );
 
   return (
-    <>
-      <ScreenHeader title={S.title} subtitle={query.data ? S.openAt(jobs.length, company.data ?? "") : undefined} />
+    <View style={styles.root}>
+      <CandidateAppBar />
       {query.isPending ? (
         <View style={styles.pad}>
           {header}
@@ -124,27 +143,39 @@ export default function JobsScreen() {
         </View>
       ) : query.isError && !jobs.length ? (
         <View style={styles.pad}>
+          {header}
           <ErrorState message={apiErrorMessage(query.error, "")} onRetry={() => void query.refetch()} />
         </View>
       ) : (
-        // SectionList thay QueryList vì cần 2 nhóm; vẫn đủ 4 trạng thái + kéo để làm mới.
-        <SectionList
-          sections={sections}
-          keyExtractor={(s, i) => String(s.job.id ?? i)}
-          renderItem={({ item }) => (
-            <JobCard job={item.job} now={now} applied={item.job.id != null && applied.has(item.job.id)} />
-          )}
-          renderSectionHeader={({ section }) => (section.title ? <Text style={styles.section}>{section.title}</Text> : null)}
+        <FlatList
+          data={shown}
+          keyExtractor={(j, i) => String(j.id ?? i)}
+          renderItem={({ item }) => <JobCard job={item} applied={item.id != null && applied.has(item.id)} />}
           ListHeaderComponent={header}
           ListEmptyComponent={
             filtered ? (
-              <EmptyState title={S.noMatchTitle} message={S.noMatchMessage} action={{ label: S.clearFilters, onPress: clear }} />
+              <EmptyState
+                icon="search"
+                title={S.noMatchTitle}
+                message={S.noMatchMessage}
+                action={{ label: S.clearFilters, onPress: clear }}
+              />
             ) : (
-              <EmptyState title={S.emptyTitle} message={S.emptyMessage} />
+              <EmptyState icon="briefcase" title={S.emptyTitle} message={S.emptyMessage} />
             )
           }
+          ListFooterComponent={
+            shown.length < list.length ? (
+              <PillButton
+                label={S.showMore(Math.min(PAGE, list.length - shown.length))}
+                variant="outline"
+                fullWidth
+                onPress={() => setLimit((l) => l + PAGE)}
+                style={styles.more}
+              />
+            ) : null
+          }
           ItemSeparatorComponent={Gap}
-          stickySectionHeadersEnabled={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="none"
           contentContainerStyle={styles.list}
@@ -152,10 +183,7 @@ export default function JobsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={query.isRefetching}
-              onRefresh={() => {
-                void query.refetch();
-                void profile.refetch();
-              }}
+              onRefresh={() => void query.refetch()}
               colors={[COLORS.primary]}
               tintColor={COLORS.primary}
             />
@@ -171,11 +199,12 @@ export default function JobsScreen() {
           onClose={() => setSheetOpen(false)}
           onApply={(f) => {
             setFilters(f);
+            setLimit(PAGE);
             setSheetOpen(false);
           }}
         />
       ) : null}
-    </>
+    </View>
   );
 }
 
@@ -183,45 +212,7 @@ function Gap() {
   return <View style={styles.gap} />;
 }
 
-/** Thẻ việc làm UC01. */
-function JobCard({ job, applied, now }: { job: JobPostingResponse; applied: boolean; now: number }) {
-  const place = [job.workLocationName, job.workArrangement ? STRINGS.arrangement[job.workArrangement] : null]
-    .filter(Boolean)
-    .join(" · ");
-  const hasTags = !!job.departmentName || !!job.urgent || applied;
-  return (
-    <Card
-      onPress={() => job.id != null && router.push({ pathname: "/jobs/[id]", params: { id: String(job.id) } })}
-      accessibilityLabel={job.title}
-      style={styles.card}
-    >
-      {hasTags ? (
-        <View style={styles.tags}>
-          {job.departmentName ? <ToneTag label={job.departmentName} tone="brand" /> : null}
-          {job.urgent ? <ToneTag label={S.urgent} tone="danger" /> : null}
-          {applied ? <ToneTag label={S.appliedTag} tone="success" icon="check" /> : null}
-        </View>
-      ) : null}
-      <Text style={styles.title} numberOfLines={2}>
-        {job.title}
-      </Text>
-      {place ? (
-        <View style={styles.meta}>
-          <Icon name="pin" size={SIZES.iconXs} color={COLORS.textSecondary} />
-          <Text style={styles.sub} numberOfLines={1}>
-            {place}
-          </Text>
-        </View>
-      ) : null}
-      <View style={styles.bottom}>
-        <Text style={styles.salary}>{formatSalary(job.salaryMin, job.salaryMax)}</Text>
-        {job.publishedAt ? <Text style={styles.time}>{formatRelative(job.publishedAt, new Date(now))}</Text> : null}
-      </View>
-    </Card>
-  );
-}
-
-/** UC17 · Bộ lọc: các nhóm chọn nhiều dựng từ chính danh sách tin; "Xem N việc làm" đếm trước khi áp dụng. */
+/** Bộ lọc: các nhóm chọn nhiều dựng từ chính danh sách tin; "Xem N việc làm" đếm trước khi áp dụng. */
 function FilterSheet({
   jobs,
   initial,
@@ -246,11 +237,12 @@ function FilterSheet({
     <BottomSheet
       visible
       onDismiss={onClose}
-      title={S.filter}
+      title={S.filterTitle}
+      subtitle={S.filterSubtitle}
       footer={
         <View style={styles.footer}>
           <View style={styles.flex}>
-            <PillButton label={S.filterReset} variant="tonal" fullWidth onPress={() => setDraft(NO_FILTERS)} />
+            <PillButton label={S.filterReset} variant="outline" fullWidth onPress={() => setDraft(NO_FILTERS)} />
           </View>
           <View style={styles.flex}>
             <PillButton label={S.filterShow(countFor(draft))} fullWidth onPress={() => onApply(draft)} />
@@ -286,34 +278,30 @@ function FilterSheet({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.body },
   flex: { flex: 1 },
-  pad: { paddingHorizontal: SPACING.page, gap: SPACING.sm2 },
-  list: { paddingHorizontal: SPACING.page, paddingBottom: SPACING.lg, flexGrow: 1 },
-  header: { gap: SPACING.sm2, paddingTop: SPACING.xs, paddingBottom: SPACING.sm2 },
-  searchRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
-  section: {
-    paddingHorizontal: SPACING.sm2,
-    paddingBottom: SPACING.sm,
-    paddingTop: SPACING.xs,
-    fontFamily: FONT.medium,
-    fontSize: FONT_SIZE.base,
-    color: COLORS.textSecondary,
-  },
+  pad: { padding: SPACING.page, gap: SPACING.sm2 },
+  list: { padding: SPACING.page, paddingBottom: SPACING.xl, flexGrow: 1 },
+  header: { gap: SPACING.sm2, paddingBottom: SPACING.sm2 },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, marginTop: SPACING.xs },
+  countRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: SPACING.xs },
+  countLabel: { fontFamily: FONT.bold, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
+  countValue: { fontFamily: FONT.regular, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
   gap: { height: SPACING.sm2 },
-  card: { padding: SPACING.md, gap: SPACING.sm },
-  tags: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.xs + SPACING.xxs },
-  title: { fontFamily: FONT.bold, fontSize: FONT_SIZE.lg, color: COLORS.textPrimary },
-  meta: { flexDirection: "row", alignItems: "center", gap: SPACING.xs },
-  sub: { flex: 1, fontFamily: FONT.regular, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
-  bottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },
-  salary: { fontFamily: FONT.bold, fontSize: FONT_SIZE.md, color: COLORS.primary },
-  time: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textMuted },
+  more: { marginTop: SPACING.sm2 },
   footer: { flexDirection: "row", gap: SPACING.sm2 },
   group: { gap: SPACING.sm },
-  groupTitle: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.md, color: COLORS.textPrimary },
+  groupTitle: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
   choices: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
-  // UC17: lựa chọn đang bật nền chữ chính (xanh than), chữ trắng; còn lại nền xám nhạt.
-  choice: { height: SIZES.control, paddingHorizontal: SPACING.md, borderRadius: RADIUS.full, justifyContent: "center", backgroundColor: COLORS.fill },
-  choiceOn: { backgroundColor: COLORS.textPrimary },
+  // Lựa chọn trong bộ lọc: chip viền mảnh; đang bật → nền nhạt màu thương hiệu, chữ đậm (như chip lọc).
+  choice: {
+    height: SIZES.control,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.control,
+    justifyContent: "center",
+    borderWidth: SIZES.border,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.cardBg,
+  },
+  choiceOn: { backgroundColor: COLORS.primarySoft, borderColor: COLORS.primary },
   choiceText: { fontFamily: FONT.medium, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
-  choiceTextOn: { color: COLORS.textOnPrimary },
+  choiceTextOn: { fontFamily: FONT.semibold, color: COLORS.primaryDark },
 });

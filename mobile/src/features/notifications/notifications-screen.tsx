@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
 import { QueryList } from "@/components/ui/query-list";
 import { ScreenHeader } from "@/components/ui/screen-chrome";
+import { FilterChips, type ChipOption } from "@/components/ui/search-and-filters";
 import { IconTile } from "@/components/ui/surfaces";
 import { PillButton } from "@/components/ui/buttons";
 import { STRINGS } from "@/lib/strings";
@@ -13,27 +15,25 @@ import type { NotificationResponse } from "@/types/api";
 import { useMarkAllRead, useMarkRead, useNotifications } from "./hooks";
 
 const S = STRINGS.notifications;
-
-type Row = { kind: "header"; label: string } | { kind: "item"; n: NotificationResponse };
+type Filter = "all" | "unread";
 
 /**
- * M14 — Thông báo (A4), dùng chung cho mọi role. Chưa đọc nằm nhóm "Mới" trên nền trắng,
- * đã đọc ở nhóm "Trước đó" trên nền trong suốt. Bấm vào = đánh dấu đã đọc + mở đúng màn.
+ * Thông báo, dùng chung cho mọi role — Redesign-Final: chip "Tất cả · Chưa đọc (N)", mỗi thông báo là một thẻ viền
+ * mảnh; chưa đọc có vạch màu thương hiệu bên trái. Bấm vào = đánh dấu đã đọc + mở đúng màn.
  */
 export function NotificationsScreen({ asTab = false }: { asTab?: boolean }) {
   const query = useNotifications();
   const markRead = useMarkRead();
   const markAll = useMarkAllRead();
   const role = useAuthStore((s) => s.user?.role);
+  const [filter, setFilter] = useState<Filter>("all");
 
   const list = query.data ?? [];
   const unread = list.filter((n) => !n.read);
-  const read = list.filter((n) => n.read);
-  const rows: Row[] = [
-    ...(unread.length ? [{ kind: "header", label: S.unread } as Row] : []),
-    ...unread.map((n) => ({ kind: "item", n }) as Row),
-    ...(read.length ? [{ kind: "header", label: S.earlier } as Row] : []),
-    ...read.map((n) => ({ kind: "item", n }) as Row),
+  const shown = filter === "unread" ? unread : list;
+  const chips: ChipOption<Filter>[] = [
+    { key: "all", label: S.filterAll },
+    { key: "unread", label: S.filterUnread, count: unread.length },
   ];
 
   const open = (n: NotificationResponse) => {
@@ -45,6 +45,7 @@ export function NotificationsScreen({ asTab = false }: { asTab?: boolean }) {
   return (
     <>
       <ScreenHeader
+        eyebrow={S.eyebrow}
         title={S.title}
         back={!asTab}
         actions={
@@ -55,16 +56,15 @@ export function NotificationsScreen({ asTab = false }: { asTab?: boolean }) {
       />
       <QueryList
         query={query}
-        data={list.length ? rows : []}
-        keyExtractor={(r, i) => (r.kind === "header" ? `h-${r.label}` : String(r.n.id ?? i))}
-        renderItem={({ item }) =>
-          item.kind === "header" ? (
-            <Text style={styles.section}>{item.label}</Text>
-          ) : (
-            <NotificationRow n={item.n} onPress={() => open(item.n)} />
-          )
+        data={shown}
+        keyExtractor={(n, i) => String(n.id ?? i)}
+        renderItem={({ item }) => <NotificationRow n={item} onPress={() => open(item)} />}
+        header={list.length ? <FilterChips options={chips} value={filter} onChange={setFilter} /> : undefined}
+        empty={
+          filter === "unread" && list.length
+            ? { title: S.emptyUnreadTitle, message: S.emptyUnreadMessage }
+            : { title: S.emptyTitle, message: S.emptyMessage }
         }
-        empty={{ title: S.emptyTitle, message: S.emptyMessage }}
       />
     </>
   );
@@ -79,43 +79,43 @@ function NotificationRow({ n, onPress }: { n: NotificationResponse; onPress: () 
       onPress={onPress}
       style={({ pressed }) => [styles.row, !n.read && styles.rowUnread, pressed && styles.pressed]}
     >
-      <IconTile icon={v.icon} tone={v.tone} shape="circle" size={SIZES.iconButton} />
+      <IconTile icon={v.icon} tone={v.tone} size={SIZES.iconButton} />
       <View style={styles.text}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, !n.read && styles.titleUnread]} numberOfLines={2}>
-            {n.title}
-          </Text>
-          <Text style={styles.time}>{formatRelative(n.createdAt)}</Text>
-        </View>
+        <Text style={[styles.title, !n.read && styles.titleUnread]} numberOfLines={2}>
+          {n.title}
+        </Text>
         {n.message ? (
           <Text style={styles.message} numberOfLines={3}>
             {n.message}
           </Text>
         ) : null}
+        <Text style={styles.time}>{formatRelative(n.createdAt)}</Text>
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  section: {
-    paddingHorizontal: SPACING.sm2,
-    fontFamily: FONT.medium,
-    fontSize: FONT_SIZE.base,
-    color: COLORS.textSecondary,
+  row: {
+    flexDirection: "row",
+    gap: SPACING.sm2,
+    padding: SPACING.sm2,
+    borderRadius: RADIUS.md,
+    borderWidth: SIZES.border,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.cardBg,
   },
-  row: { flexDirection: "row", gap: SPACING.sm2, padding: SPACING.sm2, borderRadius: RADIUS.xl },
-  rowUnread: { backgroundColor: COLORS.cardBg },
-  pressed: { backgroundColor: COLORS.fill },
+  // `.notification.unread`: vạch màu thương hiệu bên trái + nền phớt màu.
+  rowUnread: { borderLeftWidth: SIZES.accent, borderLeftColor: COLORS.primary, backgroundColor: COLORS.primaryFaint },
+  pressed: { opacity: 0.8 },
   text: { flex: 1, gap: SPACING.xxs },
-  titleRow: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm },
-  title: { flex: 1, fontFamily: FONT.medium, fontSize: FONT_SIZE.md, color: COLORS.textPrimary },
+  title: { fontFamily: FONT.medium, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
   titleUnread: { fontFamily: FONT.bold },
-  time: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
   message: {
     fontFamily: FONT.regular,
     fontSize: FONT_SIZE.caption,
     lineHeight: FONT_SIZE.caption * LINE_HEIGHT.body,
     color: COLORS.textSecondary,
   },
+  time: { fontFamily: FONT.regular, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
 });

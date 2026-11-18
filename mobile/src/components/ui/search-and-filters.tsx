@@ -125,45 +125,53 @@ export function SegmentedControl<K extends string>({
 }
 
 const styles = StyleSheet.create({
+  // Redesign-Final `.searchbox`: nền trắng, viền mảnh, bo 10.
   search: {
     flexDirection: "row",
     alignItems: "center",
     gap: SPACING.sm,
     height: SIZES.control,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.fill,
+    paddingHorizontal: SPACING.sm2,
+    borderRadius: RADIUS.control,
+    borderWidth: SIZES.border,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.cardBg,
   },
   searchInput: {
     flex: 1,
     padding: 0,
+    // Trên web: tắt viền focus mặc định của trình duyệt (ô tìm đã có viền riêng).
+    outlineWidth: 0,
     fontFamily: FONT.regular,
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.md,
     color: COLORS.textPrimary,
   },
   searchPlaceholder: { color: COLORS.textSecondary },
 
   chipScroller: { marginHorizontal: -SPACING.page, flexGrow: 0 },
   chipRow: { gap: SPACING.sm, paddingHorizontal: SPACING.page },
+  // Redesign-Final `.chip`: viên nhộng trắng viền mảnh; đang chọn → nền nhạt + chữ màu thương hiệu.
   chip: {
     flexDirection: "row",
     alignItems: "center",
     gap: SPACING.xs + SPACING.xxs,
     height: SIZES.chip,
-    paddingHorizontal: SPACING.sm2 + SPACING.xxs,
+    paddingHorizontal: SPACING.sm2,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.fill,
+    borderWidth: SIZES.border,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.cardBg,
   },
-  chipSelected: { backgroundColor: COLORS.primary },
-  chipLabel: { fontFamily: FONT.medium, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },
-  chipCount: { fontFamily: FONT.medium, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
-  chipLabelSelected: { color: COLORS.textOnPrimary },
+  chipSelected: { backgroundColor: COLORS.primarySoft, borderColor: COLORS.primarySoft },
+  chipLabel: { fontFamily: FONT.medium, fontSize: FONT_SIZE.caption, color: COLORS.textSecondary },
+  chipCount: { fontFamily: FONT.medium, fontSize: FONT_SIZE.xs, color: COLORS.textMuted },
+  chipLabelSelected: { fontFamily: FONT.semibold, color: COLORS.primaryDark },
 
   segment: {
     flexDirection: "row",
     gap: SPACING.xxs,
     padding: SPACING.xxs,
-    borderRadius: RADIUS.full,
+    borderRadius: RADIUS.control + SPACING.xxs,
     backgroundColor: COLORS.fill,
   },
   segmentItem: {
@@ -173,7 +181,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.full,
+    borderRadius: RADIUS.control,
   },
   segmentItemSelected: { backgroundColor: COLORS.cardBg, boxShadow: SHADOWS.raised },
   segmentLabel: { fontFamily: FONT.medium, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },

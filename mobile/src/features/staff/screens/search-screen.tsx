@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   section: { gap: SPACING.sm },
   group: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
-  chip: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, maxWidth: "100%", paddingHorizontal: SPACING.sm2, paddingVertical: SPACING.xs, borderRadius: RADIUS.full, backgroundColor: COLORS.cardBg },
+  chip: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, maxWidth: "100%", paddingHorizontal: SPACING.sm2, paddingVertical: SPACING.xs, borderRadius: RADIUS.full, borderWidth: SIZES.border, borderColor: COLORS.border, backgroundColor: COLORS.cardBg },
   chipText: { flexShrink: 1, fontFamily: FONT.medium, fontSize: FONT_SIZE.xs, color: COLORS.textPrimary },
   row: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2, paddingVertical: SPACING.xs },
   rowTitle: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.base, color: COLORS.textPrimary },

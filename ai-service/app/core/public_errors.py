@@ -2,7 +2,7 @@
 
 Lỗi gốc của Gemini / thư viện đọc file là tiếng Anh và có chi tiết kỹ thuật (mã HTTP, JSON trả về), ví dụ
 "Gemini call failed: 503 UNAVAILABLE. {'error': {...}}". Chi tiết đó chỉ ghi vào log và các bảng nhật ký
-(ai_jobs, cv_extractions); giao diện chỉ nhận câu trong file này.
+(ai_jobs, cv_facts, jd_facts); giao diện chỉ nhận câu trong file này.
 """
 
 AI_BUSY = "dịch vụ AI đang quá tải hoặc hết hạn mức, vui lòng thử lại sau ít phút"

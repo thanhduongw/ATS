@@ -35,12 +35,11 @@ async def detailed_health_check(
     settings: Settings = Depends(get_settings),
 ):
     """
-    Detailed health check — verifies database connectivity and pgvector extension.
+    Detailed health check — verifies database connectivity.
     """
     checks = {
         "service": "ok",
         "database": "unknown",
-        "pgvector": "unknown",
     }
 
     # Check database
@@ -51,17 +50,6 @@ async def detailed_health_check(
     except Exception as e:
         checks["database"] = f"error: {e}"
         logger.error("Database health check failed: %s", e)
-
-    # Check pgvector extension
-    try:
-        result = await db.execute(
-            text("SELECT extname FROM pg_extension WHERE extname = 'vector'")
-        )
-        row = result.scalar()
-        checks["pgvector"] = "ok" if row else "not_installed"
-    except Exception as e:
-        checks["pgvector"] = f"error: {e}"
-        logger.error("pgvector check failed: %s", e)
 
     overall = "ok" if all(v == "ok" for v in checks.values()) else "degraded"
 

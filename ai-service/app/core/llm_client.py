@@ -323,7 +323,7 @@ class LLMManager:
         """
         Args:
             primary / fallback: client tự tạo; None thì lấy theo cấu hình.
-            use_fallback: False để chỉ dùng đúng một model (benchmark cần vậy, nếu không kết quả bị
+            use_fallback: False để chỉ dùng đúng một model (thực nghiệm cần vậy, nếu không kết quả bị
                 trộn giữa hai model mà không ai biết).
         """
         settings = get_settings()

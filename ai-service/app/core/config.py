@@ -42,7 +42,6 @@ class Settings(BaseSettings):
     fallback_llm_model: str = ""
     llm_temperature: float = 0.0
     llm_seed: int = 42
-    embedding_model: str = "intfloat/multilingual-e5-large-instruct"
 
     # --- Chấm điểm ---
     # Điểm 0–100 = trung bình các tiêu chí có điểm (thang 1–5) × 20. Xếp loại:
@@ -56,7 +55,6 @@ class Settings(BaseSettings):
     # --- Service URLs (Java backend) ---
     recruitment_service_url: str = "http://localhost:8083"
     application_service_url: str = "http://localhost:8089"
-    candidate_service_url: str = "http://localhost:8084"
     masterdata_service_url: str = "http://localhost:8082"
 
     model_config = {

@@ -16,6 +16,10 @@ logger = logging.getLogger(__name__)
 # --- Queue / Exchange constants (match Java services' RabbitMQConfig) ---
 ATS_EXCHANGE = "ats.events"
 
+# AI Service consumes cv.uploaded (candidate-service) to index CVs of candidates who have not applied yet.
+CV_UPLOADED_QUEUE = "ai.cv-uploaded.queue"
+CV_UPLOADED_ROUTING_KEY = "cv.uploaded"
+
 # AI Service publishes to this routing key; application-service declares and binds its own queue for it.
 AI_SCORING_COMPLETED_ROUTING_KEY = "ai.scoring.completed"
 

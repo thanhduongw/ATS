@@ -39,13 +39,31 @@ def _is_name_line(index: int, line: str) -> bool:
     return upper and is_caps and not (low & UPPER_EXCLUDE) and not any(c.isdigit() for c in line)
 
 
+_HEADING = re.compile(
+    r"(?i)^\W*(kinh nghiệm(?: làm việc)?|học vấn|kỹ năng|dự án|chứng chỉ|mục tiêu(?: nghề nghiệp)?|giới thiệu|"
+    r"work experience|experience|education|skills?|projects?|certifications?|objective|summary|profile|about me)\W*$")
+
+
+def _is_section_heading(line: str) -> bool:
+    return bool(_HEADING.match(line))
+
+
+def _is_title_case_name(index: int, line: str) -> bool:
+    """Tên viết hoa chữ đầu ('Bui Anh Vu') ở 3 dòng đầu: 2--5 từ chỉ gồm chữ, không phải tiêu đề mục."""
+    words = line.split()
+    return (index < 3 and 2 <= len(words) <= 5 and len(line) <= 50
+            and all(w[:1].isupper() and w.replace("'", "").replace("-", "").isalpha() for w in words))
+
+
 def contact_identity(text: str) -> dict[str, str | None]:
     """Tên / email / SĐT ghi trong CV GỐC (trước khi che), chỉ để băm phục vụ phát hiện ứng viên trùng.
     Giá trị thô không được lưu hay gửi đi đâu; xem `facts_store` (chỉ lưu bản băm)."""
     name = None
     for index, raw in enumerate(text.splitlines()):
         line = raw.strip()
-        if line and not PERSONAL_LABEL.match(line) and not DOB_LINE.search(line) and _is_name_line(index, line):
+        if not line or PERSONAL_LABEL.match(line) or DOB_LINE.search(line) or _is_section_heading(line):
+            continue
+        if _is_name_line(index, line) or _is_title_case_name(index, line):
             name = line
             break
     email = EMAIL.search(text)

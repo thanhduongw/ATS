@@ -21,7 +21,7 @@ from app.core.config import get_settings
 from app.core.database import async_session_factory
 from app.core.rabbitmq import ATS_EXCHANGE, CV_UPLOADED_QUEUE, CV_UPLOADED_ROUTING_KEY, rabbitmq_manager
 from app.core.vector_schema import vector_enabled
-from app.services.cv_extraction_store import COMPLETED, get_or_extract
+from app.services.facts_store import COMPLETED, get_or_extract_cv
 from app.services.cv_indexing import delete_candidate_data, index_candidate_cv
 
 logger = logging.getLogger(__name__)
@@ -53,12 +53,13 @@ async def handle_cv_uploaded(candidate_id: int, resume_url: str) -> None:
     if not vector_enabled():
         return  # pgvector tắt: bỏ qua (vẫn ack để queue không đầy), khỏi tốn lời gọi Gemini
     async with _limiter():
-        extraction = await get_or_extract(async_session_factory, resume_url, candidate_id)
+        extraction = await get_or_extract_cv(async_session_factory, resume_url, candidate_id)
         if extraction.status != COMPLETED or not extraction.result:
             logger.info("CV của ứng viên %s chưa trích xuất được (%s) — không lập chỉ mục",
                         candidate_id, extraction.error_message)
             return
-        indexed = await index_candidate_cv(async_session_factory, candidate_id, extraction.file_hash, extraction.result)
+        indexed = await index_candidate_cv(async_session_factory, candidate_id, extraction.file_hash, extraction.result,
+                                           identity=(extraction.text_metadata or {}).get("identity"))
         logger.info("Ứng viên %s: lập chỉ mục CV %s", candidate_id, "xong" if indexed else "bỏ qua (đã có)")
 
 

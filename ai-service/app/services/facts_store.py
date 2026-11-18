@@ -25,6 +25,7 @@ from app.core.s3_client import get_s3_client
 from app.models import CVFactsRecord, JDFactsRecord
 from app.services.extraction_pipeline import extract_text_from_bytes
 from app.services import duplicates
+from app.services.experience_years import years_from_cv_text
 from app.services.job_info import JobInfo, jd_content_hash
 from app.services.privacy import contact_identity, redact, remaining_contact_indicators
 from app.services.prompts.ssrc import (
@@ -157,7 +158,9 @@ async def get_or_extract_cv(
         # Che PII trước khi gửi AI. Còn dấu hiệu PII thì chỉ ghi cảnh báo, không chặn (không có bước người duyệt).
         redacted = redact(text.text)
         # Chỉ lưu bản BĂM của tên/email/SĐT (phát hiện ứng viên trùng); giá trị thô không rời hàm này.
-        text_meta["identity"] = duplicates.identity_hashes(contact_identity(text.text))
+        # `experience_years` (từ văn bản CV, chỉ để lọc Talent Pool) cũng nằm trong khối này.
+        text_meta["identity"] = {**duplicates.identity_hashes(contact_identity(text.text)),
+                                 "experience_years": years_from_cv_text(text.text)}
         leftover = remaining_contact_indicators(redacted)
         if leftover:
             logger.warning("CV %s: sau khi che vẫn còn dấu hiệu PII: %s", resume_url, ",".join(leftover))

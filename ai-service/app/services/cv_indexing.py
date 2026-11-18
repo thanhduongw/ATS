@@ -26,6 +26,7 @@ from app.models import (
     AIScore, CandidateSearchProfile, CVDocumentChunk, CVFactsRecord, DuplicateCandidate,
 )
 from app.services import duplicates
+from app.services.experience_years import estimate_years  # noqa: F401  (dùng lại trong test)
 from app.services.embeddings import Embedder, EmbeddingError, embed_documents, get_embedder
 
 logger = logging.getLogger(__name__)
@@ -84,43 +85,7 @@ def _dedupe(items: list) -> list[str]:
     return out
 
 
-_MONTH_YEAR = r"(?:(\d{1,2})\s*[/.\-]\s*)?((?:19|20)\d{2})"
-_PRESENT = r"(?:nay|hiện tại|hiện nay|present|now|current|đến nay)"
-_RANGE = re.compile(rf"{_MONTH_YEAR}\s*(?:-|–|—|đến|to)\s*(?:{_MONTH_YEAR}|({_PRESENT}))", re.IGNORECASE)
 _SKILL_SPLIT = re.compile(r"[,;•·|\n]|\s-\s")
-
-
-def _month_index(month: str | None, year: str, *, end: bool) -> int:
-    m = int(month) if month and 1 <= int(month) <= 12 else (12 if end else 1)
-    return int(year) * 12 + m
-
-
-def estimate_years(work_quotes: list[str], today: datetime | None = None) -> float | None:
-    """Số năm kinh nghiệm ước lượng = hợp các khoảng thời gian (tháng/năm – tháng/năm|nay) trong câu trích công việc.
-    Không có khoảng nào đọc được → None (bộ lọc số năm sẽ loại hồ sơ này, giống trường hợp chưa rõ số năm)."""
-    today = today or datetime.utcnow()
-    now_idx = today.year * 12 + today.month
-    spans: list[tuple[int, int]] = []
-    for q in work_quotes:
-        for m in _RANGE.finditer(q):
-            sm, sy, em, ey, present = m.groups()
-            start = _month_index(sm, sy, end=False)
-            end = now_idx if present else _month_index(em, ey, end=True) if ey else None
-            if end is None or end < start or end > now_idx + 1:
-                continue
-            spans.append((start, end))
-    if not spans:
-        return None
-    spans.sort()
-    total, cur_s, cur_e = 0, spans[0][0], spans[0][1]
-    for s_, e_ in spans[1:]:
-        if s_ > cur_e:
-            total += cur_e - cur_s + 1
-            cur_s, cur_e = s_, e_
-        else:
-            cur_e = max(cur_e, e_)
-    total += cur_e - cur_s + 1
-    return round(total / 12, 1)
 
 
 def _skills_from_quotes(quotes: list[str]) -> list[str]:
@@ -142,7 +107,11 @@ def build_cv_profile(facts: dict, identity: dict | None = None) -> CVProfile:
 
     work = by_cat.get("WORK_EXPERIENCE", [])[:MAX_ENTRIES_PER_TYPE]
     skills = _skills_from_quotes(by_cat.get("SKILLS", []))
-    years = estimate_years(work)
+    ident = identity or {}
+    # Số năm: ưu tiên giá trị tính từ văn bản CV lúc trích xuất (identity.experience_years); không có thì ước từ câu trích.
+    years = ident.get("experience_years")
+    if years is None:
+        years = estimate_years(work)
 
     chunks: list[CVChunk] = []
     summary = _join([
@@ -160,7 +129,6 @@ def build_cv_profile(facts: dict, identity: dict | None = None) -> CVProfile:
             chunks.append(CVChunk(kind, _clip(q)))
 
     doc_text = _clip(" \n".join(c.content for c in chunks), MAX_DOC_CHARS)
-    ident = identity or {}
     return CVProfile(
         chunks=chunks, doc_text=doc_text, skills=skills, titles=[], total_years=years,
         name_norm=ident.get("name_norm"), email_hash=ident.get("email_hash"), phone_hash=ident.get("phone_hash"),

@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     recruitment_service_url: str = "http://localhost:8083"
     application_service_url: str = "http://localhost:8089"
     masterdata_service_url: str = "http://localhost:8082"
+    candidate_service_url: str = "http://localhost:8084"
 
     model_config = {
         "env_file": ".env",

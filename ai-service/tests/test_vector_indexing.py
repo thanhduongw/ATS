@@ -49,6 +49,31 @@ def test_estimate_years_merges_overlaps_and_handles_unreadable():
     assert estimate_years(["2030 - 2031"], now) is None  # tương lai: bỏ
 
 
+def test_years_come_from_the_work_section_of_the_cv_text():
+    from datetime import datetime
+    from app.services.experience_years import years_from_cv_text
+    now = datetime(2026, 11, 19)
+    cv = chr(10).join(["KINH NGHIỆM LÀM VIỆC", "Backend Developer - FPT", "03/2023 - 11/2026", "HỌC VẤN",
+                       "Đại học IUH", "04/2020 - 04/2024", "KỸ NĂNG", "Java"])
+    assert years_from_cv_text(cv, now) == 3.8  # không cộng thời gian học
+    assert years_from_cv_text("Java developer", now) is None
+
+
+def test_years_range_survives_lost_dash_and_name_skips_headings():
+    from datetime import datetime
+    from app.services.experience_years import years_from_cv_text
+    from app.services.privacy import contact_identity
+    cv = chr(10).join(["Bui Anh Vu", "Hà Nội", "KINH NGHIỆM LÀM VIỆC", "03/2024 03/2025", "Backend C# Developer", "KỸ NĂNG", "C#"])
+    assert years_from_cv_text(cv, datetime(2026, 11, 19)) == 1.1
+    assert contact_identity(cv)["name"] == "Bui Anh Vu"
+    assert contact_identity(chr(10).join(["KINH NGHIỆM LÀM VIỆC", "Java"]))["name"] is None
+
+
+def test_identity_experience_years_override_quote_estimate():
+    p = build_cv_profile(_facts(), {"experience_years": 2.5})
+    assert p.total_years == 2.5
+
+
 def test_identity_comes_from_hashes_not_text():
     p = build_cv_profile(_facts(), {"name_norm": "nguyen van a", "email_hash": "h1", "phone_hash": "h2"})
     assert (p.name_norm, p.email_hash, p.phone_hash) == ("nguyen van a", "h1", "h2")

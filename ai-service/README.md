@@ -31,7 +31,8 @@ Mã trong `app/` không import từ `research/`.
 - **Framework:** FastAPI, SQLAlchemy (async), PostgreSQL
 - **LLM:** Google Gemini qua `google-genai` (`response_json_schema`); model đặt bằng `PRIMARY_LLM_MODEL`
 - **OCR:** PaddleOCR PP-OCRv4 · **PDF:** PyMuPDF · **DOCX:** python-docx
-- **Message queue:** RabbitMQ (nghe `application.created`, `candidate.data_deleted`; phát `ai.scoring.completed`)
+- **Tìm kiếm vector:** pgvector + `gemini-embedding-001` (Talent Pool, gợi ý ứng viên theo tin, phát hiện CV trùng)
+- **Message queue:** RabbitMQ (nghe `application.created`, `cv.uploaded`, `candidate.data_deleted`, `candidate.deleted`; phát `ai.scoring.completed`)
 
 ## Chạy local
 ```bash
@@ -52,6 +53,16 @@ Khi khởi động, `app/core/schema_migrate.py` tạo bảng còn thiếu và c
 | POST | `/scores/rescore-all` | Admin | Chấm lại **toàn bộ** hồ sơ có CV (nền) — dùng sau khi đổi cách chấm |
 | GET | `/cv-extractions?applicationId=` | nhân sự nội bộ có quyền xem hồ sơ | Dữ kiện CV (`CVFacts`) của hồ sơ |
 | POST | `/cv-extractions/re-extract?applicationId=` | Admin, Recruiter | Trích xuất lại CV |
+| POST | `/talent/search` | HR | Tìm ứng viên Talent Pool bằng câu hỏi tự nhiên |
+| GET | `/talent/suggest?jobPostingId=` | HR | Gợi ý ứng viên Talent Pool cho một tin |
+| GET | `/duplicates` · POST `/duplicates/{id}/dismiss\|confirm` | HR | Cặp ứng viên nghi trùng |
+| GET | `/embeddings/status` · POST `/embeddings/backfill` | Admin | Trạng thái và lập lại chỉ mục vector |
+
+**Tìm kiếm vector dựa trên `cv_facts`.** Đoạn văn bản để embed lấy từ câu trích của CV đã che thông tin cá nhân. Số năm
+kinh nghiệm (`experience_years`, ước từ phần "Kinh nghiệm" của văn bản CV) và danh sách kỹ năng chỉ để lọc, là ước lượng
+chứ không phải trường có cấu trúc; chức danh không còn được lưu. Tên/email/SĐT chỉ lưu dạng băm
+(`cv_facts.text_metadata.identity`) để phát hiện trùng. Sau khi đổi cách chấm cần chấm lại hồ sơ (để có `cv_facts`)
+rồi gọi `POST /embeddings/backfill?force=true`.
 
 ## Cấu hình chính (`.env`)
 `GOOGLE_API_KEY`, `PRIMARY_LLM_MODEL`, `FALLBACK_LLM_MODEL` (để trống = không dự phòng), `SCORING_FIT_THRESHOLD`,

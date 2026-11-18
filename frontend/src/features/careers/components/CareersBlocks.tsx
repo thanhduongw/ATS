@@ -9,14 +9,14 @@ import { relativeTime } from "../../../app/datetime";
 import StatusTag from "../../../components/ui/StatusTag";
 import { arrangementLabel, salaryText } from "../../public/jobFormat";
 import type { PublicCompanyResponse, PublicJobPosting } from "../../public/types";
-import { heroBackgroundCss, type CareersConfig } from "../careersConfig";
+import { HERO_IMAGE_SCRIM, heroBackgroundCss, type CareersConfig } from "../careersConfig";
 import BenefitIcon from "./BenefitIcon";
 
 /**
  * C01 · Trang tuyển dụng — vẽ 6 khối theo THỨ TỰ CỐ ĐỊNH từ cấu hình A09/A10: Ảnh bìa & khẩu hiệu ·
  * Vị trí nổi bật (tự động từ việc làm đang tuyển) · Đời sống · Phúc lợi · Văn phòng · Chân trang.
  * Khối bị tắt ở A09 thì không vẽ. Bố cục theo Candidate.html: dải xanh đậm tràn ngang (ảnh bìa + ảnh đời sống
- * đầu tiên xếp chồng, câu trích dẫn), thẻ việc làm dọc 3 cột, lưới ảnh 1 lớn + 4 nhỏ, phúc lợi trong dải xanh,
+ * đầu tiên xếp chồng), thẻ việc làm dọc 3 cột, lưới ảnh 1 lớn + 4 nhỏ, phúc lợi trong dải xanh (nửa trái là ảnh mờ dần),
  * chân trang xanh đậm. "Văn phòng" không có trong HTML — giữ vì Quản trị bật/tắt được ở A09.
  */
 export default function CareersBlocks({ config, company, jobs }: {
@@ -37,6 +37,9 @@ export default function CareersBlocks({ config, company, jobs }: {
     const heroMain = config.hero.coverUrl || photos[0]?.url;
     const heroSide = config.hero.coverUrl ? photos[0] : undefined;
     const heroArt = !!heroMain;
+    const heroImage = config.hero.background === "image" ? config.hero.backgroundUrl : undefined;
+    // Ảnh khối Phúc lợi: ảnh Quản trị chọn ở A09; chưa chọn thì lấy ảnh đời sống chưa dùng ở phần đầu trang.
+    const benefitsPhoto = config.benefits.imageUrl || photos[1]?.url || photos[0]?.url || config.hero.coverUrl || undefined;
     const search = () => {
         const p = new URLSearchParams();
         if (q.trim()) p.set("q", q.trim());
@@ -52,7 +55,15 @@ export default function CareersBlocks({ config, company, jobs }: {
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 72 }}>
             {v.hero && (
-                <section style={{ ...bleed, marginTop: -28, background: heroBackgroundCss(config.hero, GRADIENTS.hero), color: COLORS.textOnDark }}>
+                <section style={{
+                    ...bleed, marginTop: -28, color: COLORS.textOnDark, position: "relative", overflow: "hidden", isolation: "isolate",
+                    background: heroImage ? "#0b1520" : heroBackgroundCss(config.hero, GRADIENTS.hero),
+                }}>
+                    {/* Nền ảnh: làm mờ (blur) + phủ lớp tối để ảnh không lấn chữ và ảnh bìa phía trên. */}
+                    {heroImage && (<>
+                        <div aria-hidden style={{ position: "absolute", inset: -24, zIndex: -2, background: `center / cover no-repeat url(${heroImage})`, filter: "blur(2px)" }} />
+                        <div aria-hidden style={{ position: "absolute", inset: 0, zIndex: -1, background: HERO_IMAGE_SCRIM }} />
+                    </>)}
                     <div className="careers-hero" style={{ ...inner, padding: "64px 24px 72px", display: "grid", gridTemplateColumns: heroArt ? "minmax(0, 1.05fr) minmax(0, 1fr)" : "minmax(0, 760px)", gap: 48, alignItems: "center" }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
                             {config.hero.eyebrow && (
@@ -85,21 +96,12 @@ export default function CareersBlocks({ config, company, jobs }: {
                                 <Button type="primary" size="large" shape="round" onClick={search}>Tìm việc</Button>
                             </div>
                         </div>
-                        {heroArt && <div className="careers-hero-art" style={{ position: "relative", height: 400 }}>
+                        {heroArt && <div className="careers-hero-art" style={{ position: "relative", height: 460 }}>
                             <Photo url={heroMain} label="Ảnh bìa trang tuyển dụng"
-                                style={{ position: "absolute", top: 0, right: 0, width: "84%", height: 300, borderRadius: 28 }} />
+                                style={{ position: "absolute", top: 0, right: 0, width: "90%", height: 360, borderRadius: 28 }} />
                             {heroSide && (
                                 <Photo url={heroSide.url} label={heroSide.caption || "Ảnh đời sống"}
-                                    style={{ position: "absolute", left: 0, bottom: 0, width: "46%", height: 220, borderRadius: 24, boxShadow: "0 16px 40px rgba(0,0,0,0.3)" }} />
-                            )}
-                            {config.hero.quote && (
-                                <div style={{
-                                    position: "absolute", right: 24, bottom: 36, maxWidth: 320, background: COLORS.cardBg, color: COLORS.textPrimary,
-                                    borderRadius: 18, padding: "14px 16px", boxShadow: "0 16px 40px rgba(0,0,0,0.25)", display: "flex", flexDirection: "column", gap: 4,
-                                }}>
-                                    <span style={{ fontSize: 14, fontWeight: 600 }}>“{config.hero.quote}”</span>
-                                    {config.hero.quoteAuthor && <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{config.hero.quoteAuthor}</span>}
-                                </div>
+                                    style={{ position: "absolute", left: 0, bottom: 0, width: "46%", height: 230, borderRadius: 24, boxShadow: "0 16px 40px rgba(0,0,0,0.3)" }} />
                             )}
                         </div>}
                     </div>
@@ -146,10 +148,19 @@ export default function CareersBlocks({ config, company, jobs }: {
 
             {v.benefits && config.benefits.items.some((b) => b.title.trim()) && (
                 <section className="careers-benefits" style={{
-                    display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 2fr)", gap: 48, padding: "56px",
+                    position: "relative", overflow: "hidden", isolation: "isolate",
+                    display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.4fr)", gap: 48, padding: "56px",
                     borderRadius: 32, background: "linear-gradient(120deg, var(--ats-brand-deep2), var(--ats-brand))", color: COLORS.textOnDark,
                 }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {/* Nửa trái là ảnh, mờ dần sang màu thương hiệu ở nửa phải; lớp tối phía dưới giữ chữ tiêu đề dễ đọc. */}
+                    {benefitsPhoto && (
+                        <div aria-hidden className="careers-benefits-photo" style={{
+                            position: "absolute", inset: "0 auto 0 0", width: "52%", zIndex: -1,
+                            background: `linear-gradient(0deg, rgba(0,0,0,0.45), rgba(0,0,0,0.1) 60%), center / cover no-repeat url(${benefitsPhoto})`,
+                            WebkitMaskImage: "linear-gradient(90deg, #000 45%, transparent)", maskImage: "linear-gradient(90deg, #000 45%, transparent)",
+                        }} />
+                    )}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, justifyContent: benefitsPhoto ? "flex-end" : undefined, textShadow: benefitsPhoto ? "0 2px 12px rgba(0,0,0,0.35)" : undefined }}>
                         <span style={{ ...kicker, color: onDark(0.7) }}>Phúc lợi</span>
                         <span style={{ ...heading, color: "inherit", whiteSpace: "pre-line" }}>{config.benefits.title}</span>
                     </div>
@@ -170,7 +181,8 @@ export default function CareersBlocks({ config, company, jobs }: {
             {v.offices && (offices.length > 0 || company?.address) && (
                 <section style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                     <span style={heading}>{config.offices.title}</span>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
+                    {/* auto-fit: ít văn phòng thì các thẻ giãn ra lấp đủ chiều ngang như các khối phía trên. */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
                         {company?.address && <Office title="Trụ sở" detail={company.address} />}
                         {offices.map((o) => <Office key={o} title={o} />)}
                     </div>

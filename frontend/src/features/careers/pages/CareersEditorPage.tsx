@@ -168,10 +168,14 @@ function HeroEditor({ config, update }: { config: CareersConfig; update: Update 
                 {h.coverUrl && <Button type="text" danger onClick={() => set({ coverUrl: "" })}>Xoá</Button>}
             </div>
         </Field>
-        <Field label="Nền phần đầu trang" hint="Chữ trên nền luôn màu trắng; màu quá nhạt sẽ được tự làm đậm cho dễ đọc">
+        <Field label="Nền phần đầu trang" hint="Chữ trên nền luôn màu trắng; màu quá nhạt sẽ được tự làm đậm, ảnh được phủ lớp tối cho dễ đọc. Ảnh nên ngang, tối thiểu 1920 × 800 px">
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                 <Segmented value={h.background ?? "brand"} onChange={(v) => set({ background: v as HeroBackground })}
-                    options={[{ value: "brand", label: "Màu thương hiệu" }, { value: "color", label: "Một màu" }, { value: "gradient", label: "Chuyển màu" }]} />
+                    options={[{ value: "brand", label: "Màu thương hiệu" }, { value: "color", label: "Một màu" }, { value: "gradient", label: "Chuyển màu" }, { value: "image", label: "Ảnh" }]} />
+                {h.background === "image" && (<>
+                    <ImageUpload label={h.backgroundUrl ? "Tải ảnh khác" : "Tải ảnh nền"} onUploaded={(url) => set({ backgroundUrl: url })} />
+                    {h.backgroundUrl && <Button type="text" danger onClick={() => set({ backgroundUrl: "" })}>Xoá</Button>}
+                </>)}
                 {(h.background === "color" || h.background === "gradient") && (
                     <ColorPicker disabledAlpha showText value={h.color1 ?? DEFAULT_BRAND} onChangeComplete={(c) => set({ color1: c.toHexString().slice(0, 7).toUpperCase() })} />
                 )}
@@ -189,10 +193,6 @@ function HeroEditor({ config, update }: { config: CareersConfig; update: Update 
                 placeholder="Viết phần mềm tử tế cho doanh nghiệp Việt" />
         </Field>
         <Field label="Câu mô tả"><Input value={h.description} onChange={(e) => set({ description: e.target.value })} /></Field>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)", gap: 12 }}>
-            <Field label="Trích dẫn nhân viên"><Input value={h.quote} onChange={(e) => set({ quote: e.target.value })} placeholder="Ngày đầu đã được đưa mã lên hệ thống thật." /></Field>
-            <Field label="Người nói"><Input value={h.quoteAuthor} onChange={(e) => set({ quoteAuthor: e.target.value })} placeholder="Họ tên · Vị trí, thâm niên" /></Field>
-        </div>
     </>);
 }
 
@@ -231,6 +231,20 @@ function BenefitsEditor({ config, update }: { config: CareersConfig; update: Upd
         <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{items.length} mục · hiển thị dạng lưới 2 cột</span>
         <Field label="Tiêu đề khối">
             <Input value={config.benefits.title} onChange={(e) => update((c) => ({ ...c, benefits: { ...c.benefits, title: e.target.value } }))} />
+        </Field>
+        <Field label="Ảnh nền khối" hint="Nằm nửa trái, mờ dần sang màu thương hiệu. Để trống thì dùng một ảnh ở khối Đời sống">
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{
+                    width: 240, aspectRatio: "16 / 9", borderRadius: 12, background: COLORS.fill, flexShrink: 0,
+                    backgroundImage: config.benefits.imageUrl ? `url(${config.benefits.imageUrl})` : undefined, backgroundSize: "cover", backgroundPosition: "center",
+                    display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.textMuted,
+                }}>{!config.benefits.imageUrl && <PictureOutlined style={{ fontSize: 28 }} />}</div>
+                <ImageUpload label={config.benefits.imageUrl ? "Tải ảnh khác" : "Tải ảnh"}
+                    onUploaded={(url) => update((c) => ({ ...c, benefits: { ...c.benefits, imageUrl: url } }))} />
+                {config.benefits.imageUrl && (
+                    <Button type="text" danger onClick={() => update((c) => ({ ...c, benefits: { ...c.benefits, imageUrl: "" } }))}>Xoá</Button>
+                )}
+            </div>
         </Field>
         <div style={{ display: "grid", gridTemplateColumns: "190px minmax(0, 1fr) minmax(0, 1.2fr) 32px", gap: 8, fontSize: 12, color: COLORS.textSecondary }}>
             <span>Biểu tượng</span><span>Tên phúc lợi</span><span>Mô tả ngắn</span><span />

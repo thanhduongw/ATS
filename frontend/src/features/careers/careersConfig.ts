@@ -29,14 +29,23 @@ export const BENEFIT_ICON_LABEL: Record<BenefitIconKey, string> = {
     gift: "Quà tặng", heart: "Chăm sóc",
 };
 
-export type HeroBackground = "brand" | "color" | "gradient";
+export type HeroBackground = "brand" | "color" | "gradient" | "image";
 
-/** CSS nền của phần đầu trang theo cấu hình; `brand` là dải màu thương hiệu của toàn hệ thống. */
+/** Lớp tối phủ lên ảnh nền phần đầu trang: đậm bên trái (chỗ có chữ), nhạt dần sang phải nhưng vẫn đủ tối. */
+export const HERO_IMAGE_SCRIM = "linear-gradient(90deg, rgba(8,16,24,0.82), rgba(8,16,24,0.6) 55%, rgba(8,16,24,0.45))";
+
+/**
+ * CSS nền của phần đầu trang theo cấu hình; `brand` là dải màu thương hiệu của toàn hệ thống.
+ * `image`: ảnh tải lên phủ lớp tối (đậm bên trái, chỗ có chữ) để chữ trắng luôn đọc được; chưa có ảnh thì về `brand`.
+ */
 export function heroBackgroundCss(hero: CareersConfig["hero"], brand: string): string {
     const c1 = ensureContrast(isHexColor(hero.color1) ? hero.color1 : DEFAULT_BRAND);
     const c2 = ensureContrast(isHexColor(hero.color2) ? hero.color2 : c1);
     if (hero.background === "color") return c1;
     if (hero.background === "gradient") return `linear-gradient(135deg, ${c1}, ${c2})`;
+    if (hero.background === "image" && hero.backgroundUrl) {
+        return `${HERO_IMAGE_SCRIM}, center / cover no-repeat url(${hero.backgroundUrl})`;
+    }
     return brand;
 }
 
@@ -55,15 +64,18 @@ export interface CareersConfig {
         quoteAuthor: string;
         /**
          * Nền phần đầu trang (mục 4.2): "brand" = dải màu thương hiệu (mặc định) · "color" = một màu ·
-         * "gradient" = chuyển từ `color1` sang `color2`. Chữ trên nền luôn màu trắng nên màu quá nhạt được tự làm đậm.
+         * "gradient" = chuyển từ `color1` sang `color2` · "image" = ảnh `backgroundUrl`.
+         * Chữ trên nền luôn màu trắng nên màu quá nhạt được tự làm đậm, ảnh được phủ lớp tối.
          */
         background?: HeroBackground;
+        backgroundUrl?: string;
         color1?: string;
         color2?: string;
     };
     featured: { title: string; count: number };
     life: { title: string; photos: CareersPhoto[] };
-    benefits: { title: string; items: CareersBenefit[] };
+    /** `imageUrl`: ảnh nửa trái khối Phúc lợi (mờ dần sang màu); trống thì lấy một ảnh đời sống. */
+    benefits: { title: string; items: CareersBenefit[]; imageUrl?: string };
     offices: { title: string };
 }
 

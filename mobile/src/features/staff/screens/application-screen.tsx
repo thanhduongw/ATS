@@ -417,7 +417,7 @@ function AiTab({ applicationId }: { applicationId: number }) {
         ) : null}
         <View style={styles.flex}>
           <Text style={styles.rowTitle}>{d.result?.tier_label ?? tierLabel}</Text>
-          <Text style={styles.sub}>{A.scoredAt(formatDate(d.scoredAt))}</Text>
+          <Text style={styles.sub}>{A.scoredAt(formatDate(d.scoredAt && !/[zZ]|[+-]\d\d:?\d\d$/.test(d.scoredAt) ? `${d.scoredAt}Z` : d.scoredAt))}</Text>
         </View>
       </View>
       {d.result ? (

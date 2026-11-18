@@ -12,6 +12,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
+import java.text.Normalizer;
 import java.util.UUID;
 
 @Service
@@ -34,13 +35,25 @@ public class S3Service {
     @Value("${aws.s3.public-url:}")
     private String publicUrl;
 
+    /**
+     * Tên file dùng trong khoá S3 (giao diện hiện lại tên này): bỏ dấu tiếng Việt trước rồi mới thay ký tự lạ bằng "_",
+     * để "CV_Ngô_Gia_Bảo.pdf" thành "CV_Ngo_Gia_Bao.pdf" chứ không phải "CV_Ng__Gia_B_o.pdf".
+     */
+    static String safeFileName(String originalFileName) {
+        String folded = Normalizer.normalize(originalFileName, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .replace('đ', 'd')
+                .replace('Đ', 'D');
+        return folded.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
     public String uploadFile(MultipartFile file, String keyPrefix) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException("File tải lên không được để trống");
         }
 
         String originalFileName = file.getOriginalFilename() == null ? "file.pdf" : file.getOriginalFilename();
-        String safeFileName = UUID.randomUUID() + "-" + originalFileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+        String safeFileName = UUID.randomUUID() + "-" + safeFileName(originalFileName);
         String key = keyPrefix + "/" + safeFileName;
 
         // CV chỉ lưu trên S3 (ai-service đọc CV từ đây để chấm điểm). Upload lỗi thì báo lỗi,

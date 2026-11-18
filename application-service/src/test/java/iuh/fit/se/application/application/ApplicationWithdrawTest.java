@@ -65,6 +65,23 @@ class ApplicationWithdrawTest {
     }
 
     @Test
+    void notificationKeepsThePositionNameWhenTheInternalPostingApiRefuses() {
+        Application app = application("TECHNICAL_INTERVIEW", 3);
+        stub(app, 100L);
+        when(recruitmentServiceClient.getPostingById(any())).thenThrow(new RuntimeException("403"));
+        iuh.fit.se.application.client.dto.JobPostingResponse posting =
+                org.mockito.Mockito.mock(iuh.fit.se.application.client.dto.JobPostingResponse.class);
+        when(posting.title()).thenReturn("Lập trình viên Backend Java");
+        when(recruitmentServiceClient.getPublicPosting(any())).thenReturn(posting);
+
+        applicationService.withdrawMyApplication(candidate(), 7L);
+
+        verify(eventPublisher).publishApplicationStatusChanged(
+                eq(7L), eq(30L), eq(100L), any(), any(), eq("Đã rút đơn"), eq("REJECTED"), eq("WITHDRAWN"),
+                eq("Lập trình viên Backend Java"));
+    }
+
+    @Test
     void anotherCandidateCannotWithdraw() {
         Application app = application("CV_SCREENING", 2);
         stub(app, 999L); // tài khoản đang đăng nhập là ứng viên khác

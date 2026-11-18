@@ -123,7 +123,8 @@ export default function OfferDetailPage() {
     const canEdit = isHr && isOwner && isDraft;
     const canSend = isHr && isDraft;
     const canApprove = isHr && offer.approverId === userId && offer.status === "PENDING_APPROVAL";
-    const canDelete = isHr && (isDraft || offer.status === "REJECTED");
+    // Backend chỉ cho người soạn thư (hoặc Quản trị) xoá — không hiện nút cho chuyên viên khác.
+    const canDelete = isHr && (isOwner || role === "COMPANY_ADMIN") && (isDraft || offer.status === "REJECTED");
     const pay = PAY[offer.payFrequency ?? "MONTHLY"] ?? "";
     const failing = (checks ?? []).filter((c) => !c.ok);
 

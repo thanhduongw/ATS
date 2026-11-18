@@ -456,7 +456,9 @@ export default function ApplicationsPage() {
                 rowKey="id"
                 loading={loading}
                 columns={columns}
-                dataSource={rows}
+                // Số dòng/trang đo lại sau khi bảng hiện: trong nhịp chờ tải lại, trang cũ có thể nhiều dòng hơn
+                // pageSize mới — cắt bớt để antd không báo lỗi "dataSource length … large than pagination.pageSize".
+                dataSource={rows.length > pageSize ? rows.slice(0, pageSize) : rows}
                 onChange={(_, __, sorter, extra) => {
                     if (extra.action !== "sort") return;
                     const order = Array.isArray(sorter) ? null : sorter.order ?? null;

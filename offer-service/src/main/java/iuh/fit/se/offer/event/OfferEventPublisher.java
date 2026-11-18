@@ -15,11 +15,12 @@ public class OfferEventPublisher {
             Long offerId,
             Long applicationId,
             Long requesterId,
-            Long candidateId) {
+            Long candidateId,
+            String jobTitle) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.OFFER_APPROVED_ROUTING_KEY,
-                new OfferApprovedEvent(offerId, applicationId, requesterId, candidateId)
+                new OfferApprovedEvent(offerId, applicationId, requesterId, candidateId, jobTitle)
         );
     }
 
@@ -28,7 +29,8 @@ public class OfferEventPublisher {
             Long applicationId,
             Long requesterId,
             String candidateName,
-            Long candidateUserId) {
+            Long candidateUserId,
+            String jobTitle) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.OFFER_ACCEPTED_ROUTING_KEY,
@@ -37,7 +39,8 @@ public class OfferEventPublisher {
                         applicationId,
                         requesterId,
                         candidateName,
-                        candidateUserId
+                        candidateUserId,
+                        jobTitle
                 )
         );
     }
@@ -49,7 +52,8 @@ public class OfferEventPublisher {
             String candidateName,
             String note,
             Long declineReasonId,
-            Long candidateUserId) {
+            Long candidateUserId,
+            String jobTitle) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.OFFER_DECLINED_ROUTING_KEY,
@@ -60,7 +64,8 @@ public class OfferEventPublisher {
                         candidateName,
                         note,
                         declineReasonId,
-                        candidateUserId
+                        candidateUserId,
+                        jobTitle
                 )
         );
     }

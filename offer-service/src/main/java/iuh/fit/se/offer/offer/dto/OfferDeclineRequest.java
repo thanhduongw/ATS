@@ -1,8 +1,11 @@
 package iuh.fit.se.offer.offer.dto;
 
-import jakarta.validation.constraints.NotNull;
-
+/**
+ * Ứng viên từ chối thư mời. {@code declineReasonId} (danh mục "Lý do từ chối" của công ty) không bắt buộc:
+ * lý do của ứng viên (ví dụ "Lý do cá nhân") không phải lúc nào cũng có trong danh mục — khi đó lời ứng viên chọn
+ * nằm ở {@code note}.
+ */
 public record OfferDeclineRequest(
-        @NotNull(message = "Vui lòng chọn lý do từ chối") Long declineReasonId,
+        Long declineReasonId,
         String note
 ) {}

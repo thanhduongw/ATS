@@ -312,7 +312,8 @@ public class OfferService {
                 offer.getId(),
                 offer.getApplicationId(),
                 offer.getRequesterId(),
-                offer.getCandidateId());
+                offer.getCandidateId(),
+                offer.getJobTitleSnapshot());
         auditEventPublisher.publish(actor.userId(), "OFFER_SENT", "OFFER", offer.getId(), null);
         return getById(id);
     }
@@ -335,7 +336,8 @@ public class OfferService {
                 offer.getId(),
                 offer.getApplicationId(),
                 offer.getRequesterId(),
-                offer.getCandidateId());
+                offer.getCandidateId(),
+                offer.getJobTitleSnapshot());
         auditEventPublisher.publish(actor.userId(), "OFFER_APPROVED", "OFFER", offer.getId(), null);
 
         return getById(id);
@@ -384,7 +386,7 @@ public class OfferService {
         offerEventPublisher.publishOfferAccepted(
                 offer.getId(), offer.getApplicationId(),
                 offer.getRequesterId(), offer.getCandidateNameSnapshot(),
-                actor.userId());
+                actor.userId(), offer.getJobTitleSnapshot());
         auditEventPublisher.publish(actor.userId(), "OFFER_ACCEPTED", "OFFER", offer.getId(), null);
         // Candidate-facing DTO: the internal OfferResponse needs an internal-staff name map the
         // candidate is not allowed to read, and it would expose requester/approver identities.
@@ -422,7 +424,7 @@ public class OfferService {
         offerEventPublisher.publishOfferDeclined(
                 offer.getId(), offer.getApplicationId(),
                 offer.getRequesterId(), offer.getCandidateNameSnapshot(), req.note(),
-                req.declineReasonId(), actor.userId());
+                req.declineReasonId(), actor.userId(), offer.getJobTitleSnapshot());
         auditEventPublisher.publish(
                 actor.userId(), "OFFER_DECLINED", "OFFER", offer.getId(), req.note());
         // See accept(): candidate responses use the candidate-facing DTO.

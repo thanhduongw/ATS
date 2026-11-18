@@ -61,7 +61,7 @@ class OfferCandidateResponseWorkflowTest {
         verify(offerRepository).save(offer);
         verify(offerEventPublisher).publishOfferAccepted(
                 offer.getId(), APPLICATION_ID, offer.getRequesterId(),
-                offer.getCandidateNameSnapshot(), CANDIDATE_USER_ID);
+                offer.getCandidateNameSnapshot(), CANDIDATE_USER_ID, offer.getJobTitleSnapshot());
         // The candidate must never trigger an internal-staff directory lookup.
         verifyNoInteractions(authServiceClient);
     }
@@ -78,7 +78,8 @@ class OfferCandidateResponseWorkflowTest {
         assertEquals(OfferStatus.DECLINED, response.status());
         verify(offerEventPublisher).publishOfferDeclined(
                 offer.getId(), APPLICATION_ID, offer.getRequesterId(),
-                offer.getCandidateNameSnapshot(), "Da nhan offer khac", 9L, CANDIDATE_USER_ID);
+                offer.getCandidateNameSnapshot(), "Da nhan offer khac", 9L, CANDIDATE_USER_ID,
+                offer.getJobTitleSnapshot());
         verifyNoInteractions(authServiceClient);
     }
 

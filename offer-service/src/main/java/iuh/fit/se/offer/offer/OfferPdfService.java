@@ -90,6 +90,7 @@ public class OfferPdfService {
 
     private String formatCurrency(java.math.BigDecimal value) {
         if (value == null) return "—";
-        return String.format("%,.0f", value);
+        // Cách viết số của Việt Nam (22.000.000), giống giao diện; không phụ thuộc locale của máy chủ.
+        return String.format(java.util.Locale.forLanguageTag("vi-VN"), "%,.0f", value);
     }
 }

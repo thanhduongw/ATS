@@ -130,20 +130,70 @@ CREATE TABLE IF NOT EXISTS ai_jobs (
 CREATE INDEX IF NOT EXISTS idx_ai_jobs_application ON ai_jobs (application_id);
 CREATE INDEX IF NOT EXISTS idx_ai_jobs_status ON ai_jobs (status);
 
--- 2. CV Document Chunks — vector embeddings for RAG
+-- 2. CV Document Chunks — vector embeddings cho tìm kiếm (Talent Pool, gợi ý theo JD, phát hiện trùng)
+-- ai-service cũng tự tạo/nâng cấp các bảng này lúc khởi động (app/core/vector_schema.py).
 CREATE TABLE IF NOT EXISTS cv_document_chunks (
     id BIGSERIAL PRIMARY KEY,
-    application_id BIGINT NOT NULL,
+    application_id BIGINT,
     candidate_id BIGINT NOT NULL,
+    file_hash VARCHAR(64),
     chunk_type VARCHAR(50) NOT NULL,
     content TEXT NOT NULL,
     embedding vector(1024),
+    model VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_cv_chunks_app ON cv_document_chunks (application_id);
+CREATE INDEX IF NOT EXISTS idx_cv_chunks_candidate ON cv_document_chunks (candidate_id);
 CREATE INDEX IF NOT EXISTS idx_cv_chunks_embedding ON cv_document_chunks
     USING hnsw (embedding vector_cosine_ops);
+
+CREATE TABLE IF NOT EXISTS candidate_search_profile (
+    candidate_id BIGINT PRIMARY KEY,
+    latest_file_hash VARCHAR(64) NOT NULL,
+    total_years NUMERIC(4,1),
+    skills TEXT[] NOT NULL DEFAULT '{}',
+    titles TEXT[] NOT NULL DEFAULT '{}',
+    doc_embedding vector(1024),
+    model VARCHAR(100),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_profile_embedding ON candidate_search_profile
+    USING hnsw (doc_embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_search_profile_skills ON candidate_search_profile USING gin (skills);
+ALTER TABLE candidate_search_profile ADD COLUMN IF NOT EXISTS name_norm VARCHAR(200);
+ALTER TABLE candidate_search_profile ADD COLUMN IF NOT EXISTS email_hash VARCHAR(64);
+ALTER TABLE candidate_search_profile ADD COLUMN IF NOT EXISTS phone_hash VARCHAR(64);
+CREATE INDEX IF NOT EXISTS idx_search_profile_file ON candidate_search_profile (latest_file_hash);
+CREATE INDEX IF NOT EXISTS idx_search_profile_email ON candidate_search_profile (email_hash);
+CREATE INDEX IF NOT EXISTS idx_search_profile_phone ON candidate_search_profile (phone_hash);
+
+-- Cặp ứng viên nghi trùng (HR xác nhận / bỏ qua, không tự gộp)
+CREATE TABLE IF NOT EXISTS duplicate_candidates (
+    id BIGSERIAL PRIMARY KEY,
+    candidate_a BIGINT NOT NULL,
+    candidate_b BIGINT NOT NULL,
+    score NUMERIC(5,4) NOT NULL,
+    signals TEXT[] NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    reviewed_by BIGINT,
+    reviewed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_duplicate_pair UNIQUE (candidate_a, candidate_b),
+    CONSTRAINT ck_duplicate_order CHECK (candidate_a < candidate_b)
+);
+CREATE TABLE IF NOT EXISTS jd_embeddings (
+    content_hash VARCHAR(64) NOT NULL,
+    model VARCHAR(100) NOT NULL,
+    task VARCHAR(30) NOT NULL,
+    embedding vector(1024) NOT NULL,
+    job_posting_id BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (content_hash, model, task)
+);
+CREATE INDEX IF NOT EXISTS idx_duplicate_a ON duplicate_candidates (candidate_a);
+CREATE INDEX IF NOT EXISTS idx_duplicate_b ON duplicate_candidates (candidate_b);
 
 -- 3. AI Feedback — recruiter corrections
 CREATE TABLE IF NOT EXISTS ai_feedback (

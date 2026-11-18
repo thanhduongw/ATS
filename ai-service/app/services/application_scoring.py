@@ -39,6 +39,7 @@ from app.models import AIJob, AIScore
 from app.schemas.ssrc import CVFacts, JDFacts, ScoringProvenance
 from app.services.facts_store import COMPLETED as FACTS_COMPLETED
 from app.services.facts_store import CVUnavailableError, get_or_extract_cv, get_or_extract_jd
+from app.services.cv_indexing import schedule_indexing
 from app.services.job_info import JobInfo
 from app.services.prompts.ssrc import PROMPT_B_VERSION, PROMPT_VERSIONS, prompt_b_hash
 from app.services.scoring_ssrc import Thresholds, build_result, cert_policy_from_jd
@@ -282,6 +283,8 @@ async def score_application(
                 raise ScoringFailure(extraction_error_message(cv_row.error_code, cv_row.error_message),
                                      detail=cv_row.error_message)
             cv = CVFacts.model_validate(cv_row.result)
+            # Lập chỉ mục tìm kiếm vector chạy nền, best-effort: lỗi ở đây không ảnh hưởng điểm chấm.
+            schedule_indexing(session_factory, candidate_id, cv_row)
 
             # ----- CHẤM (prompt B) -----
             # Chính sách chứng chỉ do code suy từ JD. AI chỉ cho điểm 1–5 từng tiêu chí; điểm 0–100 và xếp loại do code tính.

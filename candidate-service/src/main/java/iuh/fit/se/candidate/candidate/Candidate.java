@@ -65,6 +65,17 @@ public class Candidate {
     @Column(name = "consent_at")
     private LocalDateTime consentAt;
 
+    /**
+     * Đồng ý RIÊNG để lưu hồ sơ và xét cho vị trí khác (Talent Pool). Khác consent_given (xử lý dữ liệu cho một
+     * đợt tuyển): chỉ ứng viên có cờ này mới xuất hiện khi HR tìm trong kho / gợi ý theo JD. Ứng viên rút lại được.
+     */
+    @Column(name = "talent_pool_consent", nullable = false)
+    @Builder.Default
+    private Boolean talentPoolConsent = false;
+
+    @Column(name = "talent_pool_consent_at")
+    private LocalDateTime talentPoolConsentAt;
+
     @OneToMany(mappedBy = "candidate", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<CandidateTag> tags = new ArrayList<>();

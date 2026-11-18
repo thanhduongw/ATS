@@ -25,7 +25,7 @@ MIGRATION_SQL = [
     "ALTER TABLE IF EXISTS ai_scores DROP COLUMN IF EXISTS cv_extraction_id",
     "ALTER TABLE IF EXISTS ai_jobs ALTER COLUMN extraction_prompt_version TYPE VARCHAR(40)",
     "ALTER TABLE IF EXISTS ai_jobs ALTER COLUMN scoring_prompt_version TYPE VARCHAR(40)",
-    "DROP TABLE IF EXISTS cv_extractions, jd_extractions, ai_feedback, cv_document_chunks",
+    "DROP TABLE IF EXISTS cv_extractions, jd_extractions, ai_feedback",
 ]
 
 

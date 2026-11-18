@@ -40,4 +40,5 @@ Pillow>=11.0.0
 opencv-python-headless>=4.10.0
 
 # --- Utilities ---
+pgvector==0.3.6
 python-multipart==0.0.20

@@ -35,6 +35,20 @@ public class CandidateController {
         return ResponseEntity.ok(service.getAll(actor, keyword, hasCv, poolStatus, page, size));
     }
 
+    /**
+     * Talent Pool: ứng viên đã đồng ý riêng. HR gọi trực tiếp (qua ai-service, chuyển tiếp danh tính); ai-service cũng
+     * gọi bằng danh tính SYSTEM để phục vụ "gợi ý từ kho" cho Hiring Manager — khi đó ai-service tự kiểm tra quyền
+     * trên tin tuyển dụng và không trả thông tin liên hệ.
+     */
+    @GetMapping("/talent-pool/eligible")
+    public ResponseEntity<List<iuh.fit.se.candidate.candidate.dto.TalentPoolCandidateResponse>> talentPoolEligible(
+            @RequestParam(required = false) PoolStatus poolStatus) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireAnyRole(actor, AuthorizationPolicy.Role.COMPANY_ADMIN,
+                AuthorizationPolicy.Role.RECRUITER, AuthorizationPolicy.Role.SYSTEM);
+        return ResponseEntity.ok(service.getTalentPoolEligible(poolStatus));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<CandidateResponse> getById(
             @PathVariable Long id) {

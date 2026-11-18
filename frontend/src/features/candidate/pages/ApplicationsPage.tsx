@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type Key } from "react";
 import { departmentLabel } from "../../overview/useCompanyOverview";
-import { Table, Button, Select, Modal, Form, Input, App, Tooltip } from "antd";
+import { Table, Button, Select, Modal, Form, Input, InputNumber, App, Tooltip } from "antd";
 import type { ColumnsType, SortOrder } from "antd/es/table/interface";
 import { useSearchParams } from "react-router-dom";
 import { getCandidates } from "../candidateApi";
@@ -243,18 +243,37 @@ export default function ApplicationsPage() {
     const handleRescorePosting = () => {
         if (jobPostingId == null) return;
         const title = postings.find((p) => p.id === jobPostingId)?.title ?? `tin #${jobPostingId}`;
+        // Tuỳ chọn tiết kiệm chi phí: chỉ chấm N hồ sơ có CV gần nội dung tin nhất. Bỏ trống = chấm tất cả (mặc định).
+        let topN: number | null = null;
         modal.confirm({
             title: `AI chấm các hồ sơ của "${title}"?`,
-            content: "Chỉ chấm hồ sơ chưa có điểm hoặc chấm lỗi; hồ sơ đã có điểm được giữ nguyên. "
-                + "AI chạy nền, mỗi hồ sơ mất khoảng 10–40 giây.",
+            content: (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <span>
+                        Chỉ chấm hồ sơ chưa có điểm hoặc chấm lỗi; hồ sơ đã có điểm được giữ nguyên.
+                        AI chạy nền, mỗi hồ sơ mất khoảng 10–40 giây.
+                    </span>
+                    <div>
+                        <div style={{ marginBottom: 4 }}>Tiết kiệm chi phí (tuỳ chọn): chỉ chấm số hồ sơ có CV gần tin nhất</div>
+                        <InputNumber min={1} max={1000} placeholder="Để trống = chấm tất cả" style={{ width: 240 }}
+                            onChange={(v) => { topN = v ?? null; }} />
+                        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+                            Chỉ nên dùng khi tin có rất nhiều hồ sơ. Độ gần vector không phản ánh chắc chắn mức phù hợp: khi đo
+                            thử, bỏ 10% hồ sơ ít gần nhất đã bỏ sót khoảng 4% hồ sơ phù hợp. Hệ thống không bỏ qua quá 20% số hồ sơ.
+                            Hồ sơ bị bỏ qua vẫn chưa có điểm và bạn có thể chấm tay bất cứ lúc nào.
+                        </div>
+                    </div>
+                </div>
+            ),
             okText: "Chấm",
             onOk: async () => {
                 setRescoringPosting(true);
                 try {
-                    const res = await rescorePosting(jobPostingId);
-                    const { queued, skipped } = res.data;
+                    const res = await rescorePosting(jobPostingId, topN ?? undefined);
+                    const { queued, skipped, skippedLowSimilarity = 0 } = res.data;
                     message.success(queued > 0
                         ? `Đã đưa ${queued} hồ sơ vào hàng chờ chấm${skipped ? ` (bỏ qua ${skipped} hồ sơ đã có điểm hoặc đang chấm)` : ""}`
+                          + (skippedLowSimilarity ? `; chưa chấm ${skippedLowSimilarity} hồ sơ ít gần tin` : "")
                         : "Mọi hồ sơ của tin này đã có điểm hoặc đang được chấm");
                     // Trạng thái "chờ chấm" tới danh sách qua hàng đợi sự kiện — đợi một nhịp rồi tải lại.
                     if (queued > 0) setTimeout(load, 1500);

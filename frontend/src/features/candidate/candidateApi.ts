@@ -52,6 +52,10 @@ export const uploadMyCandidateResume = (file: File) => {
   });
 };
 
+/** Ứng viên đồng ý / rút đồng ý Talent Pool (lưu hồ sơ và xét cho vị trí khác). Rút lại có hiệu lực ngay. */
+export const setTalentPoolConsent = (consent: boolean) =>
+  axiosClient.put<CandidateSelfResponse>("/candidate/me/talent-pool-consent", { consent });
+
 export const bulkDeleteCandidates = (ids: number[]) =>
   axiosClient.post<BulkOperationResponse>("/candidate/candidates/bulk-delete", { ids });
 

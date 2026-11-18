@@ -9,7 +9,7 @@ import {
   applicationCreateSchema,
   type ApplicationCreateFormValues,
 } from "../schemas/applicationCreateSchema";
-import { createApplication, getCandidates } from "../candidateApi";
+import { createApplication, getCandidateById, getCandidates } from "../candidateApi";
 import { getPostings } from "../../recruitment/recruitmentApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { getUserDirectory } from "../../auth/authApi";
@@ -60,6 +60,12 @@ export default function ApplicationCreateModal({
       getCatalogItems("/masterdata/departments"),
     ]).then(([candRes, postRes, srcRes, recRes, deptRes]) => {
       setCandidates(candRes.data.content);
+      // Ứng viên được chỉ định sẵn (vd từ "Gợi ý từ kho") có thể không nằm trong trang đầu của danh sách → nạp riêng, tránh hiện số ID trần.
+      if (presetCandidateId && !candRes.data.content.some((c) => c.id === presetCandidateId)) {
+        getCandidateById(presetCandidateId)
+          .then((r) => setCandidates((prev) => (prev.some((c) => c.id === r.data.id) ? prev : [r.data, ...prev])))
+          .catch(() => undefined);
+      }
       const openPostings = postRes.data.content.filter((p) => p.status === "OPEN");
       setPostings(openPostings);
       setSources(srcRes.data);

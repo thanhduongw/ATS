@@ -14,6 +14,7 @@ thấy hồ sơ phòng ban mình).
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -24,6 +25,7 @@ from app.api.access import require_application_access
 from app.core.auth import CurrentUser, current_user, require_admin, require_hr, require_internal
 from app.core.database import async_session_factory, get_db
 from app.core.java_services import JavaServiceError, list_applications
+from app.core.vector_schema import vector_enabled
 from app.models import AIScore
 from app.services.application_scoring import (
     COMPLETED,
@@ -35,7 +37,10 @@ from app.services.application_scoring import (
     score_application,
 )
 from app.workers.scoring_worker import schedule_scoring
+from app.api.talent import load_job_and_vector
+from app.services.talent_search import similarity_for_candidates, split_by_similarity
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -94,6 +99,10 @@ async def rescore(application_id: int, user: CurrentUser = Depends(current_user)
 @router.post("/scores/rescore-posting", summary="Chấm tất cả hồ sơ chưa có điểm của một tin (HR)")
 async def rescore_posting(
     job_posting_id: int = Query(..., alias="jobPostingId"),
+    # Tuỳ chọn tiết kiệm chi phí (mặc định tắt): chỉ chấm N hồ sơ có CV gần nội dung tin nhất. Hồ sơ bị bỏ qua giữ
+    # nguyên chưa có điểm và HR vẫn chấm tay được; lỗi embedding thì chấm tất cả. Không bỏ qua quá 20% (xem
+    # MAX_SKIP_FRACTION: lọc vector làm mất Good Fit).
+    top_n: int | None = Query(None, alias="topN", ge=1, le=1000),
     user: CurrentUser = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -112,10 +121,26 @@ async def rescore_posting(
             if r.status == COMPLETED
             or (r.status in (PENDING, PROCESSING) and r.updated_at and now - r.updated_at < STALE_PROCESSING)}
     todo = [a for a in applications if a["id"] not in busy]
+
+    low_similarity = 0
+    prefilter_applied = False
+    if top_n is not None and len(todo) > top_n and vector_enabled():
+        try:
+            _, jd_vector = await load_job_and_vector(job_posting_id, user)
+            by_cand = await similarity_for_candidates(db, jd_vector, [a["candidateId"] for a in todo])
+            sim_by_app = {a["id"]: by_cand[a["candidateId"]] for a in todo if a["candidateId"] in by_cand}
+            keep_ids, drop_ids = split_by_similarity([a["id"] for a in todo], sim_by_app, top_n)
+            keep = set(keep_ids)
+            todo = [a for a in todo if a["id"] in keep]
+            low_similarity, prefilter_applied = len(drop_ids), True
+        except HTTPException as exc:  # không lọc được thì chấm hết, không làm mất ứng viên
+            logger.warning("Bỏ qua lọc sơ bộ cho tin %s: %s", job_posting_id, exc.detail)
+
     await mark_pending(async_session_factory, todo)
     schedule_scoring([a["id"] for a in todo], user.headers())
     return {"jobPostingId": job_posting_id, "total": len(applications), "queued": len(todo),
-            "skipped": len(applications) - len(todo)}
+            "skipped": len(applications) - len(todo) - low_similarity,
+            "skippedLowSimilarity": low_similarity, "prefilterApplied": prefilter_applied}
 
 
 # POST .../rescore-all: sau khi đổi cách chấm, đưa MỌI hồ sơ có CV vào hàng chấm lại (kể cả đã COMPLETED).

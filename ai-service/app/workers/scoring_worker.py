@@ -98,6 +98,10 @@ async def _handle_candidate_deleted(message: aio_pika.abc.AbstractIncomingMessag
             from app.services.application_scoring import purge_candidate_data
             removed = await purge_candidate_data(candidate_id)
             logger.info("Đã xoá %s bản dữ kiện CV của ứng viên %s", removed, candidate_id)
+            # Dữ liệu tìm kiếm vector (embedding đoạn CV, hồ sơ tìm kiếm, cặp nghi trùng) cũng phải biến mất.
+            from app.services.cv_indexing import delete_vector_data
+            from app.core.database import async_session_factory
+            await delete_vector_data(async_session_factory, candidate_id)
         except Exception:  # noqa: BLE001
             logger.exception("Không xoá được dữ liệu AI của ứng viên %s", candidate_id)
 

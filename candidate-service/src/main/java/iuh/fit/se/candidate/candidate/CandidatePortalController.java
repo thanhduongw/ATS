@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -37,6 +38,19 @@ public class CandidatePortalController {
         CurrentUser actor = CurrentUser.required();
         AuthorizationPolicy.requireCandidate(actor);
         return ResponseEntity.ok(candidateService.updateMyProfile(actor, request));
+    }
+
+    /** Đồng ý / rút đồng ý cho Talent Pool (lưu hồ sơ và xét cho vị trí khác). Body: {"consent": true|false}. */
+    @PutMapping("/talent-pool-consent")
+    public ResponseEntity<CandidateSelfResponse> setTalentPoolConsent(
+            @RequestBody Map<String, Boolean> body) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireCandidate(actor);
+        Boolean consent = body.get("consent");
+        if (consent == null) {
+            throw new iuh.fit.se.candidate.exception.BusinessException("Thiếu trường consent (true/false)");
+        }
+        return ResponseEntity.ok(candidateService.setTalentPoolConsent(actor, consent));
     }
 
     @PostMapping(value = "/resume", consumes = "multipart/form-data")

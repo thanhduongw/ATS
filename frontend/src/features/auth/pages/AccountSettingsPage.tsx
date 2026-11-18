@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { App, Button, Form, Input, Modal } from "antd";
+import { App, Button, Form, Input, Modal, Switch } from "antd";
 import { ArrowRightOutlined, CheckCircleOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
 import { changePassword, getMyProfile, logoutRequest, updateMyProfile } from "../authApi";
-import { getMyCandidateProfile } from "../../candidate/candidateApi";
+import { getMyCandidateProfile, setTalentPoolConsent } from "../../candidate/candidateApi";
 import type { ApiMessageResponse, UserProfileResponse } from "../types";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { useAppDispatch, useAppSelector } from "../../../app/hooks";
@@ -48,6 +48,9 @@ export default function AccountSettingsPage() {
     const [policy, setPolicy] = useState<{ text: string; updatedAt: string | null } | null>(null);
     const [policyOpen, setPolicyOpen] = useState(false);
     const [consentAt, setConsentAt] = useState<string | null>(null);
+    const [talentPool, setTalentPool] = useState(false);
+    const [talentPoolAt, setTalentPoolAt] = useState<string | null>(null);
+    const [talentPoolSaving, setTalentPoolSaving] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleteText, setDeleteText] = useState("");
     const [deleting, setDeleting] = useState(false);
@@ -59,8 +62,24 @@ export default function AccountSettingsPage() {
             const text = r.data.privacyPolicy?.trim();
             setPolicy(text ? { text, updatedAt: r.data.privacyPolicyUpdatedAt ?? null } : null);
         }).catch(() => undefined);
-        getMyCandidateProfile().then((r) => setConsentAt(r.data.consentAt ?? null)).catch(() => undefined);
+        getMyCandidateProfile().then((r) => {
+            setConsentAt(r.data.consentAt ?? null);
+            setTalentPool(!!r.data.talentPoolConsent);
+            setTalentPoolAt(r.data.talentPoolConsentAt ?? null);
+        }).catch(() => undefined);
     }, [isCandidate]);
+
+    const toggleTalentPool = async (checked: boolean) => {
+        setTalentPoolSaving(true);
+        try {
+            const r = await setTalentPoolConsent(checked);
+            setTalentPool(!!r.data.talentPoolConsent);
+            setTalentPoolAt(r.data.talentPoolConsentAt ?? null);
+            message.success(checked ? "Đã bật lưu hồ sơ cho vị trí khác" : "Đã rút lại. Hồ sơ của bạn không còn được xét cho vị trí khác");
+        } catch {
+            message.error("Không cập nhật được, vui lòng thử lại");
+        } finally { setTalentPoolSaving(false); }
+    };
 
     const deleteMyData = async () => {
         setDeleting(true);
@@ -201,6 +220,19 @@ export default function AccountSettingsPage() {
                             Xem chính sách <ArrowRightOutlined />
                         </Button>
                     )}
+                </Panel>
+            )}
+
+            {isCandidate && (
+                <Panel title="Lưu hồ sơ cho vị trí khác">
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                        <span style={{ fontSize: 14 }}>
+                            Cho phép doanh nghiệp lưu hồ sơ và liên hệ khi có vị trí phù hợp khác, kể cả khi đợt tuyển hiện tại đã kết thúc.
+                            {talentPool && talentPoolAt ? ` Bạn đã đồng ý ngày ${dayjs(talentPoolAt).format("DD/MM/YYYY")}.` : ""}
+                            {!talentPool ? " Bạn có thể bật bất cứ lúc nào." : " Tắt đi, hồ sơ của bạn sẽ không còn được xét cho vị trí khác."}
+                        </span>
+                        <Switch checked={talentPool} loading={talentPoolSaving} onChange={toggleTalentPool} aria-label="Lưu hồ sơ cho vị trí khác" />
+                    </div>
                 </Panel>
             )}
 

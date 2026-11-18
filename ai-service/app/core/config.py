@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     fallback_llm_model: str = ""
     llm_temperature: float = 0.0
     llm_seed: int = 42
+    # Embedding cho tìm kiếm vector (Talent Pool, gợi ý theo JD, phát hiện CV trùng).
+    # Dùng Gemini API (cùng GOOGLE_API_KEY với trích xuất/chấm điểm). Số chiều phải khớp cột vector(1024);
+    # đổi model hoặc số chiều thì phải embed lại toàn bộ (cột `model` trong DB ghi model đã dùng).
+    embedding_model: str = "gemini-embedding-001"
+    embedding_dimensions: int = 1024
+    embedding_batch_size: int = 50
+    # Hạn mức token/phút của khoá API (gói miễn phí Gemini: 30.000). Embedder tự giãn nhịp để không bị 429;
+    # đặt 0 nếu dùng gói trả phí hạn mức cao. Số token được ước lượng (~3 ký tự/token, thiên về dư).
+    embedding_tokens_per_minute: int = 25000
 
     # --- Chấm điểm ---
     # Điểm 0–100 = trung bình các tiêu chí có điểm (thang 1–5) × 20. Xếp loại:
@@ -51,6 +60,12 @@ class Settings(BaseSettings):
     scoring_fit_threshold: float = 70.0       # SCORING_FIT_THRESHOLD
     scoring_not_fit_threshold: float = 60.0   # SCORING_NOT_FIT_THRESHOLD
     scoring_max_parallel: int = 2
+
+    # --- Tìm kiếm Talent Pool ---
+    # Model nhẹ để tách câu tìm kiếm ("3 năm", "Kafka") thành bộ lọc: đo thực tế ~1-4s so với 8-19s của
+    # model chấm điểm — người dùng đang đợi ở ô tìm kiếm. Quá hạn / lỗi thì tìm không lọc, không báo lỗi.
+    query_parse_model: str = "gemini-3.1-flash-lite"
+    query_parse_timeout_seconds: float = 8.0
 
     # --- Service URLs (Java backend) ---
     recruitment_service_url: str = "http://localhost:8083"

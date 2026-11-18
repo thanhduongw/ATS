@@ -129,7 +129,8 @@ async def test_rescore_posting_queues_missing_failed_and_stale(api, factory):
     assert (await client.post("/api/v1/ai/scores/rescore-posting", params={"jobPostingId": 5},
                               headers=HM)).status_code == 403
     r = await client.post("/api/v1/ai/scores/rescore-posting", params={"jobPostingId": 5}, headers=HR)
-    assert r.json() == {"jobPostingId": 5, "total": 5, "queued": 3, "skipped": 2}
+    assert r.json() == {"jobPostingId": 5, "total": 5, "queued": 3, "skipped": 2,
+                       "skippedLowSimilarity": 0, "prefilterApplied": False}
     assert sorted(state["scheduled"]) == [2, 4, 5]
 
 

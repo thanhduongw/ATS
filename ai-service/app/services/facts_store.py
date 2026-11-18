@@ -24,8 +24,9 @@ from app.core.public_errors import CITATION_MISMATCH, INVALID_OUTPUT, LLM_EXTRAC
 from app.core.s3_client import get_s3_client
 from app.models import CVFactsRecord, JDFactsRecord
 from app.services.extraction_pipeline import extract_text_from_bytes
+from app.services import duplicates
 from app.services.job_info import JobInfo, jd_content_hash
-from app.services.privacy import redact, remaining_contact_indicators
+from app.services.privacy import contact_identity, redact, remaining_contact_indicators
 from app.services.prompts.ssrc import (
     EXTRACT_CV_VERSION,
     EXTRACT_JD_VERSION,
@@ -155,6 +156,8 @@ async def get_or_extract_cv(
 
         # Che PII trước khi gửi AI. Còn dấu hiệu PII thì chỉ ghi cảnh báo, không chặn (không có bước người duyệt).
         redacted = redact(text.text)
+        # Chỉ lưu bản BĂM của tên/email/SĐT (phát hiện ứng viên trùng); giá trị thô không rời hàm này.
+        text_meta["identity"] = duplicates.identity_hashes(contact_identity(text.text))
         leftover = remaining_contact_indicators(redacted)
         if leftover:
             logger.warning("CV %s: sau khi che vẫn còn dấu hiệu PII: %s", resume_url, ",".join(leftover))

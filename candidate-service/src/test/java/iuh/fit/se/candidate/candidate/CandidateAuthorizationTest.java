@@ -35,6 +35,7 @@ class CandidateAuthorizationTest {
     @Mock private MasterDataServiceClient masterDataServiceClient;
     @Mock private S3Service s3Service;
     @Mock private AuditEventPublisher auditEventPublisher;
+    @Mock private iuh.fit.se.candidate.event.CandidateEventPublisher candidateEventPublisher;
 
     @InjectMocks private CandidateService candidateService;
 

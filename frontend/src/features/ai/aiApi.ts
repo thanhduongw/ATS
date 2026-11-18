@@ -1,49 +1,31 @@
 import axiosClient from "../../services/axiosClient";
 import type {
-  CVExtractionResponse,
+  CVFactsResponse,
   ApplicationScoreResponse,
   RescorePostingResponse,
 } from "./types";
 
 /**
- * Upload a CV file and extract structured data via AI.
- *
- * Supported file types: PDF, DOCX, PNG, JPEG
- * Timeout: 120s (LLM processing can be slow)
- */
-export const extractCvFromUpload = (file: File) => {
-  const form = new FormData();
-  form.append("file", file);
-  return axiosClient.post<CVExtractionResponse>(
-    "/v1/ai/extract-cv/upload",
-    form,
-    {
-      headers: { "Content-Type": "multipart/form-data" },
-      timeout: 120_000,
-    },
-  );
-};
-
-/**
- * Kết quả trích xuất CV của một hồ sơ ứng tuyển (lưu ở ai-service, dùng chung cho mọi người xem).
+ * Dữ kiện CV của một hồ sơ ứng tuyển (lưu ở ai-service, dùng chung cho mọi người xem).
  * Chưa có thì ai-service trích xuất ngay (10–60 giây) — timeout dài.
  */
 export const getCvExtraction = (applicationId: number) =>
-  axiosClient.get<CVExtractionResponse>("/v1/ai/cv-extractions", {
+  axiosClient.get<CVFactsResponse>("/v1/ai/cv-extractions", {
     params: { applicationId },
     timeout: 120_000,
   });
 
 /** Trích xuất lại CV, bỏ qua kết quả đã lưu (chỉ Admin / Recruiter). */
 export const reExtractCv = (applicationId: number) =>
-  axiosClient.post<CVExtractionResponse>("/v1/ai/cv-extractions/re-extract", null, {
+  axiosClient.post<CVFactsResponse>("/v1/ai/cv-extractions/re-extract", null, {
     params: { applicationId },
     timeout: 120_000,
   });
 
-/** Điểm AI + nhận xét của một hồ sơ. 404 = hồ sơ chưa được chấm. */
-// [GIẢI THÍCH] 3 API chấm điểm của ai-service (đi qua API Gateway, tự gắn token đăng nhập):
+// 3 API chấm điểm của ai-service (đi qua API Gateway, tự gắn token đăng nhập):
 // lấy điểm một hồ sơ / chấm lại một hồ sơ (chờ tối đa 2 phút) / chấm nền mọi hồ sơ chưa có điểm của một tin.
+
+/** Điểm AI + nhận xét của một hồ sơ. 404 = hồ sơ chưa được chấm. */
 export const getApplicationScore = (applicationId: number) =>
   axiosClient.get<ApplicationScoreResponse>(`/v1/ai/scores/${applicationId}`);
 

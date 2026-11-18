@@ -49,11 +49,11 @@ async def get_application(application_id: int, headers: dict[str, str] | None = 
     return r.json()
 
 
-async def list_applications(job_posting_id: int, headers: dict[str, str]) -> list[dict]:
-    """Mọi hồ sơ của một tin mà NGƯỜI GỌI được xem (không truyền page/size → không phân trang)."""
+async def list_applications(job_posting_id: int | None, headers: dict[str, str]) -> list[dict]:
+    """Mọi hồ sơ của một tin (None = mọi tin) mà NGƯỜI GỌI được xem (không truyền page/size → không phân trang)."""
     s = get_settings()
-    r = await _get(f"{s.application_service_url}/api/application/applications", headers,
-                   {"jobPostingId": job_posting_id})
+    params = {"jobPostingId": job_posting_id} if job_posting_id is not None else None
+    r = await _get(f"{s.application_service_url}/api/application/applications", headers, params)
     return r.json().get("content", [])
 
 

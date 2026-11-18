@@ -16,15 +16,8 @@ logger = logging.getLogger(__name__)
 # --- Queue / Exchange constants (match Java services' RabbitMQConfig) ---
 ATS_EXCHANGE = "ats.events"
 
-# AI Service consumes this queue
-CV_UPLOADED_QUEUE = "ai.cv-uploaded.queue"
-CV_UPLOADED_ROUTING_KEY = "cv.uploaded"
-
-# AI Service publishes to this routing key
+# AI Service publishes to this routing key; application-service declares and binds its own queue for it.
 AI_SCORING_COMPLETED_ROUTING_KEY = "ai.scoring.completed"
-
-# application-service listens on this queue
-AI_SCORING_COMPLETED_QUEUE = "application.ai-scoring-completed.queue"
 
 
 class RabbitMQManager:
@@ -50,24 +43,8 @@ class RabbitMQManager:
                 durable=True,
             )
 
-            # Declare queue that AI Service consumes
-            cv_queue = await self._channel.declare_queue(
-                CV_UPLOADED_QUEUE,
-                durable=True,
-            )
-            await cv_queue.bind(self._exchange, routing_key=CV_UPLOADED_ROUTING_KEY)
-
-            # Declare queue that application-service consumes for scoring results
-            scoring_queue = await self._channel.declare_queue(
-                AI_SCORING_COMPLETED_QUEUE,
-                durable=True,
-            )
-            await scoring_queue.bind(
-                self._exchange, routing_key=AI_SCORING_COMPLETED_ROUTING_KEY
-            )
-
-            logger.info("RabbitMQ connected. Queues declared: %s, %s",
-                        CV_UPLOADED_QUEUE, AI_SCORING_COMPLETED_QUEUE)
+            # Hàng đợi ai-service nghe (application.created, candidate.data_deleted) do workers/scoring_worker.py khai báo.
+            logger.info("RabbitMQ connected. Exchange %s declared.", ATS_EXCHANGE)
 
         except Exception as e:
             logger.error("Failed to connect to RabbitMQ: %s", e)

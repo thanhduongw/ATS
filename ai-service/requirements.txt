@@ -9,8 +9,6 @@ uvicorn[standard]==0.34.0
 # --- Database ---
 sqlalchemy==2.0.36
 asyncpg==0.30.0
-alembic==1.14.1
-pgvector==0.3.6
 
 # --- RabbitMQ ---
 aio-pika==9.5.4
@@ -42,5 +40,4 @@ Pillow>=11.0.0
 opencv-python-headless>=4.10.0
 
 # --- Utilities ---
-python-dotenv==1.0.1
 python-multipart==0.0.20

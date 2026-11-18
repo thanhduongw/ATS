@@ -13,7 +13,6 @@ from app.core.config import get_settings
 from app.core.auth import internal_only
 from app.core.rabbitmq import rabbitmq_manager
 from app.api.health import router as health_router
-from app.api.extraction import router as extraction_router
 from app.api.cv_extraction import router as cv_extraction_router
 from app.api.application_scores import router as application_scores_router
 
@@ -33,16 +32,14 @@ async def lifespan(app: FastAPI):
     logger.info("Starting %s v%s", settings.app_name, settings.app_version)
 
     # --- Startup ---
-    # Bảng mới của ai-service: tạo nếu chưa có. init-databases.sql chỉ chạy khi volume Postgres
-    # còn trống, nên DB đã tồn tại sẽ không có các bảng thêm sau.
+    # Bảng của ai-service: tạo nếu chưa có và chuyển cấu trúc cũ sang quy trình SSRC (SQL idempotent).
+    # init-databases.sql chỉ chạy khi volume Postgres còn trống, nên DB đã tồn tại sẽ không có bảng thêm sau.
     try:
-        from app.core.database import Base, engine
-        from app.models import AIJob, AIScore, CVExtraction, JDExtraction
-        tables = [CVExtraction.__table__, JDExtraction.__table__, AIJob.__table__, AIScore.__table__]
-        async with engine.begin() as conn:
-            await conn.run_sync(lambda c: Base.metadata.create_all(c, tables=tables))
+        from app.core.database import engine
+        from app.core.schema_migrate import migrate
+        await migrate(engine)
     except Exception as e:
-        logger.warning("Không tạo được bảng của ai-service: %s", e)
+        logger.warning("Không tạo/chuyển được bảng của ai-service: %s", e)
 
     # Worker chấm điểm phải luôn nghe hàng đợi application.created: nếu RabbitMQ chưa sẵn sàng lúc
     # khởi động thì thử lại định kỳ thay vì chạy tiếp mà không có worker (hồ sơ nộp sau đó sẽ nằm
@@ -97,7 +94,6 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix="/api/v1/ai", tags=["Health"])
     # Các công cụ AI chỉ dành cho nhân sự nội bộ (danh tính do api-gateway gắn vào header).
     internal = [Depends(internal_only)]
-    app.include_router(extraction_router, prefix="/api/v1/ai", tags=["Text Extraction"], dependencies=internal)
     app.include_router(cv_extraction_router, prefix="/api/v1/ai", tags=["CV Extraction"], dependencies=internal)
     app.include_router(application_scores_router, prefix="/api/v1/ai", tags=["CV Scoring"], dependencies=internal)
 

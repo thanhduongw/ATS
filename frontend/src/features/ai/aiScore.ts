@@ -1,6 +1,6 @@
 import type { AiScoreStatus, AiTier } from "./types";
 
-/** Ba xếp loại gợi ý — khớp ai-service v2 (docs/DE_XUAT_CHAM_DIEM_CV.md, Bước 6): T = 62,5 ± 5. */
+/** Ba xếp loại gợi ý — khớp ai-service (SSRC): Phù hợp >= 70, Chưa phân loại 60 – < 70, Không phù hợp < 60. */
 // [GIẢI THÍCH] Nhãn tiếng Việt và màu của 3 xếp loại (dùng cho huy hiệu ở danh sách và thẻ AI).
 // Chưa phân loại = AI không chắc chắn hoặc thiếu thông tin, HR xem tay. Không có nghĩa là "kém".
 // color = màu thẻ antd, stroke = màu vòng tròn điểm. Muốn đổi chữ/màu thì sửa ở đây.

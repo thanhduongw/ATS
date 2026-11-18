@@ -159,11 +159,17 @@ export const useStaffPosting = (id: number) =>
     queryFn: () => staffApi.posting(id),
     enabled: valid(id),
   });
+/** Hỏi lại điểm AI mỗi 5 giây khi hồ sơ đang chờ hoặc đang được chấm (xong thì dừng). */
+const AI_POLL_MS = 5000;
 export const useAiScore = (applicationId: number) =>
   useQuery({
     queryKey: staffKeys.ai(applicationId),
     queryFn: () => staffApi.aiScore(applicationId),
     enabled: valid(applicationId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "PROCESSING" ? AI_POLL_MS : false;
+    },
   });
 
 export const useCriteria = () =>

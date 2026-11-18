@@ -1,191 +1,86 @@
 /**
- * TypeScript types — 1:1 mapping with Pydantic schemas
- * @see ai-service/app/schemas/cv_extraction.py
+ * Kiểu dữ liệu của module AI chấm CV (ai-service, theo nghiên cứu SSRC 2026).
+ * `result` giữ nguyên tên trường snake_case của Python.
+ * @see ai-service/app/schemas/ssrc.py
  */
 
 // ============================================================
-// Enums
+// Dữ kiện CV (GET /cv-extractions) — khối "Phân tích CV" ở trang chi tiết hồ sơ
 // ============================================================
 
-export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
-export type CompletenessLevel = "COMPLETE" | "PARTIAL" | "MINIMAL";
-export type LanguageProficiency = "NATIVE" | "FLUENT" | "INTERMEDIATE" | "BASIC";
+export type CvFactCategory = "WORK_EXPERIENCE" | "SKILLS" | "EDUCATION" | "CERTIFICATIONS" | "PROJECT" | "LANGUAGE";
 
-// ============================================================
-// CV Sub-models
-// ============================================================
-
-export interface CandidateInfo {
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  location: string | null;
-  linkedin_url: string | null;
-  github_url: string | null;
-  portfolio_url: string | null;
-  summary: string | null;
+export interface CvFact {
+  category: CvFactCategory;
+  /** Câu trích NGUYÊN VĂN từ CV (đã che thông tin cá nhân) */
+  quote: string;
+  /** Giải thích ngắn bằng tiếng Việt */
+  note: string;
 }
 
-export interface WorkExperience {
-  company: string | null;
-  title: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  is_current: boolean;
-  description: string | null;
-  technologies: string[];
-  source_text: string | null;
+export interface CVFacts {
+  facts: CvFact[];
+  limitations: string[];
 }
 
-export interface Education {
-  institution: string | null;
-  degree: string | null;
-  field_of_study: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  gpa: string | null;
-  source_text: string | null;
+export interface CvFactsProvenance {
+  model?: string;
+  prompt_version?: string;
+  prompt_hash?: string;
+  input_tokens?: number;
+  output_tokens?: number;
+  estimated_cost_usd?: number;
+  latency_ms?: number;
+  retries?: number;
+  validation_retries?: number;
 }
 
-export interface Certification {
-  name: string | null;
-  issuer: string | null;
-  date_obtained: string | null;
-  expiry_date: string | null;
-  credential_id: string | null;
-}
-
-export interface Project {
-  name: string | null;
-  description: string | null;
-  technologies: string[];
-  url: string | null;
-  role: string | null;
-  source_text: string | null;
-}
-
-export interface LanguageSkill {
-  language: string;
-  proficiency: LanguageProficiency | null;
-}
-
-export interface FieldConfidence {
-  field_name: string;
-  confidence: ConfidenceLevel;
-  evidence: string | string[] | null;
-}
-
-// ============================================================
-// Main models
-// ============================================================
-
-export interface ExtractedCV {
-  candidate: CandidateInfo;
-  skills: string[];
-  work_experience: WorkExperience[];
-  education: Education[];
-  certifications: Certification[];
-  projects: Project[];
-  languages: LanguageSkill[];
-  years_of_experience_claimed: number | null;
-  field_confidences: FieldConfidence[];
-}
-
-export interface CVExtractionResult {
-  extracted_cv: ExtractedCV;
-  years_of_experience_calculated: number | null;
-  overall_confidence: ConfidenceLevel;
-  completeness: CompletenessLevel;
-  completeness_details: Record<string, boolean>;
-}
-
-export interface ExtractionProvenance {
-  model_used: string;
-  prompt_version: string;
-  fallback_used: boolean;
-  input_tokens: number;
-  output_tokens: number;
-  estimated_cost_usd: number;
-  processing_time_ms: number;
-  retries: number;
-}
-
-// ============================================================
-// API Response
-// ============================================================
-
-export interface CVExtractionResponse {
-  status: string;
-  result: CVExtractionResult | null;
-  provenance: ExtractionProvenance;
+export interface CVFactsResponse {
+  status: "success" | "error";
+  result: CVFacts | null;
+  provenance: CvFactsProvenance | null;
   error_code: string | null;
   error_message: string | null;
-  /** Có khi lấy từ /cv-extractions (kết quả đã lưu). */
   extraction_id?: number;
   updated_at?: string | null;
 }
 
 // ============================================================
-// Chấm điểm hồ sơ (ai-service /scores) — `result` giữ nguyên tên trường snake_case của Python
+// Chấm điểm hồ sơ (ai-service /scores)
 // ============================================================
 
-// [GIẢI THÍCH] 3 xếp loại gợi ý (docs/DE_XUAT_CHAM_DIEM_CV.md, Bước 6): Phù hợp / Không phù hợp / Chưa phân loại.
+// 3 xếp loại gợi ý: Phù hợp (>= 70) / Chưa phân loại (60 – < 70) / Không phù hợp (< 60).
 export type AiTier = "FIT" | "NOT_FIT" | "UNCLASSIFIED";
 export type AiScoreStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
-/** Ai chấm tiêu chí / kiểm tra yêu cầu: quy tắc code, AI, hay code kết hợp AI. */
-export type ScoredBy = "CODE" | "LLM" | "CODE_AND_LLM";
-export type RequirementStatus = "MET" | "UNMET" | "UNKNOWN";
-export type RequirementCategory = "SKILL" | "CERTIFICATION" | "DOMAIN" | "EXPERIENCE_YEARS" | "EDUCATION_LEVEL";
 
-/** Một tiêu chí — khớp ScoredDimension trong ai-service/app/schemas/scoring.py. */
-export interface ScoredDimension {
-  dimension: string;
+export type CriterionKey = "work_experience" | "skills" | "education" | "certifications";
+export type CertPolicy = "REQUIRED" | "PREFERRED" | "NOT_SPECIFIED";
+
+/** Một trong 4 tiêu chí: điểm 1–5 do AI chấm kèm lý do và hai nhóm câu trích. */
+export interface ScoreCriterion {
+  key: CriterionKey;
   label: string;
-  /** false: tin tuyển dụng không nhắc tiêu chí này, không tính vào điểm */
-  applicable: boolean;
-  /** Mức 0–4; null nếu không áp dụng hoặc không xác định được */
-  level: number | null;
-  /** 0–100; null nếu không tính */
+  /** 1–5; null khi không áp dụng (Chứng chỉ khi JD không nêu) */
   score: number | null;
-  /** Trọng số thực tế = 1 / số tiêu chí được tính (trọng số bằng nhau); 0 nếu không tính */
-  weight: number;
-  /** Có từ cách chấm v2; kết quả cũ không có */
-  scored_by?: ScoredBy;
-  evidence?: string[];
+  applicable: boolean;
   reason: string;
+  cv_evidence: string[];
+  jd_evidence: string[];
 }
 
-/** Một yêu cầu bắt buộc của JD và trạng thái (Bước 4). */
-export interface RequirementResult {
-  requirement: string;
-  category: RequirementCategory;
-  status: RequirementStatus;
-  status_label: string;
-  checked_by: ScoredBy;
-  evidence: string | null;
-}
-
-/** Kết quả chấm (ai_scores.result). Các trường v2 để tùy chọn: kết quả chấm theo cách cũ vẫn đọc được. */
+/** Kết quả chấm (ai_scores.result). */
 export interface ScoreResult {
-  /** CV có đoạn văn nhằm điều khiển AI (prompt injection). */
-  injection_detected?: boolean;
-  injection_patterns?: string[];
-  /** null = không tính được điểm (Chưa phân loại) */
-  total_score: number | null;
+  /** 0–100 = trung bình các tiêu chí có điểm × 20 */
+  total_score: number;
   tier: AiTier;
   tier_label: string;
-  /** Lý do xếp loại (quy tắc nào của Bước 6 được áp dụng) */
-  tier_reason?: string;
-  dimensions: ScoredDimension[];
-  requirements?: RequirementResult[];
-  /** Ngưỡng T và độ rộng vùng không chắc chắn δ dùng khi xếp loại */
-  threshold?: number;
-  uncertainty?: number;
-  /** Câu mở đầu do code ghép (gợi ý + lý do) + tóm tắt của AI */
-  comment: string;
-  summary: string;
-  years_calculated: number | null;
-  years_claimed: number | null;
+  /** Luật xếp loại đã áp dụng, bằng tiếng Việt */
+  tier_reason: string;
+  cert_policy: CertPolicy;
+  criteria: ScoreCriterion[];
+  /** CV có đoạn văn nhằm điều khiển AI (prompt injection) */
+  injection_detected: boolean;
+  injection_patterns: string[];
   scored_on: string;
 }
 
@@ -195,6 +90,7 @@ export interface ApplicationScoreResponse {
   status: AiScoreStatus;
   totalScore: number | null;
   tier: AiTier | null;
+  /** null khi FAILED, hoặc khi ứng viên đã xoá dữ liệu cá nhân (COMPLETED vẫn giữ điểm và xếp loại) */
   result: ScoreResult | null;
   errorMessage: string | null;
   scoredAt: string | null;

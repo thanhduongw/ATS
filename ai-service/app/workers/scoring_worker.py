@@ -85,7 +85,7 @@ CANDIDATE_DATA_DELETED_ROUTING_KEY = "candidate.data_deleted"
 
 
 # [GIẢI THÍCH] Ứng viên xoá dữ liệu cá nhân (candidate-service phát candidate.data_deleted):
-# xoá bản trích xuất CV và phần chi tiết của kết quả chấm (dẫn chứng trích từ CV). Điểm và xếp loại giữ lại
+# xoá dữ kiện CV (`cv_facts`) và phần chi tiết của kết quả chấm (dẫn chứng trích từ CV). Điểm và xếp loại giữ lại
 # để số liệu thống kê không đổi.
 async def _handle_candidate_deleted(message: aio_pika.abc.AbstractIncomingMessage) -> None:
     async with message.process(ignore_processed=True):
@@ -97,7 +97,7 @@ async def _handle_candidate_deleted(message: aio_pika.abc.AbstractIncomingMessag
         try:
             from app.services.application_scoring import purge_candidate_data
             removed = await purge_candidate_data(candidate_id)
-            logger.info("Đã xoá %s bản trích xuất CV của ứng viên %s", removed, candidate_id)
+            logger.info("Đã xoá %s bản dữ kiện CV của ứng viên %s", removed, candidate_id)
         except Exception:  # noqa: BLE001
             logger.exception("Không xoá được dữ liệu AI của ứng viên %s", candidate_id)
 

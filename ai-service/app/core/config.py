@@ -42,20 +42,19 @@ class Settings(BaseSettings):
     fallback_llm_model: str = ""
     llm_temperature: float = 0.0
     llm_seed: int = 42
-    embedding_model: str = "intfloat/multilingual-e5-large-instruct"
 
     # --- Chấm điểm ---
-    # [GIẢI THÍCH] Ngưỡng xếp loại Phù hợp / Không phù hợp / Chưa phân loại (docs/DE_XUAT_CHAM_DIEM_CV.md, Bước 6):
-    # T = 62,5 (giữa mức 2 và mức 3), vùng không chắc chắn ± δ = 5 (tùy chọn từ chối phân loại — Chow, 1970).
-    # Giá trị khởi đầu là quy ước của nhóm; hiệu chỉnh lại trên tập hiệu chỉnh (không dùng tập kiểm tra).
-    scoring_threshold: float = 62.5      # SCORING_THRESHOLD
-    scoring_uncertainty: float = 5.0     # SCORING_UNCERTAINTY
+    # Điểm 0–100 = trung bình các tiêu chí có điểm (thang 1–5) × 20. Xếp loại:
+    #   điểm >= SCORING_FIT_THRESHOLD            -> Phù hợp
+    #   SCORING_NOT_FIT_THRESHOLD <= điểm < FIT  -> Chưa phân loại
+    #   điểm < SCORING_NOT_FIT_THRESHOLD         -> Không phù hợp
+    scoring_fit_threshold: float = 70.0       # SCORING_FIT_THRESHOLD
+    scoring_not_fit_threshold: float = 60.0   # SCORING_NOT_FIT_THRESHOLD
     scoring_max_parallel: int = 2
 
     # --- Service URLs (Java backend) ---
     recruitment_service_url: str = "http://localhost:8083"
     application_service_url: str = "http://localhost:8089"
-    candidate_service_url: str = "http://localhost:8084"
     masterdata_service_url: str = "http://localhost:8082"
 
     model_config = {

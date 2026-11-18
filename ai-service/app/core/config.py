@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     # Model nhẹ để tách câu tìm kiếm ("3 năm", "Kafka") thành bộ lọc: đo thực tế ~1-4s so với 8-19s của
     # model chấm điểm — người dùng đang đợi ở ô tìm kiếm. Quá hạn / lỗi thì tìm không lọc, không báo lỗi.
     query_parse_model: str = "gemini-3.1-flash-lite"
-    query_parse_timeout_seconds: float = 8.0
+    query_parse_timeout_seconds: float = 12.0
 
     # --- Service URLs (Java backend) ---
     recruitment_service_url: str = "http://localhost:8083"

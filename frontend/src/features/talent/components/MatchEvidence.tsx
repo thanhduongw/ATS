@@ -19,7 +19,7 @@ function Highlighted({ text, highlights }: { text: string; highlights: number[][
     return <>{parts}</>;
 }
 
-const SHOWN_BY_DEFAULT = 2;
+const SHOWN_BY_DEFAULT = 3;
 
 /** Một điều kiện có bằng chứng: câu trích đầu tiên, bấm "Xem thêm bằng chứng" để xem các chỗ khác trong CV. */
 function FoundEvidence({ ev }: { ev: TalentEvidence }) {
@@ -73,10 +73,21 @@ export function MatchEvidence({ evidence, semantic }: { evidence: TalentEvidence
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {visible.map((ev) => (
-                <div key={ev.label} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                    <Tag color={ev.kind === "semantic" ? "geekblue" : ev.found ? "green" : "default"} style={{ marginInlineEnd: 0, flexShrink: 0 }}
-                        icon={ev.found ? <CheckCircleFilled /> : <MinusCircleOutlined />}>{ev.label}</Tag>
-                    {ev.kind === "semantic" ? (
+                <div key={ev.label} style={{ display: "flex", gap: ev.kind === "aspect" ? 4 : 8, alignItems: "flex-start", flexDirection: ev.kind === "aspect" ? "column" : "row" }}>
+                    <Tag color={ev.kind === "semantic" ? "geekblue" : ev.found ? "green" : ev.kind === "aspect" ? "orange" : "default"} style={{ marginInlineEnd: 0, flexShrink: 0 }}
+                        icon={ev.found ? <CheckCircleFilled /> : <MinusCircleOutlined />}>{ev.kind === "aspect" ? ev.label.replace(/^Ứng viên (có khả năng |từng |có )?/i, "") : ev.label}</Tag>
+                    {ev.kind === "aspect" ? (
+                        <div style={{ color: COLORS.textSecondary, lineHeight: 1.45 }}>
+                            <div style={{ fontWeight: 600, color: ev.found ? COLORS.success : COLORS.textMuted }}>
+                                {ev.found ? "Có bằng chứng" : ev.judged ? "Chưa thấy bằng chứng" : "Gần nghĩa, chưa được AI xác nhận"}
+                            </div>
+                            <div><b style={{ color: "inherit" }}>{CHUNK_LABEL[ev.section ?? ""] ?? "CV"}:</b> {(ev.text ?? "").length > 240 ? `${(ev.text ?? "").slice(0, 240)}…` : ev.text}</div>
+                            <div style={{ color: COLORS.textMuted, fontStyle: "italic" }}>
+                                {ev.reason ? `Vì sao: ${ev.reason}` : "Đoạn CV gần nghĩa nhất với ý này (chưa có giải thích của AI)."}
+                                {ev.similarity != null && ` · độ gần nghĩa ${Math.round(ev.similarity * 100)}%`}
+                            </div>
+                        </div>
+                    ) : ev.kind === "semantic" ? (
                         <div style={{ color: COLORS.textSecondary, lineHeight: 1.45 }}>
                             <b style={{ color: "inherit" }}>{CHUNK_LABEL[ev.section ?? ""] ?? "CV"}:</b> {ev.text}
                             <div style={{ color: COLORS.textMuted, fontStyle: "italic" }}>Khớp theo ngữ nghĩa với câu hỏi, không phải từ khoá — đọc CV để xác nhận.</div>

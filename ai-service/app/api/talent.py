@@ -20,12 +20,12 @@ from app.core.java_services import (
     JavaServiceError, get_posting, get_skill_names, get_talent_pool_eligible, list_applications,
 )
 from app.core.vector_schema import vector_enabled
-from app.services import recruit_status, skill_catalog
+from app.services import recruit_status, skill_catalog, talent_explain
 from app.services.embeddings import EmbeddingError
 from app.services.jd_embedding import get_or_embed_jd
 from app.services.job_info import JobInfo
 from app.services.talent_search import (
-    ParsedQuery, SearchFilters, clean_display, embed_search_query, parse_query, search_candidates, similarity_for_candidates,
+    ParsedQuery, SearchFilters, _get_parse_manager, clean_display, embed_search_query, parse_query, search_candidates, similarity_for_candidates,
 )
 
 router = APIRouter()
@@ -47,7 +47,7 @@ class TalentSearchRequest(BaseModel):
 
 def _coverage(evidence: list[dict]) -> float | None:
     """Chỉ tính các điều kiện từ khoá/kỹ năng; số năm, quá trình làm việc và đoạn gần nghĩa không phải điều kiện kiểm chứng."""
-    checks = [e for e in evidence if not e.get("kind") and e.get("section") != "YEARS"]
+    checks = [e for e in evidence if e.get("kind") in (None, "aspect") and e.get("section") != "YEARS"]
     return round(sum(1 for e in checks if e["found"]) / len(checks), 2) if checks else None
 
 
@@ -104,7 +104,7 @@ async def load_job_and_vector(job_posting_id: int, user: CurrentUser) -> tuple[J
 
 def _parsed_dto(p: ParsedQuery) -> dict:
     return {"semanticQuery": p.semantic_query, "minYears": p.min_years, "maxYears": p.max_years,
-            "keywords": p.keywords, "skills": p.required_skills}
+            "keywords": p.keywords, "aspects": p.aspects, "skills": p.required_skills}
 
 
 # [GIẢI THÍCH] Tìm trong kho: (1) LLM tách "3 năm", "Kafka" thành bộ lọc cứng; (2) hỏi candidate-service ai được phép
@@ -153,11 +153,21 @@ async def search(req: TalentSearchRequest, user: CurrentUser = Depends(current_u
     except EmbeddingError as exc:
         raise HTTPException(status_code=503, detail="Dịch vụ embedding tạm thời không dùng được") from exc
 
-    hits = await search_candidates(db, qvec, list(by_id), filters, req.limit, query_text=parsed.semantic_query)
+    aspects = []
+    if len(parsed.aspects) >= 2:   # câu hỏi nhiều ý: mỗi ý một vector để chỉ ra đoạn gần nghĩa theo TỪNG ý
+        try:
+            aspects = [(a, await embed_search_query(a)) for a in parsed.aspects]
+        except EmbeddingError:
+            aspects = []
+    hits = await search_candidates(db, qvec, list(by_id), filters, req.limit, query_text=parsed.semantic_query,
+                                   aspects=aspects)
+    if aspects:   # AI đọc đúng các đoạn trích: đoạn nào thật sự ủng hộ ý của câu hỏi và vì sao
+        await talent_explain.explain(_get_parse_manager(), [a for a, _ in aspects], hits)
 
     results = [_result_dto(h, by_id[h.candidate_id], recruitment=statuses.get(h.candidate_id)) for h in hits]
     return {
         "query": req.query,
+        "aspects": [a for a, _ in aspects],
         "applied": {"semanticQuery": parsed.semantic_query,
                     "minYears": filters.min_years, "maxYears": filters.max_years, "skills": filters.skills},
         "parsed": _parsed_dto(parsed),

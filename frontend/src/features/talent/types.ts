@@ -46,7 +46,11 @@ export interface TalentEvidence {
   text: string | null;
   highlights: number[][];
   /** jobs = quá trình làm việc; semantic = đoạn gần nghĩa nhất (không phải từ khoá). Không có = điều kiện từ khoá/kỹ năng. */
-  kind?: "jobs" | "semantic";
+  kind?: "jobs" | "semantic" | "aspect";
+  /** kind = aspect: độ gần nghĩa đoạn↔ý, giải thích của AI và đã được AI đọc hay chưa. */
+  similarity?: number;
+  reason?: string | null;
+  judged?: boolean;
   /** Các chỗ khác trong CV cũng nhắc tới điều kiện này (tối đa 3). */
   others: { section: string; text: string; highlights: number[][] }[];
 }

@@ -43,6 +43,8 @@ from app.services.embeddings import Embedder, embed_query
 logger = logging.getLogger(__name__)
 
 DOC_WEIGHT = 0.5  # giữ cho tương thích; xem W_* bên dưới
+MAX_ASPECTS = 3
+ASPECT_STRONG = 0.66     # độ gần nghĩa đoạn↔ý; chỉ để GỢI Ý mức (kết luận có ủng hộ hay không do AI đọc đoạn trích quyết định)
 W_DOC = 0.40
 W_CHUNK = 0.35
 W_LEXICAL = 0.25
@@ -60,6 +62,10 @@ class ParsedQuery(BaseModel):
     max_years: float | None = Field(
         None, description="Số năm kinh nghiệm TỐI ĐA khi câu hỏi muốn người ít kinh nghiệm: 'mới ra trường', 'fresher', "
                           "'chưa có kinh nghiệm' → 1; 'dưới 2 năm' → 2; không nêu thì null")
+    aspects: list[str] = Field(
+        default_factory=list,
+        description="Khi câu hỏi có từ 2 yêu cầu NGỮ NGHĨA độc lập (vd 'từng làm ở công ty phần mềm' và 'có thể làm nhân viên kinh "
+                    "doanh'), tách mỗi yêu cầu thành MỘT câu đầy đủ ý, ngắn gọn (tối đa 3). Chỉ có một yêu cầu thì để rỗng")
     keywords: list[str] = Field(
         default_factory=list,
         description="Từ/cụm từ CỤ THỂ phải xuất hiện nguyên văn trong CV (tên công ty, chứng chỉ, thuật ngữ như GPA, IELTS, "
@@ -77,6 +83,8 @@ def build_parse_prompt(query: str) -> str:
         "- min_years: chỉ điền khi câu hỏi nêu số năm kinh nghiệm; '3 năm', '3+ năm', 'ít nhất 3 năm' đều là 3. "
         "Không nêu thì null.\n"
         "- max_years: chỉ điền khi câu hỏi muốn người ÍT kinh nghiệm (sinh viên mới ra trường, fresher, thực tập).\n"
+        "- aspects: chỉ điền khi câu hỏi có từ 2 yêu cầu về năng lực/kinh nghiệm độc lập; mỗi yêu cầu một câu đầy đủ ý, giữ nguyên "
+        "nghĩa người hỏi.\n"
         "- keywords: chỉ thuật ngữ cụ thể cần thấy đúng chữ trong CV (GPA, IELTS, tên trường/công ty). Tuyệt đối không "
         "tách câu thành từng từ thường.\n"
         "- required_skills: chỉ các kỹ năng/công nghệ được nêu đích danh là cần có. Không tự suy ra kỹ năng.\n"
@@ -100,8 +108,10 @@ def _clean_parsed(p: ParsedQuery, fallback: str) -> ParsedQuery:
     if years is not None and max_years is not None and max_years < years:
         max_years = None
     keywords = [k.strip() for k in p.keywords if k and 2 <= len(k.strip()) <= 40][:6]
+    aspects = [" ".join(a.split()) for a in p.aspects if a and 6 <= len(" ".join(a.split())) <= 160][:MAX_ASPECTS]
     return ParsedQuery(semantic_query=(p.semantic_query or "").strip() or fallback, min_years=years,
-                       max_years=max_years, keywords=keywords, required_skills=skills)
+                       max_years=max_years, keywords=keywords, required_skills=skills,
+                       aspects=aspects if len(aspects) >= 2 else [])
 
 
 class TTLCache:
@@ -247,6 +257,7 @@ class SearchHit:
     matched_type: str | None
     matched_text: str | None
     evidence: list[dict] = field(default_factory=list)
+    aspect_passages: list[dict] = field(default_factory=list)
     jobs: list[dict] = field(default_factory=list)
 
 
@@ -257,6 +268,7 @@ async def search_candidates(
     filters: SearchFilters,
     limit: int,
     query_text: str = "",
+    aspects: list[tuple[str, list[float]]] | None = None,
 ) -> list[SearchHit]:
     """Xếp hạng ứng viên trong `eligible_ids` thoả bộ lọc theo độ tương đồng với `query_vector`."""
     if not eligible_ids:
@@ -320,11 +332,24 @@ async def search_candidates(
     )
     best = {r.candidate_id: r for r in (await session.execute(chunk_q)).all()}
 
+    # Câu hỏi nhiều ý: với MỖI ý, đoạn CV gần nghĩa nhất của mỗi ứng viên (bỏ phần đầu CV/tóm tắt).
+    aspect_best: list[dict[int, tuple[str, str, float]]] = []
+    for _, vec in aspects or []:
+        d = CVDocumentChunk.embedding.cosine_distance(vec)
+        q = (select(CVDocumentChunk.candidate_id, CVDocumentChunk.chunk_type, CVDocumentChunk.content, d.label("dist"))
+             .where(CVDocumentChunk.candidate_id.in_(list(profiles)), CVDocumentChunk.chunk_type.notin_(_NOT_EVIDENCE_TYPES))
+             .order_by(CVDocumentChunk.candidate_id, d).distinct(CVDocumentChunk.candidate_id))
+        aspect_best.append({r.candidate_id: (r.chunk_type, r.content, similarity(r.dist))
+                            for r in (await session.execute(q)).all()})
+
     terms = query_terms(query_text, filters.skills, filters.keywords)
     hits: list[SearchHit] = []
     for cid, p in profiles.items():
         chunk = best.get(cid)
         chunk_sim = similarity(chunk.dist) if chunk else 0.0
+        if aspect_best:   # nhiều ý: thiếu một ý thì bị kéo xuống (trung bình + ý yếu nhất)
+            sims = [ab[cid][2] if cid in ab else 0.0 for ab in aspect_best]
+            chunk_sim = 0.5 * (sum(sims) / len(sims)) + 0.5 * min(sims)
         if terms:
             score = (W_DOC * similarity(p.dist) + W_CHUNK * chunk_sim
                      + W_LEXICAL * lexical_coverage(p.search_text or "", terms))
@@ -339,6 +364,15 @@ async def search_candidates(
         ))
     hits.sort(key=lambda h: h.score, reverse=True)
     hits = hits[:limit]
+    for h in hits:
+        for i, ab in enumerate(aspect_best):
+            if h.candidate_id in ab:
+                ctype, content, sim = ab[h.candidate_id]
+                text = clean_display(content) or ""
+                h.aspect_passages.append({
+                    "label": aspects[i][0], "found": sim >= ASPECT_STRONG, "tried": [], "inSkillList": False, "section": ctype,
+                    "text": text[:420].rstrip() + (" …" if len(text) > 420 else ""), "highlights": [], "others": [],
+                    "kind": "aspect", "aspect": i, "similarity": round(sim, 3), "reason": None, "judged": False})
     await attach_evidence(session, hits, terms, {cid: profiles[cid] for cid in (h.candidate_id for h in hits)}, filters, query_vector)
     return hits
 
@@ -512,6 +546,7 @@ async def attach_evidence(session: AsyncSession, hits: list[SearchHit], terms: l
         h.evidence = build_evidence(terms, chunks.get(h.candidate_id, []), h.skills)
         profile = getattr(rows.get(h.candidate_id), "profile", None) or {}
         h.jobs = list(profile.get("jobs") or [])[:6]
+        h.evidence += h.aspect_passages
         if not h.evidence:   # câu hỏi không có điều kiện từ khoá/kỹ năng → chỉ ra quá trình làm việc và đoạn gần nghĩa nhất
             if je := jobs_evidence(h.jobs):
                 h.evidence.append(je)

@@ -279,3 +279,32 @@ def test_query_without_keywords_still_points_at_jobs_and_nearest_passages():
                              ("PROJECT", "ngắn", 0.7), ("SKILLS", "Java, Spring Boot, PostgreSQL, Docker, Kafka và nhiều hơn nữa", 0.6)])
     assert [e["section"] for e in sem] == ["WORK_EXPERIENCE"] and sem[0]["kind"] == "semantic"
     assert jobs_evidence([]) is None
+
+
+def test_multi_aspect_query_is_cleaned_and_explanations_override_vector_guess():
+    import asyncio
+    from app.services.talent_explain import AspectJudgement, ExplainOut, explain
+    from app.services.talent_search import ParsedQuery, SearchHit, _clean_parsed
+    assert _clean_parsed(ParsedQuery(semantic_query="x", aspects=["chỉ một ý đủ dài"]), "q").aspects == []
+    two = _clean_parsed(ParsedQuery(semantic_query="x", aspects=["làm ở công ty phần mềm", "làm kinh doanh", "a"]), "q")
+    assert len(two.aspects) == 2
+
+    def hit(found_a, found_b):
+        h = SearchHit.__new__(SearchHit)
+        h.jobs = [{"title": "Dev", "company": "FPT Software", "start": "2024-01", "end": "2025-01"}]
+        h.evidence = [{"kind": "aspect", "aspect": 0, "found": found_a, "section": "EDUCATION", "text": "t"},
+                      {"kind": "aspect", "aspect": 1, "found": found_b, "section": "OTHER", "text": "t"}]
+        return h
+    a, b = hit(True, False), hit(False, False)
+
+    class FakeManager:
+        async def generate_structured(self, prompt, schema):
+            assert "FPT Software" in prompt and "<data>" in prompt
+            return ExplainOut(items=[
+                AspectJudgement(candidate=0, aspect=0, supports=False, reason="Chỉ là học vấn"),
+                AspectJudgement(candidate=1, aspect=0, supports=True, reason="Làm Dev tại FPT Software")]), None
+    hits = [a, b]
+    asyncio.run(explain(FakeManager(), ["ý 1", "ý 2"], hits))
+    assert hits[0] is b                     # b được ủng hộ, a bị AI hạ xuống dù vector gần
+    assert a.evidence[0]["found"] is False and a.evidence[0]["judged"] and "học vấn" in a.evidence[0]["reason"]
+    assert b.evidence[0]["found"] is True

@@ -15,5 +15,12 @@ import java.time.LocalDateTime;
 // Java tự sinh constructor và getter. Tên trường trùng tên khoá JSON ai-service gửi.
 public record AiScoringCompletedEvent(
         Long applicationId, Long jobPostingId, String status, BigDecimal totalScore, String tier,
-        LocalDateTime updatedAt
-) {}
+        LocalDateTime updatedAt,
+        /* CV có đoạn văn nhằm điều khiển AI; null với sự kiện từ bản ai-service cũ. */
+        Boolean injectionDetected
+) {
+    public AiScoringCompletedEvent(Long applicationId, Long jobPostingId, String status, BigDecimal totalScore,
+                                   String tier, LocalDateTime updatedAt) {
+        this(applicationId, jobPostingId, status, totalScore, tier, updatedAt, null);
+    }
+}

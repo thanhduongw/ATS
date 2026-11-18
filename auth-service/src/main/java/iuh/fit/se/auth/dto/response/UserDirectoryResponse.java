@@ -10,5 +10,7 @@ public record UserDirectoryResponse(
         Long id,
         String fullName,
         String role,
-        Long departmentId
+        Long departmentId,
+        /** Trạng thái tài khoản — để chỉ phân công việc cho người đang hoạt động (ACTIVE). */
+        String status
 ) {}

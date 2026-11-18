@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useRef, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-    App, Tag, Button, Space, Spin, Popconfirm, Tabs, Skeleton, Alert, Input,
+    App, Tag, Button, Space, Spin, Popconfirm, Tabs, Skeleton, Alert, Input, Tooltip,
 } from "antd";
 import {
     CalendarOutlined, SendOutlined, DownloadOutlined, ExpandOutlined, RobotOutlined,
@@ -24,11 +24,15 @@ import type {
 } from "../types";
 import RejectApplicationModal from "../components/RejectApplicationModal";
 import InterviewQuickCreateModal from "../../interview/components/InterviewQuickCreateModal";
-import { getInterviews, cancelInterview } from "../../interview/interviewApi";
+import { getApplicationEvaluations, getInterviews, cancelInterview } from "../../interview/interviewApi";
 import { INTERVIEW_CANCELLABLE, type InterviewResponse } from "../../interview/types";
 import ApplicationEvaluationPanel from "../components/ApplicationEvaluationPanel";
 import { COLORS, FIXED_STAGES } from "../../../app/theme";
-import { OFFER_STATUS, genderLabel, interviewStatusMeta, statusMeta } from "../../../app/statusLabels";
+import { AUDIT_ACTION_LABEL, OFFER_STATUS, genderLabel, interviewStatusMeta, statusMeta } from "../../../app/statusLabels";
+import { useResourceHistory } from "../../auditlog/useResourceHistory";
+
+/** Đã có trong lịch sử chuyển giai đoạn nên không lặp lại ở dòng thời gian. */
+const ACTIVITY_SKIP = new Set(["APPLICATION_STAGE_CHANGED", "APPLICATION_CREATED", "APPLICATION_REJECTED"]);
 import StatusTag from "../../../components/ui/StatusTag";
 import { INTERVIEW_HELD } from "../../interview/types";
 import { AiScorePill, Avatar, Panel } from "../../../components/ui/designKit";
@@ -97,10 +101,13 @@ export default function CandidateApplicationDetailPage() {
 
     const [application, setApplication] = useState<ApplicationResponse | null>(null);
     const [candidate, setCandidate] = useState<CandidateResponse | null>(null);
+    /** Đơn còn (giữ để thống kê) nhưng hồ sơ ứng viên đã bị xoá — ứng viên tự xoá dữ liệu hoặc HR xoá. */
+    const [candidateGone, setCandidateGone] = useState(false);
     const [stages, setStages] = useState<PipelineStageResponse[]>([]);
     const [history, setHistory] = useState<ApplicationHistoryResponse[]>([]);
     const [comments, setComments] = useState<ApplicationCommentResponse[]>([]);
     const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
+    const [hasEvaluation, setHasEvaluation] = useState(false);
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
     const [offers, setOffers] = useState<OfferResponse[]>([]);
     /** Hồ sơ cùng việc làm, cùng giai đoạn — cho "‹ Trước 3 / 6 trong Phỏng vấn Sau ›". */
@@ -125,11 +132,16 @@ export default function CandidateApplicationDetailPage() {
     const loadAll = useCallback(async () => {
         if (!applicationId) return;
         setLoading(true);
+        setCandidateGone(false);
         try {
             const appRes = await getApplicationById(applicationId);
             setApplication(appRes.data);
             const [candRes, postingRes, pipelineListRes, historyRes, commentsRes, interviewsRes, workLocationRes] = await Promise.all([
-                getCandidateById(appRes.data.candidateId),
+                // Hồ sơ ứng viên đã xoá (404): không báo lỗi, màn tự giải thích bên dưới.
+                getCandidateById(appRes.data.candidateId).catch((err: AxiosError) => {
+                    if (err.response?.status === 404) return null;
+                    throw err;
+                }),
                 getPostingById(appRes.data.jobPostingId),
                 getPipelines(),
                 getApplicationHistory(applicationId),
@@ -137,6 +149,11 @@ export default function CandidateApplicationDetailPage() {
                 getInterviews(applicationId),
                 getCatalogItems("/masterdata/work-locations"),
             ]);
+            if (!candRes) {
+                setCandidate(null);
+                setCandidateGone(true);
+                return;
+            }
             setCandidate(candRes.data);
             const pipeline = pipelineListRes.data.find((p) => p.id === postingRes.data.pipelineId);
             setStages(pipeline ? [...pipeline.stages].sort((a, b) => a.stageOrder - b.stageOrder) : []);
@@ -145,6 +162,9 @@ export default function CandidateApplicationDetailPage() {
             setInterviews([...interviewsRes.data].sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()));
             setWorkLocationMap(Object.fromEntries(workLocationRes.data.map((w) => [w.id, String(w.name)])));
             // Phần phụ: lỗi không chặn màn.
+            getApplicationEvaluations(applicationId)
+                .then((r) => setHasEvaluation(r.data.some((e) => !!e.submittedAt)))
+                .catch(() => setHasEvaluation(false));
             getOffers({ applicationId, size: 20 })
                 .then((r) => setOffers(r.data.content))
                 .catch(() => setOffers([]));
@@ -266,6 +286,13 @@ export default function CandidateApplicationDetailPage() {
     };
 
     // Con thieu bat ky manh du lieu nao ma van dang tai thi quay vong, chua ket luan gi.
+    // 3.11: tab Hoạt động ghép thêm nhật ký của hồ sơ, các buổi phỏng vấn và thư mời của nó (chỉ nhân viên nội bộ).
+    const auditTrail = useResourceHistory([
+        { type: "APPLICATION", ids: application ? [application.id] : [] },
+        { type: "INTERVIEW", ids: interviews.map((iv) => iv.id) },
+        { type: "OFFER", ids: offers.map((o) => o.id) },
+    ], role !== "CANDIDATE");
+
     if (loading && (!application || !candidate)) {
         return (
             <div className="page-container" style={{ display: "flex", justifyContent: "center", padding: 80 }}>
@@ -275,6 +302,14 @@ export default function CandidateApplicationDetailPage() {
     }
 
     // Tai xong that su ma van thieu thi moi la khong tim thay.
+    if (application && candidateGone) {
+        return (
+            <div className="page-container">
+                <EmptyState title="Hồ sơ ứng viên đã bị xoá"
+                    description="Đơn ứng tuyển được giữ lại để thống kê nhưng không còn thông tin cá nhân và CV của ứng viên." />
+            </div>
+        );
+    }
     if (!application || !candidate) {
         return (
             <div className="page-container">
@@ -283,7 +318,7 @@ export default function CandidateApplicationDetailPage() {
         );
     }
 
-    const isRejected = application.currentStageType === "REJECTED";
+    const isRejected = toFixedStage(application.currentStageType) === "REJECTED";
     const isHired = application.currentStageType === "HIRED";
 
     // Tab mo san theo giai doan, kem nhan nho de biet viec dang can lam nam o dau.
@@ -294,6 +329,8 @@ export default function CandidateApplicationDetailPage() {
         ? requestedTab
         : stageTabKey;
     const nextPlan = planNextFixedStage(stages, application.currentStageId);
+    // 3.1: chỉ chuyển sang Thư mời khi hồ sơ đã có ít nhất một đánh giá được nộp (backend cũng chặn).
+    const offerBlocked = nextPlan?.target === "OFFER" && !hasEvaluation;
     const fixedStage = toFixedStage(application.currentStageType);
     const stepIndex = (MAIN_FIXED as readonly string[]).indexOf(fixedStage) + 1;
     const siblingIndex = siblings.findIndex((s) => s.id === application.id);
@@ -314,6 +351,12 @@ export default function CandidateApplicationDetailPage() {
         return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     };
     const activity = [
+        ...auditTrail.filter((l) => !ACTIVITY_SKIP.has(l.action)).map((l) => ({
+            key: `a-${l.id}`, at: l.createdAt, who: l.who ?? candidate.fullName, whoId: l.actorUserId,
+            what: (AUDIT_ACTION_LABEL[l.action] ?? l.action).toLowerCase(),
+            // Chi tiết chỉ hiện khi nói thêm được điều gì ngoài tên hành động (giờ hẹn, người nhận…).
+            body: l.resourceType === "APPLICATION" || l.action === "EVALUATION_SUBMITTED" ? null : l.metadata,
+        })),
         ...history.map((h) => ({
             key: `h-${h.id}`, at: h.changedAt, who: h.changedByUserName, whoId: h.changedByUserId,
             what: h.fromStageName ? `chuyển sang ${h.toStageName}` : `nộp hồ sơ · ${h.toStageName}`,
@@ -334,7 +377,7 @@ export default function CandidateApplicationDetailPage() {
             <Field label="Địa chỉ" value={candidate.address} />
             <Field label="Phòng ban" value={application.departmentName} />
             <Field label="Nguồn ứng tuyển" value={application.recruitmentSourceName} />
-            {application.rejectionReasonName && <Field label="Lý do từ chối" value={application.rejectionReasonName} />}
+            {application.rejectionReasonName && <Field label={application.closedReason ? "Lý do đóng" : "Lý do từ chối"} value={application.rejectionReasonName} />}
             {application.note && <Field label="Ghi chú ứng tuyển" value={application.note} />}
             {candidate.skillNames?.length > 0 && (
                 <Field label="Kỹ năng" value={(
@@ -590,7 +633,7 @@ export default function CandidateApplicationDetailPage() {
                         <Alert
                             type="error"
                             showIcon
-                            message="Không thể phân tích CV"
+                            title="Không thể phân tích CV"
                             description={aiError}
                             style={{ borderRadius: 10, marginBottom: 12 }}
                         />
@@ -726,9 +769,11 @@ export default function CandidateApplicationDetailPage() {
                                 )}
                                 <Button danger onClick={() => setRejectModalOpen(true)}>Từ chối</Button>
                                 {nextPlan && nextPlan.target !== "HIRED" && (
-                                    <Button type="primary" loading={actionLoading} onClick={handlePass}>
-                                        Chuyển sang {FIXED_STAGE_LABEL[nextPlan.target]}
-                                    </Button>
+                                    <Tooltip title={offerBlocked ? "Cần ít nhất một đánh giá đã nộp trước khi chuyển sang Thư mời" : undefined}>
+                                        <Button type="primary" loading={actionLoading} disabled={offerBlocked} onClick={handlePass}>
+                                            Chuyển sang {FIXED_STAGE_LABEL[nextPlan.target]}
+                                        </Button>
+                                    </Tooltip>
                                 )}
                             </Space>
                         )}

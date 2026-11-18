@@ -175,6 +175,10 @@ class ScoreResult(BaseModel):
     years_calculated: float | None = Field(None, description="Số năm kinh nghiệm code tính từ mốc thời gian trong CV, tại ngày chấm")
     years_claimed: float | None = Field(None, description="Số năm kinh nghiệm ứng viên tự ghi trong CV")
     scored_on: date = Field(..., description="Ngày chấm (dùng để tính số năm cho công việc đang làm)")
+    injection_detected: bool = Field(
+        False, description="CV có đoạn văn nhằm điều khiển AI (prompt injection) — HR cần xem trực tiếp hồ sơ")
+    injection_patterns: list[str] = Field(
+        default_factory=list, description="Tên các mẫu prompt injection phát hiện được trong CV")
 
 
 # ============================================================

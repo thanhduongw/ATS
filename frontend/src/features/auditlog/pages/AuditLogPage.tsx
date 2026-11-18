@@ -1,3 +1,4 @@
+import { matchesKeyword, filterOptionByLabel } from "../../../app/text";
 import { useEffect, useMemo, useState } from "react";
 import { DatePicker, Input, Select, Tooltip } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
@@ -32,7 +33,8 @@ export default function AuditLogPage() {
     const [keyword, setKeyword] = useState("");
 
     useEffect(() => {
-        getUsers().then((r) => setUsers((r.data ?? []).filter((u) => u.role !== "CANDIDATE"))).catch(() => setUsers([]));
+        // Giữ cả ứng viên: cột "Đối tượng" tra tên tài khoản ứng viên (vd. dòng Đăng nhập). Ô lọc chỉ liệt kê nhân viên.
+        getUsers().then((r) => setUsers(r.data ?? [])).catch(() => setUsers([]));
     }, []);
 
     // Bộ lọc gửi lên server: đổi là tải lại ngay (không cần nút "Lọc").
@@ -54,8 +56,7 @@ export default function AuditLogPage() {
         const q = keyword.trim().toLowerCase();
         const sorted = [...logs].sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf());
         if (!q) return sorted;
-        return sorted.filter((l) => [AUDIT_ACTION_LABEL[l.action] ?? l.action, l.actorName, l.metadata, String(l.resourceId ?? "")]
-            .filter(Boolean).join(" ").toLowerCase().includes(q));
+        return sorted.filter((l) => matchesKeyword(q, AUDIT_ACTION_LABEL[l.action] ?? l.action, l.actorName, l.metadata, l.resourceId));
     }, [logs, keyword]);
 
     const columns: ColumnsType<AuditLogResponse> = [
@@ -77,9 +78,18 @@ export default function AuditLogPage() {
         },
         {
             title: "Đối tượng", key: "resource", width: 180,
-            render: (_, l) => l.resourceType
-                ? `${RESOURCE_TYPE_LABEL[l.resourceType] ?? l.resourceType}${l.resourceId != null ? ` #${l.resourceId}` : ""}`
-                : "—",
+            render: (_, l) => {
+                if (!l.resourceType) return "—";
+                const label = RESOURCE_TYPE_LABEL[l.resourceType] ?? l.resourceType;
+                if (l.resourceId == null) return label;
+                // Tài khoản thì hiện tên người thay cho mã số.
+                if (l.resourceType === "USER") {
+                    const u = users.find((x) => x.id === l.resourceId);
+                    return u ? `${label} · ${u.fullName || u.email}` : label;
+                }
+                if (l.resourceType === "COMPANY" || l.resourceType === "CAREERS_PAGE" || l.resourceType === "CATALOG") return label;
+                return `${label} #${l.resourceId}`;
+            },
         },
         {
             title: "Chi tiết", dataIndex: "metadata", ellipsis: { showTitle: false },
@@ -114,12 +124,12 @@ export default function AuditLogPage() {
                     <Select
                         allowClear
                         showSearch
-                        optionFilterProp="label"
+                        optionFilterProp="label" filterOption={filterOptionByLabel}
                         placeholder="Người thực hiện"
                         style={{ width: 200 }}
                         value={actorUserId}
                         onChange={(v) => { setLoading(true); setActorUserId(v); }}
-                        options={users.map((u) => ({ value: u.id, label: u.fullName || u.email }))}
+                        options={users.filter((u) => u.role !== "CANDIDATE").map((u) => ({ value: u.id, label: u.fullName || u.email }))}
                     />
                     <RangePicker
                         format="DD/MM/YYYY"

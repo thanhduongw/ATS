@@ -7,7 +7,7 @@ import { z } from "zod";
 import { router, useLocalSearchParams } from "expo-router";
 import { authApi } from "@/api/auth";
 import { apiErrorMessage } from "@/api/client";
-import { useAuthStore } from "@/store/authStore";
+import { isAdminToken, useAuthStore } from "@/store/authStore";
 import { AuthScaffold, PromptLink } from "@/components/auth-scaffold";
 import { FormTextField } from "@/components/form-text-field";
 import { PillButton } from "@/components/ui/buttons";
@@ -51,6 +51,11 @@ export default function LoginScreen() {
     setSubmitting(true);
     try {
       const tokens = await authApi.login(values.email.trim(), values.password);
+      if (isAdminToken(tokens.accessToken)) {
+        // Quản trị doanh nghiệp chỉ làm việc trên web: không lưu phiên, báo rõ lý do.
+        setError(S.adminUseWeb);
+        return;
+      }
       await setCredentials(tokens.accessToken, tokens.refreshToken);
       // AuthGate ở root layout tự đẩy sang khu vực đúng role.
     } catch (e) {

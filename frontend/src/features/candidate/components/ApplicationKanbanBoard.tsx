@@ -12,6 +12,7 @@ import { useTrailNavigate } from "../../../app/useNavTrail";
 import { COLORS, FIXED_STAGES, STAGE_COLORS, type FixedStage } from "../../../app/theme";
 import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
 import { advanceSteps, stepsToFixedStage } from "../stageAdvance";
+import { isAiScoring } from "../../ai/aiScore";
 import { AiScorePill, Avatar, SmallDialog } from "../../../components/ui/designKit";
 import { bulkAssignApplicationRecruiter, bulkRejectApplications } from "../applicationApi";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
@@ -264,7 +265,13 @@ export default function ApplicationKanbanBoard({ applications, stages, interview
                                                                         <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.warning }}>{line.badge}</span>
                                                                     )}
                                                                 </div>
-                                                                {app.aiScore != null && <AiScorePill score={Math.round(app.aiScore)} size="sm" />}
+                                                                {app.aiInjectionDetected
+                                                                    ? <span title="CV có nội dung bất thường nhằm điều khiển AI" style={{ fontSize: 11, fontWeight: 600, color: COLORS.error }}>CV bất thường</span>
+                                                                    : app.aiScore != null ? <AiScorePill score={Math.round(app.aiScore)} size="sm" />
+                                                                    // Chưa có điểm: báo trạng thái chấm như cột "Điểm AI" của dạng danh sách.
+                                                                    : app.aiStatus === "FAILED"
+                                                                        ? <span title="Mở hồ sơ để xem lỗi và chấm lại" style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, whiteSpace: "nowrap" }}>Chấm lỗi</span>
+                                                                        : isAiScoring(app.aiStatus) && <span style={{ fontSize: 11, color: COLORS.textMuted, whiteSpace: "nowrap" }}>Đang chấm</span>}
                                                             </div>
                                                         )}
                                                     </Draggable>

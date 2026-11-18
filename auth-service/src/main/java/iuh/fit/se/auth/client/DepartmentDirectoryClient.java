@@ -30,7 +30,7 @@ public class DepartmentDirectoryClient {
                     .body(DepartmentExistsResponse.class);
             return response != null && response.exists();
         } catch (RestClientException ex) {
-            throw new BusinessException("Khong the xac minh department");
+            throw new BusinessException("Không kiểm tra được phòng ban, vui lòng thử lại");
         }
     }
 

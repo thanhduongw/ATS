@@ -15,13 +15,13 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.vector_schema import vector_enabled
 from app.models import (
-    AIJob, AIScore, CandidateSearchProfile, CVDocumentChunk, CVExtraction, DuplicateCandidate,
+    AIScore, CandidateSearchProfile, CVDocumentChunk, CVExtraction, DuplicateCandidate,
 )
 from app.services import duplicates
 from app.services.embeddings import Embedder, EmbeddingError, embed_documents, get_embedder
@@ -274,24 +274,33 @@ def schedule_indexing(session_factory, candidate_id: int | None, extraction: CVE
     task.add_done_callback(_background.discard)
 
 
-async def delete_candidate_data(session_factory: async_sessionmaker[AsyncSession], candidate_id: int) -> dict:
-    """Xoá mọi dữ liệu AI phái sinh của ứng viên (GDPR): embedding, hồ sơ tìm kiếm, kết quả trích xuất CV."""
+async def delete_vector_data(session_factory: async_sessionmaker[AsyncSession], candidate_id: int) -> dict:
+    """Xoá dữ liệu tìm kiếm vector của ứng viên: embedding các đoạn CV, hồ sơ tìm kiếm, cặp nghi trùng."""
+    counts: dict[str, int] = {}
+    if not vector_enabled():
+        return counts
     async with session_factory() as session:
-        counts: dict[str, int] = {}
-        if vector_enabled():
-            r1 = await session.execute(delete(CVDocumentChunk).where(CVDocumentChunk.candidate_id == candidate_id))
-            r2 = await session.execute(
-                delete(CandidateSearchProfile).where(CandidateSearchProfile.candidate_id == candidate_id))
-            counts["chunks"], counts["profiles"] = r1.rowcount, r2.rowcount
-            r4 = await session.execute(delete(DuplicateCandidate).where(
-                or_(DuplicateCandidate.candidate_a == candidate_id, DuplicateCandidate.candidate_b == candidate_id)))
-            counts["duplicates"] = r4.rowcount
-        # Điểm AI và nhật ký chạy AI của ứng viên (ai_scores tham chiếu ai_jobs nên xoá điểm trước).
-        r5 = await session.execute(delete(AIScore).where(AIScore.candidate_id == candidate_id))
-        r6 = await session.execute(delete(AIJob).where(AIJob.candidate_id == candidate_id))
-        counts["scores"], counts["jobs"] = r5.rowcount, r6.rowcount
-        r3 = await session.execute(delete(CVExtraction).where(CVExtraction.candidate_id == candidate_id))
-        counts["extractions"] = r3.rowcount
+        r1 = await session.execute(delete(CVDocumentChunk).where(CVDocumentChunk.candidate_id == candidate_id))
+        r2 = await session.execute(
+            delete(CandidateSearchProfile).where(CandidateSearchProfile.candidate_id == candidate_id))
+        counts["chunks"], counts["profiles"] = r1.rowcount, r2.rowcount
+        r3 = await session.execute(delete(DuplicateCandidate).where(
+            or_(DuplicateCandidate.candidate_a == candidate_id, DuplicateCandidate.candidate_b == candidate_id)))
+        counts["duplicates"] = r3.rowcount
+        await session.commit()
+    return counts
+
+
+async def delete_candidate_data(session_factory: async_sessionmaker[AsyncSession], candidate_id: int) -> dict:
+    """Xoá mọi dữ liệu AI phái sinh của ứng viên (GDPR): dữ liệu vector, kết quả trích xuất CV và phần chi tiết của
+    điểm chấm. Điểm và xếp loại được giữ để số liệu thống kê không đổi (cùng chính sách với purge_candidate_data)."""
+    counts = await delete_vector_data(session_factory, candidate_id)
+    async with session_factory() as session:
+        await session.execute(
+            update(AIScore).where(AIScore.candidate_id == candidate_id)
+            .values(cv_extraction_id=None, result=None, provenance=None, error_message=None))
+        r = await session.execute(delete(CVExtraction).where(CVExtraction.candidate_id == candidate_id))
+        counts["extractions"] = r.rowcount
         await session.commit()
     return counts
 

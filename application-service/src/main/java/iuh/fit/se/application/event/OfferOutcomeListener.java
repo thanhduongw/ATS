@@ -34,7 +34,9 @@ public class OfferOutcomeListener {
             applicationService.applyAdvanceStage(
                     event.applicationId(),
                     event.candidateUserId(),
-                    new ApplicationAdvanceStageRequest("Ứng viên đã chấp nhận Offer"));
+                    new ApplicationAdvanceStageRequest("Ứng viên đã chấp nhận thư mời"));
+            // Đã nhận việc: các đơn đang mở khác của ứng viên tự đóng lại.
+            applicationService.closeOtherOpenApplications(event.applicationId(), event.candidateUserId());
         } catch (Exception e) {
             log.error("Khong the chuyen giai doan cho application {} sau khi offer {} duoc chap nhan: {}",
                     event.applicationId(), event.offerId(), e.getMessage());
@@ -49,7 +51,7 @@ public class OfferOutcomeListener {
                     event.candidateUserId(),
                     new ApplicationRejectRequest(
                             event.declineReasonId(),
-                            "Ứng viên từ chối Offer: "
+                            "Ứng viên từ chối thư mời: "
                                     + (event.note() != null ? event.note() : "")));
         } catch (Exception e) {
             log.error("Khong the tu choi application {} sau khi offer {} bi tu choi: {}",

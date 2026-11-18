@@ -1,15 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Select, Spin, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import type { JobPostingResponse } from "../../recruitment/types";
 import { COLORS, STAGE_COLORS } from "../../../app/theme";
 import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
 import { InlineNotice, MetricCard, ScreenTitle } from "../../../components/ui/designKit";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import {
-    MAIN_STAGES, avgDaysToHire, departmentLabel, departmentOfPosting, hiredOf, inPeriod, isActivePosting, periodOptions, useCompanyOverview,
+    MAIN_STAGES, avgDaysToHire, departmentLabel, departmentOfPosting, hiredOf, inPeriod, isActivePosting, periodFromQuery, periodOptions, useCompanyOverview,
 } from "../useCompanyOverview";
 
 /**
@@ -21,8 +21,10 @@ export default function DepartmentOverviewPage() {
     const deptId = Number(id);
     const data = useCompanyOverview();
     const periods = useMemo(() => periodOptions(), []);
-    const [periodKey, setPeriodKey] = useState(periods[0].key);
-    const period = periods.find((p) => p.key === periodKey) ?? periods[0];
+    const [searchParams, setSearchParams] = useSearchParams();
+    const period = periodFromQuery(periods, searchParams.get("quarter"));
+    const periodKey = period.key;
+    const setPeriodKey = (key: string) => setSearchParams({ quarter: key }, { replace: true });
 
     const v = useMemo(() => {
         const reqById = new Map(data.requisitions.map((r) => [r.id, r]));
@@ -39,7 +41,7 @@ export default function DepartmentOverviewPage() {
             open: postings.filter((p) => p.status === "OPEN").length,
             remaining: active.reduce((s, p) => s + Math.max(0, (p.headcount ?? 0) - hiredOf(appsOf(p.id)).length), 0),
             hired: hiredOf(apps).filter((a) => inPeriod(a.hiredAt, period)).length,
-            avgDays: avgDaysToHire(apps, new Map(postings.map((p) => [p.id, p])), period),
+            avgDays: avgDaysToHire(apps, period),
         };
     }, [data, deptId, period]);
 

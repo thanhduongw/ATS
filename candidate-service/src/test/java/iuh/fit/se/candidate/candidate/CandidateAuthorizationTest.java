@@ -101,7 +101,7 @@ class CandidateAuthorizationTest {
                 .thenReturn("http://localhost/resume.pdf");
         CurrentUser actor = new CurrentUser(100L, "a@example.com", "CANDIDATE", null);
         MockMultipartFile file = new MockMultipartFile(
-                "file", "resume.pdf", "application/pdf", "resume".getBytes());
+                "file", "resume.pdf", "application/pdf", "%PDF-1.4 resume".getBytes());
 
         var response = candidateService.uploadMyResume(actor, file);
 

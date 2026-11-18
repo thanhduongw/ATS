@@ -6,3 +6,4 @@ export { SHADOWS } from "./shadows";
 export { SIZES } from "./sizes";
 export { FONT, FONT_SIZE, FONT_ASSETS, LINE_HEIGHT } from "./typography";
 export { paperTheme } from "./paper";
+export { readCachedCompanyName, syncBrandFromServer } from "./brand";

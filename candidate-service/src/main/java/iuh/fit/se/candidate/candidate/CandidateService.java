@@ -64,10 +64,14 @@ public class CandidateService {
                 .orElse(null);
         if (byEmail != null) {
             if (byEmail.getUserId() != null && !byEmail.getUserId().equals(event.userId())) {
-                throw new BusinessException("Candidate email is already linked to another user");
+                throw new BusinessException("Email ứng viên đã gắn với một tài khoản khác");
             }
             byEmail.setUserId(event.userId());
             if (byEmail.getPhone() == null) byEmail.setPhone(event.phone());
+            if (event.consentAt() != null && !Boolean.TRUE.equals(byEmail.getConsentGiven())) {
+                byEmail.setConsentGiven(true);
+                byEmail.setConsentAt(event.consentAt());
+            }
             return candidateRepository.save(byEmail);
         }
 
@@ -76,6 +80,8 @@ public class CandidateService {
                 .fullName(event.fullName())
                 .email(event.email())
                 .phone(event.phone())
+                .consentGiven(event.consentAt() != null)
+                .consentAt(event.consentAt())
                 .build());
     }
 
@@ -365,6 +371,7 @@ public class CandidateService {
 
     private CandidateResponse uploadCandidate(
             Candidate candidate, MultipartFile file) {
+        validateResume(file);
         Long id = candidate.getId();
         String url = s3Service.uploadFile(file, "candidates/" + id);
         candidate.setCvFileUrl(url);
@@ -374,15 +381,36 @@ public class CandidateService {
         return getById(id);
     }
 
-    /** GDPR self-service: ứng viên tự yêu cầu xóa dữ liệu của mình. */
+    public static final String ANONYMIZED_NAME = "Ứng viên đã xoá dữ liệu";
+
+    /**
+     * Ứng viên tự xoá dữ liệu cá nhân (Nghị định 13/2023): ẨN DANH HOÁ NGAY, không chờ xử lý tay.
+     * Hồ sơ ở đây bị xoá thông tin định danh và gỡ liên kết CV; sự kiện {@code candidate.data_deleted} báo
+     * auth-service khoá tài khoản + thu hồi phiên, application / interview / offer-service đổi tên trong bản sao,
+     * ai-service xoá bản trích xuất CV. Dòng dữ liệu được giữ (đã ẩn danh) để số liệu thống kê không đổi.
+     * File CV trên S3 CHƯA bị xoá trong đợt này — chỉ gỡ liên kết (xem docs/KET_QUA_HOAN_THIEN.md).
+     */
     @Transactional
     public void requestOwnDataDeletion(Long userId) {
         Candidate candidate = candidateRepository.findByUserIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy hồ sơ ứng viên của bạn"));
+        candidate.setFullName(ANONYMIZED_NAME);
+        candidate.setEmail("da-xoa-" + candidate.getId() + "@deleted.invalid");
+        candidate.setPhone(null);
+        candidate.setDateOfBirth(null);
+        candidate.setGender(null);
+        candidate.setAddress(null);
+        candidate.setCurrentPosition(null);
+        candidate.setEducationLevelId(null);
+        candidate.setCvFileUrl(null);
+        candidate.setCvUploadedAt(null);
+        candidate.setInternalNote(null);
+        candidate.getSkills().clear();
+        candidate.getTags().clear();
         candidate.setDeletedAt(LocalDateTime.now());
         candidateRepository.save(candidate);
-        auditEventPublisher.publish(userId, "CANDIDATE_SELF_DELETION_REQUEST", "CANDIDATE", candidate.getId(), null);
-        candidateEventPublisher.publishCandidateDeleted(candidate.getId());
+        auditEventPublisher.publish(userId, "CANDIDATE_DATA_DELETED", "CANDIDATE", candidate.getId(), null);
+        auditEventPublisher.publishCandidateDataDeleted(candidate.getId(), userId);
     }
 
     @Transactional
@@ -533,15 +561,15 @@ public class CandidateService {
     private Candidate findByUserId(Long userId) {
         return candidateRepository.findByUserIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new BusinessException(
-                        "Khong tim thay ho so ung vien gan voi tai khoan"));
+                        "Không tìm thấy hồ sơ ứng viên gắn với tài khoản"));
     }
 
     private void validateResume(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new BusinessException("CV khong duoc de trong");
+            throw new BusinessException("Vui lòng chọn file CV");
         }
         if (file.getSize() > MAX_RESUME_SIZE_BYTES) {
-            throw new BusinessException("CV vuot qua dung luong toi da 10 MB");
+            throw new BusinessException("CV vượt quá dung lượng tối đa 10 MB");
         }
         String filename = file.getOriginalFilename();
         int extensionSeparator = filename == null ? -1 : filename.lastIndexOf('.');
@@ -549,8 +577,34 @@ public class CandidateService {
                 ? ""
                 : filename.substring(extensionSeparator + 1).toLowerCase(java.util.Locale.ROOT);
         if (!ALLOWED_RESUME_EXTENSIONS.contains(extension)) {
-            throw new BusinessException("CV chi chap nhan dinh dang PDF, DOC hoac DOCX");
+            throw new BusinessException("CV chỉ nhận định dạng PDF, DOC hoặc DOCX");
         }
+        if (!resumeContentMatches(file, extension)) {
+            throw new BusinessException("Nội dung file không phải " + extension.toUpperCase(java.util.Locale.ROOT)
+                    + " hợp lệ. Vui lòng tải lên đúng file CV");
+        }
+    }
+
+    /**
+     * Kiểm tra "magic bytes" — không tin đuôi file và Content-Type do client gửi (file .exe đổi tên thành
+     * .pdf phải bị từ chối). PDF bắt đầu bằng {@code %PDF-}; DOCX là file ZIP ({@code PK\u0003\u0004});
+     * DOC là OLE2 ({@code D0 CF 11 E0}).
+     */
+    static boolean resumeContentMatches(MultipartFile file, String extension) {
+        byte[] head = new byte[8];
+        int read;
+        try (java.io.InputStream in = file.getInputStream()) {
+            read = in.readNBytes(head, 0, head.length);
+        } catch (java.io.IOException e) {
+            return false;
+        }
+        return switch (extension) {
+            case "pdf" -> read >= 5 && head[0] == '%' && head[1] == 'P' && head[2] == 'D' && head[3] == 'F' && head[4] == '-';
+            case "docx" -> read >= 4 && head[0] == 'P' && head[1] == 'K' && head[2] == 3 && head[3] == 4;
+            case "doc" -> read >= 4 && (head[0] & 0xFF) == 0xD0 && (head[1] & 0xFF) == 0xCF
+                    && (head[2] & 0xFF) == 0x11 && (head[3] & 0xFF) == 0xE0;
+            default -> false;
+        };
     }
 
     public void requireCvFileAccess(CurrentUser actor, String fileName) {
@@ -567,7 +621,7 @@ public class CandidateService {
         } catch (AccessDeniedException exception) {
             throw exception;
         } catch (RuntimeException exception) {
-            throw new AccessDeniedException("Cannot verify candidate department scope", exception);
+            throw new AccessDeniedException("Không kiểm tra được phạm vi phòng ban của ứng viên", exception);
         }
     }
 
@@ -715,6 +769,7 @@ public class CandidateService {
      */
     @Transactional
     public CandidateSummaryResponse uploadCvPublic(Long candidateId, MultipartFile file) {
+        validateResume(file);
         Candidate candidate = candidateRepository
                 .findByIdAndDeletedAtIsNull(candidateId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy ứng viên"));

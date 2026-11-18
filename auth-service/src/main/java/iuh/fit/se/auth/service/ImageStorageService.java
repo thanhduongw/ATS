@@ -15,14 +15,15 @@ import java.util.UUID;
 
 /**
  * Tải ảnh công khai lên S3 (ảnh bìa, ảnh đời sống trên trang tuyển dụng; logo; ảnh đại diện).
- * Chỉ nhận JPG / PNG / WEBP / SVG, tối đa 5MB (giới hạn multipart trong application.yml).
+ * Chỉ nhận JPG / PNG / WEBP (không nhận SVG vì SVG chứa được mã script), tối đa 5MB (giới hạn multipart trong application.yml).
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ImageStorageService {
 
-    private static final Set<String> TYPES = Set.of("image/jpeg", "image/png", "image/webp", "image/svg+xml");
+    private static final Set<String> TYPES = Set.of("image/jpeg", "image/png", "image/webp");
+    public static final String TYPE_ERROR = "Chỉ nhận ảnh JPG, PNG hoặc WEBP";
     private static final Set<String> FOLDERS = Set.of("careers", "logo", "avatars");
 
     private final S3Client s3Client;
@@ -41,7 +42,7 @@ public class ImageStorageService {
 
     public String upload(MultipartFile file, String folder) {
         if (file == null || file.isEmpty()) throw new BusinessException("Chưa chọn ảnh");
-        if (!TYPES.contains(file.getContentType())) throw new BusinessException("Chỉ nhận ảnh JPG, PNG, WEBP hoặc SVG");
+        if (!TYPES.contains(file.getContentType()) || !isRealImage(file)) throw new BusinessException(TYPE_ERROR);
         String dir = FOLDERS.contains(folder) ? folder : "careers";
         String name = file.getOriginalFilename() == null ? "image" : file.getOriginalFilename().replaceAll("[^A-Za-z0-9._-]", "_");
         String key = "company/" + dir + "/" + UUID.randomUUID() + "-" + name;
@@ -54,6 +55,22 @@ public class ImageStorageService {
             throw new BusinessException("Không tải được ảnh lên, vui lòng thử lại");
         }
         return baseUrl() + key;
+    }
+
+    /** Kiểm tra chữ ký đầu file (PNG / JPEG / WEBP) — không tin Content-Type do client gửi. */
+    static boolean isRealImage(MultipartFile file) {
+        byte[] h = new byte[12];
+        int n;
+        try (java.io.InputStream in = file.getInputStream()) {
+            n = in.readNBytes(h, 0, h.length);
+        } catch (java.io.IOException e) {
+            return false;
+        }
+        boolean png = n >= 8 && (h[0] & 0xFF) == 0x89 && h[1] == 'P' && h[2] == 'N' && h[3] == 'G';
+        boolean jpeg = n >= 3 && (h[0] & 0xFF) == 0xFF && (h[1] & 0xFF) == 0xD8 && (h[2] & 0xFF) == 0xFF;
+        boolean webp = n >= 12 && h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F'
+                && h[8] == 'W' && h[9] == 'E' && h[10] == 'B' && h[11] == 'P';
+        return png || jpeg || webp;
     }
 
     /** Đường dẫn có phải ảnh do hệ thống tải lên vào `folder` (chặn gán ảnh từ nguồn ngoài). */

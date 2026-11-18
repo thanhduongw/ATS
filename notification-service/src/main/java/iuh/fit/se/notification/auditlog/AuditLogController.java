@@ -17,6 +17,7 @@ import java.util.List;
 public class AuditLogController {
 
     private final AuditLogService service;
+    private final AuditResourceAccess access;
 
     @GetMapping
     public ResponseEntity<List<AuditLogResponse>> search(
@@ -26,5 +27,23 @@ public class AuditLogController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
         AuthorizationPolicy.requireAdmin(CurrentUser.required());
         return ResponseEntity.ok(service.search(resourceType, actorUserId, from, to));
+    }
+
+    /**
+     * 3.11: lịch sử của một (vài) đối tượng cụ thể — yêu cầu tuyển dụng, hồ sơ, buổi phỏng vấn, thư mời — cho mọi
+     * nhân viên nội bộ. Không trả tên người thực hiện (danh bạ đầy đủ chỉ Quản trị xem được); giao diện tự ghép tên.
+     */
+    @GetMapping("/resource")
+    public ResponseEntity<List<AuditLogResponse>> forResource(
+            @RequestParam String resourceType,
+            @RequestParam List<Long> resourceIds) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireInternal(actor);
+        // Đại diện phòng ban chỉ xem lịch sử của đối tượng thuộc phòng mình (không lộ hồ sơ phòng khác).
+        List<Long> visible = access.visibleIds(actor, resourceType, resourceIds);
+        if (visible.isEmpty() && !resourceIds.isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem lịch sử này");
+        }
+        return ResponseEntity.ok(service.forResource(resourceType, visible));
     }
 }

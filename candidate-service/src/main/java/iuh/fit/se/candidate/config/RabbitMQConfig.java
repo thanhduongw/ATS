@@ -21,6 +21,9 @@ public class RabbitMQConfig {
     public static final String CV_UPLOADED_ROUTING_KEY = "cv.uploaded";
     public static final String CANDIDATE_DELETED_ROUTING_KEY = "candidate.deleted";
 
+    /** Ứng viên tự xoá dữ liệu cá nhân — các service khác nghe để ẩn danh hoá bản sao của mình. */
+    public static final String CANDIDATE_DATA_DELETED_ROUTING_KEY = "candidate.data_deleted";
+
     @Bean
     public TopicExchange atsExchange() {
         return new TopicExchange(ATS_EXCHANGE);

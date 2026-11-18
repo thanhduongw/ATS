@@ -13,6 +13,7 @@ public class RabbitMQConfig {
     public static final String APPLICATION_CREATED_QUEUE = "recruitment.application-created.queue";
     public static final String APPLICATION_CREATED_ROUTING_KEY = "application.created";
     public static final String REQUISITION_SUBMITTED_ROUTING_KEY = "requisition.submitted";
+    public static final String REQUISITION_REVIEWED_ROUTING_KEY = "requisition.reviewed";
     public static final String AUDIT_LOG_ROUTING_KEY = "audit.log";
 
     @Bean

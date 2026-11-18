@@ -27,6 +27,14 @@ export const STAGE_TYPES_OF: Record<FixedStage, string[]> = {
     REJECTED: ["REJECTED"],
 };
 
+/**
+ * "Đã rút đơn": loại giai đoạn backend trả khi ứng viên tự rút đơn / xoá dữ liệu. Vẫn thuộc nhóm kết thúc
+ * (REJECTED) cho mọi logic, nhưng nhãn hiển thị là "Đã rút đơn" chứ không phải "Từ chối".
+ */
+export const WITHDRAWN_STAGE_TYPE = "WITHDRAWN";
+export const WITHDRAWN_LABEL = "Đã rút đơn";
+export const isWithdrawnStage = (stageType?: string | null) => stageType === WITHDRAWN_STAGE_TYPE;
+
 const BY_TYPE: Record<string, FixedStage> = Object.fromEntries(
     (Object.keys(STAGE_TYPES_OF) as FixedStage[]).flatMap((g) => STAGE_TYPES_OF[g].map((t) => [t, g])),
 );
@@ -38,6 +46,7 @@ const BY_TYPE: Record<string, FixedStage> = Object.fromEntries(
  */
 export function toFixedStage(stageType?: string | null): FixedStage {
     if (!stageType) return "APPLIED";
+    if (stageType === WITHDRAWN_STAGE_TYPE) return "REJECTED";
     const g = BY_TYPE[stageType];
     if (g) return g;
     if (stageType.includes("INTERVIEW")) return "INTERVIEW";
@@ -46,7 +55,7 @@ export function toFixedStage(stageType?: string | null): FixedStage {
 }
 
 export function fixedStageLabel(stageType?: string | null): string {
-    return FIXED_STAGE_LABEL[toFixedStage(stageType)];
+    return isWithdrawnStage(stageType) ? WITHDRAWN_LABEL : FIXED_STAGE_LABEL[toFixedStage(stageType)];
 }
 
 /** Giá trị gửi lên tham số `stageType` của API danh sách hồ sơ để lọc theo nhóm. */

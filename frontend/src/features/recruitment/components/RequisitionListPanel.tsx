@@ -1,3 +1,4 @@
+import { matchesKeyword } from "../../../app/text";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { App, Button, Input, Select} from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
@@ -79,7 +80,7 @@ export default function RequisitionListPanel() {
     const filtered = useMemo(() => {
         const k = keyword.trim().toLowerCase();
         return items.filter((r) =>
-            (!k || r.title.toLowerCase().includes(k) || requisitionCode(r.id).toLowerCase().includes(k))
+            matchesKeyword(k, r.title, requisitionCode(r.id))
             && (!departmentId || r.departmentId === departmentId));
     }, [items, keyword, departmentId]);
     const count = (s: RequisitionStatus) => filtered.filter((r) => r.status === s).length;

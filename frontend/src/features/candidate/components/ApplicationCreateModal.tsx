@@ -18,6 +18,7 @@ import type { JobPostingResponse } from "../../recruitment/types";
 import type { CatalogItem } from "../../masterdata/types";
 import type { UserDirectoryResponse } from "../../auth/types";
 import type { ApiMessageResponse } from "../types";
+import { filterOptionByLabel } from "../../../app/text";
 
 interface Props {
   open: boolean;
@@ -89,12 +90,12 @@ export default function ApplicationCreateModal({
   const onSubmit = async (data: ApplicationCreateFormValues) => {
     try {
       await createApplication(data);
-      message.success("Ứng tuyển thành công");
+      message.success("Đã thêm ứng viên vào tin tuyển dụng");
       onSuccess();
       onClose();
     } catch (err) {
       const axiosErr = err as AxiosError<ApiMessageResponse>;
-      message.error(axiosErr.response?.data?.message ?? "Ứng tuyển thất bại");
+      message.error(axiosErr.response?.data?.message ?? "Không thêm được ứng viên vào tin tuyển dụng");
     }
   };
 
@@ -111,7 +112,7 @@ export default function ApplicationCreateModal({
       onOk={handleSubmit(onSubmit)}
       onCancel={onClose}
       confirmLoading={isSubmitting}
-      okText="Ứng tuyển"
+      okText="Thêm vào tin"
       cancelText="Hủy"
       destroyOnHidden
     >
@@ -129,7 +130,7 @@ export default function ApplicationCreateModal({
                 {...field}
                 disabled={!!presetCandidateId}
                 showSearch
-                optionFilterProp="label"
+                optionFilterProp="label" filterOption={filterOptionByLabel}
                 options={candidates.map((c) => ({ value: c.id, label: `${c.fullName} (${c.email})` }))}
               />
             )}
@@ -140,7 +141,7 @@ export default function ApplicationCreateModal({
           <Select
             showSearch
             allowClear
-            optionFilterProp="label"
+            optionFilterProp="label" filterOption={filterOptionByLabel}
             disabled={!!presetJobPostingId}
             value={departmentId}
             onChange={(v) => {
@@ -165,7 +166,7 @@ export default function ApplicationCreateModal({
               <Select
                 {...field}
                 showSearch
-                optionFilterProp="label"
+                optionFilterProp="label" filterOption={filterOptionByLabel}
                 disabled={!!presetJobPostingId || departmentId == null}
                 options={postings
                   .filter((p) => p.departmentId === departmentId)

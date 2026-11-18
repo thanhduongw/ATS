@@ -82,12 +82,15 @@ export function resolveNotificationPath(
 
 export const NOTIFICATION_TYPE_LABEL: Record<string, string> = {
     REQUISITION_PENDING_APPROVAL: "Yêu cầu tuyển dụng",
+    REQUISITION_REVIEWED: "Kết quả duyệt yêu cầu",
     APPLICATION_CREATED: "Hồ sơ mới",
     APPLICATION_STAGE_CHANGED: "Cập nhật hồ sơ",
     APPLICATION_REJECTED: "Kết quả hồ sơ",
     INTERVIEW_SCHEDULED: "Lịch phỏng vấn",
     INTERVIEW_HM_CONFIRMED: "Lịch phỏng vấn đã được chốt",
     INTERVIEW_CONFIRMED: "Xác nhận PV",
+    INTERVIEW_CANDIDATE_DECLINED: "Ứng viên xin dời lịch",
+    INTERVIEW_CANCELLED: "Lịch phỏng vấn đã huỷ",
     INTERVIEW_REMINDER: "Nhắc phỏng vấn",
     EVALUATION_INCOMPLETE_REMINDER: "Chưa đánh giá",
     OFFER_PENDING_CONFIRMATION: "Offer đã duyệt",

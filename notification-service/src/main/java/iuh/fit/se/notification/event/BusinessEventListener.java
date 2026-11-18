@@ -37,9 +37,6 @@ public class BusinessEventListener {
     private final CandidateServiceClient candidateServiceClient;
     private final AuthServiceClient authServiceClient;
 
-    @Value("${app.notification.interview-reminder-hours-before:24}")
-    private long reminderHoursBefore;
-
     @Value("${app.notification.evaluation-check-hours-after:24}")
     private long evaluationCheckHoursAfter;
 
@@ -56,6 +53,40 @@ public class BusinessEventListener {
                 event.requisitionId());
     }
 
+    // ===== 1b. Yêu cầu tuyển dụng đã được xử lý — báo người lập =====
+    @RabbitListener(queues = BusinessEventConfig.REQUISITION_REVIEWED_QUEUE)
+    public void onRequisitionReviewed(RequisitionReviewedEvent event) {
+        log.info("Nhận event requisition.reviewed, requisitionId={}, outcome={}", event.requisitionId(), event.outcome());
+        String name = "Yêu cầu \"" + nullSafe(event.title()) + "\"";
+        String note = event.note() != null && !event.note().isBlank() ? event.note().trim() : null;
+        String title;
+        String body;
+        switch (event.outcome() == null ? "" : event.outcome()) {
+            case "APPROVED" -> {
+                title = "Yêu cầu tuyển dụng đã được duyệt";
+                body = name + " đã được duyệt." + (note != null ? " Ghi chú: " + note : "");
+            }
+            case "REJECTED" -> {
+                title = "Yêu cầu tuyển dụng bị từ chối";
+                body = name + " bị từ chối." + (note != null ? " Lý do: " + note : "");
+            }
+            case "CHANGES_REQUESTED" -> {
+                title = "Yêu cầu tuyển dụng cần sửa";
+                body = name + " cần bổ sung trước khi duyệt." + (note != null ? " Nội dung: " + note : "");
+            }
+            default -> {
+                return;
+            }
+        }
+        notificationService.createAndPush(
+                event.requesterId(),
+                NotificationType.REQUISITION_REVIEWED,
+                title,
+                body,
+                "REQUISITION",
+                event.requisitionId());
+    }
+
     // ===== 2. Application created =====
     @RabbitListener(queues = BusinessEventConfig.APPLICATION_CREATED_QUEUE)
     public void onApplicationCreated(ApplicationCreatedEvent event) {
@@ -67,7 +98,7 @@ public class BusinessEventListener {
                     NotificationType.APPLICATION_CREATED,
                     "Hồ sơ ứng tuyển mới",
                     (event.candidateName() != null ? event.candidateName() : "Ứng viên")
-                            + " vừa nộp hồ sơ (application #" + event.applicationId() + ").",
+                            + " vừa nộp hồ sơ" + forJob(event.jobTitle()) + ".",
                     "APPLICATION",
                     event.applicationId());
             return;
@@ -82,7 +113,7 @@ public class BusinessEventListener {
                             NotificationType.APPLICATION_CREATED,
                             "Hồ sơ ứng tuyển mới",
                             (event.candidateName() != null ? event.candidateName() : "Ứng viên")
-                                    + " vừa nộp hồ sơ (application #" + event.applicationId() + ").",
+                                    + " vừa nộp hồ sơ" + forJob(event.jobTitle()) + ".",
                             "APPLICATION",
                             event.applicationId());
                 }
@@ -104,14 +135,34 @@ public class BusinessEventListener {
         }
 
         String toType = event.toStageType() != null ? event.toStageType() : "";
+        String closed = event.closedReason();
+        String job = forJob(event.jobTitle());
+        String candidateName = candidateNameOf(event.applicationId());
 
-        if (candidateUserId != null) {
-            if ("REJECTED".equalsIgnoreCase(toType)) {
+        // Ứng viên xoá dữ liệu: tài khoản đã khoá, không báo cho ứng viên nữa.
+        if (candidateUserId != null && !"DATA_DELETED".equals(closed)) {
+            if ("WITHDRAWN".equals(closed)) {
+                notificationService.createAndPush(
+                        candidateUserId,
+                        NotificationType.APPLICATION_STAGE_CHANGED,
+                        "Bạn đã rút đơn ứng tuyển",
+                        "Bạn đã rút đơn ứng tuyển" + job + ".",
+                        "APPLICATION",
+                        event.applicationId());
+            } else if ("HIRED_ELSEWHERE".equals(closed)) {
+                notificationService.createAndPush(
+                        candidateUserId,
+                        NotificationType.APPLICATION_STAGE_CHANGED,
+                        "Đơn ứng tuyển đã ngừng xử lý",
+                        "Đơn ứng tuyển" + job + " ngừng xử lý vì bạn đã nhận việc ở vị trí khác.",
+                        "APPLICATION",
+                        event.applicationId());
+            } else if ("REJECTED".equalsIgnoreCase(toType)) {
                 notificationService.createAndPush(
                         candidateUserId,
                         NotificationType.APPLICATION_REJECTED,
                         "Kết quả hồ sơ ứng tuyển",
-                        "Hồ sơ của bạn đã chuyển sang giai đoạn: " + nullSafe(event.toStageName()) + ".",
+                        "Rất tiếc, hồ sơ ứng tuyển" + job + " của bạn chưa phù hợp ở đợt này.",
                         "APPLICATION",
                         event.applicationId());
             } else {
@@ -119,22 +170,57 @@ public class BusinessEventListener {
                         candidateUserId,
                         NotificationType.APPLICATION_STAGE_CHANGED,
                         "Cập nhật trạng thái hồ sơ",
-                        "Hồ sơ chuyển từ \"" + nullSafe(event.fromStageName())
-                                + "\" sang \"" + nullSafe(event.toStageName()) + "\".",
+                        "Hồ sơ ứng tuyển" + job + " đã chuyển sang giai đoạn \"" + nullSafe(event.toStageName()) + "\".",
                         "APPLICATION",
                         event.applicationId());
             }
         }
 
+        // Người cần biết phía công ty: người phụ trách đơn. Đơn chưa giao ai mà ứng viên tự đóng (rút đơn, xoá dữ liệu)
+        // thì báo mọi Chuyên viên tuyển dụng — giống khi đơn mới đến — để không ai tiếp tục xử lý đơn đã đóng.
+        java.util.Set<Long> staff = new java.util.LinkedHashSet<>();
         if (event.assignedRecruiterId() != null) {
-            notificationService.createAndPush(
-                    event.assignedRecruiterId(),
-                    NotificationType.APPLICATION_STAGE_CHANGED,
-                    "Hồ sơ đổi giai đoạn",
-                    "Application #" + event.applicationId() + ": "
-                            + nullSafe(event.fromStageName()) + " → " + nullSafe(event.toStageName()),
-                    "APPLICATION",
-                    event.applicationId());
+            staff.add(event.assignedRecruiterId());
+        } else if ("WITHDRAWN".equals(closed) || "DATA_DELETED".equals(closed)) {
+            staff.addAll(recruiterIds());
+        }
+        if (!staff.isEmpty()) {
+            String who = candidateName != null ? candidateName : "Ứng viên";
+            String title;
+            String body;
+            if ("WITHDRAWN".equals(closed)) {
+                title = "Ứng viên rút đơn";
+                body = who + " đã rút đơn ứng tuyển" + job + ".";
+            } else if ("DATA_DELETED".equals(closed)) {
+                title = "Ứng viên xoá dữ liệu";
+                body = "Một ứng viên đã xoá dữ liệu cá nhân, đơn ứng tuyển" + job + " đã đóng.";
+            } else if ("HIRED_ELSEWHERE".equals(closed)) {
+                title = "Đơn ngừng xử lý";
+                body = "Đơn của " + who + job + " ngừng xử lý vì ứng viên đã nhận việc ở vị trí khác.";
+            } else {
+                title = "Hồ sơ đổi giai đoạn";
+                body = who + job + ": " + nullSafe(event.fromStageName()) + " → " + nullSafe(event.toStageName());
+            }
+            for (Long userId : staff) {
+                notificationService.createAndPush(
+                        userId,
+                        NotificationType.APPLICATION_STAGE_CHANGED,
+                        title,
+                        body,
+                        "APPLICATION",
+                        event.applicationId());
+            }
+        }
+    }
+
+    /** Mọi Chuyên viên tuyển dụng; lỗi gọi auth-service thì trả rỗng (không làm hỏng các thông báo khác). */
+    private List<Long> recruiterIds() {
+        try {
+            List<UserSummaryResponse> recruiters = authServiceClient.getUsers("RECRUITER");
+            return recruiters == null ? List.of() : recruiters.stream().map(UserSummaryResponse::id).toList();
+        } catch (Exception e) {
+            log.warn("Không lấy được danh sách RECRUITER: {}", e.getMessage());
+            return List.of();
         }
     }
 
@@ -216,15 +302,7 @@ public class BusinessEventListener {
                     event.interviewId());
         }
 
-        long reminderDelay = Duration.between(
-                LocalDateTime.now(),
-                event.scheduledAt().minusHours(reminderHoursBefore)).toMillis();
-        if (reminderDelay > 0) {
-            delayedMessagePublisher.scheduleInterviewReminder(
-                    new InterviewReminderPayload(
-                            event.interviewId(), event.applicationId(), event.scheduledAt()),
-                    reminderDelay);
-        }
+        // Nhắc lịch (trước 24 giờ và 1 giờ) do interview-service chủ động phát — xem onInterviewReminder.
 
         long evalCheckDelay = Duration.between(
                 LocalDateTime.now(),
@@ -295,46 +373,87 @@ public class BusinessEventListener {
         }
     }
 
-    // ===== 6a. Nhắc phỏng vấn =====
-    @RabbitListener(queues = DelayQueueConfig.INTERVIEW_REMINDER_PROCESS_QUEUE)
-    public void onInterviewReminderDue(InterviewReminderPayload payload) {
-        log.info("Đến giờ nhắc phỏng vấn, interviewId={}", payload.interviewId());
+    // ===== 5c. HR huỷ buổi phỏng vấn =====
+    @RabbitListener(queues = BusinessEventConfig.INTERVIEW_CANCELLED_QUEUE)
+    public void onInterviewCancelled(InterviewCancelledEvent event) {
+        log.info("Nhận event interview.cancelled, interviewId={}", event.interviewId());
+        String when = formatVi(event.scheduledAt());
+        if (event.interviewerIds() != null) {
+            for (Long userId : new java.util.LinkedHashSet<>(event.interviewerIds())) {
+                if (userId == null || userId.equals(event.actorUserId())) continue; // người huỷ không cần tự báo
+                notificationService.createAndPush(
+                        userId,
+                        NotificationType.INTERVIEW_CANCELLED,
+                        "Buổi phỏng vấn đã huỷ",
+                        "Buổi phỏng vấn " + nullSafe(event.candidateName()) + " lúc " + when + " đã huỷ.",
+                        "INTERVIEW",
+                        event.interviewId());
+            }
+        }
+        // Ứng viên chưa từng được báo lịch (giờ còn đang thương lượng nội bộ) thì không báo huỷ.
+        if (event.candidateNotified()) {
+            Long candidateUserId = resolveCandidateUserIdFromApplication(event.applicationId());
+            if (candidateUserId != null) {
+                notificationService.createAndPush(
+                        candidateUserId,
+                        NotificationType.INTERVIEW_CANCELLED,
+                        "Lịch phỏng vấn đã huỷ",
+                        "Buổi phỏng vấn lúc " + when + " đã huỷ. Bộ phận tuyển dụng sẽ liên hệ nếu có lịch mới.",
+                        "INTERVIEW",
+                        event.interviewId());
+            }
+        }
+    }
 
-        InterviewResponse interview = safeGetInterview(payload.interviewId());
+    // ===== 6a. Nhắc phỏng vấn trước 24 giờ / 1 giờ (mục 4.4) =====
+    @RabbitListener(queues = BusinessEventConfig.INTERVIEW_REMINDER_QUEUE)
+    public void onInterviewReminder(InterviewReminderEvent event) {
+        log.info("Nhắc lịch phỏng vấn interviewId={} trước {} giờ", event.interviewId(), event.hoursBefore());
+        InterviewResponse interview = safeGetInterview(event.interviewId());
         if (interview == null) {
             return;
         }
         String status = interview.status();
         if (status == null
                 || (!"HM_CONFIRMED".equals(status) && !"CANDIDATE_CONFIRMED".equals(status))
-                || !isCurrentSchedule(interview, payload.expectedScheduledAt())) {
-            return;
+                || !isCurrentSchedule(interview, event.scheduledAt())) {
+            return; // buổi đã huỷ / đổi giờ sau khi lời nhắc được phát
         }
+        String when = event.hoursBefore() <= 1 ? "còn khoảng 1 giờ nữa" : "vào ngày mai";
+        String where = "ONLINE".equals(event.format())
+                ? (event.meetingLink() == null || event.meetingLink().isBlank()
+                        ? " Hình thức: trực tuyến." : " Phòng họp trực tuyến: " + event.meetingLink())
+                : " Hình thức: trực tiếp tại văn phòng.";
+        String title = event.hoursBefore() <= 1 ? "Sắp đến giờ phỏng vấn" : "Nhắc lịch phỏng vấn ngày mai";
 
         if (interview.interviewers() != null) {
             for (InterviewerSummary interviewer : interview.interviewers()) {
                 notificationService.createAndPush(
                         interviewer.interviewerId(),
                         NotificationType.INTERVIEW_REMINDER,
-                        "Sắp đến giờ phỏng vấn",
-                        "Buổi phỏng vấn " + nullSafe(interview.candidateName())
-                                + " sẽ diễn ra lúc " + formatVi(interview.scheduledAt()) + ".",
+                        title,
+                        "Buổi phỏng vấn " + nullSafe(interview.candidateName()) + " diễn ra " + when
+                                + ", lúc " + formatVi(interview.scheduledAt()) + "." + where,
                         "INTERVIEW",
-                        payload.interviewId());
+                        event.interviewId());
             }
         }
-
-        Long candidateUserId = resolveCandidateUserIdFromApplication(
-                payload.applicationId());
-        if (candidateUserId != null) {
+        Long candidateId = resolveCandidateUserIdFromApplication(event.applicationId());
+        if (candidateId != null) {
             notificationService.createAndPush(
-                    candidateUserId,
+                    candidateId,
                     NotificationType.INTERVIEW_REMINDER,
-                    "Nhắc lịch phỏng vấn",
-                    "Buổi phỏng vấn của bạn sẽ diễn ra lúc " + formatVi(interview.scheduledAt()) + ".",
+                    title,
+                    "Buổi phỏng vấn của bạn diễn ra " + when + ", lúc " + formatVi(interview.scheduledAt()) + "." + where,
                     "INTERVIEW",
-                    payload.interviewId());
+                    event.interviewId());
         }
+    }
+
+    /** Lời nhắc kiểu cũ (hàng đợi trễ) còn sót trong RabbitMQ: nhận rồi bỏ, việc nhắc nay do onInterviewReminder lo. */
+    @RabbitListener(queues = DelayQueueConfig.INTERVIEW_REMINDER_PROCESS_QUEUE)
+    public void onInterviewReminderDue(InterviewReminderPayload payload) {
+        log.debug("Bỏ qua lời nhắc kiểu cũ, interviewId={}", payload.interviewId());
     }
 
     // ===== 6b. Kiểm tra đánh giá còn thiếu =====
@@ -400,8 +519,9 @@ public class BusinessEventListener {
             notificationService.createAndPush(
                     event.requesterId(),
                     NotificationType.OFFER_PENDING_CONFIRMATION,
-                    "Offer đã được duyệt",
-                    "Offer #" + event.offerId() + " đã được phê duyệt. Ứng viên có thể Accept/Decline.",
+                    "Thư mời đã gửi cho ứng viên",
+                    "Thư mời nhận việc" + forJob(event.jobTitle()) + ofCandidate(candidateNameOf(event.applicationId()))
+                            + " đã được gửi, đang chờ ứng viên phản hồi.",
                     "OFFER",
                     event.offerId());
         }
@@ -414,8 +534,8 @@ public class BusinessEventListener {
             notificationService.createAndPush(
                     candidateUserId,
                     NotificationType.OFFER_READY_FOR_CANDIDATE,
-                    "Bạn nhận được thư đề nghị nhận việc",
-                    "Offer đã sẵn sàng. Vui lòng xem và phản hồi trên hệ thống.",
+                    "Bạn nhận được thư mời nhận việc",
+                    "Công ty đã gửi thư mời nhận việc" + forJob(event.jobTitle()) + " cho bạn. Hãy xem và phản hồi trước hạn.",
                     "OFFER",
                     event.offerId());
         }
@@ -432,9 +552,9 @@ public class BusinessEventListener {
         notificationService.createAndPush(
                 event.requesterId(),
                 NotificationType.OFFER_ACCEPTED,
-                "Ứng viên đã chấp nhận Offer",
+                "Ứng viên đã nhận lời",
                 (event.candidateName() != null ? event.candidateName() : "Ứng viên")
-                        + " đã chấp nhận Offer #" + event.offerId() + ".",
+                        + " đã chấp nhận thư mời nhận việc" + forJob(event.jobTitle()) + ".",
                 "OFFER",
                 event.offerId());
     }
@@ -451,9 +571,9 @@ public class BusinessEventListener {
         notificationService.createAndPush(
                 event.requesterId(),
                 NotificationType.OFFER_DECLINED,
-                "Ứng viên đã từ chối Offer",
+                "Ứng viên từ chối thư mời",
                 (event.candidateName() != null ? event.candidateName() : "Ứng viên")
-                        + " đã từ chối Offer #" + event.offerId() + "." + extra,
+                        + " đã từ chối thư mời nhận việc" + forJob(event.jobTitle()) + "." + extra,
                 "OFFER",
                 event.offerId());
     }
@@ -504,6 +624,25 @@ public class BusinessEventListener {
         } catch (Exception e) {
             log.warn("resolveCandidateUserIdFromApplication thất bại applicationId={}: {}",
                     applicationId, e.getMessage());
+            return null;
+        }
+    }
+
+    /** " vị trí X" để ghép vào câu thông báo; không có tên vị trí thì trả chuỗi rỗng. */
+    private static String forJob(String jobTitle) {
+        return jobTitle == null || jobTitle.isBlank() ? "" : " vị trí " + jobTitle.trim();
+    }
+
+    private static String ofCandidate(String name) {
+        return name == null || name.isBlank() ? "" : " của " + name.trim();
+    }
+
+    private String candidateNameOf(Long applicationId) {
+        if (applicationId == null) return null;
+        try {
+            ApplicationSummaryResponse app = applicationServiceClient.getApplicationById(applicationId);
+            return app != null ? app.candidateName() : null;
+        } catch (Exception e) {
             return null;
         }
     }

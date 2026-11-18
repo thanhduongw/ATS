@@ -9,19 +9,24 @@
  *
  * App chỉ có giao diện sáng (`app.json` đặt `userInterfaceStyle: "light"`).
  */
+import { derivePalette, readCachedBrand } from "./brand";
+
+/** Màu thương hiệu doanh nghiệp chọn trên web (mục 4.1) — xem `brand.ts`. Mặc định là xanh `#0A59F7` của thiết kế. */
+const BRAND = derivePalette(readCachedBrand());
+
 export const COLORS = {
   /* Thương hiệu */
-  primary: "#0A59F7",
+  primary: BRAND.color,
   /** DS01 "Thương hiệu · nhấn" `#0848c7`. Dùng cho chữ trên nền tonal — 7.0:1. */
-  primaryDark: "#0848C7",
+  primaryDark: BRAND.dark,
   /** DS01 "Thương hiệu · nền 10%": ô icon, ô ngày, hộp đếm ngược, mục đang chọn. */
-  primarySoft: "#0A59F719",
+  primarySoft: BRAND.soft,
   /** DS01 "Thương hiệu · nền 6%": dòng thông báo chưa đọc, dòng được chọn. */
-  primaryFaint: "#0A59F70F",
+  primaryFaint: BRAND.faint,
   /** DS01 "Xanh đậm": nền màn chào M01. */
-  navy: "#061A44",
+  navy: BRAND.deep,
   /** DS01 "Xanh đậm 2": điểm đầu dải màu thư mời, ảnh bìa. */
-  navy2: "#0B2F78",
+  navy2: BRAND.deep2,
 
   /* Bề mặt */
   /** Nền trang — canvas `background-secondary`. */
@@ -76,7 +81,7 @@ export const COLORS = {
  */
 export const STATUS_TONES = {
   neutral: { bg: COLORS.fill, dot: COLORS.textSecondary, text: COLORS.textSecondary },
-  brand: { bg: "#0A59F719", dot: COLORS.primary, text: COLORS.primary },
+  brand: { bg: COLORS.primarySoft, dot: COLORS.primary, text: COLORS.primary },
   interview: { bg: "#7C4DFF1A", dot: COLORS.interview, text: COLORS.interview },
   warning: { bg: "#FF75001F", dot: COLORS.warning, text: COLORS.warning },
   success: { bg: "#00CB8724", dot: COLORS.success, text: COLORS.success },

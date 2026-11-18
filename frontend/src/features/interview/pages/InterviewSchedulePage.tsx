@@ -1,3 +1,4 @@
+import { matchesKeyword, filterOptionByLabel } from "../../../app/text";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { App, Button, Dropdown, Input, Modal, Pagination, Segmented, Select, Space, Spin, Tooltip, type MenuProps } from "antd";
 import {
@@ -41,7 +42,7 @@ const TABS: { key: Tab; label: string }[] = [
     { key: "UPCOMING", label: "Sắp tới" },
     { key: "EVAL", label: "Chờ đánh giá" },
     { key: "DONE", label: "Đã xong" },
-    { key: "CANCELLED", label: "Đã huỷ" },
+    { key: "CANCELLED", label: "Đã huỷ / hết hạn" },
 ];
 const WEEKDAY = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 const WEEKDAY_SHORT = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -49,8 +50,13 @@ const HM_COLS = "110px 1.3fr 1.2fr 120px 1.6fr";
 
 const endOf = (iv: InterviewResponse) => dayjs(iv.scheduledAt).add(iv.durationMinutes ?? 60, "minute");
 
-function tabOf(iv: InterviewResponse, now: Dayjs): Tab {
-    if (iv.status === "CANCELLED") return "CANCELLED";
+/** Quá giờ hẹn mà chưa được xác nhận đủ: backend sẽ đánh dấu EXPIRED, giao diện coi như đã hết hạn ngay. */
+const isExpired = (iv: InterviewResponse, now: Dayjs) => iv.status === "EXPIRED"
+    || ((iv.status === "SCHEDULED" || iv.status === "HM_RESCHEDULE_PROPOSED" || iv.status === "HM_CONFIRMED")
+        && dayjs(iv.scheduledAt).isBefore(now));
+
+function tabOf(iv: InterviewResponse, now: Dayjs, me: number | null = null): Tab {
+    if (iv.status === "CANCELLED" || isExpired(iv, now)) return "CANCELLED";
     if (iv.status === "COMPLETED" || iv.status === "NO_SHOW") return "DONE";
     const ended = endOf(iv).isBefore(now);
     if (ended && INTERVIEW_HELD.has(iv.status)) {
@@ -58,6 +64,8 @@ function tabOf(iv: InterviewResponse, now: Dayjs): Tab {
     }
     if (iv.status === "HM_RESCHEDULE_PROPOSED" || iv.status === "CANDIDATE_DECLINED") return "ACTION";
     if (iv.status === "SCHEDULED" && dayjs(iv.scheduledAt).diff(now, "hour") <= 48) return "ACTION";
+    // Chính mình là người phỏng vấn mà chưa xác nhận giờ.
+    if (iv.status === "SCHEDULED" && me != null && iv.interviewers.some((p) => p.interviewerId === me)) return "ACTION";
     return "UPCOMING";
 }
 
@@ -75,7 +83,7 @@ const HM_TABS: { key: HmTab; label: string }[] = [
 type HmKind = "EVAL" | "CONFIRM" | "UPCOMING" | "DONE" | "CANCELLED";
 
 function hmKindOf(iv: InterviewResponse, me: number | null, now: Dayjs): HmKind {
-    if (iv.status === "CANCELLED") return "CANCELLED";
+    if (iv.status === "CANCELLED" || iv.status === "CANDIDATE_DECLINED" || isExpired(iv, now)) return "CANCELLED";
     if (iv.status === "COMPLETED" || iv.status === "NO_SHOW") return "DONE";
     const mine = iv.interviewers.find((p) => p.interviewerId === me);
     if (endOf(iv).isBefore(now)) return mine && !mine.evaluationSubmitted && INTERVIEW_HELD.has(iv.status) ? "EVAL" : "DONE";
@@ -90,7 +98,8 @@ const HM_KIND_GROUP: Record<HmKind, string> = {
 function hmStatusText(iv: InterviewResponse, kind: HmKind, me: number | null): { label: string; tone: StatusTone } {
     const done = iv.interviewers.filter((p) => p.evaluationSubmitted).length;
     switch (kind) {
-        case "CANCELLED": return { label: "Đã huỷ", tone: "neutral" };
+        case "CANCELLED": return iv.status === "CANCELLED" ? { label: "Đã huỷ", tone: "neutral" }
+            : iv.status === "CANDIDATE_DECLINED" ? { label: "Ứng viên xin dời", tone: "warning" } : { label: "Hết hạn", tone: "neutral" };
         case "EVAL": return { label: `${done}/${iv.interviewers.length} đã nộp · còn bạn`, tone: "warning" };
         case "CONFIRM": return { label: "Chờ bạn xác nhận", tone: "warning" };
         case "DONE":
@@ -113,7 +122,7 @@ function hmStatusText(iv: InterviewResponse, kind: HmKind, me: number | null): {
 
 /** Chữ trạng thái như HTML: "Chờ đánh giá 1/2", "Đã xác nhận", "Đề xuất đổi giờ"… */
 function statusText(iv: InterviewResponse, tab: Tab): { label: string; tone: StatusTone } {
-    if (tab === "CANCELLED") return { label: "Đã huỷ", tone: "neutral" };
+    if (tab === "CANCELLED") return { label: iv.status === "CANCELLED" ? "Đã huỷ" : "Hết hạn", tone: "neutral" };
     if (iv.status === "NO_SHOW") return { label: "Ứng viên vắng", tone: "danger" };
     if (tab === "EVAL" || (tab === "DONE" && iv.status !== "COMPLETED")) {
         const done = iv.interviewers.filter((p) => p.evaluationSubmitted).length;
@@ -207,14 +216,14 @@ export default function InterviewSchedulePage() {
         const k = keyword.trim().toLowerCase();
         return interviews.filter((iv) =>
             (isHr || iv.interviewers.some((p) => p.interviewerId === myId))
-            && (!k || iv.candidateName.toLowerCase().includes(k))
+            && matchesKeyword(k, iv.candidateName)
             && (interviewerId == null || iv.interviewers.some((p) => p.interviewerId === interviewerId))
             && (postingId == null || iv.jobPostingId === postingId));
     }, [interviews, keyword, interviewerId, postingId, isHr, myId]);
 
-    const tabbed = useMemo(() => filtered.map((iv) => ({ iv, tab: tabOf(iv, now) })),
+    const tabbed = useMemo(() => filtered.map((iv) => ({ iv, tab: tabOf(iv, now, myId) })),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [filtered]);
+        [filtered, myId]);
     const counts = TABS.reduce((m, t) => ({ ...m, [t.key]: tabbed.filter((x) => x.tab === t.key).length }), {} as Record<Tab, number>);
     // Mặc định: còn việc cần xử lý thì mở tab đó, không thì "Sắp tới".
     const activeTab: Tab = tab ?? (counts.ACTION > 0 ? "ACTION" : "UPCOMING");
@@ -371,7 +380,7 @@ export default function InterviewSchedulePage() {
                     />
                     {isHr && (
                         <Select
-                            allowClear showSearch optionFilterProp="label"
+                            allowClear showSearch optionFilterProp="label" filterOption={filterOptionByLabel}
                             placeholder="Người phỏng vấn"
                             style={{ width: 200 }}
                             value={interviewerId}
@@ -380,7 +389,7 @@ export default function InterviewSchedulePage() {
                         />
                     )}
                     <Select
-                        allowClear showSearch optionFilterProp="label"
+                        allowClear showSearch optionFilterProp="label" filterOption={filterOptionByLabel}
                         placeholder="Việc làm"
                         style={{ width: 220 }}
                         value={postingId}

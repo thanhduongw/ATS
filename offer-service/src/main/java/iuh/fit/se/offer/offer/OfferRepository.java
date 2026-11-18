@@ -15,6 +15,16 @@ public interface OfferRepository extends JpaRepository<Offer, Long>, JpaSpecific
     List<Offer> findByStatusAndResponseDeadlineBeforeAndDeletedAtIsNull(
             OfferStatus status, java.time.LocalDateTime deadline);
 
+    /** Ẩn danh hoá tên và liên hệ của ứng viên trong mọi thư mời của một ứng viên đã xoá dữ liệu. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Query(value = """
+            UPDATE offer SET candidate_name_snapshot = :name, candidate_email_snapshot = NULL, candidate_phone_snapshot = NULL
+            WHERE candidate_id = :candidateId
+            """, nativeQuery = true)
+    int anonymizeCandidate(@org.springframework.data.repository.query.Param("candidateId") Long candidateId,
+                           @org.springframework.data.repository.query.Param("name") String name);
+
     long countByJobPostingIdAndStatusInAndDeletedAtIsNull(
             Long jobPostingId, Collection<OfferStatus> statuses);
 }

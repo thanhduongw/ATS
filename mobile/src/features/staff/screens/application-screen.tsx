@@ -181,7 +181,9 @@ export function StaffApplicationScreen() {
                 <Text style={styles.sub}>{a.jobTitle}</Text>
               )}
             </View>
-            {a.aiScore != null ? (
+            {a.aiInjectionDetected ? (
+              <StatusChip label={P.ai.injectionChip} tone="danger" />
+            ) : a.aiScore != null ? (
               <AiScoreBadge score={Math.round(a.aiScore)} />
             ) : null}
           </View>
@@ -344,6 +346,7 @@ function AiTab({ applicationId }: { applicationId: number }) {
   const met = reqs.filter((r) => r.status === "MET").length;
   return (
     <Card>
+      {d.result.injection_detected ? <InfoNote tone="danger">{A.injection}</InfoNote> : null}
       <View style={styles.headRow}>
         {d.totalScore != null ? (
           <AiScoreBadge score={Math.round(d.totalScore)} />

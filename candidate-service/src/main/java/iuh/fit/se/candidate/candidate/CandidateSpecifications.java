@@ -36,12 +36,13 @@ public final class CandidateSpecifications {
             }
 
             if (keyword != null && !keyword.isBlank()) {
-                String like = "%" + keyword.trim().toLowerCase() + "%";
+                // Không phân biệt hoa thường và dấu tiếng Việt (mục 4.5).
+                String like = iuh.fit.se.candidate.common.TextSearch.likePattern(keyword);
                 List<Predicate> keywordPredicates = new ArrayList<>();
-                keywordPredicates.add(cb.like(cb.lower(root.get("fullName")), like));
-                keywordPredicates.add(cb.like(cb.lower(root.get("email")), like));
-                keywordPredicates.add(cb.like(cb.lower(root.get("currentPosition")), like));
-                keywordPredicates.add(cb.like(cb.lower(root.get("phone")), like));
+                for (String field : List.of("fullName", "email", "currentPosition", "phone")) {
+                    keywordPredicates.add(cb.like(
+                            iuh.fit.se.candidate.common.TextSearch.fold(cb, root.get(field)), like, '!'));
+                }
 
                 if (matchedSkillIds != null && !matchedSkillIds.isEmpty()) {
                     Join<Candidate, CandidateSkill> skillJoin = root.join("skills", JoinType.LEFT);

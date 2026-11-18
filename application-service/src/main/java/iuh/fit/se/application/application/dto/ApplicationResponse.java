@@ -28,5 +28,9 @@ public record ApplicationResponse(
         /* Điểm AI (bản sao từ ai-service): null khi chưa chấm / chấm lỗi. Chỉ trả cho người dùng nội bộ. */
         BigDecimal aiScore,
         String aiTier,
-        String aiStatus
+        String aiStatus,
+        /* CV có nội dung nhằm điều khiển AI — giao diện hiện cảnh báo. */
+        Boolean aiInjectionDetected,
+        /* WITHDRAWN | HIRED_ELSEWHERE | DATA_DELETED khi đơn đóng không phải do công ty từ chối. */
+        String closedReason
 ) {}

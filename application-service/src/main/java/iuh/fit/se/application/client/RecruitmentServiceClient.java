@@ -12,4 +12,9 @@ public interface RecruitmentServiceClient {
     JobPostingResponse getPostingById(
             @PathVariable("id") Long id);
 
+    /** API công khai (không cần người dùng) — chỉ trả tin đang tuyển. Dùng khi xử lý sự kiện. */
+    @GetMapping("/api/recruitment/public/jobs/{id}")
+    JobPostingResponse getPublicPosting(
+            @PathVariable("id") Long id);
+
 }

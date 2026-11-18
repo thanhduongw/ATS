@@ -1,3 +1,4 @@
+import { brandAlpha } from "../../../app/brand";
 import { useEffect, useMemo, useState } from "react";
 import {
     Modal,
@@ -49,6 +50,7 @@ import { findInterviewerConflicts, describeConflict } from "../conflicts";
 import { toLocalDateTimeString } from "../../../app/datetime";
 import { COLORS, RADIUS } from "../../../app/theme";
 import StageTag from "../../../components/ui/StageTag";
+import { filterOptionByLabel } from "../../../app/text";
 
 interface Props {
     open: boolean;
@@ -251,7 +253,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                             width: 32,
                             height: 32,
                             borderRadius: "50%",
-                            background: `${COLORS.primary}1A`,
+                            background: brandAlpha(10),
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -350,7 +352,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                             }}
                             allowClear
                             showSearch
-                            optionFilterProp="label"
+                            optionFilterProp="label" filterOption={filterOptionByLabel}
                             options={departmentOptions}
                             notFoundContent="Chưa có phòng ban nào đang có tin tuyển dụng"
                         />
@@ -367,7 +369,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                             value={postingId}
                             onChange={setPostingId}
                             showSearch
-                            optionFilterProp="label"
+                            optionFilterProp="label" filterOption={filterOptionByLabel}
                             options={postingsInDepartment.map((p) => ({ value: p.id, label: p.title }))}
                             notFoundContent="Phòng ban này chưa có tin tuyển dụng nào"
                         />
@@ -442,7 +444,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                             value={interviewerIds}
                             onChange={setInterviewerIds}
                             showSearch
-                            optionFilterProp="label"
+                            optionFilterProp="label" filterOption={filterOptionByLabel}
                             options={interviewerOptions}
                             optionRender={(option) => (
                                 <div
@@ -517,10 +519,10 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                     {previewSlots.length > 0 && (
                         <div
                             style={{
-                                border: `1px solid ${COLORS.primary}25`,
+                                border: `1px solid ${brandAlpha(15)}`,
                                 borderRadius: RADIUS.md,
                                 padding: 12,
-                                background: `${COLORS.primary}08`,
+                                background: brandAlpha(3),
                                 marginBottom: 16,
                             }}
                         >

@@ -19,7 +19,8 @@ interface Props {
 }
 
 const FULL_WIDTH = { width: "100%" };
-const TIME = { format: "HH:mm", minuteStep: 15 as const };
+// Chọn ngày mà chưa chọn giờ thì lấy 17:00 (cuối giờ làm việc) thay cho 00:00 — "phản hồi trước 00:00" dễ hiểu nhầm.
+const TIME = { format: "HH:mm", minuteStep: 15 as const, defaultOpenValue: dayjs().hour(17).minute(0).second(0) };
 const beforeToday = (d: dayjs.Dayjs) => d.isBefore(dayjs(), "day");
 
 export default function DateField({ value, onChange, placeholder = "Chọn ngày", withTime, futureOnly }: Props) {

@@ -144,7 +144,7 @@ export default function ApplyJobPage() {
             if (talentPool !== !!profile.talentPoolConsent) {
                 await setTalentPoolConsent(talentPool).catch(() => message.warning("Chưa lưu được lựa chọn lưu hồ sơ, bạn có thể đổi lại ở Cài đặt tài khoản"));
             }
-            const r = await applyToJob({ jobPostingId: job.id, recruitmentSourceId: sourceId });
+            const r = await applyToJob({ jobPostingId: job.id, recruitmentSourceId: sourceId, consentAccepted: agree });
             setDoneAt(r.data.appliedAt ?? new Date().toISOString());
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;

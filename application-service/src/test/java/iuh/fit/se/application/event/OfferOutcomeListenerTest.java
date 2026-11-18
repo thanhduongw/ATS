@@ -35,7 +35,7 @@ class OfferOutcomeListenerTest {
         ArgumentCaptor<ApplicationAdvanceStageRequest> request =
                 ArgumentCaptor.forClass(ApplicationAdvanceStageRequest.class);
         verify(applicationService).applyAdvanceStage(eq(500L), eq(100L), request.capture());
-        assertEquals("Ứng viên đã chấp nhận Offer", request.getValue().note());
+        assertEquals("Ứng viên đã chấp nhận thư mời", request.getValue().note());
     }
 
     @Test
@@ -47,7 +47,7 @@ class OfferOutcomeListenerTest {
                 ArgumentCaptor.forClass(ApplicationRejectRequest.class);
         verify(applicationService).applyReject(eq(500L), eq(100L), request.capture());
         assertEquals(9L, request.getValue().rejectionReasonId());
-        assertEquals("Ứng viên từ chối Offer: Da nhan offer khac",
+        assertEquals("Ứng viên từ chối thư mời: Da nhan offer khac",
                 request.getValue().note());
     }
 

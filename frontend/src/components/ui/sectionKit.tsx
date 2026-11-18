@@ -1,3 +1,4 @@
+import { brandAlpha } from "../../app/brand";
 import { Tooltip } from "antd";
 import { FileTextOutlined } from "@ant-design/icons";
 import { COLORS, RADIUS } from "../../app/theme";
@@ -38,7 +39,7 @@ export function SectionHeader({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    background: `${COLORS.primary}12`,
+                    background: brandAlpha(7),
                     color: COLORS.primary,
                     fontSize: 16,
                     flexShrink: 0,

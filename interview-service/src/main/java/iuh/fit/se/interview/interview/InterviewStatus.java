@@ -49,7 +49,10 @@ public enum InterviewStatus {
      * Không chặn lịch người phỏng vấn. Ứng viên "không tham gia nữa" thì rút đơn (application-service),
      * buổi bị hủy theo sự kiện đơn kết thúc.
      */
-    CANDIDATE_DECLINED;
+    CANDIDATE_DECLINED,
+
+    /** Quá giờ hẹn mà chưa được xác nhận đủ (người phỏng vấn hoặc ứng viên) — job định kỳ tự đánh dấu. */
+    EXPIRED;
 
     /**
      * Các trạng thái còn chiếm chỗ trên lịch của người phỏng vấn — dùng để phát hiện
@@ -64,7 +67,11 @@ public enum InterviewStatus {
 
     /** Trạng thái còn dời lịch được. */
     public static final EnumSet<InterviewStatus> RESCHEDULABLE = EnumSet.of(
-            SCHEDULED, HM_CONFIRMED, CANDIDATE_CONFIRMED);
+            SCHEDULED, HM_CONFIRMED, CANDIDATE_CONFIRMED, CANDIDATE_DECLINED);
+
+    /** Chưa được xác nhận đủ — quá giờ hẹn thì job định kỳ chuyển sang EXPIRED. */
+    public static final EnumSet<InterviewStatus> EXPIRABLE = EnumSet.of(
+            SCHEDULED, HM_RESCHEDULE_PROPOSED, HM_CONFIRMED);
 
     /** Buổi đã diễn ra (hoặc đáng lẽ đã diễn ra) — nơi đánh giá và no-show có nghĩa. */
     public static final EnumSet<InterviewStatus> HELD = EnumSet.of(

@@ -1,7 +1,8 @@
 export interface AuditLogResponse {
     id: number;
     actorUserId: number;
-    actorName: string;
+    /** null khi là hệ thống, hoặc khi API không trả tên (lịch sử theo đối tượng). */
+    actorName: string | null;
     action: string;
     resourceType: string | null;
     resourceId: number | null;

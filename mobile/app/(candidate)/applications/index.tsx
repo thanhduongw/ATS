@@ -11,7 +11,6 @@ import { QueryList } from "@/components/ui/query-list";
 import { ScreenHeader } from "@/components/ui/screen-chrome";
 import { Card } from "@/components/ui/surfaces";
 import { StatusChip } from "@/components/ui/status-chip";
-import { PillButton } from "@/components/ui/buttons";
 import { Icon } from "@/components/ui/icon";
 import { STRINGS } from "@/lib/strings";
 import { applicationPhase, stageStatus } from "@/lib/status";
@@ -105,16 +104,22 @@ function ApplicationCard({
   declined: boolean;
 }) {
   const phase = applicationPhase(app.currentStageType);
-  const status = phase.ended
+  const status = phase.withdrawn
+    ? stageStatus(app.currentStageType)
+    : phase.ended
     ? {
         label: S.ended,
         tone: phase.hired ? ("success" as const) : ("neutral" as const),
       }
     : stageStatus(app.currentStageType, app.currentStageName);
 
-  const note = phase.rejected
+  const note = phase.withdrawn
+    ? S.note.withdrawn
+    : phase.rejected
     ? declined
       ? S.offerDeclined
+      : app.rejectionReasonName?.startsWith("Ngừng xử lý")
+        ? S.note.closedOther
       : app.rejectionReasonName
         ? S.note.rejectedReason(app.rejectionReasonName)
         : S.note.rejected

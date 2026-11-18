@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { App, Button, Spin } from "antd";
 import { CalendarOutlined, CheckCircleOutlined, DownloadOutlined, EnvironmentOutlined, LeftOutlined, TeamOutlined, VideoCameraOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
@@ -6,6 +6,7 @@ import dayjs, { type Dayjs } from "dayjs";
 import { confirmInterview } from "../interviewApi";
 import type { ApiMessageResponse, CandidateInterviewResponse } from "../types";
 import { downloadIcs } from "../ics";
+import { getCatalogItems } from "../../masterdata/masterdataApi";
 import { COLORS, type StatusTone } from "../../../app/theme";
 import { Panel, ScreenTitle } from "../../../components/ui/designKit";
 import StatusTag from "../../../components/ui/StatusTag";
@@ -34,7 +35,10 @@ const PAST_STATUS: Record<string, { label: string; tone: StatusTone }> = {
     EVALUATION_PENDING: { label: "Đã hoàn thành", tone: "success" },
     NO_SHOW: { label: "Vắng mặt", tone: "danger" },
     CANCELLED: { label: "Đã huỷ", tone: "neutral" },
+    EXPIRED: { label: "Hết hạn", tone: "neutral" },
 };
+/** Buổi không diễn ra — tách khỏi nhóm "Đã diễn ra". */
+const NOT_HELD = new Set(["CANCELLED", "EXPIRED"]);
 
 export default function CandidateInterviewsPage() {
     const { message } = App.useApp();
@@ -44,6 +48,17 @@ export default function CandidateInterviewsPage() {
     const [confirmed, setConfirmed] = useState<CandidateInterviewResponse | null>(null);
     const shell = useCandidateShell();
     const reloadAll = () => { reload(); shell?.refreshBadges(); };
+    /** Văn phòng (tên + địa chỉ) để ứng viên biết đến đâu. */
+    const [places, setPlaces] = useState<Record<number, string>>({});
+    useEffect(() => {
+        getCatalogItems("/masterdata/work-locations")
+            .then((r) => setPlaces(Object.fromEntries(r.data.map((w) => [
+                w.id, [w.name, (w as { address?: string | null }).address].filter(Boolean).join(" — "),
+            ]))))
+            .catch(() => undefined);
+    }, []);
+    const placeOf = (iv: CandidateInterviewResponse) =>
+        (iv.workLocationId != null ? places[iv.workLocationId] : null) || "Tại văn phòng";
 
     if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
 
@@ -53,9 +68,11 @@ export default function CandidateInterviewsPage() {
     const upcoming = interviews
         .filter((iv) => iv.status in UPCOMING_STATUS && endOf(iv).isAfter(now))
         .sort((a, b) => dayjs(a.scheduledAt).valueOf() - dayjs(b.scheduledAt).valueOf());
-    const past = interviews
+    const rest = interviews
         .filter((iv) => !upcoming.includes(iv))
         .sort((a, b) => dayjs(b.scheduledAt).valueOf() - dayjs(a.scheduledAt).valueOf());
+    const past = rest.filter((iv) => !NOT_HELD.has(iv.status));
+    const cancelled = rest.filter((iv) => NOT_HELD.has(iv.status));
 
     const confirm = async (iv: CandidateInterviewResponse) => {
         setConfirmingId(iv.id);
@@ -73,11 +90,11 @@ export default function CandidateInterviewsPage() {
     const ics = (iv: CandidateInterviewResponse) => downloadIcs({
         uid: `interview-${iv.id}`, title: `Phỏng vấn · ${titleOf(iv.applicationId)}`, start: iv.scheduledAt,
         durationMinutes: iv.durationMinutes ?? 60,
-        location: iv.format === "ONLINE" ? iv.meetingLink ?? "Trực tuyến" : "Tại văn phòng",
+        location: iv.format === "ONLINE" ? iv.meetingLink ?? "Trực tuyến" : placeOf(iv),
         description: iv.interviewerNames.length ? `Người phỏng vấn: ${iv.interviewerNames.join(", ")}` : null,
     });
 
-    const empty = !failed && upcoming.length === 0 && past.length === 0;
+    const empty = !failed && upcoming.length === 0 && rest.length === 0;
     // Lỗi tải: chỉ báo lỗi, không vẽ danh sách rỗng (C33).
 
     // C24 · Đã xác nhận lịch phỏng vấn.
@@ -104,7 +121,7 @@ export default function CandidateInterviewsPage() {
                             display: "flex", flexDirection: "column", gap: 10, textAlign: "left", fontSize: 15,
                         }}>
                             {fact(<CalendarOutlined />, `${["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"][d.day()]}, ${d.format("DD/MM/YYYY")} · ${d.format("HH:mm")} – ${endOf(confirmed).format("HH:mm")}`)}
-                            {fact(online ? <VideoCameraOutlined /> : <EnvironmentOutlined />, online ? "Trực tuyến" : "Tại văn phòng")}
+                            {fact(online ? <VideoCameraOutlined /> : <EnvironmentOutlined />, online ? `Trực tuyến${confirmed.meetingLink ? ` · ${confirmed.meetingLink.replace(/^https?:\/\//, "")}` : ""}` : placeOf(confirmed))}
                             {confirmed.interviewerNames.length > 0 && fact(<TeamOutlined />, confirmed.interviewerNames.join(", "))}
                         </div>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
@@ -145,6 +162,17 @@ export default function CandidateInterviewsPage() {
                                         {d.format("HH:mm")} – {endOf(iv).format("HH:mm")}
                                         {" · "}{iv.format === "ONLINE" ? <><VideoCameraOutlined /> Trực tuyến</> : <><EnvironmentOutlined /> Tại văn phòng</>}
                                     </span>
+                                    {iv.format === "ONLINE"
+                                        ? iv.meetingLink && (
+                                            <span style={{ fontSize: 13 }}>
+                                                <a href={iv.meetingLink.startsWith("http") ? iv.meetingLink : `https://${iv.meetingLink}`} target="_blank" rel="noreferrer">
+                                                    {iv.meetingLink.replace(/^https?:\/\//, "")}
+                                                </a>
+                                            </span>
+                                        )
+                                        : iv.workLocationId != null && places[iv.workLocationId] && (
+                                            <span style={{ fontSize: 13, color: COLORS.textSecondary }}>{places[iv.workLocationId]}</span>
+                                        )}
                                     {names.length > 0 && (
                                         <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
                                             <TeamOutlined /> {names[0]}{names.length > 1 ? ` + ${names.length - 1}` : ""}
@@ -162,7 +190,7 @@ export default function CandidateInterviewsPage() {
                                         <Button type="primary" loading={confirmingId === iv.id} onClick={() => confirm(iv)}>Đồng ý</Button>
                                     )}
                                     {iv.status === "CANDIDATE_CONFIRMED" && iv.format === "ONLINE" && iv.meetingLink && (
-                                        <Button type="primary" href={iv.meetingLink} target="_blank" rel="noreferrer">Vào phòng họp</Button>
+                                        <Button type="primary" href={iv.meetingLink.startsWith("http") ? iv.meetingLink : `https://${iv.meetingLink}`} target="_blank" rel="noreferrer">Vào phòng họp</Button>
                                     )}
                                     {iv.status !== "CANDIDATE_DECLINED" && (
                                         <Button icon={<CalendarOutlined />} onClick={() => ics(iv)}>Thêm vào lịch</Button>
@@ -176,6 +204,23 @@ export default function CandidateInterviewsPage() {
                 {past.length > 0 && (
                     <Panel title="Đã diễn ra" bodyGap={0}>
                         {past.map((iv, i) => {
+                            const st = PAST_STATUS[iv.status] ?? { label: "Đã diễn ra", tone: "neutral" as StatusTone };
+                            return (
+                                <div key={iv.id} style={{
+                                    display: "flex", alignItems: "center", gap: 16, padding: "12px 0",
+                                    borderTop: i ? `0.5px solid ${COLORS.border}` : undefined,
+                                }}>
+                                    <span style={{ width: 90, color: COLORS.textSecondary, fontSize: 13 }}>{dayjs(iv.scheduledAt).format("DD/MM/YYYY")}</span>
+                                    <span style={{ flex: 1 }}>Phỏng vấn · {titleOf(iv.applicationId)}</span>
+                                    <StatusTag {...st} />
+                                </div>
+                            );
+                        })}
+                    </Panel>
+                )}
+                {cancelled.length > 0 && (
+                    <Panel title="Đã huỷ" bodyGap={0}>
+                        {cancelled.map((iv, i) => {
                             const st = PAST_STATUS[iv.status] ?? { label: "Đã diễn ra", tone: "neutral" as StatusTone };
                             return (
                                 <div key={iv.id} style={{

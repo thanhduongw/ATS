@@ -26,7 +26,7 @@ public class SkillController {
     @PostMapping
     public ResponseEntity<SkillResponse> create(
             @Valid @RequestBody SkillRequest req) {
-        AuthorizationPolicy.requireInternal(CurrentUser.required());
+        AuthorizationPolicy.requireHr(CurrentUser.required());
         return ResponseEntity.ok(service.create(req));
     }
 

@@ -5,20 +5,25 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record CandidateRegistrationRequest(
-        @NotBlank(message = "Full name is required")
+        @NotBlank(message = "Vui lòng nhập họ và tên")
         String fullName,
 
-        @NotBlank(message = "Email is required")
-        @Email(message = "Email is invalid")
+        @NotBlank(message = "Vui lòng nhập email")
+        @Email(message = "Email không hợp lệ")
         String email,
 
-        @NotBlank(message = "Password is required")
-        @Size(min = 8, max = 72, message = "Password must contain 8 to 72 characters")
+        @NotBlank(message = "Vui lòng nhập mật khẩu")
+        @Size(min = 8, max = 72, message = "Mật khẩu phải có từ 8 đến 72 ký tự")
         String password,
 
-        @NotBlank(message = "Password confirmation is required")
+        @NotBlank(message = "Vui lòng nhập lại mật khẩu")
         @Size(max = 72)
         String confirmPassword,
 
-        String phone
+        String phone,
+
+        /** Đồng ý cho doanh nghiệp xử lý dữ liệu cá nhân (Nghị định 13/2023) — bắt buộc phải là true. */
+        @jakarta.validation.constraints.NotNull(message = "Bạn cần đồng ý với chính sách bảo vệ dữ liệu cá nhân")
+        @jakarta.validation.constraints.AssertTrue(message = "Bạn cần đồng ý với chính sách bảo vệ dữ liệu cá nhân")
+        Boolean consentAccepted
 ) {}

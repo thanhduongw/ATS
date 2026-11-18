@@ -1,3 +1,4 @@
+import { matchesKeyword, filterOptionByLabel } from "../../../app/text";
 import { useEffect, useMemo, useState } from "react";
 import { App, Button, Input, Select} from "antd";
 import { SearchOutlined } from "@ant-design/icons";
@@ -71,7 +72,7 @@ export default function OffersPage() {
     const jobOffers = job ? offers.filter((o) => o.jobTitle === job) : [];
     const filtered = useMemo(() => {
         const k = keyword.trim().toLowerCase();
-        return offers.filter((o) => (!k || o.candidateName.toLowerCase().includes(k)) && (!job || o.jobTitle === job));
+        return offers.filter((o) => matchesKeyword(k, o.candidateName, o.jobTitle) && (!job || o.jobTitle === job));
     }, [offers, keyword, job]);
     const count = (t: Exclude<Tab, "ALL">) => filtered.filter((o) => TAB_STATUSES[t].includes(o.status)).length;
     const rows = tab === "ALL" ? filtered : filtered.filter((o) => TAB_STATUSES[tab].includes(o.status));
@@ -137,6 +138,7 @@ export default function OffersPage() {
                     <Select
                         allowClear
                         showSearch
+                        filterOption={filterOptionByLabel}
                         placeholder="Tìm việc làm"
                         value={job}
                         onChange={setJob}

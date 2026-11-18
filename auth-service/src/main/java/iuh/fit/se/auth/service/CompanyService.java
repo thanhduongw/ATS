@@ -14,13 +14,38 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompanyService {
 
     private final CompanyRepository companyRepository;
+    private final iuh.fit.se.auth.event.AuditEventPublisher auditEventPublisher;
 
     public CompanyResponse getCompanyInfo() {
         return toResponse(requireCompany());
     }
 
+    public iuh.fit.se.auth.dto.response.PublicThemeResponse getPublicTheme() {
+        Company company = requireCompany();
+        return new iuh.fit.se.auth.dto.response.PublicThemeResponse(
+                company.getName(), company.getLogoUrl(), company.getBrandColor());
+    }
+
     public CompanyResponse getPublicCompany() {
         return getCompanyInfo();
+    }
+
+    /** Cập nhật kèm ghi nhật ký (3.11): ai sửa thông tin doanh nghiệp, có đổi chính sách / màu thương hiệu không. */
+    @Transactional
+    public CompanyResponse updateCompanyInfo(UpdateCompanyRequest req, Long actorUserId) {
+        Company before = requireCompany();
+        java.util.List<String> changed = new java.util.ArrayList<>();
+        if (!java.util.Objects.equals(before.getName(), req.name())) changed.add("tên");
+        if (!java.util.Objects.equals(before.getBrandColor(), req.brandColor())) changed.add("màu thương hiệu");
+        if (!java.util.Objects.equals(before.getLogoUrl(), req.logoUrl())) changed.add("logo");
+        if (!java.util.Objects.equals(before.getPrivacyPolicy(), req.privacyPolicy())) changed.add("chính sách bảo vệ dữ liệu");
+        if (!java.util.Objects.equals(before.getDataRetentionMonths(), req.dataRetentionMonths())) changed.add("thời hạn lưu dữ liệu");
+        if (!java.util.Objects.equals(before.getDataProtectionOfficerId(), req.dataProtectionOfficerId())) changed.add("người phụ trách dữ liệu");
+        Long companyId = before.getId();
+        CompanyResponse response = updateCompanyInfo(req);
+        auditEventPublisher.publishSingleCompany(actorUserId, "COMPANY_UPDATED", "COMPANY", companyId,
+                changed.isEmpty() ? "Cập nhật thông tin doanh nghiệp" : "Đổi: " + String.join(", ", changed));
+        return response;
     }
 
     @Transactional
@@ -39,7 +64,7 @@ public class CompanyService {
         company.setWebsite(req.website());
         company.setSizeRange(req.sizeRange());
         company.setRecruitingEmail(req.recruitingEmail());
-        company.setBrandColor(req.brandColor());
+        company.setBrandColor(BrandColor.validate(req.brandColor()));
         company.setDataProtectionOfficerId(req.dataProtectionOfficerId());
         // A08 "Cập nhật 01/07/2026": chỉ đổi mốc khi nội dung chính sách thật sự đổi.
         if (!java.util.Objects.equals(company.getPrivacyPolicy(), req.privacyPolicy())) {
@@ -53,7 +78,7 @@ public class CompanyService {
 
     private Company requireCompany() {
         return companyRepository.findFirstByOrderByIdAsc()
-                .orElseThrow(() -> new BusinessException("Company profile was not found"));
+                .orElseThrow(() -> new BusinessException("Không tìm thấy thông tin doanh nghiệp"));
     }
 
     private CompanyResponse toResponse(Company company) {

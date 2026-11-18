@@ -25,7 +25,9 @@ export const requisitionSchema = z.object({
     requirements: z.string().min(1, "Vui lòng nhập yêu cầu ứng viên"),
     benefits: z.string().optional().nullable(),
     skillIds: z.array(z.number()).optional(),
-    approverId: z.number({ error: "Vui lòng chọn người duyệt" }),
+}).refine((v) => v.expectedSalaryMin == null || v.expectedSalaryMax == null || v.expectedSalaryMin <= v.expectedSalaryMax, {
+    path: ["expectedSalaryMax"],
+    message: "Lương tối đa phải lớn hơn hoặc bằng lương tối thiểu",
 });
 
 export type RequisitionFormValues = z.infer<typeof requisitionSchema>;

@@ -37,6 +37,7 @@ class PasswordServiceTest {
     @Mock private RefreshTokenRepository refreshTokenRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private MailService mailService;
+    @Mock private iuh.fit.se.auth.event.AuditEventPublisher auditEventPublisher;
 
     @InjectMocks private PasswordService passwordService;
 

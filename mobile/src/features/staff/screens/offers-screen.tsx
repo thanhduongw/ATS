@@ -119,7 +119,7 @@ export function StaffOffersScreen() {
             {open.status === "DECLINED" && open.declineReasonName ? (
               <KeyValueRow label={L.declineReason} value={open.declineReasonName} last />
             ) : null}
-            <InfoNote>{L.desktop}</InfoNote>
+            <InfoNote>{open.status === "DRAFT" ? L.desktopDraft : L.desktop}</InfoNote>
           </>
         ) : null}
       </BottomSheet>

@@ -6,4 +6,6 @@ public record ApplicationCreatedEvent(
         Long candidateId,
         Long assignedRecruiterId,
         String candidateName
+,
+        String jobTitle
 ) {}

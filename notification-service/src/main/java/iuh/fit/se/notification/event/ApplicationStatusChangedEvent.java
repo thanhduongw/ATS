@@ -8,5 +8,8 @@ public record ApplicationStatusChangedEvent(
         Long assignedRecruiterId,
         String fromStageName,
         String toStageName,
-        String toStageType
+        String toStageType,
+        /* WITHDRAWN | HIRED_ELSEWHERE | DATA_DELETED khi đơn đóng không phải do công ty từ chối. */
+        String closedReason,
+        String jobTitle
 ) {}

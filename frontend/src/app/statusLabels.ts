@@ -59,7 +59,7 @@ export const INTERVIEW_STATUS: Record<string, InterviewStatusMeta> = {
     },
     HM_CONFIRMED: {
         label: "Chờ ứng viên xác nhận", color: "processing",
-        accent: "#0A59F7", bg: "#0A59F719", border: "#0A59F733",
+        accent: "var(--ats-brand)", bg: "var(--ats-brand-soft)", border: "color-mix(in srgb, var(--ats-brand) 20%, transparent)",
     },
     CANDIDATE_CONFIRMED: {
         label: "Ứng viên đã xác nhận", color: "success",
@@ -81,6 +81,10 @@ export const INTERVIEW_STATUS: Record<string, InterviewStatusMeta> = {
         label: "Đã hủy", color: "error",
         accent: "#FA2A2D", bg: "#FA2A2D17", border: "#FA2A2D33",
     },
+    EXPIRED: {
+        label: "Hết hạn", color: "default",
+        accent: "#18243199", bg: "#1824310C", border: "#1824311A",
+    },
 };
 
 /**
@@ -99,6 +103,8 @@ const INTERVIEW_STATUS_FOR_CANDIDATE: Record<string, string> = {
     COMPLETED: "Đã hoàn thành",
     NO_SHOW: "Vắng mặt",
     CANCELLED: "Đã hủy",
+    CANDIDATE_DECLINED: "Bạn đã xin dời",
+    EXPIRED: "Hết hạn",
 };
 
 /** Thứ tự hiển thị trong chú giải và bộ lọc — theo đúng dòng chảy nghiệp vụ. */
@@ -147,6 +153,31 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
     USER_INVITATION_RESENT: "Gửi lại lời mời",
     USER_INVITATION_ACCEPTED: "Kích hoạt tài khoản từ lời mời",
     USER_STATUS_UPDATED: "Đổi trạng thái tài khoản",
+    USER_ROLE_UPDATED: "Đổi vai trò / phòng ban",
+    COMPANY_UPDATED: "Sửa thông tin doanh nghiệp",
+    CAREERS_PAGE_PUBLISHED: "Xuất bản trang tuyển dụng",
+    CATALOG_CREATED: "Thêm mục danh mục",
+    CATALOG_UPDATED: "Sửa danh mục",
+    CATALOG_DELETED: "Xoá mục danh mục",
+    CATALOG_DEACTIVATED: "Ẩn mục danh mục",
+    CATALOG_ACTIVATED: "Hiện lại mục danh mục",
+    APPLICATION_WITHDRAWN: "Ứng viên rút đơn",
+    APPLICATION_CLOSED: "Ngừng xử lý hồ sơ",
+    APPLICATION_DELETED: "Xoá hồ sơ ứng tuyển",
+    APPLICATION_RECRUITER_ASSIGNED: "Đổi người phụ trách hồ sơ",
+    CANDIDATE_DATA_DELETED: "Ứng viên xoá dữ liệu cá nhân",
+    CANDIDATE_DATA_RETENTION_EXPIRED: "Xoá dữ liệu hết hạn lưu",
+    CANDIDATE_DELETED: "Xoá ứng viên",
+    REQUISITION_CREATED: "Tạo yêu cầu tuyển dụng",
+    REQUISITION_UPDATED: "Sửa yêu cầu tuyển dụng",
+    POSTING_UPDATED: "Sửa nội dung tin",
+    INTERVIEW_RESCHEDULED: "Đổi lịch phỏng vấn",
+    INTERVIEW_INTERVIEWERS_UPDATED: "Đổi người phỏng vấn",
+    INTERVIEW_PROPOSAL_APPROVED: "Duyệt giờ phòng ban đề xuất",
+    INTERVIEW_NO_SHOW: "Ghi nhận ứng viên vắng mặt",
+    OFFER_SENT: "Gửi thư mời cho ứng viên",
+    OFFER_EXPIRED: "Thư mời hết hạn",
+    OFFER_DELETED: "Xoá thư mời",
     APPLICATION_STAGE_CHANGED: "Đổi giai đoạn hồ sơ",
     APPLICATION_REJECTED: "Từ chối hồ sơ",
     APPLICATION_CREATED: "Tạo hồ sơ ứng tuyển",
@@ -160,9 +191,9 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
     JOB_POSTING_DELETED: "Xoá tin tuyển dụng",
     POSTING_STATUS_CHANGED: "Đổi trạng thái tin",
     INTERVIEW_SCHEDULED: "Lên lịch phỏng vấn",
-    INTERVIEW_CONFIRMED: "Xác nhận lịch PV",
-    INTERVIEW_CANCELLED: "Hủy lịch PV",
-    EVALUATION_SUBMITTED: "Nộp đánh giá PV",
+    INTERVIEW_CONFIRMED: "Xác nhận lịch phỏng vấn",
+    INTERVIEW_CANCELLED: "Huỷ lịch phỏng vấn",
+    EVALUATION_SUBMITTED: "Nộp đánh giá phỏng vấn",
     OFFER_CREATED: "Tạo đề nghị nhận việc",
     OFFER_SUBMITTED: "Gửi duyệt đề nghị",
     OFFER_APPROVED: "Duyệt đề nghị",
@@ -195,6 +226,9 @@ export const RESOURCE_TYPE_LABEL: Record<string, string> = {
     OFFER: "Đề nghị nhận việc",
     CANDIDATE: "Ứng viên",
     USER: "Người dùng",
+    COMPANY: "Doanh nghiệp",
+    CAREERS_PAGE: "Trang tuyển dụng",
+    CATALOG: "Danh mục",
 };
 
 /**

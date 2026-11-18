@@ -233,7 +233,13 @@ def test_to_response_shapes():
     assert body["status"] == "success" and body["extraction_id"] == 5
     failed = CVExtraction(id=6, status=store.FAILED, prompt_version="v1.1", error_code="X", error_message="lỗi")
     body = store.to_response(failed)
-    assert body["status"] == "error" and body["error_message"] == "lỗi" and body["result"] is None
+    assert body["status"] == "error" and body["result"] is None
+    assert body["error_message"].startswith("Không trích xuất được CV")
+    # Lỗi gốc của Gemini không lộ ra giao diện.
+    overloaded = CVExtraction(id=7, status=store.FAILED, prompt_version="v1.1", error_code="FAILED_EXTRACTION",
+                              error_message="Gemini call failed: 503 UNAVAILABLE. {'error': {'code': 503}}")
+    body = store.to_response(overloaded)
+    assert "quá tải" in body["error_message"] and "503" not in body["error_message"]
 
 
 # ============================================================

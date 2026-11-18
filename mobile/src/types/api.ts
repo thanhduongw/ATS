@@ -92,6 +92,8 @@ export type AiScoreDetail = {
   scoredAt: string | null;
   result: {
     tier_label: string;
+    /** CV có đoạn văn nhằm điều khiển AI (prompt injection). */
+    injection_detected?: boolean;
     comment: string;
     summary: string;
     dimensions: { dimension: string; label: string; applicable: boolean; level: number | null; reason: string }[];

@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
 
     public static final String ATS_EXCHANGE = "ats.events";
+    /** Nhật ký hệ thống — notification-service gom về bảng audit_log. */
+    public static final String AUDIT_LOG_ROUTING_KEY = "audit.log";
     @Bean
     public TopicExchange atsExchange() {
         return new TopicExchange(ATS_EXCHANGE);

@@ -1,3 +1,4 @@
+import { matchesKeyword as keywordMatches } from "../../../app/text";
 import { useEffect, useMemo, useState } from "react";
 import { Button, Checkbox, Input, Select, Spin } from "antd";
 import { CloseOutlined, SearchOutlined } from "@ant-design/icons";
@@ -37,7 +38,7 @@ export default function CompanyJobsPage() {
     // ?loc= từ ô "Mọi nơi" ở trang chủ (C01) → lọc sẵn địa điểm.
     const [selected, setSelected] = useState<Record<GroupKey, string[]>>(() => ({ ...EMPTY, loc: params.get("loc") ? [params.get("loc")!] : [] }));
     const [sort, setSort] = useState<Sort>("NEWEST");
-    const keyword = (params.get("q") ?? "").trim().toLowerCase();
+    const keyword = (params.get("q") ?? "").trim();
 
     useEffect(() => {
         Promise.all([getPublicCompany().catch(() => null), getPublicJobs()])
@@ -46,8 +47,8 @@ export default function CompanyJobsPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    const matchesKeyword = (j: PublicJobPosting) => !keyword
-        || [j.title, j.departmentName, j.description, j.requirements].filter(Boolean).join(" ").toLowerCase().includes(keyword);
+    const matchesKeyword = (j: PublicJobPosting) =>
+        keywordMatches(keyword, j.title, j.departmentName, j.description, j.requirements, j.workLocationName);
     const matchesGroups = (j: PublicJobPosting, except?: GroupKey) => GROUPS.every((g) =>
         g.key === except || selected[g.key].length === 0 || selected[g.key].includes(g.value(j) ?? ""));
 

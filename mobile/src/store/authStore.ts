@@ -3,8 +3,12 @@ import { jwtDecode } from "jwt-decode";
 import { tokenStorage } from "@/lib/storage";
 import type { AccessTokenClaims, Role } from "@/types/api";
 
+/**
+ * Role được dùng app. COMPANY_ADMIN KHÔNG có ở đây (quyền chốt 16/11/2026): quản trị doanh nghiệp không làm
+ * nghiệp vụ tuyển dụng và mọi màn quản trị chỉ có trên web → token của admin bị coi như không dùng được,
+ * màn đăng nhập báo "dùng bản web" (xem `isAdminToken`).
+ */
 const SUPPORTED_ROLES: ReadonlySet<string> = new Set<Role>([
-  "COMPANY_ADMIN",
   "RECRUITER",
   "HIRING_MANAGER",
   "CANDIDATE",
@@ -36,6 +40,15 @@ export const decodeToken = (token: string): AccessTokenClaims | null => {
     return claims;
   } catch {
     return null;
+  }
+};
+
+/** Token hợp lệ nhưng thuộc tài khoản quản trị doanh nghiệp — app không phục vụ role này. */
+export const isAdminToken = (token: string): boolean => {
+  try {
+    return jwtDecode<AccessTokenClaims>(token).role === "COMPANY_ADMIN";
+  } catch {
+    return false;
   }
 };
 

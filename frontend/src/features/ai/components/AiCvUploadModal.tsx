@@ -17,6 +17,7 @@ import { COLORS } from "../../../app/theme";
 import { ModalTitle } from "../../../components/ui/pageKit";
 import type { CandidateFormValues } from "../../candidate/schemas/candidateSchema";
 import type { CatalogItem } from "../../masterdata/types";
+import { matchCatalogSkills } from "../skillMatching";
 
 const ACCEPTED_TYPES = ".pdf,.doc,.docx,.png,.jpg,.jpeg";
 const ACCEPTED_MIME = new Set([
@@ -57,21 +58,11 @@ function mapToCandidateFormValues(
 ): Partial<CandidateFormValues> {
   const cv = result.extracted_cv;
 
-  // 1. Skill IDs mapping:
-  const matchedSkillIds: number[] = [];
-  if (cv.skills && cv.skills.length > 0 && availableSkills.length > 0) {
-    const cvSkillsLower = cv.skills.map((s) => s.trim().toLowerCase());
-    for (const item of availableSkills) {
-      const itemNameLower = String(item.name).trim().toLowerCase();
-      if (
-        cvSkillsLower.some(
-          (cs) => cs === itemNameLower || cs.includes(itemNameLower) || itemNameLower.includes(cs)
-        )
-      ) {
-        matchedSkillIds.push(item.id);
-      }
-    }
-  }
+  // 1. Skill IDs mapping (theo cả từ — "Java" không kéo theo "JavaScript"):
+  const matchedSkillIds = matchCatalogSkills(
+    cv.skills ?? [],
+    availableSkills.map((item) => ({ id: item.id, name: String(item.name) })),
+  );
 
   // 2. Education level ID mapping:
   let matchedEduId: number | null = null;
@@ -429,7 +420,7 @@ export default function AiCvUploadModal({
           <Alert
             type="error"
             showIcon
-            message="Không thể phân tích CV"
+            title="Không thể phân tích CV"
             description={errorMessage}
             style={{ borderRadius: 10 }}
           />

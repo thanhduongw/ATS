@@ -62,10 +62,18 @@ export function StaffInterviewScreen() {
   const start = new Date(d.scheduledAt ?? 0).getTime();
   const end = start + (d.durationMinutes ?? 60) * 60_000;
   const live = end > now && d.format === "ONLINE" && !!d.meetingLink && now > start - 15 * 60_000;
-  const closed = d.status === "CANCELLED" || d.status === "COMPLETED" || d.status === "NO_SHOW";
-  const canConfirm = !isHr && !!mine && d.status === "SCHEDULED" && !d.hmConfirmed;
+  const closed =
+    d.status === "CANCELLED" || d.status === "COMPLETED" || d.status === "NO_SHOW" || d.status === "EXPIRED";
+  // Mọi người phỏng vấn (kể cả chuyên viên tuyển dụng) đều xác nhận được giờ khi buổi còn ở tương lai.
+  const canConfirm = !!mine && d.status === "SCHEDULED" && !d.hmConfirmed && start > now;
   const canEvaluate = !!mine && !mine.evaluationSubmitted && EVALUABLE.has(d.status ?? "") && start <= now;
   const canCancel = isHr && !closed && start > now;
+  const cancelAudience =
+    d.status === "HM_CONFIRMED" || d.status === "CANDIDATE_CONFIRMED"
+      ? "both"
+      : d.status === "CANDIDATE_DECLINED"
+        ? "declined"
+        : "staff";
   const place = d.format === "ONLINE" ? S.online : (d.workLocationId != null && locations.get(d.workLocationId)) || S.onsite;
   const jobTitle = posting.data?.title ?? "";
 
@@ -169,7 +177,7 @@ export function StaffInterviewScreen() {
         visible={confirmCancel}
         onDismiss={() => setConfirmCancel(false)}
         title={L.cancelTitle}
-        subtitle={L.cancelBody(d.candidateName ?? "")}
+        subtitle={L.cancelBody(d.candidateName ?? "", cancelAudience)}
         footer={
           <View style={styles.sheetActions}>
             <PillButton label={L.keep} variant="tonal" onPress={() => setConfirmCancel(false)} style={styles.flex} />

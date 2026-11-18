@@ -10,6 +10,8 @@ interface Props {
     score: number | null;
     tier: AiTier | null;
     status: AiScoreStatus | null;
+    /** CV có nội dung nhằm điều khiển AI — hiện cảnh báo thay cho điểm. */
+    injection?: boolean;
 }
 
 /** Điểm AI gọn cho bảng danh sách. Đang chấm lại thì vẫn hiện điểm cũ kèm biểu tượng chờ. */
@@ -18,7 +20,16 @@ interface Props {
 //    "Chưa phân loại". Đang chấm lại thì thêm biểu tượng xoay.
 // 2. Chưa có điểm, đang chờ/đang chấm -> "Chờ chấm" / "Đang chấm".
 // 3. FAILED -> "Chấm lỗi".   4. Chưa chấm lần nào -> "—".
-export default function AiScoreBadge({ score, tier, status }: Props) {
+export default function AiScoreBadge({ score, tier, status, injection }: Props) {
+    if (injection) {
+        return (
+            <Tooltip title="CV có nội dung bất thường nhằm điều khiển AI — cần xem trực tiếp hồ sơ">
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <StatusTag tone="danger" label="CV bất thường" />
+                </span>
+            </Tooltip>
+        );
+    }
     const meta = aiTierMeta(tier);
     const scoring = isAiScoring(status);
     if (meta) {

@@ -16,6 +16,8 @@ spring:
     enabled: true
     baseline-on-migrate: true
     baseline-version: 0
+    # V3_1 được thêm sau V4–V6 (để DB mới khởi động được); DB đang có phải chạy nó dù đã ở phiên bản cao hơn.
+    out-of-order: true
   rabbitmq:
     host: localhost
     port: 5672

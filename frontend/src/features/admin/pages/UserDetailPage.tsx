@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { App, Button, Spin } from "antd";
+import { App, Button, Select, Spin } from "antd";
 import type { AxiosError } from "axios";
 import dayjs from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
-import { forgotPassword, getUsers, resendInvitation, updateUserStatus } from "../../auth/authApi";
-import type { ApiMessageResponse, UserSummaryResponse } from "../../auth/types";
+import { forgotPassword, getUsers, resendInvitation, updateUserRole, updateUserStatus } from "../../auth/authApi";
+import type { ApiMessageResponse, UserRole, UserSummaryResponse } from "../../auth/types";
+import { useAppSelector } from "../../../app/hooks";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import { getApplications } from "../../candidate/applicationApi";
@@ -24,12 +25,14 @@ import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import type { ReactNode } from "react";
 import { CalendarOutlined, EditOutlined, MailOutlined, SolutionOutlined, TeamOutlined } from "@ant-design/icons";
 import { ROLE_NAME, USER_STATUS_VIEW } from "../adminLabels";
+import { filterOptionByLabel } from "../../../app/text";
 
 /**
  * A05 · Chi tiết người dùng: vai trò & phòng ban · việc đang phụ trách (chỉ số đếm) · lịch sử tài khoản (nhật ký hệ thống).
  * Khoá tài khoản kèm chuyển giao việc (A06) làm ở Đợt 3 theo quyết định C3 = bản rút gọn; lúc này khoá trực tiếp,
  * hộp xác nhận nhắc số việc còn dở.
- * Khác HTML: chưa đổi được vai trò / phòng ban (backend chưa có API), chưa có chức danh, số điện thoại, ngày tham gia.
+ * Đổi vai trò / phòng ban (3.14): hộp thoại nhỏ, nhắc số việc đang phụ trách; người bị đổi phải đăng nhập lại.
+ * Khác HTML: chưa có chức danh, số điện thoại, ngày tham gia.
  */
 interface Duty { label: string; count: number; icon: ReactNode }
 
@@ -84,6 +87,10 @@ export default function UserDetailPage() {
     const [confirmLock, setConfirmLock] = useState(false);
     const [duties, setDuties] = useState<Duty[] | null>(null);
     const [history, setHistory] = useState<AuditLogResponse[] | null>(null);
+    const myId = Number(useAppSelector((s) => s.auth.user?.userId));
+    const [roleDialog, setRoleDialog] = useState(false);
+    const [newRole, setNewRole] = useState<UserRole>("RECRUITER");
+    const [newDept, setNewDept] = useState<number | null>(null);
 
     const load = useCallback(async () => {
         try {
@@ -114,6 +121,7 @@ export default function UserDetailPage() {
             await fn();
             message.success(ok);
             setConfirmLock(false);
+            setRoleDialog(false);
             await load();
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
@@ -165,7 +173,8 @@ export default function UserDetailPage() {
                                 Gửi lại lời mời
                             </Button>
                         )}
-                        {user.status === "LOCKED" ? (
+                        {/* Không tự khoá / mở khoá chính mình (backend cũng chặn). */}
+                        {user.id === myId ? null : user.status === "LOCKED" ? (
                             <Button loading={busy} onClick={() => run(() => updateUserStatus(user.id, { status: "ACTIVE" }), "Đã mở khoá tài khoản")}>
                                 Mở khoá tài khoản
                             </Button>
@@ -178,7 +187,11 @@ export default function UserDetailPage() {
 
             {/* A05 theo docs/UI: vai trò bên trái, việc đang phụ trách bên phải; lịch sử chiếm cả chiều ngang. */}
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "stretch" }}>
-                <Panel title="Vai trò & phòng ban">
+                <Panel title="Vai trò & phòng ban" extra={user.role !== "CANDIDATE" && user.id !== myId && (
+                    <Button size="small" onClick={() => { setNewRole(user.role); setNewDept(user.departmentId); setRoleDialog(true); }}>
+                        Đổi vai trò / phòng ban
+                    </Button>
+                )}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16 }}>
                         <Field label="Vai trò" value={ROLE_NAME[user.role]} />
                         <Field label="Phòng ban" value={dept} />
@@ -211,6 +224,42 @@ export default function UserDetailPage() {
                         </div>
                     ))}
             </Panel>
+
+            <SmallDialog
+                open={roleDialog}
+                title={`Đổi vai trò / phòng ban · ${user.fullName}`}
+                okText="Lưu thay đổi"
+                okLoading={busy}
+                okDisabled={(newRole !== "COMPANY_ADMIN" && newDept == null) || (newRole === user.role && newDept === user.departmentId)}
+                onCancel={() => setRoleDialog(false)}
+                onOk={() => run(
+                    () => updateUserRole(user.id, { role: newRole, departmentId: newRole === "COMPANY_ADMIN" ? null : newDept }),
+                    "Đã cập nhật vai trò và phòng ban")}
+                width={460}
+            >
+                <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: COLORS.textSecondary }}>
+                    Vai trò
+                    <Select value={newRole} onChange={(v) => setNewRole(v)}
+                        options={(["COMPANY_ADMIN", "RECRUITER", "HIRING_MANAGER"] as UserRole[]).map((r) => ({ value: r, label: ROLE_NAME[r] }))} />
+                </label>
+                {newRole !== "COMPANY_ADMIN" && (
+                    <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: COLORS.textSecondary }}>
+                        Phòng ban
+                        <Select value={newDept ?? undefined} onChange={(v) => setNewDept(v)} placeholder="Chọn phòng ban"
+                            showSearch optionFilterProp="label" filterOption={filterOptionByLabel}
+                            options={departments.filter((d) => d.active !== false || d.id === user.departmentId)
+                                .map((d) => ({ value: d.id, label: String(d.name) }))} />
+                    </label>
+                )}
+                <span style={{ fontSize: 13, color: COLORS.textSecondary }}>
+                    {user.fullName} sẽ phải đăng nhập lại để dùng quyền mới.
+                </span>
+                {openDuties > 0 && (
+                    <InlineNotice tone="warning">
+                        Người này còn {openDuties} việc đang phụ trách. Các việc đó vẫn đứng tên họ — hãy chuyển giao nếu vai trò mới không còn xử lý được.
+                    </InlineNotice>
+                )}
+            </SmallDialog>
 
             <SmallDialog
                 open={confirmLock}

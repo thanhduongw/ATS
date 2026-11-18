@@ -44,6 +44,7 @@ class UserServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private AuditEventPublisher auditEventPublisher;
     @Mock private DepartmentDirectoryClient departmentDirectoryClient;
+    @Mock private iuh.fit.se.auth.repository.RefreshTokenRepository refreshTokenRepository;
 
     @InjectMocks
     private UserService userService;

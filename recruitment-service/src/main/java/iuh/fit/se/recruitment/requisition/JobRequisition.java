@@ -92,7 +92,8 @@ public class JobRequisition {
     @Column(name = "requester_id", nullable = false)
     private Long requesterId;
 
-    @Column(name = "approver_id", nullable = false)
+    /** Người xử lý gần nhất (duyệt / yêu cầu sửa / từ chối); trống khi chưa ai xử lý. */
+    @Column(name = "approver_id")
     private Long approverId;
 
     @Enumerated(EnumType.STRING)

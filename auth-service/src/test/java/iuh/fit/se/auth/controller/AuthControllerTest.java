@@ -60,6 +60,7 @@ class AuthControllerTest {
                                   "password": "strong-password",
                                   "confirmPassword": "strong-password",
                                   "phone": "0900000000",
+                                  "consentAccepted": true,
                                   "role": "COMPANY_ADMIN",
                                   "departmentId": 10
                                 }
@@ -68,7 +69,7 @@ class AuthControllerTest {
 
         verify(registerService).registerCandidate(argThat(request ->
                 request.email().equals("candidate@example.com")
-                        && request.getClass().getRecordComponents().length == 5));
+                        && request.getClass().getRecordComponents().length == 6));
     }
 
     @Test
@@ -80,7 +81,7 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value(
-                        "If the email exists, a password reset OTP has been sent"));
+                        "Nếu email tồn tại, mã đặt lại mật khẩu đã được gửi"));
 
         verify(passwordService).forgotPassword(argThat(request ->
                 request.email().equals("unknown@example.com")));

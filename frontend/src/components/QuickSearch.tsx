@@ -1,3 +1,4 @@
+import { foldText } from "../app/text";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Input, Modal, type InputRef } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
@@ -17,7 +18,7 @@ import { Avatar } from "./ui/designKit";
  * Nợ kỹ thuật: chưa có API tìm kiếm chung — nên gom về một endpoint khi dữ liệu lớn.
  * ↑ ↓ chọn, Enter mở, Esc đóng.
  */
-const norm = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().trim();
+const norm = foldText;
 
 type Hit = { key: string; to: string; kind: "app" | "job"; app?: ApplicationResponse; job?: JobPostingResponse };
 

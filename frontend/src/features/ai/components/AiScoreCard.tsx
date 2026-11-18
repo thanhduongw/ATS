@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, App, Button, Collapse, Progress, Skeleton, Tag } from "antd";
 import { LoadingOutlined, ReloadOutlined, RobotOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
@@ -180,6 +180,7 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [rescoring, setRescoring] = useState(false);
+    const rescoreBusy = useRef(false);
 
     // Gọi GET /api/v1/ai/scores/{id}. 404 KHÔNG phải lỗi: nghĩa là hồ sơ chưa được chấm -> hiện nút "Chấm ngay".
     const load = useCallback(async () => {
@@ -215,6 +216,9 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
 
     // Nút Chấm lại: gọi POST .../rescore và chờ kết quả (10-40 giây). 409 = đang có người chấm -> chờ polling.
     const handleRescore = async () => {
+        // Chặn bấm đúp: state `rescoring` chỉ có hiệu lực ở lần render sau, ref thì chặn ngay.
+        if (rescoreBusy.current) return;
+        rescoreBusy.current = true;
         setRescoring(true);
         try {
             const res = await rescoreApplication(applicationId);
@@ -229,6 +233,7 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
                 message.error(errorText(err));
             }
         } finally {
+            rescoreBusy.current = false;
             setRescoring(false);
         }
     };
@@ -335,6 +340,13 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
                 {rescoreButton("Chấm lại")}
             </div>
 
+            {result.injection_detected && (
+                <Alert
+                    type="error" showIcon
+                    title="CV có nội dung bất thường nhằm điều khiển AI"
+                    description="Hệ thống phát hiện đoạn văn trong CV cố tình ra lệnh cho AI (prompt injection). Điểm bên dưới chỉ để tham khảo — hãy xem trực tiếp hồ sơ."
+                />
+            )}
             {result.tier_reason ? (
                 <>
                     <Alert type={alertType} showIcon title="Lý do xếp loại" description={result.tier_reason} />

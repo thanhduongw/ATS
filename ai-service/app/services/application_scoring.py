@@ -31,6 +31,7 @@ from app.core.config import get_settings
 from app.core.database import async_session_factory
 from app.core.java_services import JavaServiceError, get_application_summary, get_posting, get_skill_names
 from app.core.llm_client import LLMError, LLMManager, get_llm_manager
+from app.core.public_errors import AI_BUSY, extraction_error_message, is_ai_overload
 from app.models import AIJob, AIScore
 from app.services.cv_extraction_store import COMPLETED as EXTRACTION_COMPLETED
 from app.services.cv_extraction_store import CVUnavailableError, get_or_extract
@@ -39,7 +40,8 @@ from app.services.experience import today_in
 from app.schemas.jd_extraction import ExtractedJD
 from app.services.jd_extraction_store import COMPLETED as JD_EXTRACTION_COMPLETED
 from app.services.jd_extraction_store import get_or_extract_jd
-from app.services.scoring.aggregate import Thresholds
+from app.schemas.scoring import TIER_LABELS, Tier
+from app.services.scoring.aggregate import Thresholds, headline
 from app.services.scoring.engine import score_candidate
 from app.services.scoring.prompt import JobInfo
 
@@ -65,7 +67,14 @@ class ScoringInProgressError(Exception):
 
 # [GIẢI THÍCH] Lỗi nghiệp vụ có câu thông báo cho HR, vd "Hồ sơ không có CV đính kèm".
 class ScoringFailure(Exception):
-    """Lỗi có thông điệp dành cho HR (ghi vào ai_scores.error_message)."""
+    """Lỗi có thông điệp dành cho HR (ghi vào ai_scores.error_message).
+
+    `detail` = lỗi gốc (thường là tiếng Anh của Gemini), chỉ ghi log và ai_jobs.error_message.
+    """
+
+    def __init__(self, message: str, detail: str | None = None):
+        super().__init__(message)
+        self.detail = detail
 
 
 # [GIẢI THÍCH] Đọc ngưỡng xếp loại T và δ (khởi đầu 62,5 và 5) từ cấu hình (.env / config.py) mỗi lần chấm.
@@ -128,16 +137,19 @@ async def mark_pending(session_factory: async_sessionmaker[AsyncSession], applic
 
 # [GIẢI THÍCH] Đổi từng loại lỗi kỹ thuật thành một câu tiếng Việt để HR đọc trên thẻ AI.
 # isinstance(exc, X) = "lỗi này có thuộc loại X không" (giống instanceof của Java).
-def _failure_message(exc: Exception) -> str:
+# Trả (câu cho HR, chi tiết kỹ thuật): câu cho HR không chép lỗi gốc của Gemini / service khác (tiếng Anh, mã HTTP,
+# JSON); chi tiết kỹ thuật chỉ ghi log và ai_jobs.error_message.
+def _failure_message(exc: Exception) -> tuple[str, str]:
     if isinstance(exc, ScoringFailure):
-        return str(exc)
+        return str(exc), (f"{exc} | {exc.detail}" if exc.detail else str(exc))
     if isinstance(exc, JavaServiceError):
-        return f"Không đọc được thông tin hồ sơ / tin tuyển dụng: {exc}"
+        return ("Không đọc được thông tin hồ sơ hoặc tin tuyển dụng, vui lòng chấm lại sau ít phút.",
+                f"JavaServiceError: {exc}")
     if isinstance(exc, CVUnavailableError):
-        return f"Không tải được file CV: {exc}"
+        return "Không tải được file CV của hồ sơ, vui lòng kiểm tra CV rồi chấm lại.", f"CVUnavailableError: {exc}"
     if isinstance(exc, LLMError):
-        return f"Lỗi gọi AI (có thể do quá tải hoặc hết hạn mức): {exc}"
-    return f"Lỗi không xác định khi chấm điểm: {type(exc).__name__}: {exc}"
+        return f"Lỗi gọi AI: {AI_BUSY}.", f"LLMError: {exc}"
+    return "Lỗi không xác định khi chấm điểm, vui lòng chấm lại.", f"{type(exc).__name__}: {exc}"
 
 
 # [GIẢI THÍCH] Tên kỹ năng HR chọn cho tin (đưa vào JD để AI trích xuất thành yêu cầu bắt buộc).
@@ -164,10 +176,30 @@ async def _publish_status(score) -> None:
             "status": score.status,
             "totalScore": float(score.total_score) if score.total_score is not None else None,
             "tier": score.tier,
+            "injectionDetected": bool((getattr(score, "result", None) or {}).get("injection_detected")),
             "updatedAt": score.updated_at.isoformat() if score.updated_at else None,
         }).encode())
     except Exception as exc:  # noqa: BLE001 — thông báo phụ trợ, không làm hỏng việc chấm
         logger.warning("Không phát được ai.scoring.completed cho hồ sơ %s: %s", score.application_id, exc)
+
+
+# [GIẢI THÍCH] Ứng viên xoá dữ liệu cá nhân: gỡ bản trích xuất CV khỏi các dòng điểm, xoá phần chi tiết kết quả
+# (dẫn chứng trích nguyên văn từ CV) rồi xoá các bản trích xuất. Giữ total_score / tier để thống kê không đổi.
+async def purge_candidate_data(
+    candidate_id: int,
+    *,
+    session_factory: async_sessionmaker[AsyncSession] = async_session_factory,
+) -> int:
+    from sqlalchemy import delete
+    from app.models import CVExtraction
+    async with session_factory() as session:
+        await session.execute(
+            update(AIScore).where(AIScore.candidate_id == candidate_id)
+            .values(cv_extraction_id=None, result=None, provenance=None, error_message=None)
+        )
+        removed = await session.execute(delete(CVExtraction).where(CVExtraction.candidate_id == candidate_id))
+        await session.commit()
+        return removed.rowcount or 0
 
 
 # [GIẢI THÍCH] HÀM CHÍNH: chấm một hồ sơ từ đầu đến cuối. Cả 3 lối vào đều gọi hàm này:
@@ -220,7 +252,8 @@ async def score_application(
             job_info = JobInfo.from_posting(posting, await _posting_skill_names(posting))
             jd_row = await get_or_extract_jd(session_factory, job_info, job_posting_id, manager=manager)
             if jd_row.status != JD_EXTRACTION_COMPLETED:
-                raise ScoringFailure(f"Không trích xuất được JD: {jd_row.error_message}")
+                reason = AI_BUSY if is_ai_overload(jd_row.error_message) else "AI trả kết quả không hợp lệ, vui lòng chấm lại"
+                raise ScoringFailure(f"Không trích xuất được JD: {reason}.", detail=jd_row.error_message)
             jd = ExtractedJD.model_validate(jd_row.result)
 
             # ----- TRÍCH XUẤT CV -----
@@ -234,7 +267,8 @@ async def score_application(
             job.injection_detected = bool((extraction.text_metadata or {}).get("injection_detected"))
             # Trích xuất thất bại thì dừng, không chấm trên dữ liệu hỏng.
             if extraction.status != EXTRACTION_COMPLETED:
-                raise ScoringFailure(f"Không trích xuất được CV: {extraction.error_message}")
+                raise ScoringFailure(extraction_error_message(extraction.error_code, extraction.error_message),
+                                     detail=extraction.error_message)
             # Lập chỉ mục tìm kiếm vector chạy nền, best-effort: lỗi ở đây không ảnh hưởng điểm chấm.
             schedule_indexing(session_factory, candidate_id, extraction)
 
@@ -258,6 +292,18 @@ async def score_application(
                 jd_extraction_id=jd_row.id,
                 jd_extraction_prompt_version=jd_row.prompt_version,
             )
+            # CV có đoạn văn nhằm điều khiển AI: lưu cờ vào kết quả để HR thấy cảnh báo, và không bao giờ tự xếp
+            # "Phù hợp" cho hồ sơ như vậy — hạ về Chưa phân loại để HR xem tay.
+            meta = extraction.text_metadata or {}
+            if meta.get("injection_detected"):
+                result.injection_detected = True
+                result.injection_patterns = [str(p) for p in (meta.get("injection_patterns") or [])]
+                if result.tier == Tier.FIT:
+                    result.tier = Tier.UNCLASSIFIED
+                    result.tier_label = TIER_LABELS[Tier.UNCLASSIFIED]
+                    result.tier_reason = ("CV có nội dung bất thường nhằm điều khiển AI nên không tự xếp Phù hợp; "
+                                          "HR cần xem trực tiếp hồ sơ.")
+                    result.comment = f"{headline(result.total_score, result.tier, result.tier_reason)} {result.summary}".strip()
             values = {
                 "status": COMPLETED, "cv_extraction_id": extraction.id, "total_score": result.total_score,
                 "tier": result.tier.value, "result": result.model_dump(mode="json"),
@@ -273,16 +319,16 @@ async def score_application(
             job.estimated_cost_usd = round(provenance.estimated_cost_usd, 4)
         # Bất kỳ lỗi nào ở trên: ghi FAILED + lý do tiếng Việt, xoá điểm cũ (total_score = None).
         except Exception as exc:  # noqa: BLE001 — mọi lỗi đều phải kết thúc bằng FAILED
-            message = _failure_message(exc)
+            message, detail = _failure_message(exc)
             log = logger.warning if isinstance(exc, (ScoringFailure, JavaServiceError, CVUnavailableError)) \
                 else logger.exception
-            log("Chấm hồ sơ %s thất bại: %s", application_id, message)
+            log("Chấm hồ sơ %s thất bại: %s", application_id, detail)
             values = {
                 "status": FAILED, "total_score": None, "tier": None, "result": None, "provenance": None,
                 "error_message": message[:2000], "scored_at": None,
             }
             job.status = FAILED
-            job.error_message = message[:2000]
+            job.error_message = detail[:2000]
 
         # Ghi kết quả (thành công hay thất bại) vào bảng ai_scores, lưu thời gian chạy vào nhật ký.
         job.completed_at = datetime.utcnow()

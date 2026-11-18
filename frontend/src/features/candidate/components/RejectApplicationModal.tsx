@@ -62,6 +62,8 @@ export default function RejectApplicationModal({ open, applicationId, onClose, o
       onCancel={onClose}
       confirmLoading={isSubmitting}
       okText="Từ chối"
+      // Hành động không hoàn tác: nút đỏ, giống hộp từ chối hàng loạt.
+      okButtonProps={{ danger: true }}
       cancelText="Hủy"
       destroyOnHidden
     >

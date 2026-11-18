@@ -63,6 +63,7 @@ export default function MyWorkPage() {
     const user = useAppSelector((s) => s.auth.user);
     const isHr = user?.role === "RECRUITER";
     const me = Number(user?.userId);
+    const myDept = user?.departmentId != null ? Number(user.departmentId) : null;
     const [data, setData] = useState<Data | null>(null);
     const [failed, setFailed] = useState(false);
     const [scope, setScope] = useState<"mine" | "team">("mine");
@@ -147,7 +148,7 @@ export default function MyWorkPage() {
                         ))}
                     </Panel>
 
-                    {data && <PostingsPanel data={data} isHr={isHr} onOpen={(p) => navigate(isHr ? `/recruitment/postings/${p}` : "/offers")} />}
+                    {data && <PostingsPanel data={data} isHr={isHr} myDept={myDept} onOpen={(p) => navigate(isHr ? `/recruitment/postings/${p}` : "/offers")} />}
                 </div>
 
                 <Panel
@@ -193,7 +194,7 @@ function TodayRow({ iv, me, onOpen }: { iv: InterviewResponse; me: number; onOpe
 }
 
 /** "Việc làm đang tuyển · Ứng viên theo giai đoạn" (R01) / "Vị trí đang tuyển của phòng" (H01). */
-function PostingsPanel({ data, isHr, onOpen }: { data: Data; isHr: boolean; onOpen: (postingId: number) => void }) {
+function PostingsPanel({ data, isHr, myDept, onOpen }: { data: Data; isHr: boolean; myDept: number | null; onOpen: (postingId: number) => void }) {
     const byPosting = new Map<number, Partial<Record<FixedStage, number>>>();
     const totals = new Map<number, number>();
     data.applications.forEach((a) => {
@@ -205,6 +206,9 @@ function PostingsPanel({ data, isHr, onOpen }: { data: Data; isHr: boolean; onOp
     });
     const reqById = new Map(data.requisitions.map((r) => [r.id, r]));
     const legend = FIXED_STAGES.filter((s) => s !== "REJECTED");
+    // Đại diện phòng ban chỉ thấy vị trí của chính phòng mình.
+    const postings = isHr ? data.postings : data.postings.filter((p) =>
+        (p.departmentId ?? reqById.get(p.requisitionId)?.departmentId ?? null) === myDept);
     return (
         <Panel
             title={isHr ? "Việc làm đang tuyển" : "Vị trí đang tuyển của phòng"}
@@ -218,9 +222,9 @@ function PostingsPanel({ data, isHr, onOpen }: { data: Data; isHr: boolean; onOp
                     </span>
                 ))}
             </div>
-            {data.postings.length === 0 ? (
+            {postings.length === 0 ? (
                 <span style={{ color: COLORS.textSecondary }}>Chưa có việc làm nào đang tuyển.</span>
-            ) : data.postings.map((p) => {
+            ) : postings.map((p) => {
                 const counts = byPosting.get(p.id) ?? {};
                 const hired = counts.HIRED ?? 0;
                 const head = p.headcount ?? 0;
@@ -270,7 +274,7 @@ function recruiterTasks(d: Data, me: number): Task[] {
                 key: `eval-${iv.id}`, icon: <EditOutlined />, color: COLORS.warning, mine: true,
                 title: `Viết đánh giá phỏng vấn · ${iv.candidateName}`,
                 sub: `Phỏng vấn ${fmtDay(iv.scheduledAt)} ${fmtTime(iv.scheduledAt)}${done.length ? ` · ${done.join(", ")} đã nộp` : ""}`,
-                action: "Viết đánh giá", to: `${appPath(iv.candidateId, iv.applicationId)}/evaluate`,
+                action: "Viết đánh giá", to: `${appPath(iv.candidateId, iv.applicationId)}/evaluate?interviewId=${iv.id}`,
             });
         });
 
@@ -301,6 +305,16 @@ function recruiterTasks(d: Data, me: number): Task[] {
         });
     });
 
+    // 3a. Tôi là người phỏng vấn và chưa xác nhận giờ
+    d.interviews.filter((iv) => iv.status === "SCHEDULED" && dayjs(iv.scheduledAt).isAfter(dayjs())
+        && iv.interviewers.some((i) => i.interviewerId === me))
+        .forEach((iv) => tasks.push({
+            key: `confirm-${iv.id}`, icon: <CalendarOutlined />, color: COLORS.interview, mine: true,
+            title: `Xác nhận tham gia phỏng vấn · ${iv.candidateName}`,
+            sub: `${fmtDay(iv.scheduledAt)} ${fmtTime(iv.scheduledAt)} · ${iv.format === "ONLINE" ? "Trực tuyến" : "Tại văn phòng"}`,
+            action: "Xem và xác nhận", to: `/interviews/${iv.id}`,
+        }));
+
     // 3b. Ứng viên xin dời lịch → đặt giờ mới
     d.interviews.filter((iv) => iv.status === "CANDIDATE_DECLINED")
         .filter((iv) => !d.interviews.some((x) => x.applicationId === iv.applicationId && ACTIVE_INTERVIEW.has(x.status)))
@@ -311,7 +325,7 @@ function recruiterTasks(d: Data, me: number): Task[] {
                 mine: app?.assignedRecruiterId === me,
                 title: `Ứng viên xin dời lịch · ${iv.candidateName}`,
                 sub: iv.candidateDeclineReason ? `“${iv.candidateDeclineReason}”` : `Lịch cũ ${fmtDay(iv.scheduledAt)} ${fmtTime(iv.scheduledAt)}`,
-                action: "Đặt lịch mới", to: `/interviews/schedule/${iv.applicationId}`,
+                action: "Đặt lịch mới", to: `/interviews/schedule/${iv.applicationId}?replaceInterviewId=${iv.id}`,
             });
         });
 
@@ -377,15 +391,15 @@ function managerTasks(d: Data, me: number): Task[] {
                 key: `eval-${iv.id}`, icon: <EditOutlined />, color: COLORS.warning, mine: true,
                 title: `Nộp đánh giá phỏng vấn · ${iv.candidateName}`,
                 sub: `Phỏng vấn ${fmtDay(iv.scheduledAt)} · ${done}/${iv.interviewers.length} đã nộp, còn bạn`,
-                action: "Viết đánh giá", to: `${appPath(iv.candidateId, iv.applicationId)}/evaluate`,
+                action: "Viết đánh giá", to: `${appPath(iv.candidateId, iv.applicationId)}/evaluate?interviewId=${iv.id}`,
             });
         });
-    d.interviews.filter((iv) => iv.status === "SCHEDULED" && !iv.hmConfirmed && iv.interviewers.some((i) => i.interviewerId === me))
+    d.interviews.filter((iv) => iv.status === "SCHEDULED" && !iv.hmConfirmed && dayjs(iv.scheduledAt).isAfter(dayjs()) && iv.interviewers.some((i) => i.interviewerId === me))
         .forEach((iv) => tasks.push({
             key: `confirm-${iv.id}`, icon: <CalendarOutlined />, color: COLORS.interview, mine: true,
             title: `Xác nhận tham gia phỏng vấn · ${iv.candidateName}`,
             sub: `${WEEKDAY[dayjs(iv.scheduledAt).day()]} ${fmtDay(iv.scheduledAt)} · ${fmtTime(iv.scheduledAt)} – ${dayjs(iv.scheduledAt).add(iv.durationMinutes, "minute").format("HH:mm")} · ${iv.format === "ONLINE" ? "Trực tuyến" : "Tại văn phòng"}`,
-            action: "Xác nhận", to: "/interviews",
+            action: "Xem và xác nhận", to: `/interviews/${iv.id}`,
         }));
     d.requisitions.filter((r) => r.requesterId === me && r.status === "CHANGES_REQUESTED").forEach((r) => tasks.push({
         key: `fix-${r.id}`, icon: <SolutionOutlined />, color: COLORS.interview, mine: true,

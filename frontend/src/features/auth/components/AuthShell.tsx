@@ -86,7 +86,7 @@ function TeamPicture({ url, name }: { url?: string | null; name: string }) {
         </span>
     );
     return (
-        <div aria-hidden="true" style={{ ...box, background: "linear-gradient(140deg, #0B2F78, #2A7DFF 60%, #7FB2FF)" }}>
+        <div aria-hidden="true" style={{ ...box, background: "linear-gradient(140deg, var(--ats-brand-deep2), var(--ats-brand) 60%, #7FB2FF)" }}>
             <span style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", background: "rgba(255,255,255,0.12)" }} />
             <span style={{ position: "absolute", top: 51, left: 59, width: 64, height: 64, borderRadius: 18, background: "rgba(255,255,255,0.08)" }} />
             {person("20%", 44)}

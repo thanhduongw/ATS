@@ -1,3 +1,4 @@
+import { matchesKeyword } from "../../../app/text";
 import { useEffect, useState } from "react";
 import { Input } from "antd";
 import { RightOutlined, SearchOutlined } from "@ant-design/icons";
@@ -57,7 +58,7 @@ export default function MasterDataPage() {
     ];
 
     const k = keyword.trim().toLowerCase();
-    const visible = tiles.filter((t) => !k || t.title.toLowerCase().includes(k) || t.hint.toLowerCase().includes(k));
+    const visible = tiles.filter((t) => matchesKeyword(k, t.title, t.hint));
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>

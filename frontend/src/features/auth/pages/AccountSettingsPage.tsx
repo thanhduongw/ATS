@@ -96,13 +96,14 @@ export default function AccountSettingsPage() {
     useEffect(() => {
         getMyProfile().then(async (r) => {
             setProfile(r.data);
-            profileForm.setFieldsValue({ fullName: r.data.fullName, phone: r.data.phone ?? undefined });
+            // Ứng viên không có khối "Thông tin cá nhân" ở đây (sửa ở Hồ sơ của tôi) nên form không gắn vào màn.
+            if (!isCandidate) profileForm.setFieldsValue({ fullName: r.data.fullName, phone: r.data.phone ?? undefined });
             if (r.data.departmentId != null) {
                 const d = await getCatalogItems("/masterdata/departments").catch(() => null);
                 setDeptName(d ? String(d.data.find((x) => x.id === r.data.departmentId)?.name ?? "") || null : null);
             }
         }).catch((e) => message.error(errMsg(e, "Không tải được thông tin tài khoản")));
-    }, [message, profileForm]);
+    }, [message, profileForm, isCandidate]);
 
     const saveProfile = async (v: { fullName: string; phone?: string }) => {
         setSaving(true);

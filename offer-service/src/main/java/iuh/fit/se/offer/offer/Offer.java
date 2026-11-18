@@ -125,7 +125,7 @@ public class Offer {
     @Column(name = "decline_note")
     private String declineNote;
 
-    /** Moc gui duyet va moc duyet — hien tren the "Thong tin phe duyet" cua chi tiet offer. */
+    /** Moc gui duyet va moc duyet — hien tren the "Thông tin phê duyệt" cua chi tiet offer. */
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
 

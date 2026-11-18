@@ -500,7 +500,7 @@ export interface components {
             meetingLink?: string;
             note?: string;
             /** @enum {string} */
-            status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED" | "CANDIDATE_DECLINED";
+            status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED" | "CANDIDATE_DECLINED" | "EXPIRED";
             candidateConfirmed?: boolean;
             hmConfirmed?: boolean;
             /** Format: int64 */
@@ -612,6 +612,8 @@ export interface components {
             meetingLink?: string;
             note?: string;
             interviewerIds: number[];
+            /** Format: int64 */
+            replaceInterviewId?: number;
         };
         EvaluationSubmitRequest: {
             /** @enum {string} */
@@ -669,7 +671,7 @@ export interface components {
             workLocationId?: number;
             meetingLink?: string;
             /** @enum {string} */
-            status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED" | "CANDIDATE_DECLINED";
+            status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED" | "CANDIDATE_DECLINED" | "EXPIRED";
             candidateConfirmed?: boolean;
             interviewerNames?: string[];
             candidateDeclineReason?: string;
@@ -908,7 +910,7 @@ export interface operations {
                 applicationId?: number;
                 jobPostingId?: number;
                 interviewerId?: number;
-                status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED" | "CANDIDATE_DECLINED";
+                status?: "SCHEDULED" | "HM_RESCHEDULE_PROPOSED" | "HM_CONFIRMED" | "CANDIDATE_CONFIRMED" | "EVALUATION_PENDING" | "COMPLETED" | "NO_SHOW" | "CANCELLED" | "CANDIDATE_DECLINED" | "EXPIRED";
                 fromDate?: string;
                 toDate?: string;
             };

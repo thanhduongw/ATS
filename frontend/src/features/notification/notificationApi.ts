@@ -1,6 +1,9 @@
 import axiosClient from "../../services/axiosClient";
 import type { NotificationResponse } from "./types";
 
+/** Phát trên `window` sau khi đổi trạng thái đã đọc ở ngoài chuông thông báo, để chuông tải lại số chưa đọc. */
+export const NOTIFICATIONS_CHANGED_EVENT = "ats:notifications-changed";
+
 export const getNotifications = () =>
     axiosClient.get<NotificationResponse[]>("/notification/notifications");
 

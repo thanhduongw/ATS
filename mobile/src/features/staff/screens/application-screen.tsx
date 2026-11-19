@@ -420,7 +420,10 @@ function AiTab({ applicationId }: { applicationId: number }) {
           <Text style={styles.sub}>{A.scoredAt(formatDate(d.scoredAt && !/[zZ]|[+-]\d\d:?\d\d$/.test(d.scoredAt) ? `${d.scoredAt}Z` : d.scoredAt))}</Text>
         </View>
       </View>
-      {d.result ? (
+      {/* Điểm chấm theo cách cũ (trước SSRC) không có `criteria`: chỉ hiện điểm + xếp loại, không để vỡ màn. */}
+      {d.result && !Array.isArray(d.result.criteria) ? (
+        <Text style={styles.sub}>{A.legacy}</Text>
+      ) : d.result ? (
         <>
           <Text style={styles.rowTitle}>{A.tierReason}</Text>
           <Text style={styles.body}>{d.result.tier_reason}</Text>

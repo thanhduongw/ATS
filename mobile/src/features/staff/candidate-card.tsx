@@ -61,9 +61,9 @@ export function CandidateCard({
 const styles = StyleSheet.create({
   row: { flexDirection: "row", gap: SPACING.sm2 },
   body: { flex: 1, gap: SPACING.xs + SPACING.xxs },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
+  nameRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },
   name: {
-    flexShrink: 1,
+    flex: 1,
     fontFamily: FONT.bold,
     fontSize: FONT_SIZE.lg,
     color: COLORS.textPrimary,

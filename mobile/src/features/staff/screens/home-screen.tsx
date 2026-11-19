@@ -22,7 +22,7 @@ import { toFixedStage } from "@/lib/stages";
 import { STRINGS } from "@/lib/strings";
 import { useNow } from "@/lib/use-now";
 import { useAuthStore } from "@/store/authStore";
-import { COLORS, FONT, FONT_SIZE, RADIUS, SPACING, SIZES } from "@/theme";
+import { COLORS, FONT, FONT_SIZE, RADIUS, SIZES, SPACING } from "@/theme";
 import type { InterviewResponse } from "@/types/api";
 import {
   useMe,
@@ -164,7 +164,7 @@ export function StaffHomeScreen() {
             {isHr ? (
               <View style={styles.metrics}>
                 <Metric value={today.length} label={H.metricInterviews} />
-                <Metric value={shown.length} label={H.metricTasks} />
+                <Metric value={shown.length} label={H.metricTasks} accent />
                 <Metric value={waitingOffers} label={H.metricOffers} />
               </View>
             ) : null}
@@ -191,7 +191,9 @@ export function StaffHomeScreen() {
               {shown.length === 0 ? (
                 <Text style={styles.muted}>{H.noTasks}</Text>
               ) : (
-                shown.map((t) => <TaskRow key={t.key} task={t} />)
+                shown.map((t, i) => (
+                  <TaskRow key={t.key} task={t} last={i === shown.length - 1} />
+                ))
               )}
             </Card>
 
@@ -227,13 +229,27 @@ export function StaffHomeScreen() {
                   const hired = list.filter(
                     (a) => toFixedStage(a.currentStageType) === "HIRED",
                   ).length;
+                  const head = p.headcount ?? 0;
+                  const full = head > 0 && hired >= head;
                   return (
                     <View key={p.id} style={styles.posting}>
-                      <Text style={styles.rowTitle} numberOfLines={1}>
-                        {p.title}
-                      </Text>
+                      <View style={styles.postingHead}>
+                        <Text style={styles.postingTitle} numberOfLines={1}>
+                          {p.title}
+                        </Text>
+                        <Text style={[styles.rowSub, full && styles.full]}>
+                          {H.hiredOf(hired, head)}
+                        </Text>
+                      </View>
+                      <View style={styles.bars}>
+                        {Array.from({ length: Math.min(Math.max(head, 1), 6) }, (_, n) => (
+                          <View
+                            key={n}
+                            style={[styles.bar, n < hired && styles.barOn]}
+                          />
+                        ))}
+                      </View>
                       <Text style={styles.rowSub}>
-                        {H.hiredOf(hired, p.headcount ?? 0)} ·{" "}
                         {H.candidatesCount(list.length)}
                       </Text>
                     </View>
@@ -248,21 +264,31 @@ export function StaffHomeScreen() {
   );
 }
 
-function Metric({ value, label }: { value: number; label: string }) {
+function Metric({
+  value,
+  label,
+  accent,
+}: {
+  value: number;
+  label: string;
+  accent?: boolean;
+}) {
   return (
     <View style={styles.metric}>
-      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={[styles.metricValue, accent && value > 0 && styles.metricAccent]}>
+        {value}
+      </Text>
       <Text style={styles.metricLabel}>{label}</Text>
     </View>
   );
 }
 
-function TaskRow({ task }: { task: StaffTask }) {
+function TaskRow({ task, last }: { task: StaffTask; last?: boolean }) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={() => router.push(task.href)}
-      style={styles.task}
+      style={[styles.task, !last && styles.taskDivider]}
     >
       <IconTile icon={task.icon} tone={task.tone} />
       <View style={styles.taskText}>
@@ -365,9 +391,10 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     fontFamily: FONT.bold,
-    fontSize: FONT_SIZE.h3,
+    fontSize: FONT_SIZE.h2,
     color: COLORS.textPrimary,
   },
+  metricAccent: { color: COLORS.warning },
   metricLabel: {
     fontFamily: FONT.regular,
     fontSize: FONT_SIZE.xs,
@@ -379,7 +406,16 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.base,
     color: COLORS.textSecondary,
   },
-  task: { flexDirection: "row", alignItems: "center", gap: SPACING.sm2 },
+  task: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm2,
+    paddingVertical: SPACING.sm,
+  },
+  taskDivider: {
+    borderBottomWidth: SIZES.hairline,
+    borderBottomColor: COLORS.divider,
+  },
   taskText: { flex: 1, gap: SPACING.xxs },
   rowTitle: {
     fontFamily: FONT.semibold,
@@ -426,5 +462,26 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.xs,
     color: COLORS.textMuted,
   },
-  posting: { gap: SPACING.xxs },
+  posting: { gap: SPACING.xs },
+  postingHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: SPACING.sm,
+  },
+  postingTitle: {
+    flex: 1,
+    fontFamily: FONT.semibold,
+    fontSize: FONT_SIZE.md,
+    color: COLORS.textPrimary,
+  },
+  full: { color: COLORS.success, fontFamily: FONT.semibold },
+  bars: { flexDirection: "row", gap: SPACING.xs },
+  bar: {
+    flex: 1,
+    height: SPACING.xs,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.fillStrong,
+  },
+  barOn: { backgroundColor: COLORS.primary },
 });

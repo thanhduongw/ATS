@@ -233,7 +233,8 @@ export function StaffEvaluationScreen() {
                 const score = values.scores?.[k] ?? 0;
                 return (
                   <View key={k} style={styles.criterion}>
-                    <Text style={styles.body}>{c.name}</Text>
+                    <View style={styles.criterionHead}>
+                    <Text style={[styles.body, styles.flex]}>{c.name}</Text>
                     <View style={styles.scores}>
                       {[1, 2, 3, 4, 5].map((n) => (
                         <Pressable
@@ -242,12 +243,13 @@ export function StaffEvaluationScreen() {
                           accessibilityState={{ selected: score === n }}
                           accessibilityLabel={`${c.name} ${n}`}
                           onPress={() => setValue(`scores.${k}`, score === n ? 0 : n)}
-                          style={[styles.score, score >= n && styles.scoreOn]}
+                          style={styles.score}
                           hitSlop={SPACING.xs}
                         >
-                          <Text style={[styles.scoreText, score >= n && styles.scoreTextOn]}>{n}</Text>
+                          <Text style={[styles.star, score >= n && styles.starOn]}>★</Text>
                         </Pressable>
                       ))}
+                    </View>
                     </View>
                     {openComments[k] || !!values.comments?.[k] ? (
                       <TextInput
@@ -362,14 +364,11 @@ const styles = StyleSheet.create({
   link: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.base, color: COLORS.primaryDark },
   avg: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.base, color: COLORS.primaryDark },
   criterion: { gap: SPACING.sm, paddingVertical: SPACING.xs },
-  scores: { flexDirection: "row", gap: SPACING.sm },
-  score: {
-    width: SIZES.control - SPACING.xs, height: SIZES.control - SPACING.xs, borderRadius: RADIUS.full,
-    backgroundColor: COLORS.fill, alignItems: "center", justifyContent: "center",
-  },
-  scoreOn: { backgroundColor: COLORS.primary },
-  scoreText: { fontFamily: FONT.semibold, fontSize: FONT_SIZE.base, color: COLORS.textSecondary },
-  scoreTextOn: { color: COLORS.cardBg },
+  criterionHead: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
+  scores: { flexDirection: "row" },
+  score: { width: SPACING.xl, height: SPACING.xl, alignItems: "center", justifyContent: "center" },
+  star: { fontSize: FONT_SIZE.h3, color: COLORS.fillStrong },
+  starOn: { color: COLORS.warning },
   comment: {
     fontFamily: FONT.regular, fontSize: FONT_SIZE.base, color: COLORS.textPrimary, backgroundColor: COLORS.fill,
     borderRadius: RADIUS.md, padding: SPACING.sm2, minHeight: SIZES.control,
@@ -377,7 +376,7 @@ const styles = StyleSheet.create({
   add: { fontFamily: FONT.medium, fontSize: FONT_SIZE.xs, color: COLORS.primaryDark },
   recs: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
   rec: {
-    paddingHorizontal: SPACING.md, height: SIZES.control - SPACING.xs, borderRadius: RADIUS.full,
+    flexBasis: "47%", flexGrow: 1, paddingHorizontal: SPACING.md, height: SIZES.control - SPACING.xs, borderRadius: RADIUS.full,
     backgroundColor: COLORS.fill, alignItems: "center", justifyContent: "center",
   },
   recGood: { backgroundColor: COLORS.success },

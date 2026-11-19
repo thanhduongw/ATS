@@ -356,6 +356,11 @@ function CriterionRow({ c }: { c: AiCriterion }) {
           color={COLORS.textSecondary}
         />
       </Pressable>
+      {counted ? (
+        <View style={styles.track}>
+          <View style={[styles.trackFill, { width: `${Math.min(100, ((c.score ?? 0) / 5) * 100)}%` }]} />
+        </View>
+      ) : null}
       {open && counted ? (
         <>
           <Text style={styles.body}>{c.reason}</Text>
@@ -492,20 +497,21 @@ function EvaluationsTab({
             {avg || salaries.length ? (
               <View style={styles.summary}>
                 {avg ? (
-                  <Text style={styles.sub}>
-                    {E.avg} <Text style={styles.rowTitle}>{avg}</Text>
-                  </Text>
+                  <View style={styles.stat}>
+                    <Text style={styles.sub}>{E.avg}</Text>
+                    <Text style={styles.statValue}>{avg}</Text>
+                  </View>
                 ) : null}
                 {salaries.length ? (
-                  <Text style={styles.sub}>
-                    {E.salary}{" "}
-                    <Text style={styles.rowTitle}>
+                  <View style={styles.stat}>
+                    <Text style={styles.sub}>{E.salary}</Text>
+                    <Text style={styles.statValue}>
                       {formatSalary(
                         Math.min(...salaries),
                         Math.max(...salaries),
                       )}
                     </Text>
-                  </Text>
+                  </View>
                 ) : null}
               </View>
             ) : null}
@@ -541,11 +547,17 @@ function EvaluationsTab({
                     ) : null}
                   </View>
                   {ev?.scores?.length ? (
-                    <Text style={styles.sub}>
-                      {ev.scores
-                        .map((s) => `${s.criteriaName} ${s.score}/5`)
-                        .join(" · ")}
-                    </Text>
+                    <View>
+                      {ev.scores.map((sc, i) => (
+                        <View key={i} style={styles.scoreRow}>
+                          <Text style={[styles.body, styles.flex]}>{sc.criteriaName}</Text>
+                          <Text style={styles.stars}>
+                            {"★".repeat(sc.score ?? 0)}
+                            <Text style={styles.starsOff}>{"★".repeat(Math.max(0, 5 - (sc.score ?? 0)))}</Text>
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
                   ) : null}
                   {ev?.generalComment ? (
                     <Text style={styles.body}>{ev.generalComment}</Text>
@@ -648,7 +660,34 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     color: COLORS.textSecondary,
   },
-  summary: { flexDirection: "row", gap: SPACING.md },
+  summary: {
+    flexDirection: "row",
+    gap: SPACING.xl,
+    padding: SPACING.sm2,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.fill,
+  },
+  stat: { gap: SPACING.xxs },
+  statValue: {
+    fontFamily: FONT.bold,
+    fontSize: FONT_SIZE.h3,
+    color: COLORS.textPrimary,
+  },
+  scoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: SPACING.xs,
+  },
+  stars: { fontSize: FONT_SIZE.base, color: COLORS.warning, letterSpacing: SPACING.xxs },
+  starsOff: { color: COLORS.fillStrong },
+  track: {
+    height: SPACING.xs,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.fillStrong,
+    overflow: "hidden",
+  },
+  trackFill: { height: "100%", borderRadius: RADIUS.full, backgroundColor: COLORS.primary },
   hidden: {
     padding: SPACING.sm2,
     borderRadius: RADIUS.md,

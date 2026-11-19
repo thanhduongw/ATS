@@ -712,6 +712,7 @@ export const STRINGS = {
         noCvQuote: "Không có đoạn nào trong CV để dẫn chứng.",
         noJdQuote: "Tin tuyển dụng không có yêu cầu tương ứng.",
         detailsDeleted: "Chi tiết đã xoá theo yêu cầu của ứng viên",
+        legacy: "Điểm này chấm theo cách cũ, chưa có chi tiết theo 4 tiêu chí mới. Chấm lại trên bản web để xem chi tiết.",
         notApplicable: "Không áp dụng",
         injection: "CV có nội dung bất thường nhằm điều khiển AI. Điểm chỉ để tham khảo — hãy xem trực tiếp hồ sơ.",
         injectionChip: "CV bất thường",

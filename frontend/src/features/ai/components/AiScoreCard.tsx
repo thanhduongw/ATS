@@ -3,7 +3,7 @@ import { Alert, App, Button, Collapse, Progress, Skeleton, Tag } from "antd";
 import { LoadingOutlined, ReloadOutlined, RobotOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import { getApplicationScore, rescoreApplication } from "../aiApi";
-import type { AiTier, ApplicationScoreResponse, ScoreCriterion } from "../types";
+import type { ApplicationScoreResponse, ScoreCriterion } from "../types";
 import { aiTierMeta, isAiScoring } from "../aiScore";
 import { COLORS } from "../../../app/theme";
 
@@ -25,13 +25,6 @@ function errorText(err: unknown): string {
     if (e.response) return e.response.data?.detail ?? e.response.data?.message ?? `Lỗi server (HTTP ${e.response.status}).`;
     return "Không thể kết nối đến server AI.";
 }
-
-// Kiểu khung "Lý do xếp loại" theo xếp loại: Phù hợp xanh, Không phù hợp đỏ, Chưa phân loại vàng.
-const TIER_ALERT_TYPE: Record<AiTier, "success" | "error" | "warning"> = {
-    FIT: "success",
-    NOT_FIT: "error",
-    UNCLASSIFIED: "warning",
-};
 
 const mutedText = { color: COLORS.textMuted, fontSize: 12.5 } as const;
 
@@ -210,12 +203,14 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
     }
 
     // COMPLETED. `result` null = ứng viên đã xoá dữ liệu cá nhân: giữ điểm và xếp loại, bỏ phần chi tiết (không báo lỗi).
-    const result = score.result;
+    // Điểm chấm theo cách cũ (trước SSRC) không có `criteria` → chỉ giữ điểm + xếp loại, mời chấm lại; không để vỡ trang.
+    const legacy = !!score.result && !Array.isArray(score.result.criteria);
+    const result = legacy ? null : score.result;
+    const legacyComment = legacy ? (score.result as unknown as { comment?: string }).comment : undefined;
     const totalScore = score.totalScore ?? result?.total_score ?? null;
     const tier = score.tier ?? result?.tier ?? null;
     const tierMeta = aiTierMeta(tier);
     const tierLabel = tierMeta?.label ?? result?.tier_label;
-    const alertType = tier ? TIER_ALERT_TYPE[tier] : "info";
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
@@ -250,7 +245,7 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
 
             {result ? (
                 <>
-                    <Alert type={alertType} showIcon title="Lý do xếp loại" description={result.tier_reason} />
+                    {/* Đã ẩn khung "Lý do xếp loại" (result.tier_reason). */}
                     <Collapse
                         ghost
                         size="small"
@@ -261,6 +256,12 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
                         }))}
                     />
                 </>
+            ) : legacy ? (
+                <Alert type="info" showIcon title="Điểm này chấm theo cách cũ"
+                    description={<>
+                        {legacyComment && <div style={{ marginBottom: 6 }}>{legacyComment}</div>}
+                        Chưa có chi tiết theo 4 tiêu chí mới. Bấm “Chấm lại” để AI chấm hồ sơ theo cách hiện tại.
+                    </>} />
             ) : (
                 <div style={{ ...mutedText, fontStyle: "italic" }}>Chi tiết đã xoá theo yêu cầu của ứng viên</div>
             )}

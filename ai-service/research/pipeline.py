@@ -30,6 +30,9 @@ EXTRACT_DIR = OUTPUT / "extracted"
 SCORE_DIR = OUTPUT / "scores"
 POLICY_PATH = BASE / "data" / "jd_policies.csv"
 REQUIRED_POLICIES = {"REQUIRED", "PREFERRED", "NOT_SPECIFIED"}
+# Ngày tham chiếu của prompt trích xuất CV v2 ("nay"/"hiện tại" quy đổi tới ngày này). CỐ ĐỊNH cho cả một đợt chạy:
+# đổi ngày = đổi prompt = cache CV mất hiệu lực. Đặt bằng biến môi trường SSRC_REFERENCE_DATE (dd/mm/yyyy).
+REFERENCE_DATE = os.environ.get("SSRC_REFERENCE_DATE", "19/11/2026")
 
 
 class StudyError(RuntimeError):
@@ -281,6 +284,7 @@ class StudyRunner:
                     "fingerprint": fp,
                     "source_hash": source_hash,
                     "prompt_hash": sha(prompt),
+                    "reference_date": REFERENCE_DATE if response_type is CVFacts else None,
                     "actual_request_hash": sha(current_prompt),
                     "created_at_utc": timestamp(),
                     "input_tokens": total_in,
@@ -299,7 +303,7 @@ class StudyRunner:
             return out, True
 
     async def cv(self, cv_id: str, content: str):
-        prompt = cv_extraction_prompt(content)
+        prompt = cv_extraction_prompt(content, REFERENCE_DATE)
         path = EXTRACT_DIR / "cv" / f"{cv_id}.json"
         return await self._invoke(prompt, CVFacts, path, identifier=cv_id,
                                   version=EXTRACT_CV_VERSION, source_hash=sha(content),

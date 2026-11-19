@@ -171,6 +171,24 @@ CSV này chỉ là **điểm AI**, chưa phải phân tích thống kê và **kh
 | `data/jd_policies.csv` | Chốt trạng thái Certifications theo từng JD |
 | `tests/test_study.py` | Test nghiệp vụ + cache không gọi lại API |
 
+## 7b. Prompt trích xuất CV v2 (19/11/2026)
+
+`EXTRACT_CV_VERSION = "ssrc-cv-extract-v2"` thay cho v1. Prompt chấm A/B và prompt trích xuất JD **không đổi**.
+
+**Lý do.** Với v1, CV để mốc thời gian ở dòng riêng dưới chức danh (đa số CV) thì Gemini chỉ trích dòng chức danh;
+bước chấm chỉ thấy dữ kiện đã trích nên ghi "CV không nêu rõ số năm" dù CV có ghi (ví dụ PAIR-001, PAIR-013, PAIR-019,
+PAIR-030). CV ghi ngày cùng dòng chức danh (PAIR-023) thì tính đúng.
+
+**Thay đổi.** Thêm mục "QUY TẮC BỔ SUNG CHO WORK_EXPERIENCE": trích thêm dòng mốc thời gian làm fact riêng; trích câu
+tự ghi tổng số năm; note quy đổi khoảng thời gian ra tháng/năm, "nay"/"hiện tại" tính đến `NGÀY THAM CHIẾU`; trích các
+gạch đầu dòng có công nghệ, quy mô, kết quả. Quote vẫn phải nguyên văn một đoạn liên tiếp.
+
+**Ngày tham chiếu.** Đặt bằng biến môi trường `SSRC_REFERENCE_DATE` (dd/mm/yyyy, mặc định `19/11/2026`), CỐ ĐỊNH cho
+cả một đợt chạy và được ghi vào `meta.reference_date` của file trích xuất CV. Đổi ngày = đổi prompt = cache CV mất hiệu lực.
+
+**Trước khi chạy lại:** sao lưu `output/` của v1 (ví dụ đổi tên thành `output_v1/`) — chạy v2 ghi đè
+`output/extracted/cv/*.json`, `output/scores/*.json` và CSV kết quả.
+
 ## 8. Giới hạn đã biết của phiên bản này
 
 1. Không có nguyên văn prompt chính thức của nhóm, nên mặc định dùng bản đề xuất trong `prompts.py` cho đến khi bạn thay bằng prompt chính thức.

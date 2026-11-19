@@ -53,6 +53,8 @@ def test_score_prompt_b_identical_to_research(policy):
 
 def test_extraction_prompts_identical_to_research():
     assert product.cv_extraction_prompt(CV_TEXT) == research_prompts.cv_extraction_prompt(CV_TEXT)
+    assert product.cv_extraction_prompt(CV_TEXT, "19/11/2026") == research_prompts.cv_extraction_prompt(CV_TEXT, "19/11/2026")
+    assert "NGÀY THAM CHIẾU: 19/11/2026" in product.cv_extraction_prompt(CV_TEXT, "19/11/2026")
     assert product.jd_extraction_prompt(JD_TEXT) == research_prompts.jd_extraction_prompt(JD_TEXT)
 
 

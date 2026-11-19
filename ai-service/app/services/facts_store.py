@@ -14,11 +14,13 @@ import asyncio
 import hashlib
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.config import get_settings
 from app.core.llm_client import LLMError, LLMManager
 from app.core.public_errors import CITATION_MISMATCH, INVALID_OUTPUT, LLM_EXTRACTION_FAILED
 from app.core.s3_client import get_s3_client
@@ -161,8 +163,10 @@ async def get_or_extract_cv(
             text_meta["pii_remaining"] = leftover
 
         manager = manager or _default_manager()
+        # "nay"/"hiện tại" trong CV được AI quy đổi tới ngày này (prompt v2); lưu vào provenance.
+        reference_date = datetime.now(ZoneInfo(get_settings().app_timezone)).strftime("%d/%m/%Y")
         try:
-            facts, stats = await extract_cv_facts(redacted, manager)
+            facts, stats = await extract_cv_facts(redacted, manager, reference_date)
         except (LLMError, CitationError, InvalidOutputError) as exc:
             code, detail = _failure(exc)
             logger.error("Trích xuất CV %s thất bại (%s): %s", resume_url, code, detail)
@@ -173,7 +177,8 @@ async def get_or_extract_cv(
 
         return await _upsert_cv(session, {
             **base, "status": COMPLETED, "model": stats.model, "result": facts.model_dump(mode="json"),
-            "provenance": _provenance(stats, EXTRACT_CV_VERSION, cv_extraction_prompt("")),
+            "provenance": {**_provenance(stats, EXTRACT_CV_VERSION, cv_extraction_prompt("")),
+                           "reference_date": reference_date},
             "text_metadata": text_meta, "error_code": None, "error_message": None,
         })
 
@@ -217,6 +222,8 @@ async def get_or_extract_jd(
 
         base = {"content_hash": content_hash, "job_posting_id": job_posting_id}
         manager = manager or _default_manager()
+        # "nay"/"hiện tại" trong CV được AI quy đổi tới ngày này (prompt v2); lưu vào provenance.
+        reference_date = datetime.now(ZoneInfo(get_settings().app_timezone)).strftime("%d/%m/%Y")
         try:
             facts, stats = await extract_jd_facts(job.as_text(), manager)
         except (LLMError, CitationError, InvalidOutputError) as exc:

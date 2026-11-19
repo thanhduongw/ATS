@@ -27,7 +27,12 @@ from app.schemas.ssrc import (
     validate_scoring,
 )
 from app.services.privacy import quote_in_source
-from app.services.prompts.ssrc import cv_extraction_prompt, jd_extraction_prompt, score_prompt_b
+from app.services.prompts.ssrc import (
+    REFERENCE_DATE_PLACEHOLDER,
+    cv_extraction_prompt,
+    jd_extraction_prompt,
+    score_prompt_b,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -182,9 +187,11 @@ async def extract_jd_facts(jd_text: str, manager: LLMManager) -> tuple[JDFacts, 
                          lambda out: verify_jd(out, jd_text), _RETRY_EXTRACT)
 
 
-async def extract_cv_facts(cv_text: str, manager: LLMManager) -> tuple[CVFacts, CallStats]:
-    """`cv_text` là CV đã che PII; câu trích được kiểm tra với đúng văn bản này."""
-    return await _invoke(manager, cv_extraction_prompt(cv_text), CVFacts,
+async def extract_cv_facts(cv_text: str, manager: LLMManager, reference_date: str = REFERENCE_DATE_PLACEHOLDER,
+                          ) -> tuple[CVFacts, CallStats]:
+    """`cv_text` là CV đã che PII; câu trích được kiểm tra với đúng văn bản này.
+    `reference_date` (dd/mm/yyyy): mốc quy đổi "nay"/"hiện tại" trong prompt v2 — nơi gọi truyền ngày chấm."""
+    return await _invoke(manager, cv_extraction_prompt(cv_text, reference_date), CVFacts,
                          lambda out: verify_cv(out, cv_text), _RETRY_EXTRACT)
 
 

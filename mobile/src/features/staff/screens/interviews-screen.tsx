@@ -168,40 +168,48 @@ function InterviewRow({ iv, me, now, isHr, area, title }: {
   if (!isHr && mine?.evaluationSubmitted) status = { label: L.submitted(""), tone: "success" };
   if (isHr && iv.status === "EVALUATION_PENDING") status = { ...status, label: L.evalProgress(done, people.length) };
 
+  // Nút "Tham gia" nằm NGOÀI vùng bấm của thẻ: trên web Pressable role="button" là thẻ <button>, lồng nút trong nút
+  // là HTML sai (React báo "<button> cannot contain a nested <button>"). Đặt đè vào góc dưới phải như bố cục cũ.
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${formatTime(iv.scheduledAt)} ${iv.candidateName ?? ""}`}
-      onPress={() => router.push({ pathname: `/${area}/interviews/[id]`, params: { id: String(iv.id) } })}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-    >
-      <View style={styles.time}>
-        <Text style={styles.timeText}>{formatTime(iv.scheduledAt)}</Text>
-        <Text style={styles.sub}>{S.minutes(iv.durationMinutes ?? 60)}</Text>
-      </View>
-      <View style={styles.body}>
-        <View style={styles.person}>
-          <Avatar name={iv.candidateName} size={SIZES.iconTile - SPACING.sm} />
-          <View style={styles.flex}>
-            <Text style={styles.name} numberOfLines={1}>{iv.candidateName}</Text>
-            {title ? <Text style={styles.sub} numberOfLines={1}>{title}</Text> : null}
+    <View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${formatTime(iv.scheduledAt)} ${iv.candidateName ?? ""}`}
+        onPress={() => router.push({ pathname: `/${area}/interviews/[id]`, params: { id: String(iv.id) } })}
+        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      >
+        <View style={styles.time}>
+          <Text style={styles.timeText}>{formatTime(iv.scheduledAt)}</Text>
+          <Text style={styles.sub}>{S.minutes(iv.durationMinutes ?? 60)}</Text>
+        </View>
+        <View style={styles.body}>
+          <View style={styles.person}>
+            <Avatar name={iv.candidateName} size={SIZES.iconTile - SPACING.sm} />
+            <View style={styles.flex}>
+              <Text style={styles.name} numberOfLines={1}>{iv.candidateName}</Text>
+              {title ? <Text style={styles.sub} numberOfLines={1}>{title}</Text> : null}
+            </View>
+          </View>
+          <View style={styles.meta}>
+            <View style={styles.faces}>
+              {people.slice(0, 3).map((p) => (
+                <Avatar key={p.interviewerId} name={p.fullName} size={SPACING.lg} />
+              ))}
+            </View>
+            <Icon name={iv.format === "ONLINE" ? "video" : "briefcase"} size={FONT_SIZE.base} color={COLORS.textSecondary} />
+            <Text style={styles.sub} numberOfLines={1}>{iv.format === "ONLINE" ? S.online : S.onsite}</Text>
+          </View>
+          <View style={[styles.footer, live && styles.footerLive]}>
+            <StatusChip {...status} />
           </View>
         </View>
-        <View style={styles.meta}>
-          <View style={styles.faces}>
-            {people.slice(0, 3).map((p) => (
-              <Avatar key={p.interviewerId} name={p.fullName} size={SPACING.lg} />
-            ))}
-          </View>
-          <Icon name={iv.format === "ONLINE" ? "video" : "briefcase"} size={FONT_SIZE.base} color={COLORS.textSecondary} />
-          <Text style={styles.sub} numberOfLines={1}>{iv.format === "ONLINE" ? S.online : S.onsite}</Text>
+      </Pressable>
+      {live ? (
+        <View style={styles.join}>
+          <PillButton label={L.join} size="sm" onPress={() => void Linking.openURL(iv.meetingLink ?? "")} />
         </View>
-        <View style={styles.footer}>
-          <StatusChip {...status} />
-          {live ? <PillButton label={L.join} size="sm" onPress={() => void Linking.openURL(iv.meetingLink ?? "")} /> : null}
-        </View>
-      </View>
-    </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -241,4 +249,6 @@ const styles = StyleSheet.create({
   meta: { flexDirection: "row", alignItems: "center", gap: SPACING.xs },
   faces: { flexDirection: "row", gap: SPACING.xxs, marginRight: SPACING.xs },
   footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },
+  footerLive: { minHeight: SIZES.buttonSm }, // chừa chỗ cho nút "Tham gia" đặt đè ở góc
+  join: { position: "absolute", right: SPACING.md, bottom: SPACING.md },
 });

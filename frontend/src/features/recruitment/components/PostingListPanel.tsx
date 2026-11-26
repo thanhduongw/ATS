@@ -28,7 +28,7 @@ import { POSTING_FILLED_VIEW, POSTING_STATUS_VIEW, WORK_ARRANGEMENT_LABEL } from
  */
 type Tab = "OPEN" | "APPROVED" | "DRAFT" | "PAUSED" | "CLOSED" | "ALL";
 const TAB_STATUSES: Record<Exclude<Tab, "ALL">, PostingStatus[]> = {
-    OPEN: ["OPEN"], APPROVED: ["APPROVED"], DRAFT: ["DRAFT", "EDITING"], PAUSED: ["PAUSED"], CLOSED: ["CLOSED"],
+    OPEN: ["OPEN"], APPROVED: ["APPROVED"], DRAFT: ["DRAFT", "EDITING", "APPROVED"], PAUSED: ["PAUSED"], CLOSED: ["CLOSED"],
 };
 const TAB_LABEL: Record<Tab, string> = {
     OPEN: "Đang tuyển", APPROVED: "Chờ duyệt", DRAFT: "Bản nháp", PAUSED: "Tạm dừng", CLOSED: "Đã đóng", ALL: "Tất cả",
@@ -111,7 +111,8 @@ export default function PostingListPanel() {
 
     const inTab = (p: JobPostingResponse, t: Tab) => t === "ALL" || TAB_STATUSES[t].includes(p.status);
     const rows = filtered.filter((p) => inTab(p, tab));
-    const tabs: Tab[] = ["OPEN", "APPROVED", "DRAFT", "PAUSED", "CLOSED", "ALL"];
+    // 26/11/2026: bỏ tab "Chờ duyệt" — tin chưa đăng (kể cả APPROVED cũ) nằm chung tab Bản nháp.
+    const tabs: Tab[] = ["OPEN", "DRAFT", "PAUSED", "CLOSED", "ALL"];
 
     const columns: ColumnsType<JobPostingResponse> = [
         {

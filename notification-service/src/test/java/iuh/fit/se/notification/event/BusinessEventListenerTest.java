@@ -49,7 +49,7 @@ class BusinessEventListenerTest {
 
     private static ApplicationStatusChangedEvent event(Long assignedRecruiterId, String toStageType, String closedReason) {
         return new ApplicationStatusChangedEvent(42L, 1L, 34L, 39L, assignedRecruiterId,
-                "Ứng tuyển", "Đã rút đơn", toStageType, closedReason, "Lập trình viên Backend Java");
+                "Ứng tuyển", "Đã rút đơn", toStageType, closedReason, "Lập trình viên Backend Java", null);
     }
 
     @Test

@@ -85,6 +85,7 @@ export default function UserDetailPage() {
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
     const [confirmLock, setConfirmLock] = useState(false);
+    const [confirmUnlock, setConfirmUnlock] = useState(false);
     const [duties, setDuties] = useState<Duty[] | null>(null);
     const [history, setHistory] = useState<AuditLogResponse[] | null>(null);
     const myId = Number(useAppSelector((s) => s.auth.user?.userId));
@@ -106,14 +107,29 @@ export default function UserDetailPage() {
 
     useEffect(() => { void load(); }, [load]);
 
-    useEffect(() => {
+    // Lịch sử = thao tác người này làm + thao tác người khác làm lên tài khoản này (khoá, đổi vai trò, mời…).
+    // Trước 26/11/2026 chỉ lấy theo người thực hiện nên khoá / đổi vai trò không hiện.
+    const loadHistory = useCallback(async () => {
         const uid = Number(id);
-        loadDuties(uid).then(setDuties).catch(() => setDuties([]));
-        searchAuditLogs({ actorUserId: uid })
-            .then((r) => setHistory([...r.data]
-                .sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf()).slice(0, 8)))
-            .catch(() => setHistory([]));
+        try {
+            const [byActor, onUser] = await Promise.all([
+                searchAuditLogs({ actorUserId: uid }),
+                searchAuditLogs({ resourceType: "USER" }),
+            ]);
+            const merged = new Map<number, AuditLogResponse>();
+            byActor.data.forEach((h) => merged.set(h.id, h));
+            onUser.data.filter((h) => h.resourceId === uid).forEach((h) => merged.set(h.id, h));
+            setHistory([...merged.values()]
+                .sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf()).slice(0, 8));
+        } catch {
+            setHistory([]);
+        }
     }, [id]);
+
+    useEffect(() => {
+        loadDuties(Number(id)).then(setDuties).catch(() => setDuties([]));
+        void loadHistory();
+    }, [id, loadHistory]);
 
     const run = async (fn: () => Promise<unknown>, ok: string) => {
         setBusy(true);
@@ -121,8 +137,10 @@ export default function UserDetailPage() {
             await fn();
             message.success(ok);
             setConfirmLock(false);
+            setConfirmUnlock(false);
             setRoleDialog(false);
             await load();
+            void loadHistory();
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
             message.error(e.response?.data?.message ?? "Thao tác thất bại");
@@ -175,7 +193,7 @@ export default function UserDetailPage() {
                         )}
                         {/* Không tự khoá / mở khoá chính mình (backend cũng chặn). */}
                         {user.id === myId ? null : user.status === "LOCKED" ? (
-                            <Button loading={busy} onClick={() => run(() => updateUserStatus(user.id, { status: "ACTIVE" }), "Đã mở khoá tài khoản")}>
+                            <Button loading={busy} onClick={() => setConfirmUnlock(true)}>
                                 Mở khoá tài khoản
                             </Button>
                         ) : (
@@ -278,6 +296,19 @@ export default function UserDetailPage() {
                         Người này còn {openDuties} việc đang phụ trách. Hãy chuyển giao trước khi khoá.
                     </InlineNotice>
                 )}
+            </SmallDialog>
+
+            <SmallDialog
+                open={confirmUnlock}
+                title={`Mở khoá tài khoản · ${user.fullName}`}
+                okText="Mở khoá"
+                okLoading={busy}
+                onCancel={() => setConfirmUnlock(false)}
+                onOk={() => run(() => updateUserStatus(user.id, { status: "ACTIVE" }), "Đã mở khoá tài khoản")}
+            >
+                <span style={{ color: COLORS.textSecondary }}>
+                    {user.fullName} sẽ đăng nhập lại được với vai trò hiện tại.
+                </span>
             </SmallDialog>
         </div>
     );

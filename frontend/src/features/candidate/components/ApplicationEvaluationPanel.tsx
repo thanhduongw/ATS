@@ -290,6 +290,16 @@ export default function ApplicationEvaluationPanel({
                                                 ))}
                                             </Space>
                                         )}
+                                        {/* Nhận xét từng tiêu chí (26/11/2026 — trước đây nhập được nhưng không hiện lại). */}
+                                        {e.scores?.some((s) => s.comment?.trim()) && (
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 8, fontSize: 13 }}>
+                                                {e.scores.filter((s) => s.comment?.trim()).map((s) => (
+                                                    <span key={s.criteriaId}>
+                                                        <span style={{ color: COLORS.textSecondary }}>{s.criteriaName}:</span> {s.comment}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                         {e.salaryProposed != null && (
                                             <div style={{ fontSize: 13, color: COLORS.primaryDark, fontWeight: 600, marginBottom: 6 }}>
                                                 Đề xuất mức lương: {e.salaryProposed.toLocaleString("vi-VN")} VNĐ

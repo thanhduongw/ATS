@@ -502,8 +502,10 @@ public class ApplicationService {
             validateAssignedRecruiter(effectiveAssignedRecruiterId);
         }
 
+        // Ứng viên tự nộp được gửi kèm "CV khác" cho riêng đơn này (26/11/2026), nhưng chỉ nhận file nằm trong
+        // thư mục lưu trữ của chính ứng viên đó (candidates/{id}/) — không cho trỏ tới file của người khác.
         String resumeUrl = candidateSelfApply
-                ? candidate.cvFileUrl()
+                ? (isOwnResume(req.resumeUrl(), candidate.id()) ? req.resumeUrl() : candidate.cvFileUrl())
                 : (req.resumeUrl() != null ? req.resumeUrl() : candidate.cvFileUrl());
         if (resumeUrl == null) {
             throw new BusinessException("Ứng viên chưa có CV, vui lòng tải CV lên trước khi ứng tuyển");
@@ -538,7 +540,7 @@ public class ApplicationService {
         eventPublisher.publishApplicationCreated(
                 req.jobPostingId(), application.getId(),
                 application.getCandidateId(), application.getAssignedRecruiterId(), application.getCandidateNameSnapshot(),
-                posting.title());
+                posting.title(), candidateSelfApply ? actor.userId() : null);
 
         return getById(actor, application.getId());
     }
@@ -634,7 +636,8 @@ public class ApplicationService {
         eventPublisher.publishApplicationStatusChanged(
                 application.getId(), application.getJobPostingId(),
                 application.getCandidateId(), application.getAssignedRecruiterId(),
-                previousStageName, rejectedStage.name(), rejectedStage.stageType(), null, jobTitleOf(application));
+                previousStageName, rejectedStage.name(), rejectedStage.stageType(), null, jobTitleOf(application),
+                reasonName);
         auditEventPublisher.publish(actorUserId, "APPLICATION_REJECTED", "APPLICATION", application.getId(),
                 "Từ chối hồ sơ: " + req.note());
 
@@ -770,6 +773,11 @@ public class ApplicationService {
                 || STAGE_TYPE_REJECTED.equals(application.getCurrentStageType())) {
             throw new BusinessException("Hồ sơ đã kết thúc quy trình tuyển dụng, không thể cập nhật thêm");
         }
+    }
+
+    private static boolean isOwnResume(String url, Long candidateId) {
+        return url != null && !url.isBlank() && candidateId != null
+                && url.contains("/candidates/" + candidateId + "/") && !url.contains("..");
     }
 
     private CandidateSummaryResponse fetchCandidate(Long candidateId) {

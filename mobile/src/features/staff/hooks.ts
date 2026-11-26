@@ -59,7 +59,8 @@ export function useUpdateProfile() {
   });
 }
 
-export const useChangePassword = () => useMutation({ mutationFn: authApi.changePassword });
+/** Giữ để không vỡ import cũ — dùng `@/features/account/hooks`. */
+export { useChangePassword } from "@/features/account/hooks";
 
 /** Tên công ty (UR10/UH09). */
 export const useCompanyName = () =>

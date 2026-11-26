@@ -44,6 +44,15 @@ export const getMyCandidateProfile = () =>
 export const updateMyCandidateProfile = (data: CandidateSelfUpdateRequest) =>
   axiosClient.patch<CandidateSelfResponse>("/candidate/me", data);
 
+/** "Tải CV khác" khi ứng tuyển: lưu file nhưng không thay CV trong hồ sơ; trả đường dẫn để gửi kèm đơn. */
+export const uploadApplicationResume = (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return axiosClient.post<{ resumeUrl: string }>("/candidate/me/application-resume", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
 export const uploadMyCandidateResume = (file: File) => {
   const formData = new FormData();
   formData.append("file", file);

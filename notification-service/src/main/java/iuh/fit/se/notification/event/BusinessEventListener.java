@@ -92,6 +92,18 @@ public class BusinessEventListener {
     public void onApplicationCreated(ApplicationCreatedEvent event) {
         log.info("Nhận event application.created, applicationId={}", event.applicationId());
 
+        // Ứng viên tự nộp: báo đã nhận hồ sơ (thông báo trong ứng dụng + email theo mẫu APPLICATION_RECEIVED).
+        if (event.candidateUserId() != null) {
+            notificationService.createAndPush(
+                    event.candidateUserId(),
+                    NotificationType.APPLICATION_RECEIVED,
+                    "Đã nhận hồ sơ ứng tuyển",
+                    "Công ty đã nhận hồ sơ của bạn" + forJob(event.jobTitle())
+                            + ". Bộ phận tuyển dụng sẽ xem và phản hồi sớm.",
+                    "APPLICATION",
+                    event.applicationId());
+        }
+
         if (event.assignedRecruiterId() != null) {
             notificationService.createAndPush(
                     event.assignedRecruiterId(),
@@ -162,7 +174,9 @@ public class BusinessEventListener {
                         candidateUserId,
                         NotificationType.APPLICATION_REJECTED,
                         "Kết quả hồ sơ ứng tuyển",
-                        "Rất tiếc, hồ sơ ứng tuyển" + job + " của bạn chưa phù hợp ở đợt này.",
+                        "Rất tiếc, hồ sơ ứng tuyển" + job + " của bạn chưa phù hợp ở đợt này."
+                                + (event.rejectionReason() != null && !event.rejectionReason().isBlank()
+                                        ? " Lý do: " + event.rejectionReason().trim() + "." : ""),
                         "APPLICATION",
                         event.applicationId());
             } else {

@@ -30,6 +30,10 @@ export default function ResultsPage() {
     const open = postings.filter((p) => p.status === "OPEN");
     const hiredApps = allApps.filter((a) => toFixedStage(a.currentStageType) === "HIRED");
     const headcount = postings.filter((p) => p.status !== "DRAFT").reduce((s, p) => s + (p.headcount ?? 0), 0);
+    // 26/11/2026: tin đã tuyển đủ không tính là đang tuyển; "cần tuyển" = chỉ tiêu trừ số đã tuyển của từng tin.
+    const hiredOf = (postingId: number) => hiredApps.filter((a) => a.jobPostingId === postingId).length;
+    const openUnfilled = open.filter((p) => !p.headcount || hiredOf(p.id) < p.headcount);
+    const stillNeeded = openUnfilled.reduce((s, p) => s + Math.max(0, (p.headcount ?? 0) - hiredOf(p.id)), 0);
     const lastHired = [...hiredApps].sort((a, b) => dayjs(b.hiredAt ?? 0).valueOf() - dayjs(a.hiredAt ?? 0).valueOf())[0];
     const avgDays = avgDaysToHire(allApps);
     const pastInterview = allApps.filter((a) => ["INTERVIEW", "OFFER", "HIRED"].includes(toFixedStage(a.currentStageType)));
@@ -89,8 +93,8 @@ export default function ResultsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <ScreenTitle title="Kết quả tuyển dụng" subtitle={departmentName ? departmentLabel(departmentName) : undefined} />
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <MetricCard label="Vị trí đang tuyển" value={open.length}
-                    hint={`${open.reduce((s, p) => s + (p.headcount ?? 0), 0)} người cần tuyển`} />
+                <MetricCard label="Vị trí đang tuyển" value={openUnfilled.length}
+                    hint={`${stillNeeded} người còn cần tuyển`} />
                 <MetricCard label="Đã tuyển" value={`${hiredApps.length}/${headcount}`} hint={lastHired?.jobTitle ?? "Chưa tuyển được ai"} />
                 <MetricCard label="Thời gian tuyển trung bình" value={avgDays != null ? `${avgDays} ngày` : "—"} hint="Từ ngày ứng tuyển đến ngày nhận việc" />
                 <MetricCard label="Tỉ lệ qua phỏng vấn" value={passRate != null ? `${passRate}%` : "—"} hint="Hồ sơ đi tiếp sau vòng phỏng vấn" />

@@ -111,7 +111,7 @@ const rejectSchema = z.object({
 });
 type RejectValues = z.infer<typeof rejectSchema>;
 
-/** UR06 · Từ chối ứng viên: lý do bắt buộc, ghi chú nội bộ; ứng viên nhận email không kèm lý do. */
+/** UR06 · Từ chối ứng viên: lý do bắt buộc, ghi chú nội bộ; ứng viên nhận email kèm lý do đã chọn. */
 export function RejectSheet({
   app,
   visible,

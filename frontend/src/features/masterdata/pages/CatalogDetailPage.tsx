@@ -1,8 +1,7 @@
 import { Navigate, useParams } from "react-router-dom";
-import { catalogByKey, SPECIAL_CATALOGS } from "../catalogConfigs";
+import { catalogByKey, HIDDEN_CATALOGS, SPECIAL_CATALOGS } from "../catalogConfigs";
 import CatalogPanel from "../components/CatalogPanel";
 import EmailTemplatePanel from "../components/EmailTemplatePanel";
-import CustomFieldDefinitionPanel from "../components/CustomFieldDefinitionPanel";
 import { PageBreadcrumb } from "../../../components/ui/PageHeader";
 import { Panel } from "../../../components/ui/designKit";
 
@@ -10,14 +9,8 @@ import { Panel } from "../../../components/ui/designKit";
 export default function CatalogDetailPage() {
     const { key } = useParams<{ key: string }>();
 
-    if (key === SPECIAL_CATALOGS.customFields) {
-        return (
-            <>
-                <PageBreadcrumb crumb="Trường tuỳ chỉnh" />
-                <Panel><CustomFieldDefinitionPanel /></Panel>
-            </>
-        );
-    }
+    // Danh mục đã ẩn (kỹ năng, trường tuỳ chỉnh): mở bằng đường dẫn cũ thì quay về trang Danh mục.
+    if (!key || HIDDEN_CATALOGS.includes(key)) return <Navigate to="/masterdata" replace />;
 
     const config = catalogByKey(key);
     if (!config) return <Navigate to="/masterdata" replace />;

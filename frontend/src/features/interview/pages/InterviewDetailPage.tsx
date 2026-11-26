@@ -149,7 +149,8 @@ export default function InterviewDetailPage() {
             actions.push(<Button key="time" onClick={() => { setNewTime(start.isAfter(dayjs()) && iv.status !== "CANDIDATE_DECLINED" ? start : null); setNewDuration(iv.durationMinutes ?? 60); setDialog("reschedule"); }}>Đổi giờ</Button>);
         }
         if (INTERVIEW_HELD.has(iv.status) && start.isBefore(dayjs())) actions.push(<Button key="ns" onClick={() => setDialog("noshow")}>Ứng viên vắng mặt</Button>);
-        if (iv.status !== "CANDIDATE_DECLINED") actions.push(<Button key="cancel" danger onClick={() => setDialog("cancel")}>Huỷ buổi</Button>);
+        // Buổi đã qua giờ thì không huỷ nữa — dùng "Ứng viên vắng mặt" hoặc nộp đánh giá.
+        if (iv.status !== "CANDIDATE_DECLINED" && !start.isBefore(dayjs())) actions.push(<Button key="cancel" danger onClick={() => setDialog("cancel")}>Huỷ buổi</Button>);
     }
     if (amInterviewer && iv.status === "SCHEDULED" && start.isAfter(dayjs())) {
         actions.push(<Button key="prop" onClick={() => { setNewTime(null); setProposeNote(""); setDialog("propose"); }}>Đề xuất giờ khác</Button>);
@@ -253,11 +254,13 @@ export default function InterviewDetailPage() {
                             : location || "—"}
                     </Info>
                     <Info icon={<CalendarOutlined />} label="Ứng viên">
-                        {iv.candidateConfirmedAt ? `Đã xác nhận ${dayjs(iv.candidateConfirmedAt).format("DD/MM HH:mm")}`
-                            : iv.status === "CANDIDATE_DECLINED" ? "Xin dời lịch" : iv.status === "HM_CONFIRMED" ? "Chờ ứng viên trả lời" : iv.status === "SCHEDULED" || iv.status === "HM_RESCHEDULE_PROPOSED" ? "Chưa gửi (chờ người phỏng vấn chốt giờ)" : "—"}
+                        {/* Trạng thái xin dời phải ưu tiên hơn lần xác nhận cũ (trước 26/11/2026 hiện "Đã xác nhận" lệch với chip). */}
+                        {iv.status === "CANDIDATE_DECLINED" ? "Xin dời lịch"
+                            : iv.status === "CANCELLED" ? "—"
+                            : iv.candidateConfirmedAt ? `Đã xác nhận ${dayjs(iv.candidateConfirmedAt).format("DD/MM HH:mm")}` : iv.status === "HM_CONFIRMED" ? "Chờ ứng viên trả lời" : iv.status === "SCHEDULED" || iv.status === "HM_RESCHEDULE_PROPOSED" ? "Chưa gửi (chờ người phỏng vấn chốt giờ)" : "—"}
                     </Info>
                     {iv.note && <div style={{ padding: 12, borderRadius: 12, background: COLORS.fill, fontSize: 13, whiteSpace: "pre-wrap" }}>{iv.note}</div>}
-                    <Button icon={<CalendarOutlined />} onClick={downloadIcs} style={{ alignSelf: "flex-start" }}>Tải tệp lịch (.ics)</Button>
+                    {!ended && <Button icon={<CalendarOutlined />} onClick={downloadIcs} style={{ alignSelf: "flex-start" }}>Tải tệp lịch (.ics)</Button>}
                 </Panel>
             </div>
 

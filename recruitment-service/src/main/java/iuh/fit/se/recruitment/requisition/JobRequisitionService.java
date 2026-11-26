@@ -275,6 +275,15 @@ public class JobRequisitionService {
         if (requisition.getStatus() == RequisitionStatus.APPROVED) {
             throw new BusinessException("Không thể xóa yêu cầu đã được phê duyệt (đã có thể phát sinh Job Posting)");
         }
+        // Đại diện phòng ban: chỉ xoá bản nháp do chính mình tạo (26/11/2026).
+        if ("HIRING_MANAGER".equals(actor.role())) {
+            if (!actor.userId().equals(requisition.getRequesterId())) {
+                throw new org.springframework.security.access.AccessDeniedException("Bạn chỉ xoá được yêu cầu do mình tạo");
+            }
+            if (requisition.getStatus() != RequisitionStatus.DRAFT) {
+                throw new BusinessException("Chỉ xoá được yêu cầu đang ở trạng thái Bản nháp");
+            }
+        }
         requisition.setDeletedAt(LocalDateTime.now());
         repository.save(requisition);
         auditEventPublisher.publish(actor.userId(), "REQUISITION_DELETED", "REQUISITION", id, null);

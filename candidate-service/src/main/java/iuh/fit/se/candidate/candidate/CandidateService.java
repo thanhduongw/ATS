@@ -234,6 +234,17 @@ public class CandidateService {
     }
 
     /**
+     * "Tải CV khác" khi ứng tuyển: lưu file vào thư mục của ứng viên nhưng KHÔNG thay CV trong hồ sơ
+     * (26/11/2026 — trước đây chọn CV khác cho một đơn thì CV chính cũng bị ghi đè). Trả đường dẫn để gửi kèm đơn.
+     */
+    public String uploadApplicationResume(CurrentUser actor, MultipartFile file) {
+        AuthorizationPolicy.requireCandidate(actor);
+        validateResume(file);
+        Candidate candidate = findByUserId(actor.userId());
+        return s3Service.uploadFile(file, "candidates/" + candidate.getId());
+    }
+
+    /**
      * Candidate lần đầu login: gắn userId vào candidate cùng email, hoặc tạo mới.
      */
     @Transactional

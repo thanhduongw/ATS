@@ -2,18 +2,18 @@ import { useEffect, useState } from "react";
 import { App, Button, Checkbox, Form, Input, Spin, Upload } from "antd";
 import StatusTag from "../../../components/ui/StatusTag";
 import {
-    CalendarOutlined, CheckCircleOutlined, CheckOutlined, FilePdfOutlined, FileTextOutlined, SearchOutlined,
+    CalendarOutlined, CheckCircleOutlined, CheckOutlined, FilePdfOutlined, FileTextOutlined, FileWordOutlined, SearchOutlined,
     ShoppingOutlined, UploadOutlined,
 } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs from "dayjs";
-import { cvFileName } from "../../candidate/cvFile";
+import { cvFileName, isWordFile } from "../../candidate/cvFile";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { getPublicCompany, getPublicJobById } from "../publicApi";
 import type { PublicJobPosting } from "../types";
 import { arrangementLabel, salaryText } from "../jobFormat";
 import { Chip } from "../components/JobCard";
-import { getMyCandidateProfile, updateMyCandidateProfile, uploadMyCandidateResume } from "../../candidate/candidateApi";
+import { getMyCandidateProfile, updateMyCandidateProfile, uploadApplicationResume, uploadMyCandidateResume } from "../../candidate/candidateApi";
 import { applyToJob, getMyApplications } from "../../candidate/applicationApi";
 import type { ApiMessageResponse, CandidateSelfResponse } from "../../candidate/types";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
@@ -46,6 +46,8 @@ export default function ApplyJobPage() {
     const [alreadyAppId, setAlreadyAppId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    /** CV chọn riêng cho lần ứng tuyển này (không thay CV trong hồ sơ). */
+    const [appResumeUrl, setAppResumeUrl] = useState<string | null>(null);
     const [agree, setAgree] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [doneAt, setDoneAt] = useState<string | null>(null);
@@ -137,7 +139,7 @@ export default function ApplyJobPage() {
                 dateOfBirth: profile.dateOfBirth, gender: profile.gender, address: profile.address,
                 educationLevelId: profile.educationLevelId, skillIds: profile.skillIds,
             });
-            const r = await applyToJob({ jobPostingId: job.id, recruitmentSourceId: sourceId, consentAccepted: agree });
+            const r = await applyToJob({ jobPostingId: job.id, recruitmentSourceId: sourceId, consentAccepted: agree, resumeUrl: appResumeUrl });
             setDoneAt(r.data.appliedAt ?? new Date().toISOString());
         } catch (err) {
             const e = err as AxiosError<ApiMessageResponse>;
@@ -146,6 +148,7 @@ export default function ApplyJobPage() {
     };
 
     const grid = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 16 } as const;
+    const shownResume = appResumeUrl ?? profile?.resumeUrl ?? null;
     const chips = [job.workLocationName, arrangementLabel(job)].filter(Boolean) as string[];
 
     return (
@@ -170,17 +173,32 @@ export default function ApplyJobPage() {
             <section style={{ background: COLORS.cardBg, borderRadius: 20, padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
                 <b style={{ fontSize: 17 }}>CV</b>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, boxShadow: `inset 0 0 0 1px ${COLORS.border}` }}>
-                    <FilePdfOutlined style={{ fontSize: 26, color: profile?.resumeUploaded ? COLORS.error : COLORS.textMuted }} />
-                    <span style={{ flex: 1, fontWeight: 500, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {profile?.resumeUploaded ? (cvFileName(profile.resumeUrl) || "CV trong hồ sơ của bạn") : "Bạn chưa có CV"}
+                    {isWordFile(shownResume)
+                        ? <FileWordOutlined style={{ fontSize: 26, color: COLORS.primary }} />
+                        : <FilePdfOutlined style={{ fontSize: 26, color: profile?.resumeUploaded ? COLORS.error : COLORS.textMuted }} />}
+                    <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {profile?.resumeUploaded ? (cvFileName(shownResume) || "CV trong hồ sơ của bạn") : "Bạn chưa có CV"}
+                        </span>
+                        {appResumeUrl && <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                            Chỉ dùng cho lần ứng tuyển này · CV trong hồ sơ giữ nguyên
+                        </span>}
                     </span>
+                    {appResumeUrl && <Button size="small" type="link" onClick={() => setAppResumeUrl(null)}>Dùng CV trong hồ sơ</Button>}
                 </div>
                 <Upload accept=".pdf,.doc,.docx" maxCount={1} showUploadList={false} beforeUpload={async (file) => {
                     if (file.size > MAX_CV_MB * 1024 * 1024) { message.error(`CV tối đa ${MAX_CV_MB} MB`); return Upload.LIST_IGNORE; }
                     setUploading(true);
                     try {
-                        const r = await uploadMyCandidateResume(file);
-                        setProfile(r.data);
+                        if (profile?.resumeUploaded) {
+                            // Đã có CV trong hồ sơ: CV mới chỉ dùng cho đơn này.
+                            const r = await uploadApplicationResume(file);
+                            setAppResumeUrl(r.data.resumeUrl);
+                        } else {
+                            // Chưa có CV: lưu luôn làm CV của hồ sơ.
+                            const r = await uploadMyCandidateResume(file);
+                            setProfile(r.data);
+                        }
                         message.success("Đã tải CV lên");
                     } catch (err) {
                         const e = err as AxiosError<ApiMessageResponse>;

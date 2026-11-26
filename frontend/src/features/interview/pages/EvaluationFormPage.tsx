@@ -98,7 +98,8 @@ export default function EvaluationFormPage() {
                 // Có bản nháp của mình thì điền lại.
                 const draft = evalRes?.data.find((e) => e.interviewerId === myId && !e.submittedAt);
                 reset({
-                    overallRecommendation: draft?.overallRecommendation ?? "YES",
+                    // Không chọn sẵn kết luận (26/11/2026) — người phỏng vấn phải tự chọn.
+                    overallRecommendation: (draft?.overallRecommendation ?? undefined) as RecommendationType,
                     generalComment: draft?.generalComment ?? "",
                     salaryProposed: draft?.salaryProposed ?? undefined,
                     salaryNote: draft?.salaryNote ?? "",
@@ -195,7 +196,8 @@ export default function EvaluationFormPage() {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
+            {/* Dính trên đầu khi cuộn để nút "Nộp đánh giá" luôn thấy (form dài). */}
+            <div style={{ position: "sticky", top: 0, zIndex: 5, background: COLORS.body, paddingBottom: 4 }}>
                 <PageBreadcrumb crumb="Đánh giá phỏng vấn" />
                 <ScreenTitle
                     title="Đánh giá phỏng vấn"

@@ -7,7 +7,7 @@ export const evaluationScoreSchema = z.object({
 });
 
 export const evaluationSubmitSchema = z.object({
-  overallRecommendation: z.enum(["STRONG_YES", "YES", "NO", "STRONG_NO"]),
+  overallRecommendation: z.enum(["STRONG_YES", "YES", "NO", "STRONG_NO"], { error: "Vui lòng chọn kết luận đề xuất" }),
   /** R46/H14: "Nhận xét chung *" bắt buộc khi nộp. */
   generalComment: z.string({ error: "Vui lòng viết nhận xét chung" }).trim().min(1, "Vui lòng viết nhận xét chung"),
   salaryProposed: z.number().optional().nullable(),

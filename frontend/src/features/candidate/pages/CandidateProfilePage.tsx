@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { App, Button, DatePicker, Form, Input, Select, Spin, Upload } from "antd";
-import { FilePdfOutlined, UploadOutlined } from "@ant-design/icons";
+import { FilePdfOutlined, FileWordOutlined, UploadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { AxiosError } from "axios";
 import type { UploadProps } from "antd";
 import { getMyCandidateProfile, updateMyCandidateProfile, uploadMyCandidateResume } from "../candidateApi";
-import { cvFileName } from "../cvFile";
+import { cvFileName, isWordFile } from "../cvFile";
 import { getCatalogItems } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
 import type { ApiMessageResponse, CandidateSelfResponse, CandidateSelfUpdateRequest } from "../types";
@@ -15,6 +15,7 @@ import { getMyProfile } from "../../auth/authApi";
 import type { UserProfileResponse } from "../../auth/types";
 import { InlineNotice, Panel, ScreenTitle } from "../../../components/ui/designKit";
 import { filterOptionByLabel } from "../../../app/text";
+import { SHOW_SKILLS } from "../../../app/featureFlags";
 
 /**
  * C17 · Hồ sơ của tôi: thông tin cá nhân · kỹ năng · CV (chỉ 1 CV — "Tải CV mới" thay CV cũ, quyết định G7).
@@ -59,7 +60,7 @@ export default function CandidateProfilePage() {
         Promise.all([
             getMyCandidateProfile(),
             getCatalogItems("/masterdata/education-levels").catch(() => null),
-            getCatalogItems("/masterdata/skills").catch(() => null),
+            SHOW_SKILLS ? getCatalogItems("/masterdata/skills").catch(() => null) : Promise.resolve(null),
         ])
             .then(([p, edu, sk]) => {
                 applyProfile(p.data);
@@ -75,6 +76,8 @@ export default function CandidateProfilePage() {
         try {
             const response = await updateMyCandidateProfile({
                 ...values,
+                // Ô kỹ năng đang ẩn thì giữ nguyên kỹ năng đã lưu, không xoá.
+                skillIds: SHOW_SKILLS ? values.skillIds : profile?.skillIds,
                 dateOfBirth: values.dateOfBirth?.format("YYYY-MM-DD") ?? null,
             });
             applyProfile(response.data);
@@ -160,12 +163,14 @@ export default function CandidateProfilePage() {
                     </div>
                 </Panel>
 
-                <Panel title="Kỹ năng">
-                    <Form.Item name="skillIds" style={{ marginBottom: 0 }}>
-                        <Select mode="multiple" allowClear placeholder="Thêm kỹ năng" optionFilterProp="label" filterOption={filterOptionByLabel}
-                            options={skills.map((i) => ({ value: i.id, label: String(i.name) }))} />
-                    </Form.Item>
-                </Panel>
+                {SHOW_SKILLS && (
+                    <Panel title="Kỹ năng">
+                        <Form.Item name="skillIds" style={{ marginBottom: 0 }}>
+                            <Select mode="multiple" allowClear placeholder="Thêm kỹ năng" optionFilterProp="label" filterOption={filterOptionByLabel}
+                                options={skills.map((i) => ({ value: i.id, label: String(i.name) }))} />
+                        </Form.Item>
+                    </Panel>
+                )}
                 </div>
 
                 <Panel
@@ -182,7 +187,9 @@ export default function CandidateProfilePage() {
                         display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 14,
                         boxShadow: `inset 0 0 0 1px ${COLORS.border}`,
                     }}>
-                        <FilePdfOutlined style={{ fontSize: 28, color: profile?.resumeUploaded ? COLORS.error : COLORS.textMuted }} />
+                        {isWordFile(profile?.resumeUrl)
+                            ? <FileWordOutlined style={{ fontSize: 28, color: COLORS.primary }} />
+                            : <FilePdfOutlined style={{ fontSize: 28, color: profile?.resumeUploaded ? COLORS.error : COLORS.textMuted }} />}
                         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                             <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {profile?.resumeUploaded ? (cvFileName(profile.resumeUrl) || "CV đã tải lên") : "Chưa có CV"}

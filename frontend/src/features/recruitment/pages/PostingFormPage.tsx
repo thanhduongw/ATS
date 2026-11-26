@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import ExperienceLevelSelect from "../components/ExperienceLevelSelect";
+import { SHOW_SKILLS } from "../../../app/featureFlags";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { App, Button, Form, Input, InputNumber, Modal, Segmented, Select, Spin, Switch } from "antd";
@@ -7,7 +9,7 @@ import type { AxiosError } from "axios";
 import dayjs from "dayjs";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { postingSchema, type PostingFormValues } from "../schemas/postingSchema";
-import { createPosting, getPostingById, getRequisitions, submitPostingForReview, updatePosting } from "../recruitmentApi";
+import { createPosting, getPostingById, getRequisitions, publishPosting, submitPostingForReview, updatePosting } from "../recruitmentApi";
 import type { ApiMessageResponse, JobPostingResponse, JobRequisitionResponse } from "../types";
 import { getCatalogItems, getPipelines } from "../../masterdata/masterdataApi";
 import type { CatalogItem } from "../../masterdata/types";
@@ -30,7 +32,8 @@ import { filterOptionByLabel } from "../../../app/text";
  * Cột phải "Từ yêu cầu tuyển dụng": số lượng, cấp bậc, lương duyệt, đại diện phòng ban, giai đoạn cố định;
  * "Hiển thị trên trang tuyển dụng": hiện mức lương, gắn nhãn Tuyển gấp.
  * R08 · Xem trước tin: giống trang công khai C03, chuyển máy tính / điện thoại.
- * "Gửi duyệt" = lưu rồi chuyển tin sang "Chờ duyệt" (backend: DRAFT/EDITING → APPROVED), đăng ở trang việc làm.
+ * "Đăng tin" = lưu rồi đăng luôn (26/11/2026 bỏ bước "Chờ duyệt" trên giao diện vì HR tự duyệt chính tin của mình).
+ * Backend vẫn đi DRAFT/EDITING → APPROVED → OPEN nên gọi lần lượt submit-review rồi publish.
  */
 const grid4 = { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", columnGap: 12 } as const;
 
@@ -111,7 +114,7 @@ export default function PostingFormPage() {
     if (loading) return <div style={{ padding: 80, textAlign: "center" }}><Spin /></div>;
     // 3.3: tin Đang tuyển / Tạm dừng sửa tại chỗ được, nhưng chỉ phần nội dung (backend cũng chỉ nhận các phần này).
     const live = !!editing && (editing.status === "OPEN" || editing.status === "PAUSED");
-    const locked = editing && !live && !["DRAFT", "EDITING"].includes(editing.status);
+    const locked = editing && !live && !["DRAFT", "EDITING", "APPROVED"].includes(editing.status);
     const nameOf = (k: string, v: number | null | undefined) => String(cat[k]?.find((x) => x.id === v)?.name ?? "—");
     const approvedMin = req?.approvedSalaryMin ?? req?.expectedSalaryMin ?? null;
     const approvedMax = req?.approvedSalaryMax ?? req?.expectedSalaryMax ?? null;
@@ -131,8 +134,9 @@ export default function PostingFormPage() {
             if (live) {
                 message.success("Đã lưu thay đổi — tin trên trang tuyển dụng đã cập nhật");
             } else if (then === "submit") {
-                await submitPostingForReview(saved.id);
-                message.success("Đã gửi duyệt — tin ở trạng thái Chờ duyệt");
+                if (saved.status !== "APPROVED") await submitPostingForReview(saved.id);
+                await publishPosting(saved.id);
+                message.success("Đã đăng tin — tin đã hiện trên trang tuyển dụng");
             } else {
                 message.success("Đã lưu nháp");
             }
@@ -178,7 +182,7 @@ export default function PostingFormPage() {
                     </> : <>
                         <Button disabled={!!locked} loading={saving === "draft"} onClick={handleSubmit((d) => save(d, "draft"), onInvalid)}>Lưu nháp</Button>
                         <Button onClick={() => setPreview("desktop")}>Xem trước</Button>
-                        <Button type="primary" disabled={!!locked} loading={saving === "submit"} onClick={handleSubmit((d) => save(d, "submit"), onInvalid)}>Gửi duyệt</Button>
+                        <Button type="primary" disabled={!!locked} loading={saving === "submit"} onClick={handleSubmit((d) => save(d, "submit"), onInvalid)}>Đăng tin</Button>
                     </>}
                 />
             </div>
@@ -216,7 +220,7 @@ export default function PostingFormPage() {
                             </Form.Item>
                             <Form.Item label="Kinh nghiệm yêu cầu" style={{ gridColumn: "1 / -1" }}>
                                 <Controller name="experienceRequired" control={control} render={({ field: f }) => (
-                                    <Input {...f} disabled={live || undefined} value={f.value ?? ""} maxLength={300} placeholder="Ví dụ: Từ 2 năm" />)} />
+                                    <ExperienceLevelSelect value={f.value} onChange={f.onChange} disabled={live} />)} />
                             </Form.Item>
                         </div>
                         <Form.Item label="Mô tả công việc" required>
@@ -232,10 +236,12 @@ export default function PostingFormPage() {
                             <Controller name="benefits" control={control} render={({ field: f }) => (
                                 <Input.TextArea {...f} value={f.value ?? ""} autoSize={{ minRows: 3, maxRows: 10 }} maxLength={3000} showCount placeholder="Mỗi dòng một quyền lợi…" />)} />
                         </Form.Item>
-                        <Form.Item label="Kỹ năng yêu cầu" extra={live ? "Không đổi được khi tin đang tuyển." : SKILL_REQUIRED_HINT} style={{ marginBottom: 0 }}>
-                            <Controller name="skillIds" control={control} render={({ field: f }) => (
-                                <SkillMultiSelect value={f.value ?? []} onChange={f.onChange} disabled={live} />)} />
-                        </Form.Item>
+                        {SHOW_SKILLS && (
+                            <Form.Item label="Kỹ năng yêu cầu" extra={live ? "Không đổi được khi tin đang tuyển." : SKILL_REQUIRED_HINT} style={{ marginBottom: 0 }}>
+                                <Controller name="skillIds" control={control} render={({ field: f }) => (
+                                    <SkillMultiSelect value={f.value ?? []} onChange={f.onChange} disabled={live} />)} />
+                            </Form.Item>
+                        )}
                     </Panel>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

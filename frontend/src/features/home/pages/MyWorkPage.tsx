@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { departmentLabel } from "../../overview/useCompanyOverview";
 import { Button, Segmented, Skeleton } from "antd";
 import {
     AuditOutlined, CalendarOutlined, EditOutlined, FileSearchOutlined, FileTextOutlined,
@@ -373,7 +374,7 @@ function recruiterTasks(d: Data, me: number): Task[] {
         tasks.push({
             key: "approve-req", icon: <AuditOutlined />, color: COLORS.primaryHover, mine: true,
             title: `Duyệt ${pending.length} yêu cầu tuyển dụng`,
-            sub: depts.length ? depts.map((x) => `Phòng ${x}`).join(" · ") : pending.map((r) => r.title).slice(0, 2).join(" · "),
+            sub: depts.length ? depts.map((x) => departmentLabel(x)).join(" · ") : pending.map((r) => r.title).slice(0, 2).join(" · "),
             action: "Duyệt", to: "/recruitment/requisitions",
         });
     }

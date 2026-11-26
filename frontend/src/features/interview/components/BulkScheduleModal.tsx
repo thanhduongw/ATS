@@ -162,7 +162,14 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
         [postings, departmentId],
     );
 
-    const eligibleApplications = useMemo(() => applications.filter(isSchedulable), [applications]);
+    // Bỏ hồ sơ đã có buổi phỏng vấn còn hiệu lực (chưa huỷ / hết hạn / xin dời) — 26/11/2026.
+    const scheduledAppIds = useMemo(() => new Set(existingInterviews
+        .filter((iv) => !["CANCELLED", "EXPIRED", "NO_SHOW", "CANDIDATE_DECLINED"].includes(iv.status))
+        .map((iv) => iv.applicationId)), [existingInterviews]);
+    const eligibleApplications = useMemo(
+        () => applications.filter((a) => isSchedulable(a) && !scheduledAppIds.has(a.id)),
+        [applications, scheduledAppIds],
+    );
 
     const allEligibleSelected =
         eligibleApplications.length > 0 && selectedApplicationIds.length === eligibleApplications.length;
@@ -212,6 +219,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
         selectedApplicationIds.length > 0 &&
         interviewerIds.length > 0 &&
         !!startTime &&
+        startTime.isAfter(dayjs()) &&
         durationMinutes > 0 &&
         (format === "ONLINE" ? meetingLink.trim().length > 0 : !!workLocationId);
 
@@ -500,6 +508,7 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                                 style={{ width: "100%" }}
                                 format="HH:mm DD/MM/YYYY"
                                 placeholder="Chọn thời điểm bắt đầu"
+                                disabledDate={(d) => d.isBefore(dayjs(), "day")}
                                 value={startTime}
                                 onChange={setStartTime}
                             />

@@ -191,4 +191,11 @@ export const catalogConfigs: CatalogConfig[] = [
     },
 ];
 
+/**
+ * Danh mục ẩn khỏi giao diện (quyết định 26/11/2026). Dữ liệu và API ở backend vẫn giữ.
+ * - skills: không cho chọn kỹ năng ở hồ sơ ứng viên / yêu cầu / tin nữa.
+ * - customFields: trường tuỳ chỉnh không được dùng ở màn nào.
+ */
+export const HIDDEN_CATALOGS: string[] = ["skills", SPECIAL_CATALOGS.customFields];
+
 export const catalogByKey = (key: string | undefined) => catalogConfigs.find((c) => c.key === key);

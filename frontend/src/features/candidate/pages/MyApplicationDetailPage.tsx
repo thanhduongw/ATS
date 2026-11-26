@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { App, Button, Spin } from "antd";
-import { ArrowRightOutlined, CalendarOutlined, CheckOutlined, FilePdfOutlined, LeftOutlined, MailOutlined } from "@ant-design/icons";
+import { ArrowRightOutlined, CalendarOutlined, CheckOutlined, FilePdfOutlined, FileWordOutlined, ExportOutlined, LeftOutlined, MailOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import dayjs from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
@@ -11,7 +11,7 @@ import { COLORS, FIXED_STAGES, RADIUS, type FixedStage } from "../../../app/them
 import { FIXED_STAGE_LABEL, toFixedStage } from "../../../app/stages";
 import { Avatar, InlineNotice, Panel, SmallDialog } from "../../../components/ui/designKit";
 import { getPublicCompany } from "../../public/publicApi";
-import { cvFileName } from "../cvFile";
+import { cvFileName, isWordFile } from "../cvFile";
 import CandidateStageTag from "../components/CandidateStageTag";
 import { canWithdraw, closedLabel, needsConfirm, todoOf, useCandidatePortal } from "../useCandidatePortal";
 
@@ -125,10 +125,15 @@ export default function MyApplicationDetailPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                     <Panel title="Hồ sơ đã nộp">
                         {app.resumeUrl && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 14, background: COLORS.fill }}>
-                                <FilePdfOutlined style={{ fontSize: 20, color: COLORS.primary }} />
-                                <span style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cvFileName(app.resumeUrl)}</span>
-                            </div>
+                            // Bấm để mở xem lại CV đã nộp (26/11/2026).
+                            <a href={app.resumeUrl} target="_blank" rel="noopener noreferrer" title="Mở CV đã nộp"
+                                style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 14, background: COLORS.fill, color: "inherit" }}>
+                                {isWordFile(app.resumeUrl)
+                                    ? <FileWordOutlined style={{ fontSize: 20, color: COLORS.primary }} />
+                                    : <FilePdfOutlined style={{ fontSize: 20, color: COLORS.primary }} />}
+                                <span style={{ flex: 1, fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cvFileName(app.resumeUrl)}</span>
+                                <ExportOutlined style={{ fontSize: 13, color: COLORS.textSecondary }} />
+                            </a>
                         )}
                         <span style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                             <span style={{ color: COLORS.textSecondary }}>Ngày nộp</span>

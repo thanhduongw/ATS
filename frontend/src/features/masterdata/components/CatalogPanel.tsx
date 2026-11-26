@@ -8,19 +8,16 @@ import type { CatalogConfig, CatalogItem, ApiMessageResponse } from "../types";
 import {
     activateCatalogItem, createCatalogItem, deleteCatalogItem, getCatalogItems, updateCatalogItem,
 } from "../masterdataApi";
-import { getApplications } from "../../candidate/applicationApi";
-import { getUserDirectory } from "../../auth/authApi";
-import type { UserDirectoryResponse } from "../../auth/types";
 import { COLORS } from "../../../app/theme";
 import ListPage, { ListFilters } from "../../../components/ui/listKit";
 import FitTable from "../../../components/ui/FitTable";
-import { Avatar, SmallDialog } from "../../../components/ui/designKit";
+import { SmallDialog } from "../../../components/ui/designKit";
 
 /**
  * R36 · R37 · R38 — một danh mục: tìm kiếm, lọc trạng thái, bảng có công tắc "Đang dùng".
  * Backend không xoá hẳn mục nào: tắt công tắc = ẩn khỏi danh sách chọn, bật lại được.
- * Cột riêng: Lý do từ chối có "Đã dùng" (đếm hồ sơ bị từ chối với lý do đó);
- * Phòng ban có "Đại diện phòng ban" và "Tài khoản" (đếm tài khoản nội bộ thuộc phòng).
+ * Đã bỏ các cột phụ (đại diện / số tài khoản của phòng ban, số lần dùng lý do từ chối) — 26/11/2026:
+ * chúng tải dữ liệu bất đồng bộ và làm bảng render lặp vô hạn, treo trình duyệt.
  */
 type StatusFilter = "ALL" | "ACTIVE" | "HIDDEN";
 
@@ -28,56 +25,6 @@ interface Props {
     config: CatalogConfig;
     /** Dải breadcrumb đặt trên tiêu đề. */
     breadcrumb?: ReactNode;
-}
-
-function useExtraColumns(key: string): ColumnsType<CatalogItem> {
-    const [usage, setUsage] = useState<Map<number, number>>(new Map());
-    const [people, setPeople] = useState<UserDirectoryResponse[]>([]);
-
-    useEffect(() => {
-        if (key === "rejectionReasons") {
-            getApplications({ size: 5000 }).then((r) => {
-                const m = new Map<number, number>();
-                r.data.content.forEach((a) => {
-                    if (a.rejectionReasonId != null) m.set(a.rejectionReasonId, (m.get(a.rejectionReasonId) ?? 0) + 1);
-                });
-                setUsage(m);
-            }).catch(() => setUsage(new Map()));
-        }
-        if (key === "departments") {
-            getUserDirectory().then((r) => setPeople(r.data)).catch(() => setPeople([]));
-        }
-    }, [key]);
-
-    if (key === "rejectionReasons") {
-        return [{
-            title: "Đã dùng", key: "usage", width: 100, align: "right",
-            render: (_, item) => <span style={{ fontVariantNumeric: "tabular-nums" }}>{usage.get(item.id) ?? 0}</span>,
-        }];
-    }
-    if (key === "departments") {
-        return [
-            {
-                title: "Đại diện phòng ban", key: "reps", width: 240,
-                render: (_, item) => {
-                    const reps = people.filter((p) => p.departmentId === item.id && p.role === "HIRING_MANAGER");
-                    if (reps.length === 0) return <span style={{ color: COLORS.textMuted }}>Chưa có</span>;
-                    return (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                            <Avatar name={reps[0].fullName} colorKey={reps[0].id} size={24} />
-                            {reps[0].fullName}
-                            {reps.length > 1 && <span style={{ color: COLORS.textSecondary }}>+{reps.length - 1}</span>}
-                        </span>
-                    );
-                },
-            },
-            {
-                title: "Tài khoản", key: "accounts", width: 100, align: "right",
-                render: (_, item) => people.filter((p) => p.departmentId === item.id).length,
-            },
-        ];
-    }
-    return [];
 }
 
 export default function CatalogPanel({ config, breadcrumb }: Props) {
@@ -91,7 +38,6 @@ export default function CatalogPanel({ config, breadcrumb }: Props) {
     const [saving, setSaving] = useState(false);
     const [toggling, setToggling] = useState<number | null>(null);
     const [form] = Form.useForm();
-    const extraColumns = useExtraColumns(config.key);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -186,7 +132,6 @@ export default function CatalogPanel({ config, breadcrumb }: Props) {
             title: f.label, key: f.name, width: 140,
             render: (_: unknown, it: CatalogItem) => (it[f.name] == null || it[f.name] === "" ? "—" : String(it[f.name])),
         })),
-        ...extraColumns,
         {
             title: "Đang dùng", key: "active", width: 110, align: "center",
             render: (_, it) => (

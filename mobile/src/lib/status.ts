@@ -158,7 +158,7 @@ export function applicationPhase(stageType?: string): ApplicationPhase {
     case "OFFER":
       return { step: 3, rejected: false, hired: false, ended: false };
     case "HIRED":
-      return { step: 3, rejected: false, hired: true, ended: true };
+      return { step: 4, rejected: false, hired: true, ended: true };
     case "REJECTED":
       return { step: 0, rejected: true, hired: false, ended: true };
     case "WITHDRAWN":

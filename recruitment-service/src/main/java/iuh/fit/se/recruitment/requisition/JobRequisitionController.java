@@ -96,7 +96,8 @@ public class JobRequisitionController {
     public ResponseEntity<Map<String, String>> delete(
             @PathVariable Long id) {
         CurrentUser actor = CurrentUser.required();
-        AuthorizationPolicy.requireHr(actor);
+        // HR xoá được mọi yêu cầu chưa duyệt; đại diện phòng ban chỉ xoá bản nháp của chính mình (kiểm trong service).
+        AuthorizationPolicy.requireInternal(actor);
         service.softDelete(id, actor);
         return ResponseEntity.ok(Map.of("message", "Xóa yêu cầu tuyển dụng thành công"));
     }

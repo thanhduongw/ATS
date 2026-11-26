@@ -22,7 +22,7 @@ import StatusTag from "../../../components/ui/StatusTag";
 
 type Tab = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "ENDED" | "ALL";
 
-/** Tab theo R25. Thu hồi (B3) đang hoãn nên "Hết hạn / thu hồi" hiện chỉ có thư hết hạn. */
+/** Tab theo R25. Không làm thu hồi thư mời (quyết định 26/11/2026) nên tab chỉ gọi là "Hết hạn". */
 const TAB_STATUSES: Record<Exclude<Tab, "ALL">, OfferStatus[]> = {
     DRAFT: ["DRAFT"],
     SENT: ["APPROVED"],
@@ -120,7 +120,7 @@ export default function OffersPage() {
                         { key: "SENT", label: "Đã gửi", count: count("SENT") },
                         { key: "ACCEPTED", label: "Ứng viên nhận", count: count("ACCEPTED") },
                         { key: "DECLINED", label: "Ứng viên từ chối", count: count("DECLINED") },
-                        { key: "ENDED", label: "Hết hạn / thu hồi", count: count("ENDED") },
+                        { key: "ENDED", label: "Hết hạn", count: count("ENDED") },
                         { key: "ALL", label: "Tất cả", count: filtered.length },
                     ]}
                 />

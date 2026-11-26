@@ -4,7 +4,7 @@ import type { PostingStatus, WorkArrangement } from "./types";
 /** Nhãn + sắc độ trạng thái tin (R06, R09). APPROVED = HR đã xác nhận nội dung, chờ đăng — mẫu R06 gọi là "Chờ duyệt" (Q2). */
 export const POSTING_STATUS_VIEW: Record<PostingStatus, { label: string; tone: StatusTone }> = {
     OPEN: { label: "Đang tuyển", tone: "success" },
-    APPROVED: { label: "Chờ duyệt", tone: "warning" },
+    APPROVED: { label: "Chưa đăng", tone: "warning" },
     DRAFT: { label: "Bản nháp", tone: "neutral" },
     EDITING: { label: "Đang sửa", tone: "neutral" },
     PAUSED: { label: "Tạm dừng", tone: "warning" },

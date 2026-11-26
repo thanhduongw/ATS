@@ -7,3 +7,8 @@ export function cvFileName(url: string | null | undefined): string {
     const last = decodeURIComponent(url.split("?")[0].split("/").pop() ?? "");
     return last.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, "");
 }
+
+/** File Word (.doc/.docx) thì hiện biểu tượng Word thay vì PDF. */
+export function isWordFile(url: string | null | undefined): boolean {
+    return /\.docx?$/i.test(cvFileName(url));
+}

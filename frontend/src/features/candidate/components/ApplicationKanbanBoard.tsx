@@ -359,7 +359,7 @@ export default function ApplicationKanbanBoard({ applications, stages, interview
                     options={reasons.map((r) => ({ value: r.id, label: String(r.name) }))} />
                 <Input.TextArea rows={2} maxLength={500} placeholder="Ghi chú nội bộ (không gửi cho ứng viên)"
                     value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} />
-                <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Ứng viên sẽ nhận email thông báo kết quả, không kèm lý do.</span>
+                <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Ứng viên sẽ nhận email thông báo kết quả, kèm lý do đã chọn (ghi chú nội bộ không gửi).</span>
             </SmallDialog>
 
             <SmallDialog

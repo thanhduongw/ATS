@@ -45,6 +45,14 @@ public class OfferEventPublisher {
         );
     }
 
+    public void publishPostingHiredCount(Long jobPostingId, long acceptedCount) {
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ATS_EXCHANGE,
+                RabbitMQConfig.POSTING_HIRED_COUNT_ROUTING_KEY,
+                new PostingHiredCountEvent(jobPostingId, acceptedCount)
+        );
+    }
+
     public void publishOfferDeclined(
             Long offerId,
             Long applicationId,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useRef, type ReactNode } from "react";
+import { SHOW_SKILLS } from "../../../app/featureFlags";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
     App, Tag, Button, Space, Spin, Popconfirm, Tabs, Skeleton, Alert, Input, Tooltip,
@@ -107,6 +108,8 @@ export default function CandidateApplicationDetailPage() {
     const [comments, setComments] = useState<ApplicationCommentResponse[]>([]);
     const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
     const [hasEvaluation, setHasEvaluation] = useState(false);
+    /** Đánh giá HR thêm trực tiếp (không gắn buổi phỏng vấn) — cộng vào số đếm của tab Đánh giá. */
+    const [directEvalCount, setDirectEvalCount] = useState(0);
     const [workLocationMap, setWorkLocationMap] = useState<Record<number, string>>({});
     const [offers, setOffers] = useState<OfferResponse[]>([]);
     /** Hồ sơ cùng việc làm, cùng giai đoạn — cho "‹ Trước 3 / 6 trong Phỏng vấn Sau ›". */
@@ -162,7 +165,10 @@ export default function CandidateApplicationDetailPage() {
             setWorkLocationMap(Object.fromEntries(workLocationRes.data.map((w) => [w.id, String(w.name)])));
             // Phần phụ: lỗi không chặn màn.
             getApplicationEvaluations(applicationId)
-                .then((r) => setHasEvaluation(r.data.some((e) => !!e.submittedAt)))
+                .then((r) => {
+                    setHasEvaluation(r.data.some((e) => !!e.submittedAt));
+                    setDirectEvalCount(r.data.filter((e) => !!e.submittedAt && e.interviewId == null).length);
+                })
                 .catch(() => setHasEvaluation(false));
             getOffers({ applicationId, size: 20 })
                 .then((r) => setOffers(r.data.content))
@@ -337,8 +343,8 @@ export default function CandidateApplicationDetailPage() {
     const nextSibling = siblingIndex >= 0 && siblingIndex < siblings.length - 1 ? siblings[siblingIndex + 1] : null;
     const openSibling = (a: ApplicationResponse) => navigate(`/candidates/${a.candidateId}/applications/${a.id}`);
     const activeInterviews = interviews.filter((iv) => iv.status !== "CANCELLED" && iv.status !== "CANDIDATE_DECLINED");
-    const evalDone = activeInterviews.reduce((n, iv) => n + iv.interviewers.filter((i) => i.evaluationSubmitted).length, 0);
-    const evalTotal = activeInterviews.reduce((n, iv) => n + iv.interviewers.length, 0);
+    const evalDone = activeInterviews.reduce((n, iv) => n + iv.interviewers.filter((i) => i.evaluationSubmitted).length, 0) + directEvalCount;
+    const evalTotal = activeInterviews.reduce((n, iv) => n + iv.interviewers.length, 0) + directEvalCount;
     const tier = aiTierMeta(application.aiTier);
 
     // Chỉ cho phép lên lịch khi hồ sơ đang thực sự ở một vòng phỏng vấn.
@@ -378,7 +384,7 @@ export default function CandidateApplicationDetailPage() {
             <Field label="Nguồn ứng tuyển" value={application.recruitmentSourceName} />
             {application.rejectionReasonName && <Field label={application.closedReason ? "Lý do đóng" : "Lý do từ chối"} value={application.rejectionReasonName} />}
             {application.note && <Field label="Ghi chú ứng tuyển" value={application.note} />}
-            {candidate.skillNames?.length > 0 && (
+            {SHOW_SKILLS && candidate.skillNames?.length > 0 && (
                 <Field label="Kỹ năng" value={(
                     <Space wrap size={4}>
                         {candidate.skillNames.map((s) => <Tag key={s} style={{ margin: 0 }}>{s}</Tag>)}

@@ -228,7 +228,7 @@ export default function AiScoreCard({ applicationId, canRescore, hasResume }: Pr
                         <Tag color={tierMeta?.color} style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{tierLabel}</Tag>
                     )}
                     <div style={{ ...mutedText, marginTop: 6 }}>
-                        Thang điểm 0–100
+                        Thang điểm 100
                         {score.scoredAt && ` · Chấm ngày ${new Date(score.scoredAt + "Z").toLocaleDateString("vi-VN")}`}
                     </div>
                 </div>

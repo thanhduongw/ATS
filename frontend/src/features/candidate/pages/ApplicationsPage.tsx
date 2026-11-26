@@ -64,6 +64,9 @@ const TAB_LABEL: Record<Tab, string> = { ACTIVE: "Đang trong quy trình", HIRED
 
 
 
+/** Tạm ẩn nút "Thêm ứng viên" trên thanh công cụ. Đổi thành true để hiện lại. */
+const SHOW_ADD_CANDIDATE = false;
+
 export default function ApplicationsPage() {
     const { message, modal } = App.useApp();
     const openApplication = useTrailNavigate();
@@ -372,7 +375,7 @@ export default function ApplicationsPage() {
                             </Button>
                         </Tooltip>
                     )}
-                    {isHr && (
+                    {SHOW_ADD_CANDIDATE && isHr && (
                         <Button type="primary" icon={<PlusOutlined />} onClick={() => setCandidateFormOpen(true)}>
                             Thêm ứng viên
                         </Button>
@@ -442,45 +445,45 @@ export default function ApplicationsPage() {
             )}
 
             <div ref={tableRef}>
-            <Table
-                rowKey="id"
-                loading={loading}
-                columns={columns}
-                // Số dòng/trang đo lại sau khi bảng hiện: trong nhịp chờ tải lại, trang cũ có thể nhiều dòng hơn
-                // pageSize mới — cắt bớt để antd không báo lỗi "dataSource length … large than pagination.pageSize".
-                dataSource={rows.length > pageSize ? rows.slice(0, pageSize) : rows}
-                onChange={(_, __, sorter, extra) => {
-                    if (extra.action !== "sort") return;
-                    const order = Array.isArray(sorter) ? null : sorter.order ?? null;
-                    setAiScoreOrder(order);
-                    setPage(1);
-                }}
-                rowClassName={() => "row-clickable"}
-                onRow={(record) => ({
-                    onClick: (event) => {
-                        // Bấm ô chọn hàng loạt thì chỉ tick, không mở chi tiết.
-                        if ((event.target as HTMLElement).closest(".ant-table-selection-column")) return;
-                        openApplication(`/candidates/${record.candidateId}/applications/${record.id}`);
-                    },
-                })}
-                rowSelection={isHr ? { selectedRowKeys, onChange: setSelectedRowKeys } : undefined}
-                pagination={{
-                    current: page,
-                    pageSize,
-                    total: totalItems,
-                    ...listPagination("ứng viên"),
-                    showSizeChanger: false,
-                    onChange: (p) => setPage(p),
-                }}
-                locale={{
-                    emptyText: loading ? <span /> : (
-                        <EmptyState
-                            title="Không có ứng viên nào"
-                            description="Ứng viên khớp với tab và bộ lọc hiện tại sẽ hiện ở đây."
-                        />
-                    ),
-                }}
-            />
+                <Table
+                    rowKey="id"
+                    loading={loading}
+                    columns={columns}
+                    // Số dòng/trang đo lại sau khi bảng hiện: trong nhịp chờ tải lại, trang cũ có thể nhiều dòng hơn
+                    // pageSize mới — cắt bớt để antd không báo lỗi "dataSource length … large than pagination.pageSize".
+                    dataSource={rows.length > pageSize ? rows.slice(0, pageSize) : rows}
+                    onChange={(_, __, sorter, extra) => {
+                        if (extra.action !== "sort") return;
+                        const order = Array.isArray(sorter) ? null : sorter.order ?? null;
+                        setAiScoreOrder(order);
+                        setPage(1);
+                    }}
+                    rowClassName={() => "row-clickable"}
+                    onRow={(record) => ({
+                        onClick: (event) => {
+                            // Bấm ô chọn hàng loạt thì chỉ tick, không mở chi tiết.
+                            if ((event.target as HTMLElement).closest(".ant-table-selection-column")) return;
+                            openApplication(`/candidates/${record.candidateId}/applications/${record.id}`);
+                        },
+                    })}
+                    rowSelection={isHr ? { selectedRowKeys, onChange: setSelectedRowKeys } : undefined}
+                    pagination={{
+                        current: page,
+                        pageSize,
+                        total: totalItems,
+                        ...listPagination("ứng viên"),
+                        showSizeChanger: false,
+                        onChange: (p) => setPage(p),
+                    }}
+                    locale={{
+                        emptyText: loading ? <span /> : (
+                            <EmptyState
+                                title="Không có ứng viên nào"
+                                description="Ứng viên khớp với tab và bộ lọc hiện tại sẽ hiện ở đây."
+                            />
+                        ),
+                    }}
+                />
             </div>
 
             <Modal

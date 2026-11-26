@@ -15,6 +15,9 @@ REFERENCE_DATE_PLACEHOLDER = "{NGAY_THAM_CHIEU}"
 EXTRACT_JD_VERSION = "ssrc-jd-extract-v1"
 PROMPT_A_VERSION = "ssrc-baseline-v1"
 PROMPT_B_VERSION = "ssrc-rubric-evidence-v1"
+# C (21/11/2026): ablation của B — giữ rubric 1–5, bỏ yêu cầu bằng chứng (cv_evidence=[], jd_evidence=[] như A).
+PROMPT_C_VERSION = "ssrc-rubric-only-v1"
+PROMPT_VERSIONS = {"A": PROMPT_A_VERSION, "B": PROMPT_B_VERSION, "C": PROMPT_C_VERSION}
 
 
 
@@ -104,6 +107,8 @@ def _custom(config: str) -> str | None:
 
 
 def score_prompt(config: str, cv: CVFacts, jd: JDFacts, policy: CertPolicy) -> str:
+    if config not in PROMPT_VERSIONS:
+        raise ValueError("config chỉ được A, B hoặc C")
     custom = _custom(config)
     if custom is not None:
         return custom + "\n\n" + _common_data(cv, jd, policy)
@@ -126,4 +131,4 @@ def score_prompt(config: str, cv: CVFacts, jd: JDFacts, policy: CertPolicy) -> s
                 "khi CV có thông tin để chứng minh điểm, trích CV ở cv_evidence. "
                 "Chỉ trích quote có trong JSON; khi CV thiếu thông tin, để cv_evidence=[], giải thích thiếu bằng chứng.\n"
                 + _common_data(cv, jd, policy))
-    raise ValueError("config chỉ được A hoặc B")
+    raise ValueError(f"Thiếu data/prompts/prompt_{config}.txt cho cấu hình {config}")

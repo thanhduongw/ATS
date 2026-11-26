@@ -3,6 +3,9 @@ data/cvs/
 data/jds/*.txt
 private/
 output/
+output_extra/
 .env
 *.pyc
 __pycache__/
+output_old_v1/
+output_extra_old_v1/

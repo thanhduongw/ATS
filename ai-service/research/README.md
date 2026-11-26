@@ -189,6 +189,29 @@ cả một đợt chạy và được ghi vào `meta.reference_date` của file 
 **Trước khi chạy lại:** sao lưu `output/` của v1 (ví dụ đổi tên thành `output_v1/`) — chạy v2 ghi đè
 `output/extracted/cv/*.json`, `output/scores/*.json` và CSV kết quả.
 
+## 7c. Chạy thêm cho bài báo: prompt C và các lần lặp (21/11/2026)
+
+- **Prompt C** (`prompt_C.txt`, `ssrc-rubric-only-v1`): giống B nhưng bỏ phần yêu cầu bằng chứng, đặt
+  `cv_evidence=[]`, `jd_evidence=[]` như A. Kiểm tra quote giống A (không bắt buộc `jd_evidence` như B).
+- **Dùng lại trích xuất cố định:** `--extraction-dir research/output/extracted` đọc thẳng `cv/*.json`, `jd/*.json`.
+  Mỗi file phải có `step_version` đúng phiên bản hiện hành (`EXTRACT_CV_VERSION`, `EXTRACT_JD_VERSION`), cùng model,
+  `source_hash` khớp CV/JD hiện tại, CV có `meta.reference_date` bằng `SSRC_REFERENCE_DATE`, và quote nằm trong nguồn.
+  Không gọi API trích xuất.
+- **21/11/2026 chuyển toàn bộ sang trích xuất CV v2:** kết quả cũ (v1) cất ở `output_old_v1/` và `output_extra_old_v1/`
+  (không commit). Đợt chính `run --configs A,B,C` là lần 1; các lần lặp dùng `--run-tag r2`, `r3`.
+- **Thư mục riêng:** `--run-tag C_r1` ghi vào `research/output_extra/C_r1/` (`--output-dir` đổi thư mục gốc). Không đọc
+  cache điểm ở `output/scores`. Lệnh từ chối ghi vào `research/output/`. Có `--run-tag` mà thiếu `--extraction-dir`
+  thì báo lỗi. Một lượt lỗi được ghi vào `run_manifest.json`, các lượt còn lại vẫn chạy.
+- `--configs` chọn cấu hình (mặc định `A,B`). `export` có `--run-tag` sẽ thêm ở cuối các cột `input_tokens`,
+  `output_tokens`, `latency_ms`, `retries`, `validation_retries`, `run_tag`.
+
+```bash
+python -m research.run run --configs C --run-tag C_r1 --extraction-dir research/output/extracted --dry-run
+python -m research.run run --configs C --run-tag C_r1 --extraction-dir research/output/extracted --limit 2
+python -m research.run run --configs C --run-tag C_r1 --extraction-dir research/output/extracted
+python -m research.run export --configs C --run-tag C_r1     # -> output_extra/C_r1/results_C_r1.csv
+```
+
 ## 8. Giới hạn đã biết của phiên bản này
 
 1. Không có nguyên văn prompt chính thức của nhóm, nên mặc định dùng bản đề xuất trong `prompts.py` cho đến khi bạn thay bằng prompt chính thức.

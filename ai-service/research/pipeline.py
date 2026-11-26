@@ -17,7 +17,7 @@ from typing import Any
 from research.preflight import BASE, PLACEHOLDER_RE, read_pairs, validate_manifest
 from research.privacy import quote_in_source, sha, remaining_contact_indicators
 from research.prompts import (
-    PROMPT_A_VERSION, PROMPT_B_VERSION, EXTRACT_CV_VERSION, EXTRACT_JD_VERSION,
+    PROMPT_VERSIONS, EXTRACT_CV_VERSION, EXTRACT_JD_VERSION,
     cv_extraction_prompt, jd_extraction_prompt, score_prompt,
 )
 from research.schema import CVFacts, JDFacts, ScoreFour, CertPolicy, validate_scoring
@@ -33,6 +33,12 @@ REQUIRED_POLICIES = {"REQUIRED", "PREFERRED", "NOT_SPECIFIED"}
 # Ngày tham chiếu của prompt trích xuất CV v2 ("nay"/"hiện tại" quy đổi tới ngày này). CỐ ĐỊNH cho cả một đợt chạy:
 # đổi ngày = đổi prompt = cache CV mất hiệu lực. Đặt bằng biến môi trường SSRC_REFERENCE_DATE (dd/mm/yyyy).
 REFERENCE_DATE = os.environ.get("SSRC_REFERENCE_DATE", "19/11/2026")
+
+
+# Bản trích xuất dùng cho mọi lượt chấm của bài báo (đợt 04–05/11/2026). Đợt chạy thêm đọc thẳng các JSON này
+# qua --extraction-dir, không gọi lại bước trích xuất (prompt trích xuất CV hiện tại đã là v2).
+# Đợt chạy thêm đọc lại đúng bản trích xuất hiện hành (CV v2 từ 21/11/2026), không trộn phiên bản.
+FROZEN_EXTRACT_VERSIONS = {"cv": EXTRACT_CV_VERSION, "jd": EXTRACT_JD_VERSION}
 
 
 class StudyError(RuntimeError):
@@ -194,19 +200,53 @@ def _verify_score(out: ScoreFour, config: str, policy: CertPolicy, cv: CVFacts, 
             raise StudyError("Certifications=PREFERRED và CV không có chứng chỉ: điểm phải là 3")
 
 
-def expected_calls(pairs: list[dict]) -> dict[str, int]:
-    return {"cv_extractions": len({p["cv_id"] for p in pairs}),
-            "jd_extractions": len({p["jd_id"] for p in pairs}),
-            "scores": 2 * len(pairs)}
+def expected_calls(pairs: list[dict], configs: tuple[str, ...] = ("A", "B"), *,
+                   frozen_extraction: bool = False) -> dict[str, int]:
+    return {"cv_extractions": 0 if frozen_extraction else len({p["cv_id"] for p in pairs}),
+            "jd_extractions": 0 if frozen_extraction else len({p["jd_id"] for p in pairs}),
+            "scores": len(configs) * len(pairs)}
+
+
+def load_frozen_extraction(directory: Path, kind: str, item_id: str, content: str, model: str):
+    """Đọc bản trích xuất đã có (phiên bản hiện hành), KHÔNG gọi API. Kiểm tra phiên bản, model, nguồn và quote; không sửa dữ liệu."""
+    path = directory / kind / f"{item_id}.json"
+    if not path.is_file():
+        raise StudyError(f"Thiếu bản trích xuất {kind} {item_id} ở {path}")
+    try:
+        text = path.read_text(encoding="utf-8")
+        raw = json.loads(text)
+        meta = raw["meta"]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise StudyError(f"Không đọc được {path}") from exc
+    expected = FROZEN_EXTRACT_VERSIONS[kind]
+    if meta.get("step_version") != expected:
+        raise StudyError(f"{path.name}: step_version={meta.get('step_version')}, cần {expected}")
+    if meta.get("model") != model:
+        raise StudyError(f"{path.name}: trích xuất bằng {meta.get('model')}, đợt chấm dùng {model}")
+    if meta.get("source_hash") != sha(content):
+        raise StudyError(f"{path.name}: nguồn {kind} đã đổi so với lúc trích xuất")
+    if kind == "cv" and meta.get("reference_date") != REFERENCE_DATE:
+        raise StudyError(f"{path.name}: ngày tham chiếu {meta.get('reference_date')}, đợt này dùng {REFERENCE_DATE}")
+    if kind == "cv":
+        data = CVFacts.model_validate(raw["data"])
+        if not data.facts:
+            raise StudyError(f"{item_id}: bản trích xuất rỗng")
+        _check_extraction([f.quote for f in data.facts], content, f"{item_id} (trích xuất cố định)")
+    else:
+        data = JDFacts.model_validate(raw["data"])
+        _verify_jd(data, content)
+    return data, {"file": path.name, "step_version": expected, "file_sha256": sha(text)}
 
 
 @dataclass
 class StudyRunner:
     manager: Any
     model: str
+    score_dir: Path | None = None   # None = SCORE_DIR (output/scores)
+    run_tag: str | None = None
 
     async def _invoke(self, prompt: str, response_type, path: Path, *, identifier: str,
-                      version: str, source_hash: str, validate):
+                      version: str, source_hash: str, validate, extra_meta: dict | None = None):
         fp = _fingerprint(prompt, response_type.__name__, version, source_hash)
         cache = _json_cache(path, model=self.model, fingerprint=fp, model_type=response_type)
         if cache is not None:
@@ -224,15 +264,21 @@ class StudyRunner:
         )
 
         current_prompt = prompt
-        total_in = total_out = 0
+        total_in = total_out = total_latency = 0
 
         for attempt in range(2):
-            out, usage = await self.manager.generate_structured(
-                current_prompt, response_type
-            )
+            try:
+                out, usage = await self.manager.generate_structured(
+                    current_prompt, response_type
+                )
+            except Exception as exc:
+                # Token của lượt trước (đã trả lời nhưng sai quote) vẫn được tính khi báo cáo.
+                exc.ssrc_tokens = (total_in, total_out)
+                raise
 
             total_in += usage.input_tokens
             total_out += usage.output_tokens
+            total_latency += usage.latency_ms
 
             try:
                 validate(out)
@@ -271,11 +317,12 @@ class StudyRunner:
                     current_prompt = prompt + correction
                     continue
 
-                raise StudyError(
-                    f"{identifier}: {exc}"
-                ) from exc
+                err = StudyError(f"{identifier}: {exc}")
+                err.ssrc_tokens = (total_in, total_out)
+                raise err from exc
 
-
+            from app.core.config import get_settings
+            settings = get_settings()
             _save_json_atomic(path, {
                 "meta": {
                     "id": identifier,
@@ -292,6 +339,11 @@ class StudyRunner:
                     "latency_ms": usage.latency_ms,
                     "retries": usage.retries + attempt,
                     "validation_retries": attempt,
+                    "latency_ms_total": total_latency,
+                    "temperature": settings.llm_temperature,
+                    "seed": settings.llm_seed,
+                    "run_tag": self.run_tag,
+                    **(extra_meta or {}),
                 },
                 "data": out.model_dump(),
             })
@@ -316,16 +368,17 @@ class StudyRunner:
                                   version=EXTRACT_JD_VERSION, source_hash=sha(content),
                                   validate=lambda x: _verify_jd(x, content))
 
-    async def score(self, pair: dict, config: str, cv: CVFacts, jd: JDFacts, policy: CertPolicy):
+    async def score(self, pair: dict, config: str, cv: CVFacts, jd: JDFacts, policy: CertPolicy,
+                    extra_meta: dict | None = None):
         prompt = score_prompt(config, cv, jd, policy)
-        version = PROMPT_A_VERSION if config == "A" else PROMPT_B_VERSION
-        path = SCORE_DIR / (pair["pair_id"] + f"__{config}.json")
+        version = PROMPT_VERSIONS[config]
+        path = (self.score_dir or SCORE_DIR) / (pair["pair_id"] + f"__{config}.json")
         source_hash = _fingerprint(json.dumps(cv.model_dump(), ensure_ascii=False, sort_keys=True),
                                    json.dumps(jd.model_dump(), ensure_ascii=False, sort_keys=True), policy)
         out, fresh = await self._invoke(
             prompt, ScoreFour, path, identifier=pair["pair_id"] + "/" + config,
             version=version, source_hash=source_hash,
-            validate=lambda x: _verify_score(x, config, policy, cv, jd),
+            validate=lambda x: _verify_score(x, config, policy, cv, jd), extra_meta=extra_meta,
         )
         # Score metadata có ID CV/JD, không lưu tên/email hoặc raw PDF.
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -335,19 +388,38 @@ class StudyRunner:
         return out, fresh
 
 
-async def run_study(pairs: list[dict], *, stage: str = "all", model: str = "gemini-3.5-flash-lite", manager=None):
-    """Run prevalidated selected pairs, caches/checkpoints handle resume."""
+async def run_study(pairs: list[dict], *, stage: str = "all", model: str = "gemini-3.5-flash-lite", manager=None,
+                    configs: tuple[str, ...] = ("A", "B"), extraction_dir: Path | None = None,
+                    score_dir: Path | None = None, run_tag: str | None = None, keep_going: bool = False) -> dict:
+    """Run prevalidated selected pairs, caches/checkpoints handle resume.
+
+    extraction_dir: đọc thẳng bản trích xuất hiện hành ở đó, không gọi API trích xuất.
+    keep_going: một lượt chấm lỗi thì ghi lại rồi chạy tiếp các lượt khác.
+    """
     if stage not in {"extract", "score", "all"}:
         raise StudyError("stage không hợp lệ")
+    if extraction_dir is not None and stage == "extract":
+        raise StudyError("--extraction-dir dùng bản trích xuất có sẵn; không chạy stage extract")
+    unknown = [c for c in configs if c not in PROMPT_VERSIONS]
+    if unknown:
+        raise StudyError(f"Cấu hình không hợp lệ: {unknown}")
     policies = read_policies(only_jds={p["jd_id"] for p in pairs})
     cvs = {p["cv_id"]: approved_text(p["cv_id"]) for p in pairs}
     jds = {p["jd_id"]: jd_text(p["jd_id"]) for p in pairs}
     missing = {p["jd_id"] for p in pairs} - set(policies)
     if missing:
         raise StudyError(f"jd_policies.csv thiếu: {', '.join(sorted(missing))}")
+    # Nạp bản trích xuất cố định TRƯỚC khi tạo client: thiếu/sai phiên bản thì dừng khi chưa gọi API nào.
+    cv_data, jd_data, extraction_meta = {}, {}, {}
+    if extraction_dir is not None:
+        for id, content in cvs.items():
+            cv_data[id], extraction_meta[id] = load_frozen_extraction(extraction_dir, "cv", id, content, model)
+        for id, content in jds.items():
+            jd_data[id], extraction_meta[id] = load_frozen_extraction(extraction_dir, "jd", id, content, model)
+        print(f"[FROZEN] {len(cv_data)} CV + {len(jd_data)} JD trích xuất cố định từ {extraction_dir}; không gọi API trích xuất")
     if manager is None:
         from dotenv import load_dotenv
-        load_dotenv(BASE / ".env", override=False)   
+        load_dotenv(BASE / ".env", override=False)
         from app.core.llm_client import LLMManager
         from research.gemini_client import ResearchGeminiClient
         if not os.getenv("GOOGLE_API_KEY"):
@@ -356,34 +428,66 @@ async def run_study(pairs: list[dict], *, stage: str = "all", model: str = "gemi
             primary=ResearchGeminiClient(model),
             use_fallback=False,
         )
-    runner = StudyRunner(manager, model)
-    cv_data, jd_data = {}, {}
-    for id, content in cvs.items():
-        cv_data[id], _ = await runner.cv(id, content)
-    for id, content in jds.items():
-        jd_data[id], _ = await runner.jd(id, content)
+    runner = StudyRunner(manager, model, score_dir=score_dir, run_tag=run_tag)
+    if extraction_dir is None:
+        for id, content in cvs.items():
+            cv_data[id], _ = await runner.cv(id, content)
+        for id, content in jds.items():
+            jd_data[id], _ = await runner.jd(id, content)
     if stage == "extract":
         print(f"[DONE] Trích xuất {len(cvs)} CV + {len(jds)} JD. Không chấm điểm.")
-        return
-    finished = 0
+        return {}
+    summary = {"ok": 0, "cached": 0, "failed": 0, "failures": []}
     for pair in pairs:
-        for config in ("A", "B"):
-            await runner.score(pair, config, cv_data[pair["cv_id"]], jd_data[pair["jd_id"]], policies[pair["jd_id"]])
-            finished += 1
-    print(f"[DONE] {finished}/{2*len(pairs)} lượt chấm; xem research/output/scores và chạy export")
+        for config in configs:
+            extra = None
+            if extraction_dir is not None:
+                extra = {"extraction_cv": extraction_meta[pair["cv_id"]],
+                         "extraction_jd": extraction_meta[pair["jd_id"]]}
+            try:
+                _, fresh = await runner.score(pair, config, cv_data[pair["cv_id"]], jd_data[pair["jd_id"]],
+                                              policies[pair["jd_id"]], extra_meta=extra)
+            except Exception as exc:
+                if not keep_going:
+                    raise
+                tokens = getattr(exc, "ssrc_tokens", (0, 0))
+                code = re.search(r"\b(400|401|403|404|408|429|500|502|503|504)\b", str(exc))
+                # Lỗi xác minh chỉ nêu tiêu chí/vị trí quote; lỗi API chỉ ghi loại + mã HTTP, không ghi payload.
+                if isinstance(exc, StudyError):
+                    message = str(exc)
+                else:
+                    message = type(exc).__name__ + (f" HTTP {code.group(1)}" if code else "")
+                summary["failed"] += 1
+                summary["failures"].append({"pair_id": pair["pair_id"], "config": config, "error": message[:300],
+                                            "input_tokens": tokens[0], "output_tokens": tokens[1]})
+                print(f"[FAIL] {pair['pair_id']}/{config}: {message[:200]}")
+                continue
+            summary["ok" if fresh else "cached"] += 1
+    done = summary["ok"] + summary["cached"]
+    print(f"[DONE] {done}/{len(configs) * len(pairs)} lượt chấm (mới {summary['ok']}, cache {summary['cached']}, "
+          f"lỗi {summary['failed']}); xem {score_dir or SCORE_DIR} và chạy export")
+    return summary
 
 
-def export_scores(pairs: list[dict], path: Path) -> tuple[int, int]:
+METRIC_FIELDS = ["input_tokens", "output_tokens", "latency_ms", "retries", "validation_retries"]
+
+
+def export_scores(pairs: list[dict], path: Path, *, configs: tuple[str, ...] = ("A", "B"),
+                  score_dir: Path | None = None, extra_metrics: bool = False) -> tuple[int, int]:
+    """extra_metrics=False giữ nguyên định dạng results_100_pairs_2_prompts.csv; True thêm cột đo ở cuối."""
+    score_dir = score_dir or SCORE_DIR
     fields = ["pair_id", "cv_id", "jd_id", "config", "model", "prompt_version", "cert_policy", "created_at_utc",
               "work_experience", "skills", "education", "certifications", "certifications_na",
               "reason_work_experience", "reason_skills", "reason_education", "reason_certifications",
               "cv_evidence_work_experience", "cv_evidence_skills", "cv_evidence_education", "cv_evidence_certifications",
               "jd_evidence_work_experience", "jd_evidence_skills", "jd_evidence_education", "jd_evidence_certifications"]
+    if extra_metrics:
+        fields = fields + METRIC_FIELDS + ["run_tag"]
     output_rows = []
     missing = []
     for p in pairs:
-        for config in ("A", "B"):
-            cache = SCORE_DIR / f"{p['pair_id']}__{config}.json"
+        for config in configs:
+            cache = score_dir / f"{p['pair_id']}__{config}.json"
             if not cache.is_file():
                 missing.append(f"{p['pair_id']}/{config}")
                 continue
@@ -403,6 +507,10 @@ def export_scores(pairs: list[dict], path: Path) -> tuple[int, int]:
                 row[f"cv_evidence_{key}"] = " || ".join(r.cv_evidence)
                 row[f"jd_evidence_{key}"] = " || ".join(r.jd_evidence)
             row["certifications_na"] = "YES" if out.certifications.score is None else "NO"
+            if extra_metrics:
+                for key in METRIC_FIELDS:
+                    row[key] = meta.get(key, "")
+                row["run_tag"] = meta.get("run_tag") or ""
             output_rows.append(row)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as f:

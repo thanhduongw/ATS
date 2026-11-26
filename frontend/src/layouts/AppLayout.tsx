@@ -128,6 +128,9 @@ function usePinnedPostings(enabled: boolean) {
     return items;
 }
 
+/** Tạm ẩn mục "Việc làm ghim" ở menu bên (không gọi API khi ẩn). Đổi thành true để hiện lại. */
+const SHOW_PINNED_POSTINGS = false;
+
 const PIN_COLORS = [COLORS.primary, COLORS.interview, STAGE_COLORS.SCREENING.color];
 
 function SideNavItem({ item, active, onClick }: { item: NavItem; active: boolean; onClick: () => void }) {
@@ -185,7 +188,7 @@ export default function AppLayout() {
 
     const isRecruiter = user?.role === "RECRUITER";
     const badges = useRecruiterBadges(isRecruiter);
-    const pinned = usePinnedPostings(isRecruiter);
+    const pinned = usePinnedPostings(SHOW_PINNED_POSTINGS && isRecruiter);
 
     const items = useMemo<NavItem[]>(
         () => (user ? menuFor(user.role).map((it) => ({ ...it, badge: badges[it.key] ?? it.badge })) : []),
@@ -252,7 +255,7 @@ export default function AppLayout() {
                     ))}
                 </nav>
 
-                {isRecruiter && pinned.length > 0 && (
+                {SHOW_PINNED_POSTINGS && isRecruiter && pinned.length > 0 && (
                     <>
                         <div style={{ fontSize: 12, color: COLORS.textSecondary, padding: "0 12px", marginTop: 8 }}>Việc làm ghim</div>
                         {pinned.map((p, i) => (

@@ -70,7 +70,7 @@ export interface ScoreCriterion {
 
 /** Kết quả chấm (ai_scores.result). */
 export interface ScoreResult {
-  /** 0–100 = trung bình các tiêu chí có điểm × 20 */
+  /** Thang 100 (thực tế 20–100) = trung bình các tiêu chí có điểm × 20 */
   total_score: number;
   tier: AiTier;
   tier_label: string;

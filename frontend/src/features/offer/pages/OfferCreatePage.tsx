@@ -90,13 +90,19 @@ export default function OfferCreatePage() {
     const draft = useWatch({ control });
 
     /* Tham chiếu: khung lương của yêu cầu đã duyệt, đề xuất trong phiếu đánh giá, suất còn lại. */
-    const loadReference = useCallback(async (app: ApplicationResponse, jd: JobPostingResponse | null, selfId?: number | null) => {
+    const loadReference = useCallback(async (app: ApplicationResponse, jd: JobPostingResponse | null, selfId?: number | null, prefillSalary = false) => {
         const [req, evals, offers] = await Promise.all([
             jd?.requisitionId ? getRequisitionById(jd.requisitionId).then((r) => r.data).catch(() => null) : Promise.resolve(null as JobRequisitionResponse | null),
             getApplicationEvaluations(app.id).then((r) => r.data).catch(() => [] as EvaluationResponse[]),
             getOffers({ jobPostingId: app.jobPostingId, size: 1000 }).then((r) => r.data.content).catch(() => [] as OfferResponse[]),
         ]);
         const submitted = evals.filter((e) => e.submittedAt && e.overallRecommendation);
+        // Soạn mới: lấy mức lương đề xuất gần nhất trong phiếu đánh giá làm mặc định (26/11/2026).
+        if (prefillSalary) {
+            const proposed = [...submitted].filter((e) => e.salaryProposed != null)
+                .sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)))[0]?.salaryProposed;
+            if (proposed != null) setValue("salaryOffered", proposed);
+        }
         setReference({
             min: req?.approvedSalaryMin ?? req?.expectedSalaryMin ?? jd?.salaryMin ?? null,
             max: req?.approvedSalaryMax ?? req?.expectedSalaryMax ?? jd?.salaryMax ?? null,
@@ -106,7 +112,7 @@ export default function OfferCreatePage() {
             rep: req?.requesterName ?? null,
             taken: offers.filter((o) => o.id !== selfId && ["ACCEPTED", "APPROVED", "PENDING_APPROVAL"].includes(o.status)).length,
         });
-    }, []);
+    }, [setValue]);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -151,7 +157,7 @@ export default function OfferCreatePage() {
                 appId = Number(applicationIdParam);
                 const opened = await openApp(appId);
                 jd = opened.jd;
-                void loadReference(opened.app, jd);
+                void loadReference(opened.app, jd, null, true);
             }
             reset({
                 applicationId: appId as number,
@@ -305,7 +311,7 @@ export default function OfferCreatePage() {
                                         field.onChange(v);
                                         const picked = applications.find((a) => a.id === v) ?? null;
                                         setApplication(picked);
-                                        if (picked) void loadReference(picked, posting);
+                                        if (picked) void loadReference(picked, posting, null, true);
                                     }} />
                             )} />
                         </Field>

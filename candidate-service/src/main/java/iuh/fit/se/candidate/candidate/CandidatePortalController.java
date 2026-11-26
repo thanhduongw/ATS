@@ -47,6 +47,15 @@ public class CandidatePortalController {
         return ResponseEntity.ok(candidateService.uploadMyResume(actor, file));
     }
 
+    /** CV chỉ dùng cho một lần ứng tuyển — không thay CV trong hồ sơ. */
+    @PostMapping(value = "/application-resume", consumes = "multipart/form-data")
+    public ResponseEntity<Map<String, String>> uploadApplicationResume(
+            @RequestParam("file") MultipartFile file) {
+        CurrentUser actor = CurrentUser.required();
+        AuthorizationPolicy.requireCandidate(actor);
+        return ResponseEntity.ok(Map.of("resumeUrl", candidateService.uploadApplicationResume(actor, file)));
+    }
+
     @PostMapping("/request-deletion")
     public ResponseEntity<Map<String, String>> requestDeletion() {
         CurrentUser actor = CurrentUser.required();

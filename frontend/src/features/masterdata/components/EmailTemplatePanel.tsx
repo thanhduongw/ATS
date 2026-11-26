@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { EMAIL_TYPE_LABEL } from "../../notification/notificationRoutes";
 import {
     Table,
     Button,
@@ -34,12 +35,16 @@ const SAMPLE_KEYS = ["title", "message", "recipientName", "resourceType", "resou
 /** Phải khớp CHÍNH XÁC enum NotificationType bên notification-service — đây là khóa tra cứu template khi gửi email thật. */
 const NOTIFICATION_TYPE_CODES = [
     "REQUISITION_PENDING_APPROVAL",
+    "REQUISITION_REVIEWED",
     "APPLICATION_CREATED",
+    "APPLICATION_RECEIVED",
     "APPLICATION_STAGE_CHANGED",
     "APPLICATION_REJECTED",
     "INTERVIEW_SCHEDULED",
     "INTERVIEW_HM_CONFIRMED",
     "INTERVIEW_CONFIRMED",
+    "INTERVIEW_CANDIDATE_DECLINED",
+    "INTERVIEW_CANCELLED",
     "INTERVIEW_REMINDER",
     "EVALUATION_INCOMPLETE_REMINDER",
     "OFFER_PENDING_CONFIRMATION",
@@ -49,6 +54,13 @@ const NOTIFICATION_TYPE_CODES = [
     "APPLICATION_COMMENT_MENTION",
     "APPLICATION_STALE_REMINDER",
 ];
+
+/** Tên tiếng Việt của từng loại thông báo — hiện thay cho mã tiếng Anh (26/11/2026). */
+const typeLabel = (code: unknown) => {
+    const c = String(code ?? "");
+    const vi = EMAIL_TYPE_LABEL[c];
+    return vi ? vi : c;
+};
 
 interface Props {
     config: CatalogConfig;
@@ -160,7 +172,17 @@ export default function EmailTemplatePanel({ config }: Props) {
 
     const dataColumns = config.fields
         .filter((f) => !f.hideInTable)
-        .map((f) => ({ title: f.label, dataIndex: f.name, key: f.name }));
+        .map((f) => f.name === "code"
+            ? {
+                title: f.label, dataIndex: f.name, key: f.name,
+                render: (code: unknown) => (
+                    <Space direction="vertical" size={0}>
+                        <span>{typeLabel(code)}</span>
+                        <Text type="secondary" style={{ fontSize: 11 }}>{String(code ?? "")}</Text>
+                    </Space>
+                ),
+            }
+            : { title: f.label, dataIndex: f.name, key: f.name });
 
     const columns = [
         ...dataColumns,
@@ -266,7 +288,7 @@ export default function EmailTemplatePanel({ config }: Props) {
                             {field.name === "code" ? (
                                 <Select
                                     placeholder="Chọn loại thông báo cần gửi email"
-                                    options={NOTIFICATION_TYPE_CODES.map((c) => ({ value: c, label: c }))}
+                                    options={NOTIFICATION_TYPE_CODES.map((c) => ({ value: c, label: `${typeLabel(c)} (${c})` }))}
                                 />
                             ) : field.type === "textarea" ? (
                                 <Input.TextArea rows={4} />
@@ -279,7 +301,7 @@ export default function EmailTemplatePanel({ config }: Props) {
             </Modal>
 
             <Modal
-                title={`Xem trước — ${previewItem?.code ?? ""}`}
+                title={`Xem trước — ${typeLabel(previewItem?.code)}`}
                 open={previewOpen}
                 onCancel={() => setPreviewOpen(false)}
                 footer={[

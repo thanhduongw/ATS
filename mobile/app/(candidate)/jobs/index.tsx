@@ -23,18 +23,13 @@ const PAGE = 8;
 
 type GroupKey = keyof typeof S.filterGroups;
 type Filters = Record<GroupKey, string[]>;
-const NO_FILTERS: Filters = { location: [], arrangement: [], type: [], experience: [] };
+const NO_FILTERS: Filters = { location: [], arrangement: [], type: [] };
 
 /** Giá trị của một tin theo từng nhóm lọc (rỗng → tin không thuộc nhóm đó). */
 const valueOf: Record<GroupKey, (j: JobPostingResponse) => string | undefined> = {
   location: (j) => j.workLocationName,
   arrangement: (j) => (j.workArrangement ? STRINGS.arrangement[j.workArrangement] : undefined),
   type: (j) => j.employmentTypeName,
-  // Kinh nghiệm là chữ tự do — chỉ lấy câu ngắn làm lựa chọn, câu dài không thành chip.
-  experience: (j) => {
-    const e = j.experienceRequired?.trim();
-    return e && e.length <= 24 ? e : undefined;
-  },
 };
 
 /**

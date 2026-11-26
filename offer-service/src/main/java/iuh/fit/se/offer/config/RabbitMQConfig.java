@@ -13,6 +13,8 @@ public class RabbitMQConfig {
     public static final String OFFER_APPROVED_ROUTING_KEY = "offer.approved";
     public static final String OFFER_ACCEPTED_ROUTING_KEY = "offer.accepted";
     public static final String OFFER_DECLINED_ROUTING_KEY = "offer.declined";
+    /** Số thư mời đã được nhận của một tin — recruitment-service tự đóng tin khi đủ chỉ tiêu (26/11/2026). */
+    public static final String POSTING_HIRED_COUNT_ROUTING_KEY = "posting.hired_count";
     public static final String AUDIT_LOG_ROUTING_KEY = "audit.log";
 
     @Bean

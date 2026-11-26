@@ -1,8 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Button } from "antd";
+import { SHOW_SKILLS } from "../../../app/featureFlags";
+import { App, Button } from "antd";
 import { EditOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import { getPostings } from "../recruitmentApi";
+import { deleteRequisition, getPostings } from "../recruitmentApi";
 import { getApplications } from "../../candidate/applicationApi";
 import type { ApplicationResponse } from "../../candidate/types";
 import type { JobPostingResponse, JobRequisitionResponse, RequisitionStatus } from "../types";
@@ -62,6 +63,7 @@ function Metric({ label, value }: { label: string; value: ReactNode }) {
 
 export default function RequisitionHmView({ requisition: r, cat }: { requisition: JobRequisitionResponse; cat: RecruitmentCatalogs }) {
     const navigate = useNavigate();
+    const { message, modal } = App.useApp();
     const [postings, setPostings] = useState<JobPostingResponse[]>([]);
     const [apps, setApps] = useState<ApplicationResponse[]>([]);
 
@@ -85,6 +87,21 @@ export default function RequisitionHmView({ requisition: r, cat }: { requisition
     const deadline = postings.map((p) => p.applicationDeadline).filter(Boolean).sort().pop() ?? null;
     const proposed = formatSalaryShort(r.expectedSalaryMin, r.expectedSalaryMax);
     const edit = () => navigate(`/recruitment/requisitions/${r.id}/edit`);
+    const removeDraft = () => modal.confirm({
+        title: "Xoá bản nháp?",
+        content: `"${r.title}" sẽ bị xoá và không khôi phục được.`,
+        okText: "Xoá bản nháp", okButtonProps: { danger: true }, cancelText: "Huỷ",
+        onOk: async () => {
+            try {
+                await deleteRequisition(r.id);
+                message.success("Đã xoá bản nháp");
+                navigate("/recruitment/requisitions");
+            } catch (err) {
+                const e = err as { response?: { data?: { message?: string } } };
+                message.error(e.response?.data?.message ?? "Không xoá được bản nháp");
+            }
+        },
+    });
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1080 }}>
@@ -106,7 +123,10 @@ export default function RequisitionHmView({ requisition: r, cat }: { requisition
                 </Panel>
             )}
             {r.status === "DRAFT" && (
-                <InlineNotice action={<Button type="primary" onClick={edit}>Hoàn thiện và gửi</Button>}>
+                <InlineNotice action={<>
+                    <Button danger onClick={removeDraft}>Xoá bản nháp</Button>
+                    <Button type="primary" onClick={edit}>Hoàn thiện và gửi</Button>
+                </>}>
                     Bản nháp — chưa gửi cho Chuyên viên tuyển dụng.
                 </InlineNotice>
             )}
@@ -192,7 +212,7 @@ export default function RequisitionHmView({ requisition: r, cat }: { requisition
                     <Field label="Ngày bắt đầu" value={r.expectedStartDate ? fullDate(r.expectedStartDate) : null} />
                     <Field label="Lương đề xuất" value={proposed} />
                 </div>
-                {r.skillIds.length > 0 && (
+                {SHOW_SKILLS && r.skillIds.length > 0 && (
                     <Field label="Kỹ năng yêu cầu" value={r.skillIds.map((id) => cat.skillMap[id]).filter(Boolean).join(", ")} />
                 )}
                 <TextBlock title="Giải thích thêm" text={r.note} />

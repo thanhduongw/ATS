@@ -6,7 +6,6 @@ import { z } from "zod";
 import { apiErrorMessage } from "@/api/client";
 import { FormTextField } from "@/components/form-text-field";
 import { Avatar } from "@/components/ui/avatar";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { PillButton } from "@/components/ui/buttons";
 import { ErrorState, SkeletonList } from "@/components/ui/feedback";
 import { Icon } from "@/components/ui/icon";
@@ -17,7 +16,8 @@ import { STRINGS } from "@/lib/strings";
 import { useSignOut } from "@/lib/use-sign-out";
 import { useAuthStore } from "@/store/authStore";
 import { COLORS, FONT, FONT_SIZE, SIZES, SPACING } from "@/theme";
-import { useChangePassword, useCompanyName, useMe, useUpdateProfile } from "../hooks";
+import { ChangePasswordSheet } from "@/features/account/change-password-sheet";
+import { useCompanyName, useMe, useUpdateProfile } from "../hooks";
 
 const L = STRINGS.staff.settings;
 
@@ -27,14 +27,6 @@ const profileSchema = z.object({
 });
 type ProfileValues = z.infer<typeof profileSchema>;
 
-const passwordSchema = z
-  .object({
-    current: z.string().min(1, L.errCurrent),
-    next: z.string().min(8, L.errNew).max(72),
-    confirm: z.string(),
-  })
-  .refine((v) => v.next === v.confirm, { path: ["confirm"], message: L.errMatch });
-type PasswordValues = z.infer<typeof passwordSchema>;
 
 /**
  * M10 · Tài khoản & cài đặt (Chuyên viên tuyển dụng, Đại diện phòng ban): sửa họ tên / số điện thoại, đổi mật khẩu
@@ -47,12 +39,10 @@ export function StaffSettingsScreen() {
   const me = useMe();
   const company = useCompanyName();
   const update = useUpdateProfile();
-  const change = useChangePassword();
   const signOut = useSignOut();
   const [pwOpen, setPwOpen] = useState(false);
 
   const profile = useForm<ProfileValues>({ resolver: zodResolver(profileSchema), defaultValues: { fullName: "", phone: "" } });
-  const pw = useForm<PasswordValues>({ resolver: zodResolver(passwordSchema), defaultValues: { current: "", next: "", confirm: "" } });
   const { reset } = profile;
   useEffect(() => {
     if (me.data) reset({ fullName: me.data.fullName ?? "", phone: me.data.phone ?? "" });
@@ -64,24 +54,6 @@ export function StaffSettingsScreen() {
       { onSuccess: () => notify(L.saved), onError: (e) => notify(apiErrorMessage(e)) },
     ),
   );
-  const submitPassword = pw.handleSubmit((v) =>
-    change.mutate(
-      { currentPassword: v.current, newPassword: v.next },
-      {
-        onSuccess: () => {
-          setPwOpen(false);
-          notify(L.changed);
-          void signOut();
-        },
-        // Lỗi hiện ngay trong sheet: snackbar nằm dưới lớp phủ của sheet nên người dùng không thấy.
-        onError: (e) => {
-          const msg = apiErrorMessage(e);
-          pw.setError("current", { message: /current password/i.test(msg) ? L.errWrongCurrent : msg });
-        },
-      },
-    ),
-  );
-
   const header = (
     <ScreenHeader
       variant="compact"
@@ -94,7 +66,6 @@ export function StaffSettingsScreen() {
   if (me.isError || !me.data) return (<>{header}<ErrorState message={apiErrorMessage(me.error)} onRetry={() => void me.refetch()} /></>);
 
   const pe = profile.formState.errors;
-  const we = pw.formState.errors;
   return (
     <>
       {header}
@@ -123,7 +94,7 @@ export function StaffSettingsScreen() {
 
         <Card>
           <CardTitle>{L.security}</CardTitle>
-          <Pressable accessibilityRole="button" onPress={() => { pw.reset(); setPwOpen(true); }} style={styles.row}>
+          <Pressable accessibilityRole="button" onPress={() => setPwOpen(true)} style={styles.row}>
             <Icon name="lock" color={COLORS.textSecondary} />
             <View style={styles.flex}>
               <Text style={styles.value}>{L.changePassword}</Text>
@@ -136,17 +107,7 @@ export function StaffSettingsScreen() {
         <PillButton label={L.signOut} variant="danger" icon="logout" fullWidth onPress={() => void signOut()} />
       </ScrollView>
 
-      <BottomSheet
-        visible={pwOpen}
-        onDismiss={() => setPwOpen(false)}
-        title={L.changePassword}
-        subtitle={L.changePasswordSub}
-        footer={<PillButton label={L.change} loading={change.isPending} fullWidth onPress={() => void submitPassword()} />}
-      >
-        <FormTextField control={pw.control} name="current" label={L.current} password message={we.current?.message} />
-        <FormTextField control={pw.control} name="next" label={L.next} password message={we.next?.message} />
-        <FormTextField control={pw.control} name="confirm" label={L.confirm} password message={we.confirm?.message} />
-      </BottomSheet>
+      <ChangePasswordSheet visible={pwOpen} onDismiss={() => setPwOpen(false)} />
     </>
   );
 }

@@ -118,7 +118,7 @@ export default function CandidateComparisonPage() {
                     </Space>
                     <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 6 }}>
                         Bảng chỉ so sánh ứng viên trong cùng một tin tuyển dụng, dựa trên đánh giá
-                        phỏng vấn đã nộp của hiring manager.
+                        phỏng vấn đã nộp của người phỏng vấn.
                     </div>
                 </div>
 

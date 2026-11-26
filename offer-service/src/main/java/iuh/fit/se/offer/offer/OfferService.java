@@ -388,6 +388,12 @@ public class OfferService {
                 offer.getRequesterId(), offer.getCandidateNameSnapshot(),
                 actor.userId(), offer.getJobTitleSnapshot());
         auditEventPublisher.publish(actor.userId(), "OFFER_ACCEPTED", "OFFER", offer.getId(), null);
+        // Tin đủ người thì tự đóng: báo số thư mời đã nhận, recruitment-service so với chỉ tiêu của tin.
+        if (offer.getJobPostingId() != null) {
+            long accepted = offerRepository.countByJobPostingIdAndStatusInAndDeletedAtIsNull(
+                    offer.getJobPostingId(), java.util.List.of(OfferStatus.ACCEPTED));
+            offerEventPublisher.publishPostingHiredCount(offer.getJobPostingId(), accepted);
+        }
         // Candidate-facing DTO: the internal OfferResponse needs an internal-staff name map the
         // candidate is not allowed to read, and it would expose requester/approver identities.
         return toCandidateResponse(

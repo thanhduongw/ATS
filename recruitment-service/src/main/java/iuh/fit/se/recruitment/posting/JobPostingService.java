@@ -328,6 +328,25 @@ public class JobPostingService {
         return toResponse(saved);
     }
 
+    /**
+     * Đóng tin khi số ứng viên đã nhận việc đạt chỉ tiêu (số lượng của yêu cầu tuyển dụng). Chỉ áp cho tin
+     * Đang tuyển / Tạm dừng; hồ sơ còn lại vẫn giữ để HR xử lý tiếp. Gọi từ listener nên không có người thực hiện.
+     */
+    @Transactional
+    public void closeIfFilled(Long postingId, long acceptedCount) {
+        repository.findById(postingId).ifPresent(posting -> {
+            if (posting.getStatus() != PostingStatus.OPEN && posting.getStatus() != PostingStatus.PAUSED) return;
+            Integer quantity = posting.getRequisition() != null ? posting.getRequisition().getQuantity() : null;
+            if (quantity == null || quantity <= 0 || acceptedCount < quantity) return;
+            PostingStatus from = posting.getStatus();
+            posting.setStatus(PostingStatus.CLOSED);
+            posting.setClosedAt(LocalDateTime.now());
+            repository.save(posting);
+            auditEventPublisher.publish(null, "POSTING_STATUS_CHANGED", "JOB_POSTING", posting.getId(),
+                    statusLabel(from) + " → " + statusLabel(PostingStatus.CLOSED) + " (đã tuyển đủ " + quantity + " người)");
+        });
+    }
+
     private void validateReadyForApproval(JobPosting posting) {
         if (posting.getTitle() == null || posting.getTitle().isBlank()
                 || posting.getDescription() == null || posting.getDescription().isBlank()

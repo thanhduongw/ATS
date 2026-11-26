@@ -7,7 +7,7 @@ import type { ColumnsType } from "antd/es/table";
 import type { AxiosError } from "axios";
 import {
     getPostingById, getRequisitionById, changePostingStatus,
-    submitPostingForReview, requestPostingEdit, publishPosting,
+    submitPostingForReview, publishPosting,
 } from "../recruitmentApi";
 import { getCatalogItems, getPipelines } from "../../masterdata/masterdataApi";
 import type { CatalogItem, PipelineStageResponse } from "../../masterdata/types";
@@ -62,7 +62,7 @@ export default function PostingHubPage() {
     const jobPostingId = Number(id);
     const navigate = useNavigate();
     const goToApplication = useTrailNavigate();
-    const { message } = App.useApp();
+    const { message, modal } = App.useApp();
     const role = useAppSelector((s) => s.auth.user?.role) as UserRole | undefined;
     const canManage = !!role && HR_ROLES.includes(role);
 
@@ -167,30 +167,36 @@ export default function PostingHubPage() {
         requisition ? `Đại diện phòng ban: ${requisition.requesterName}` : null,
     ].filter(Boolean).join(" · ");
 
+    // Đóng tin không hoàn tác được (không có "Mở lại") nên phải hỏi lại.
+    const confirmClose = () => modal.confirm({
+        title: "Đóng tin tuyển dụng?",
+        content: `"${posting.title}" sẽ gỡ khỏi trang tuyển dụng và không mở lại được. Hồ sơ đang xử lý vẫn giữ nguyên. Muốn tạm ngưng nhận hồ sơ thì chọn Tạm dừng.`,
+        okText: "Đóng tin", okButtonProps: { danger: true }, cancelText: "Huỷ",
+        onOk: () => runAction(() => changePostingStatus(posting.id, { status: "CLOSED" }), "Đã đóng tin"),
+    });
+
     const statusActions: ReactNode = !canManage ? null : (() => {
         switch (posting.status) {
+            // 26/11/2026: bỏ bước "Chờ duyệt" trên giao diện — bản nháp đăng thẳng (backend vẫn qua APPROVED).
             case "DRAFT":
             case "EDITING":
-                return <Button type="primary" loading={actionLoading} onClick={() => runAction(() => submitPostingForReview(posting.id), "Đã xác nhận nội dung tin")}>Xác nhận nội dung</Button>;
             case "APPROVED":
-                return (
-                    <>
-                        <Button loading={actionLoading} onClick={() => runAction(() => requestPostingEdit(posting.id), "Đã chuyển tin về bản nháp")}>Sửa lại</Button>
-                        <Button type="primary" loading={actionLoading} onClick={() => runAction(() => publishPosting(posting.id), "Đã đăng tin")}>Đăng tin</Button>
-                    </>
-                );
+                return <Button type="primary" loading={actionLoading} onClick={() => runAction(async () => {
+                    if (posting.status !== "APPROVED") await submitPostingForReview(posting.id);
+                    return publishPosting(posting.id);
+                }, "Đã đăng tin")}>Đăng tin</Button>;
             case "OPEN":
                 return (
                     <>
                         <Button loading={actionLoading} onClick={() => runAction(() => changePostingStatus(posting.id, { status: "PAUSED" }), "Đã tạm dừng tin")}>Tạm dừng</Button>
-                        <Button danger loading={actionLoading} onClick={() => runAction(() => changePostingStatus(posting.id, { status: "CLOSED" }), "Đã đóng tin")}>Đóng tin</Button>
+                        <Button danger loading={actionLoading} onClick={confirmClose}>Đóng tin</Button>
                     </>
                 );
             case "PAUSED":
                 return (
                     <>
                         <Button type="primary" loading={actionLoading} onClick={() => runAction(() => changePostingStatus(posting.id, { status: "OPEN" }), "Đã mở lại tin")}>Mở lại</Button>
-                        <Button danger loading={actionLoading} onClick={() => runAction(() => changePostingStatus(posting.id, { status: "CLOSED" }), "Đã đóng tin")}>Đóng tin</Button>
+                        <Button danger loading={actionLoading} onClick={confirmClose}>Đóng tin</Button>
                     </>
                 );
             default:

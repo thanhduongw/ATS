@@ -4,8 +4,7 @@ import { Input } from "antd";
 import { RightOutlined, SearchOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { getCatalogItems } from "../masterdataApi";
-import { getCustomFieldDefinitions } from "../../candidate/customFieldApi";
-import { CATALOG_GROUPS, SPECIAL_CATALOGS, catalogConfigs } from "../catalogConfigs";
+import { CATALOG_GROUPS, HIDDEN_CATALOGS, catalogConfigs } from "../catalogConfigs";
 import type { CatalogGroup, CatalogItem } from "../types";
 import { COLORS, RADIUS } from "../../../app/theme";
 import { ScreenTitle } from "../../../components/ui/designKit";
@@ -23,25 +22,23 @@ interface Tile {
     hint: string;
 }
 
+const shownConfigs = catalogConfigs.filter((c) => !HIDDEN_CATALOGS.includes(c.key));
+
 export default function MasterDataPage() {
     const navigate = useNavigate();
     const [items, setItems] = useState<Record<string, CatalogItem[]>>({});
-    const [customFieldCount, setCustomFieldCount] = useState<number | null>(null);
     const [keyword, setKeyword] = useState("");
 
     useEffect(() => {
-        catalogConfigs.forEach((c) => {
+        shownConfigs.forEach((c) => {
             getCatalogItems(c.endpoint)
                 .then((r) => setItems((m) => ({ ...m, [c.key]: r.data })))
                 .catch(() => undefined);
         });
-        getCustomFieldDefinitions()
-            .then((r) => setCustomFieldCount(r.data.filter((f) => f.active).length))
-            .catch(() => undefined);
     }, []);
 
     const tiles: Tile[] = [
-        ...catalogConfigs.map((c) => {
+        ...shownConfigs.map((c) => {
             const list = items[c.key];
             const active = list?.filter((x) => x.active);
             const sample = active?.slice(0, 6).map((x) => String(x[c.primaryField])).join(", ");
@@ -51,10 +48,6 @@ export default function MasterDataPage() {
                 hint: c.hint ?? (sample || "Chưa có mục nào"),
             };
         }),
-        {
-            key: SPECIAL_CATALOGS.customFields, title: "Trường tuỳ chỉnh", group: "OTHER" as const,
-            count: customFieldCount, hint: "Thông tin riêng của công ty trên hồ sơ ứng viên",
-        },
     ];
 
     const k = keyword.trim().toLowerCase();
@@ -92,7 +85,7 @@ export default function MasterDataPage() {
                                         <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                                             <span style={{ fontSize: 15, fontWeight: 600, color: COLORS.textPrimary }}>{t.title}</span>
                                             <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
-                                                {t.count == null ? "…" : `${t.count} mục`}
+                                                {t.count == null ? "…" : `${t.count} đang dùng`}
                                             </span>
                                         </span>
                                         <span style={{

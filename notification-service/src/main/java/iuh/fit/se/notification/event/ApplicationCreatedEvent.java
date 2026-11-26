@@ -7,5 +7,7 @@ public record ApplicationCreatedEvent(
         Long assignedRecruiterId,
         String candidateName
 ,
-        String jobTitle
+        String jobTitle,
+        /* Có khi ứng viên tự nộp — gửi thông báo "đã nhận hồ sơ" cho ứng viên. */
+        Long candidateUserId
 ) {}

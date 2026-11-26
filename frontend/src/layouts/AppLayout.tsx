@@ -6,7 +6,7 @@ import {
     LogoutOutlined, PlusOutlined, SettingOutlined, SolutionOutlined,
     TeamOutlined, UserOutlined, BarChartOutlined, RightOutlined,
 } from "@ant-design/icons";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { logout, setUserProfile } from "../features/auth/authSlice";
 import { getMyProfile, logoutRequest } from "../features/auth/authApi";
@@ -79,8 +79,9 @@ function menuFor(role: UserRole): NavItem[] {
 }
 
 /** Số trên menu của Chuyên viên tuyển dụng (R01): yêu cầu chờ duyệt (đỏ), việc làm đang tuyển (xám), thư mời nháp (đỏ). */
-function useRecruiterBadges(enabled: boolean) {
+function useRecruiterBadges(enabled: boolean, refreshKey: string) {
     const [badges, setBadges] = useState<Record<string, NavItem["badge"]>>({});
+    // Tải lại mỗi khi đổi trang để số trên menu khớp sau khi duyệt / đăng tin (26/11/2026).
     useEffect(() => {
         if (!enabled) return;
         let alive = true;
@@ -100,7 +101,7 @@ function useRecruiterBadges(enabled: boolean) {
             setBadges(next);
         });
         return () => { alive = false; };
-    }, [enabled]);
+    }, [enabled, refreshKey]);
     return badges;
 }
 
@@ -130,6 +131,12 @@ function usePinnedPostings(enabled: boolean) {
 
 /** Tạm ẩn mục "Việc làm ghim" ở menu bên (không gọi API khi ẩn). Đổi thành true để hiện lại. */
 const SHOW_PINNED_POSTINGS = false;
+
+/**
+ * Ẩn nút "Tạo mới" ở đầu trang (quyết định 26/11/2026): các mục chỉ dẫn tới trang danh sách, mỗi trang đã có nút tạo riêng.
+ * Đổi thành true để hiện lại.
+ */
+const SHOW_CREATE_MENU = false;
 
 const PIN_COLORS = [COLORS.primary, COLORS.interview, STAGE_COLORS.SCREENING.color];
 
@@ -167,6 +174,7 @@ function SideNavItem({ item, active, onClick }: { item: NavItem; active: boolean
 
 export default function AppLayout() {
     const navigate = useNavigate();
+    const location = useLocation();
     const dispatch = useAppDispatch();
     const user = useAppSelector((state) => state.auth.user);
     const refreshToken = useAppSelector((state) => state.auth.refreshToken);
@@ -187,7 +195,7 @@ export default function AppLayout() {
     }, []);
 
     const isRecruiter = user?.role === "RECRUITER";
-    const badges = useRecruiterBadges(isRecruiter);
+    const badges = useRecruiterBadges(isRecruiter, location.pathname);
     const pinned = usePinnedPostings(SHOW_PINNED_POSTINGS && isRecruiter);
 
     const items = useMemo<NavItem[]>(
@@ -299,7 +307,7 @@ export default function AppLayout() {
                         trang hồ sơ / việc làm nên không hiện, tránh kết quả dẫn tới trang bị chặn). */}
                     {(user?.role === "RECRUITER" || user?.role === "HIRING_MANAGER") && <QuickSearch />}
                     <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-                        {isRecruiter && (
+                        {SHOW_CREATE_MENU && isRecruiter && (
                             <Dropdown
                                 trigger={["click"]}
                                 menu={{

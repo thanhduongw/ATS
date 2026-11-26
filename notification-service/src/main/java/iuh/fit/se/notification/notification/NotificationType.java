@@ -4,6 +4,8 @@ public enum NotificationType {
     REQUISITION_PENDING_APPROVAL,
     REQUISITION_REVIEWED,
     APPLICATION_CREATED,
+    /** Báo cho ứng viên: hệ thống đã nhận hồ sơ (26/11/2026). */
+    APPLICATION_RECEIVED,
     APPLICATION_STAGE_CHANGED,
     APPLICATION_REJECTED,
     INTERVIEW_SCHEDULED,

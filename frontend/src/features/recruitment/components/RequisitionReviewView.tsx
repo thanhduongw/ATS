@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { SHOW_SKILLS } from "../../../app/featureFlags";
 import { App, Button, Input, InputNumber } from "antd";
 import { CheckOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
@@ -165,7 +166,7 @@ export default function RequisitionReviewView({ requisition: r, cat, onChanged }
                             {r.note && text(r.note)}
                         </Block>
                     )}
-                    {skills.length > 0 && (
+                    {SHOW_SKILLS && skills.length > 0 && (
                         <Block title="Kỹ năng yêu cầu">
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                                 {skills.map((s) => (

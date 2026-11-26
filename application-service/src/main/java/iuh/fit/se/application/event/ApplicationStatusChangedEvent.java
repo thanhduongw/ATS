@@ -12,5 +12,7 @@ public record ApplicationStatusChangedEvent(
         /* WITHDRAWN | HIRED_ELSEWHERE | DATA_DELETED khi đơn đóng không phải do công ty từ chối; null trong các trường hợp khác. */
         String closedReason,
         /* Tên vị trí ứng tuyển — để thông báo nói rõ đơn nào; null nếu không lấy được. */
-        String jobTitle
+        String jobTitle,
+        /* Tên lý do từ chối (danh mục Lý do từ chối) khi công ty từ chối hồ sơ — đưa vào thông báo / email ứng viên. */
+        String rejectionReason
 ) {}

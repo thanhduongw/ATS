@@ -46,6 +46,10 @@ export const rejectRequisition = (id: number, data: JobRequisitionRejectRequest)
 export const requestRequisitionChanges = (id: number, data: JobRequisitionRequestChangesRequest) =>
     axiosClient.post<JobRequisitionResponse>(`/recruitment/requisitions/${id}/request-changes`, data);
 
+/** Xoá (mềm) yêu cầu chưa duyệt. Đại diện phòng ban chỉ xoá được bản nháp do mình tạo. */
+export const deleteRequisition = (id: number) =>
+    axiosClient.delete<{ message: string }>(`/recruitment/requisitions/${id}`);
+
 // ===== Job Posting =====
 export const getPostings = (params?: {
     status?: PostingStatus;

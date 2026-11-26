@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,15 +8,12 @@ import { useJob } from "@/features/jobs/hooks";
 import { useApply } from "@/features/applications/hooks";
 import { useMyProfile } from "@/features/profile/hooks";
 import { useRecruitmentSources } from "@/features/masterdata/hooks";
-import { SourceSheet } from "@/features/applications/source-sheet";
 import { apiErrorMessage } from "@/api/client";
 import { BOTTOM_BAR_SPACE, BottomActionBar, ScreenHeader } from "@/components/ui/screen-chrome";
 import { Card, Divider, Eyebrow, IconTile } from "@/components/ui/surfaces";
 import { PillButton } from "@/components/ui/buttons";
-import { Icon } from "@/components/ui/icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSnackbar } from "@/components/ui/snackbar";
-import { FormTextField } from "@/components/form-text-field";
 import { STRINGS } from "@/lib/strings";
 import { cvFileName } from "@/lib/format";
 import { COLORS, FONT, FONT_SIZE, LINE_HEIGHT, RADIUS, SIZES, SPACING } from "@/theme";
@@ -26,18 +22,16 @@ const S = STRINGS.apply;
 const D = STRINGS.jobDetail;
 
 const schema = z.object({
-  recruitmentSourceId: z.number({ error: D.sourceRequired }).int().positive(D.sourceRequired),
-  note: z.string().trim().max(1000).optional(),
   // Backend bắt buộc ứng viên đồng ý xử lý dữ liệu cá nhân khi tự nộp đơn (giống web).
   consent: z.boolean().refine((v) => v, S.consentRequired),
 });
 type Values = z.infer<typeof schema>;
 
 /**
- * Xác nhận ứng tuyển — Redesign-Final `views.apply`: thẻ vị trí + CV trong hồ sơ, nguồn biết tin (bắt buộc), lời nhắn,
- * ô đồng ý xử lý dữ liệu, hộp "Trước khi gửi hồ sơ"; dưới đáy "Quay lại" · "Gửi hồ sơ ứng tuyển".
- * `ApplicationCreateRequest` chỉ nhận jobPostingId + recruitmentSourceId (bắt buộc) + note + consentAccepted;
- * CV lấy từ hồ sơ (không đính kèm).
+ * Xác nhận ứng tuyển — Redesign-Final `views.apply`: thẻ vị trí + CV trong hồ sơ, ô đồng ý xử lý dữ liệu,
+ * hộp "Trước khi gửi hồ sơ"; dưới đáy "Quay lại" · "Gửi hồ sơ ứng tuyển".
+ * 26/11/2026: bỏ ô "Bạn biết tin từ đâu" và "Lời nhắn" cho giống web — nguồn tuyển (backend bắt buộc) tự lấy
+ * "Trang tuyển dụng của công ty" như web (`ApplyJobPage`). CV lấy từ hồ sơ (không đính kèm).
  */
 export default function ApplyScreen() {
   const { jobId: jobIdParam } = useLocalSearchParams<{ jobId: string }>();
@@ -48,26 +42,29 @@ export default function ApplyScreen() {
   const apply = useApply();
   const notify = useSnackbar();
   const insets = useSafeAreaInsets();
-  const [sheetOpen, setSheetOpen] = useState(false);
 
   const { control, handleSubmit, setValue, formState } = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { note: "", consent: false },
+    defaultValues: { consent: false },
   });
   const consent = useWatch({ control, name: "consent" });
-  const sourceId = useWatch({ control, name: "recruitmentSourceId" });
-  const sourceName = sources.data?.find((s) => s.id === sourceId)?.name;
+  // Cùng quy tắc với web: ưu tiên nguồn "Trang tuyển dụng / website", không có thì nguồn đầu tiên.
+  const activeSources = (sources.data ?? []).filter((s) => s.active !== false);
+  const sourceId = (activeSources.find((s) => /website|trang tuyển dụng|career/i.test(String(s.name))) ?? activeSources[0])?.id;
   const hasCv = !!profile.data?.resumeUploaded;
   const cvName = cvFileName(profile.data?.resumeUrl);
   const place = [job.data?.departmentName, job.data?.workLocationName].filter(Boolean).join(" · ");
 
   const onSubmit = handleSubmit(
-    (v) =>
+    (v) => {
+      if (sourceId == null) {
+        notify(S.sourceUnavailable);
+        return;
+      }
       apply.mutate(
         {
           jobPostingId: jobId,
-          recruitmentSourceId: v.recruitmentSourceId,
-          note: v.note || undefined,
+          recruitmentSourceId: sourceId,
           consentAccepted: v.consent,
         },
         {
@@ -84,11 +81,11 @@ export default function ApplyScreen() {
             notify(msg, noCv ? { label: D.uploadCv, onPress: () => router.navigate("/profile") } : undefined);
           },
         }
-      ),
-    // Chưa chọn nguồn → mở luôn sheet chọn nguồn thay vì chỉ báo lỗi; thiếu đồng ý → nhắc bằng snackbar.
+      );
+    },
+    // Thiếu đồng ý → nhắc bằng snackbar.
     (errs) => {
-      if (errs.recruitmentSourceId) setSheetOpen(true);
-      else if (errs.consent) notify(S.consentRequired);
+      if (errs.consent) notify(S.consentRequired);
     }
   );
 
@@ -128,38 +125,6 @@ export default function ApplyScreen() {
             </View>
           </Card>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>
-              {S.source}
-              <Text style={styles.required}>{STRINGS.common.required}</Text>
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={S.source}
-              onPress={() => setSheetOpen(true)}
-              style={[styles.select, formState.errors.recruitmentSourceId && styles.selectError]}
-            >
-              <Text style={[styles.selectText, !sourceName && styles.placeholder]} numberOfLines={1}>
-                {sourceName ?? S.sourcePlaceholder}
-              </Text>
-              <Icon name="chevronDown" size={SIZES.iconSm} color={COLORS.textSecondary} />
-            </Pressable>
-            {formState.errors.recruitmentSourceId ? (
-              <Text style={styles.error}>{formState.errors.recruitmentSourceId.message}</Text>
-            ) : (
-              <Text style={styles.hint}>{S.sourceHint}</Text>
-            )}
-          </View>
-
-          <FormTextField
-            control={control}
-            name="note"
-            label={S.note}
-            placeholder={S.notePlaceholder}
-            multiline
-            maxLength={1000}
-          />
-
           <Checkbox
             checked={!!consent}
             onChange={(next) => setValue("consent", next, { shouldValidate: formState.isSubmitted })}
@@ -184,15 +149,6 @@ export default function ApplyScreen() {
         />
       </BottomActionBar>
 
-      <SourceSheet
-        visible={sheetOpen}
-        onDismiss={() => setSheetOpen(false)}
-        selectedId={sourceId}
-        onSelect={(id) => {
-          setValue("recruitmentSourceId", id, { shouldValidate: true });
-          setSheetOpen(false);
-        }}
-      />
     </View>
   );
 }

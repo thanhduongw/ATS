@@ -211,7 +211,7 @@ function SummaryCard({ app, interview }: { app: CandidateApplication; interview?
 }
 
 /**
- * Dòng thời gian dọc 4 bước (`.timeline`). Backend chỉ trả vòng hiện tại, không có ngày của từng vòng → bước đã qua
+ * Dòng thời gian dọc 5 bước như web (`.timeline`). Backend chỉ trả vòng hiện tại, không có ngày của từng vòng → bước đã qua
  * ghi "Đã qua", bước đầu ghi ngày nộp, bước phỏng vấn ghi giờ buổi sắp tới nếu có.
  */
 function Timeline({ app, interview }: { app: CandidateApplication; interview?: CandidateInterview }) {
@@ -235,7 +235,7 @@ function Timeline({ app, interview }: { app: CandidateApplication; interview?: C
         if (current && i === 2 && interview?.scheduledAt)
           subtitle = `${formatDate(interview.scheduledAt)} · ${formatTime(interview.scheduledAt)}`;
         return {
-          title: phase.hired && i === P.length - 1 ? S.hiredTitle : title,
+          title,
           subtitle,
           state: done ? "done" : current ? "current" : "upcoming",
         } as Item;

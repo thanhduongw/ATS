@@ -8,5 +8,7 @@ public record ApplicationCreatedEvent(
         String candidateName
 ,
         /* Tên vị trí ứng tuyển — để thông báo nói rõ đơn nào; null nếu không lấy được. */
-        String jobTitle
+        String jobTitle,
+        /* Tài khoản của ứng viên khi ứng viên TỰ nộp (để báo "đã nhận hồ sơ"); null khi HR thêm hồ sơ. */
+        Long candidateUserId
 ) {}

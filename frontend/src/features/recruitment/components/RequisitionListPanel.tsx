@@ -1,4 +1,5 @@
 import { matchesKeyword } from "../../../app/text";
+import { departmentLabel } from "../../overview/useCompanyOverview";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { App, Button, Input, Select} from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
@@ -139,7 +140,7 @@ export default function RequisitionListPanel() {
     return (
         <ListPage
             title="Yêu cầu tuyển dụng"
-            subtitle={myDept ? `Phòng ${myDept}` : undefined}
+            subtitle={myDept ? departmentLabel(myDept) : undefined}
             actions={isHm ? <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate("/recruitment/requisitions/new")}>Tạo yêu cầu</Button> : undefined}
             tabs={
                 <StatusTabs<Tab>

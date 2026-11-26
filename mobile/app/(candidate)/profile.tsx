@@ -20,6 +20,7 @@ import { useSnackbar } from "@/components/ui/snackbar";
 import { STRINGS } from "@/lib/strings";
 import { cvFileName, formatDate, initials } from "@/lib/format";
 import { useSignOut } from "@/lib/use-sign-out";
+import { ChangePasswordSheet } from "@/features/account/change-password-sheet";
 import { COLORS, FONT, FONT_SIZE, LINE_HEIGHT, RADIUS, SIZES, SPACING, STATUS_TONES } from "@/theme";
 import type { CandidateSelf } from "@/types/api";
 
@@ -204,6 +205,7 @@ function LinksCard() {
   const offers = useMyOffers();
   const signOut = useSignOut();
   const [deleting, setDeleting] = useState(false);
+  const [changingPw, setChangingPw] = useState(false);
   const list = offers.data ?? [];
   const awaiting = list.filter((o) => o.status === "APPROVED").length;
 
@@ -218,10 +220,12 @@ function LinksCard() {
           onPress={() => router.push("/offers")}
         />
         <LinkRow icon="bell" label={S.notifications} subtitle={S.notificationsSub} onPress={() => router.push("/notifications")} />
+        <LinkRow icon="lock" label={S.changePassword} subtitle={S.changePasswordSub} onPress={() => setChangingPw(true)} />
         <LinkRow icon="lock" label={S.privacy} subtitle={S.privacySub} onPress={() => setDeleting(true)} />
         <LinkRow icon="logout" label={S.signOut} subtitle={S.signOutSub} danger last onPress={() => void signOut()} />
       </Card>
       <DeleteProfileSheet visible={deleting} onDismiss={() => setDeleting(false)} />
+      <ChangePasswordSheet visible={changingPw} onDismiss={() => setChangingPw(false)} />
     </>
   );
 }

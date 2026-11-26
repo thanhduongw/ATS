@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SHOW_SKILLS } from "../../../app/featureFlags";
 import { useNavigate } from "react-router-dom";
 import {
     App, Alert, Button, Modal, Space, Table, Tag, Tooltip, Spin,
@@ -541,7 +542,7 @@ function ComparisonColumns({
                         ))}
                     </tr>
 
-                    <tr>
+                    {SHOW_SKILLS && <tr>
                         <td style={labelStyle}>Kỹ năng</td>
                         {rows.map((r) => (
                             <td key={r.application.id} style={cellStyle}>
@@ -554,7 +555,7 @@ function ComparisonColumns({
                                 ) : "—"}
                             </td>
                         ))}
-                    </tr>
+                    </tr>}
 
                     <tr>
                         <td style={labelStyle}>Nguồn tuyển</td>

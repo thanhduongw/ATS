@@ -46,7 +46,10 @@ export default function CompanyOverviewPage() {
         applications.forEach((a) => appsByPosting.set(a.jobPostingId, [...(appsByPosting.get(a.jobPostingId) ?? []), a]));
 
         const active = postings.filter(isActivePosting);
-        const open = postings.filter((p) => p.status === "OPEN");
+        // Tin đã tuyển đủ chỉ tiêu không tính là "đang tuyển" (26/11/2026).
+        const filled = (p: (typeof postings)[number]) =>
+            !!p.headcount && hiredOf(appsByPosting.get(p.id) ?? []).length >= p.headcount;
+        const open = postings.filter((p) => p.status === "OPEN" && !filled(p));
         const remainingOf = (ps: typeof postings) => ps.reduce((s, p) =>
             s + Math.max(0, (p.headcount ?? 0) - hiredOf(appsByPosting.get(p.id) ?? []).length), 0);
 
@@ -66,9 +69,11 @@ export default function CompanyOverviewPage() {
                 id: d.id,
                 name: String(d.name),
                 rep: rep ? { id: rep.id, name: rep.fullName || rep.email } : null,
-                openPositions: ps.filter((p) => p.status === "OPEN").length,
+                openPositions: ps.filter((p) => p.status === "OPEN" && !filled(p)).length,
                 remaining: remainingOf(ps),
-                hired: hiredOf(apps).filter((a) => inPeriod(a.hiredAt, period)).length,
+                // Tiến độ so với chỉ tiêu: đếm mọi người đã tuyển của các tin này, không lọc theo kỳ
+                // (chỉ tiêu và "Còn cần" cũng không theo kỳ) — trước 26/11/2026 hai cột lệch nhau.
+                hired: hiredOf(apps).length,
                 headcount: ps.reduce((s, p) => s + (p.headcount ?? 0), 0),
                 interviewing: apps.filter((a) => toFixedStage(a.currentStageType) === "INTERVIEW").length,
             };
@@ -168,7 +173,7 @@ export default function CompanyOverviewPage() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <Panel title="Phễu tuyển dụng toàn công ty" subtitle={`Ứng viên đã tới từng giai đoạn · ${period.label}`} bodyGap={7}>
+                <Panel title="Phễu tuyển dụng toàn công ty" subtitle={period.from ? `Hồ sơ nộp trong ${period.label} đã tới từng giai đoạn` : "Mọi hồ sơ đã tới từng giai đoạn"} bodyGap={7}>
                     {m.funnel.map(({ stage, count }) => (
                         <div key={stage} style={{ display: "grid", gridTemplateColumns: "76px 1fr 36px", alignItems: "center", gap: 10 }}>
                             <span style={{ fontSize: 13 }}>{FIXED_STAGE_LABEL[stage]}</span>

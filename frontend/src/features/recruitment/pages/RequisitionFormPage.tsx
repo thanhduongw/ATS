@@ -1,4 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import ExperienceLevelSelect from "../components/ExperienceLevelSelect";
+import { SHOW_SKILLS } from "../../../app/featureFlags";
 import { useForm, Controller, type FieldError } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { App, Button, Form, Input, InputNumber, Select, Spin } from "antd";
@@ -213,7 +215,7 @@ export default function RequisitionFormPage() {
                             </Form.Item>
                             <Form.Item label="Kinh nghiệm">
                                 <Controller name="experienceRequired" control={control}
-                                    render={({ field }) => <Input {...field} value={field.value ?? ""} placeholder="Ví dụ: Từ 2 năm" />} />
+                                    render={({ field }) => <ExperienceLevelSelect value={field.value} onChange={field.onChange} />} />
                             </Form.Item>
                             <Form.Item label="Loại hình" required {...err(errors.employmentTypeId)}>
                                 <Controller name="employmentTypeId" control={control}
@@ -237,10 +239,12 @@ export default function RequisitionFormPage() {
                                     )} />
                             </Form.Item>
                         </div>
-                        <Form.Item label="Kỹ năng yêu cầu" extra={SKILL_REQUIRED_HINT} style={{ marginBottom: 0 }}>
-                            <Controller name="skillIds" control={control}
-                                render={({ field }) => <SkillMultiSelect value={field.value ?? []} onChange={field.onChange} />} />
-                        </Form.Item>
+                        {SHOW_SKILLS && (
+                            <Form.Item label="Kỹ năng yêu cầu" extra={SKILL_REQUIRED_HINT} style={{ marginBottom: 0 }}>
+                                <Controller name="skillIds" control={control}
+                                    render={({ field }) => <SkillMultiSelect value={field.value ?? []} onChange={field.onChange} />} />
+                            </Form.Item>
+                        )}
                     </Section>
 
                     <Section no={2} title="Số lượng & lý do">

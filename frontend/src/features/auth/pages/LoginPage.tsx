@@ -15,6 +15,12 @@ import type { ApiMessageResponse, JwtPayload } from "../types";
 import { OAUTH2_PRE_LOGIN_URL } from "../../../config";
 import AuthShell from "../components/AuthShell";
 
+/**
+ * Ẩn "Đăng nhập bằng Google" (quyết định 26/11/2026): chưa cấu hình khoá OAuth, bấm vào báo lỗi.
+ * Backend (auth-service OAuth2) vẫn giữ — đổi thành true khi đã có GOOGLE_CLIENT_ID/SECRET.
+ */
+const SHOW_GOOGLE_LOGIN = false;
+
 export default function LoginPage() {
     const { message } = App.useApp();
     const navigate = useNavigate();
@@ -77,10 +83,14 @@ export default function LoginPage() {
                         </div>
                         <Button type="primary" htmlType="submit" block size="large" loading={isSubmitting}>Đăng nhập</Button>
                     </Form>
-                    <Divider plain>hoặc</Divider>
-                    <Button icon={<GoogleOutlined />} block size="large" onClick={() => {
-                        window.location.href = OAUTH2_PRE_LOGIN_URL;
-                    }}>Đăng nhập bằng Google</Button>
+                    {SHOW_GOOGLE_LOGIN && (
+                        <>
+                            <Divider plain>hoặc</Divider>
+                            <Button icon={<GoogleOutlined />} block size="large" onClick={() => {
+                                window.location.href = OAUTH2_PRE_LOGIN_URL;
+                            }}>Đăng nhập bằng Google</Button>
+                        </>
+                    )}
                     <div className="auth-form-footer">
                         Chưa có tài khoản? <Button type="link" style={{ padding: 0 }} onClick={() => navigate(`/register${location.search}`)}>Đăng ký ứng viên</Button>
                     </div>

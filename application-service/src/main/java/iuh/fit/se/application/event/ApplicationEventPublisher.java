@@ -17,7 +17,7 @@ public class ApplicationEventPublisher {
             Long candidateId,
             Long assignedRecruiterId,
             String candidateName) {
-        publishApplicationCreated(jobPostingId, applicationId, candidateId, assignedRecruiterId, candidateName, null);
+        publishApplicationCreated(jobPostingId, applicationId, candidateId, assignedRecruiterId, candidateName, null, null);
     }
 
     public void publishApplicationCreated(
@@ -26,14 +26,16 @@ public class ApplicationEventPublisher {
             Long candidateId,
             Long assignedRecruiterId,
             String candidateName,
-            String jobTitle) {
+            String jobTitle,
+            Long candidateUserId) {
         // Phát SAU KHI giao dịch ghi xong: ai-service nhận sự kiện là gọi lại lấy hồ sơ ngay,
         // phát sớm thì có lúc hồ sơ chưa kịp ghi và không được chấm điểm.
         afterCommit(() -> rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.APPLICATION_CREATED_ROUTING_KEY,
                 new ApplicationCreatedEvent(
-                        applicationId, jobPostingId, candidateId, assignedRecruiterId, candidateName, jobTitle)
+                        applicationId, jobPostingId, candidateId, assignedRecruiterId, candidateName, jobTitle,
+                        candidateUserId)
         ));
     }
 
@@ -87,12 +89,28 @@ public class ApplicationEventPublisher {
             String toStageType,
             String closedReason,
             String jobTitle) {
+        publishApplicationStatusChanged(applicationId, jobPostingId, candidateId, assignedRecruiterId,
+                fromStageName, toStageName, toStageType, closedReason, jobTitle, null);
+    }
+
+    public void publishApplicationStatusChanged(
+            Long applicationId,
+            Long jobPostingId,
+            Long candidateId,
+            Long assignedRecruiterId,
+            String fromStageName,
+            String toStageName,
+            String toStageType,
+            String closedReason,
+            String jobTitle,
+            String rejectionReason) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ATS_EXCHANGE,
                 RabbitMQConfig.APPLICATION_STATUS_CHANGED_ROUTING_KEY,
                 new ApplicationStatusChangedEvent(
                         applicationId, jobPostingId, candidateId, null,
-                        assignedRecruiterId, fromStageName, toStageName, toStageType, closedReason, jobTitle)
+                        assignedRecruiterId, fromStageName, toStageName, toStageType, closedReason, jobTitle,
+                        rejectionReason)
         );
     }
 

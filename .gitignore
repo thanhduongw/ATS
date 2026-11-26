@@ -43,3 +43,7 @@ logs/
 tmp/
 # Log rơi ra ngoài logs/ (vd. lệnh chuyển hướng sai tên biến tạo ra "logs$1.log" ở gốc repo)
 *.log
+
+# Tài liệu bài báo NCKH (chưa công bố) — giữ ngoài repo công khai
+docs/research/
+docs/NCKH_Nhom109.pdf

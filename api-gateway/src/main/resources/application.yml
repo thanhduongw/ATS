@@ -17,6 +17,8 @@ spring:
             # auth-service chiếm nên Expo tự nhảy sang cổng khác (8088…).
             allowedOriginPatterns:
               - "http://localhost:[*]"
+              # Domain công khai khi deploy (vd https://ats.tenmien.vn). Chạy ở máy thì giữ mặc định.
+              - "${APP_PUBLIC_ORIGIN:http://localhost:5173}"
             allowedMethods:
               - GET
               - POST

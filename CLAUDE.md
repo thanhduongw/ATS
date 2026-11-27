@@ -27,6 +27,13 @@ web (React + Vite + Ant Design) và app di động (Expo / React Native). Quy ư
 | candidate-service | 8084 | | offer-service | 8090 |
 | interview-service | 8085 | | web / Expo web | 3000 / 19006 |
 
+## Deploy (VPS)
+
+Đang deploy bằng cách build trên VPS: `git clone` vào `~/ats` rồi `bash deploy/build.sh` (`docker-compose.prod.yml` +
+`docker-compose.build.yml`). `.github/workflows/deploy.yml` (build lên ghcr.io + SSH deploy) chỉ chạy khi bấm tay.
+Hướng dẫn và xử lý lỗi: `deploy/README.md`. Thêm service hoặc biến môi trường mới thì sửa cả `docker-compose.yml` (dev),
+`docker-compose.prod.yml`, `docker-compose.build.yml` và matrix trong workflow.
+
 ## Bẫy môi trường
 
 - **Spring Boot không tự đọc `.env`.** Luôn khởi động qua `run-service.bat` / `start-backend.bat` / `scripts/dev/svc.sh`

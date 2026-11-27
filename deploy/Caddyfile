@@ -1,0 +1,18 @@
+{$DOMAIN} {
+	encode zstd gzip
+
+	# nginx trong image frontend đã chuyển /api/ và /ws/ (WebSocket) sang api-gateway.
+	reverse_proxy frontend:80
+
+	# Giới hạn kích thước upload (CV, avatar).
+	request_body {
+		max_size 25MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}

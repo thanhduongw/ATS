@@ -2,8 +2,6 @@ package iuh.fit.se.masterdata.seeder;
 
 import iuh.fit.se.masterdata.contracttype.ContractType;
 import iuh.fit.se.masterdata.contracttype.ContractTypeRepository;
-import iuh.fit.se.masterdata.department.Department;
-import iuh.fit.se.masterdata.department.DepartmentRepository;
 import iuh.fit.se.masterdata.educationlevel.EducationLevel;
 import iuh.fit.se.masterdata.educationlevel.EducationLevelRepository;
 import iuh.fit.se.masterdata.emailtemplate.EmailTemplate;
@@ -54,7 +52,6 @@ public class DefaultDataSeeder {
     private final RecruitmentStatusRepository recruitmentStatusRepository;
     private final PipelineRepository pipelineRepository;
     private final InterviewCriteriaRepository interviewCriteriaRepository;
-    private final DepartmentRepository departmentRepository;
     private final JobTitleRepository jobTitleRepository;
     private final JobLevelRepository jobLevelRepository;
     private final SkillRepository skillRepository;
@@ -71,7 +68,6 @@ public class DefaultDataSeeder {
         seedRejectionReasons();
         seedRecruitmentStatuses();
         seedInterviewCriteria();
-        seedDepartments();
         seedJobLevels();
         seedJobTitles();
         seedExperienceLevels();
@@ -157,24 +153,6 @@ public class DefaultDataSeeder {
                                 InterviewCriteria.builder().name(name).active(true).build());
                     }
                 });
-    }
-
-    private void seedDepartments() {
-        String[][] departments = {
-                {"Phòng Backend", "Xây dựng dịch vụ, API và cơ sở dữ liệu của sản phẩm"},
-                {"Phòng Frontend", "Phát triển giao diện web của sản phẩm"},
-                {"Phòng Mobile", "Phát triển ứng dụng iOS và Android"},
-                {"Phòng Kiểm thử (QA)", "Kiểm thử thủ công, kiểm thử tự động và đảm bảo chất lượng"},
-                {"Phòng DevOps & Cloud", "Hạ tầng, triển khai liên tục và vận hành hệ thống"},
-                {"Phòng Dữ liệu & AI", "Kỹ thuật dữ liệu, phân tích và mô hình học máy"},
-                {"Phòng Nhân sự", "Tuyển dụng, đào tạo và chăm sóc nhân viên"},
-        };
-        for (String[] d : departments) {
-            if (!departmentRepository.existsByNameIgnoreCase(d[0])) {
-                departmentRepository.save(Department.builder()
-                        .name(d[0]).description(d[1]).active(true).build());
-            }
-        }
     }
 
     private void seedJobLevels() {

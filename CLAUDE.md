@@ -41,7 +41,7 @@ VPS `~/ats` clone nhánh `main`: `git pull && bash deploy/build.sh [service...]`
 ## Dữ liệu ban đầu
 
 DB mới (volume trống) chỉ có công ty và quản trị viên do `docker/postgres-init` tạo: `le.quan@example.com` /
-`Password123!` — đổi mật khẩu sau lần đăng nhập đầu. Danh mục mặc định do masterdata-service tự nạp.
+`Password123!` — đổi mật khẩu sau lần đăng nhập đầu. Danh mục mặc định (chức danh, cấp bậc, kỹ năng, quy trình…) do masterdata-service tự nạp mỗi lần khởi động; **không nạp phòng ban** — Quản trị tự tạo.
 Repo không có script tạo dữ liệu demo: mọi dữ liệu nhập trên giao diện như người dùng thật.
 
 ## Kiểm tra trước khi coi là xong

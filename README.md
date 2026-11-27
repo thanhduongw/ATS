@@ -135,7 +135,7 @@ Chi tiết cài VPS, sao lưu và xử lý lỗi: [deploy/README.md](deploy/READ
 
 DB mới chỉ có công ty và một quản trị viên do `docker/postgres-init` tạo khi volume Postgres còn trống:
 `le.quan@example.com` / `Password123!` — **đổi mật khẩu ngay sau lần đăng nhập đầu** (mật khẩu này công khai
-trong repo). Danh mục mặc định (phòng ban, chức danh, kỹ năng, quy trình…) do masterdata-service tự nạp.
+trong repo). Danh mục mặc định (chức danh, cấp bậc, kỹ năng, quy trình…) do masterdata-service tự nạp; phòng ban do Quản trị tự tạo.
 Mọi dữ liệu khác nhập trên giao diện như người dùng thật.
 
 Luồng sử dụng đề xuất:

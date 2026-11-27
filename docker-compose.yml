@@ -149,6 +149,7 @@ services:
       <<: *java-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_notification
       APP_NOTIFICATION_EMAIL_ENABLED: "true"
+      APP_PUBLIC_URL: ${PUBLIC_URL}
 
   dashboard-service:
     <<: *java-service

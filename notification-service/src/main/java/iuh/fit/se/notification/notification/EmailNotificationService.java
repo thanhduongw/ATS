@@ -3,8 +3,8 @@ package iuh.fit.se.notification.notification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -35,9 +35,10 @@ public class EmailNotificationService {
     /**
      * Gửi email an toàn ở luồng nền (không làm chậm thao tác của người dùng):
      * tắt flag / địa chỉ không hợp lệ / lỗi SMTP → chỉ log, không throw.
+     * Gửi cả bản HTML (khung email) lẫn bản văn bản thường cho trình đọc mail không hiển thị HTML.
      */
     @org.springframework.scheduling.annotation.Async
-    public void sendSafe(String toEmail, String subject, String body) {
+    public void sendSafe(String toEmail, String fromName, String subject, String text, String html) {
         if (!emailEnabled) {
             return;
         }
@@ -50,11 +51,13 @@ public class EmailNotificationService {
             return;
         }
         try {
-            SimpleMailMessage msg = new SimpleMailMessage();
-            msg.setFrom(from);
-            msg.setTo(toEmail.trim());
-            msg.setSubject(subject != null ? subject : "Thông báo ATS");
-            msg.setText(body != null ? body : "");
+            jakarta.mail.internet.MimeMessage msg = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
+            if (fromName != null && !fromName.isBlank()) helper.setFrom(from, fromName);
+            else helper.setFrom(from);
+            helper.setTo(toEmail.trim());
+            helper.setSubject(subject != null ? subject : "Thông báo tuyển dụng");
+            helper.setText(text != null ? text : "", html != null ? html : "");
             mailSender.send(msg);
             log.debug("Đã gửi email tới {}", toEmail);
         } catch (Exception e) {

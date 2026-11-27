@@ -181,7 +181,7 @@ export const catalogConfigs: CatalogConfig[] = [
         endpoint: "/masterdata/email-templates",
         primaryField: "code",
         group: "OTHER",
-        hint: "Nội dung email gửi ứng viên và người phỏng vấn",
+        hint: "Email tự động gửi ứng viên, Chuyên viên tuyển dụng và phòng ban",
         addLabel: "Thêm mẫu",
         fields: [
             { name: "code", label: "Loại thông báo", type: "text", required: true },

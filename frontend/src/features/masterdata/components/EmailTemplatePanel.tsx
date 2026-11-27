@@ -1,90 +1,63 @@
-import { useCallback, useEffect, useState } from "react";
-import { EMAIL_TYPE_LABEL } from "../../notification/notificationRoutes";
-import {
-    Table,
-    Button,
-    Modal,
-    Form,
-    Input,
-    Select,
-    Tag,
-    Typography,
-    App,
-    Space,
-    Alert,
-} from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from "@ant-design/icons";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Table, Button, Modal, Form, Input, Tag, Typography, App, Space, Alert } from "antd";
+import { EditOutlined, EyeOutlined, StopOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import type { AxiosError } from "axios";
 import type { CatalogConfig, CatalogItem, ApiMessageResponse } from "../types";
-import {
-    getCatalogItems,
-    createCatalogItem,
-    updateCatalogItem,
-    deleteCatalogItem,
-    previewEmailTemplate,
-} from "../masterdataApi";
+import { getCatalogItems, updateCatalogItem, deleteCatalogItem, activateCatalogItem } from "../masterdataApi";
+import { getPublicCompany } from "../../public/publicApi";
+import { useBrand } from "../../../app/BrandProvider";
 import { COLORS, RADIUS } from "../../../app/theme";
 import EmptyState from "../../../components/ui/EmptyState";
 import { PageToolbar, IconAction, ModalTitle } from "../../../components/ui/pageKit";
 import { listPagination } from "../../../components/ui/listStyles";
+import { EMAIL_TEMPLATE_META, EMAIL_TEMPLATE_ORDER, EMAIL_VARIABLES } from "./emailTemplateMeta";
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
-const SAMPLE_KEYS = ["title", "message", "recipientName", "resourceType", "resourceId"];
+const metaOf = (code: unknown) => EMAIL_TEMPLATE_META[String(code ?? "").toUpperCase()];
 
-/** Phải khớp CHÍNH XÁC enum NotificationType bên notification-service — đây là khóa tra cứu template khi gửi email thật. */
-const NOTIFICATION_TYPE_CODES = [
-    "REQUISITION_PENDING_APPROVAL",
-    "REQUISITION_REVIEWED",
-    "APPLICATION_CREATED",
-    "APPLICATION_RECEIVED",
-    "APPLICATION_STAGE_CHANGED",
-    "APPLICATION_REJECTED",
-    "INTERVIEW_SCHEDULED",
-    "INTERVIEW_HM_CONFIRMED",
-    "INTERVIEW_CONFIRMED",
-    "INTERVIEW_CANDIDATE_DECLINED",
-    "INTERVIEW_CANCELLED",
-    "INTERVIEW_REMINDER",
-    "EVALUATION_INCOMPLETE_REMINDER",
-    "OFFER_PENDING_CONFIRMATION",
-    "OFFER_READY_FOR_CANDIDATE",
-    "OFFER_ACCEPTED",
-    "OFFER_DECLINED",
-    "APPLICATION_COMMENT_MENTION",
-    "APPLICATION_STALE_REMINDER",
-];
+/** Thay {{biến}} bằng giá trị mẫu — giống TemplateRenderer của notification-service. */
+const render = (text: string, data: Record<string, string>) =>
+    text.replace(/\{\{\s*(\w+)\s*}}/g, (m, k: string) => (k in data ? data[k] : m));
 
-/** Tên tiếng Việt của từng loại thông báo — hiện thay cho mã tiếng Anh (26/11/2026). */
-const typeLabel = (code: unknown) => {
-    const c = String(code ?? "");
-    const vi = EMAIL_TYPE_LABEL[c];
-    return vi ? vi : c;
+/** Nhãn nút cuối thư, giống EmailLinks của notification-service. */
+const buttonLabel = (code: string) => {
+    const c = code.toUpperCase();
+    const candidate = metaOf(c)?.to === "Ứng viên";
+    if (c.includes("OFFER")) return "Xem thư mời";
+    if (c.includes("INTERVIEW") || c.includes("EVALUATION")) return "Xem lịch phỏng vấn";
+    if (c.includes("REQUISITION")) return "Xem yêu cầu tuyển dụng";
+    if (c.includes("APPLICATION")) return candidate ? "Xem hồ sơ của bạn" : "Xem hồ sơ";
+    return "Mở hệ thống";
 };
 
 interface Props {
     config: CatalogConfig;
 }
 
+/**
+ * Mẫu email gửi tự động theo sự kiện tuyển dụng. Bộ mẫu cố định (mỗi loại thông báo một mẫu, loại gửi cả ứng viên
+ * lẫn nhân viên có hai mẫu): Quản trị chỉ sửa tiêu đề / nội dung, hoặc tắt mẫu để gửi nội dung mặc định.
+ */
 export default function EmailTemplatePanel({ config }: Props) {
     const [items, setItems] = useState<CatalogItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [modalOpen, setModalOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
+    const [editing, setEditing] = useState<CatalogItem | null>(null);
+    const [previewing, setPreviewing] = useState<CatalogItem | null>(null);
+    const [company, setCompany] = useState<{ name: string; logoUrl: string | null }>({ name: "", logoUrl: null });
     const [form] = Form.useForm();
     const { message } = App.useApp();
-
-    const [previewOpen, setPreviewOpen] = useState(false);
-    const [previewItem, setPreviewItem] = useState<CatalogItem | null>(null);
-    const [previewForm] = Form.useForm();
-    const [previewResult, setPreviewResult] = useState<{ subject: string; body: string } | null>(null);
-    const [previewLoading, setPreviewLoading] = useState(false);
+    const { palette } = useBrand();
 
     const loadItems = useCallback(async () => {
         setLoading(true);
         try {
             const res = await getCatalogItems(config.endpoint);
-            setItems(res.data);
+            const rank = (c: unknown) => {
+                const i = EMAIL_TEMPLATE_ORDER.indexOf(String(c ?? "").toUpperCase());
+                return i < 0 ? 999 : i;
+            };
+            setItems([...res.data].sort((a, b) => rank(a.code) - rank(b.code)));
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
             message.error(axiosErr.response?.data?.message ?? "Không tải được dữ liệu");
@@ -95,152 +68,133 @@ export default function EmailTemplatePanel({ config }: Props) {
 
     useEffect(() => {
         loadItems();
+        getPublicCompany().then((r) => setCompany({ name: r.data.name, logoUrl: r.data.logoUrl })).catch(() => undefined);
     }, [loadItems]);
 
-    const openCreateModal = () => {
-        setEditingItem(null);
-        form.resetFields();
-        setModalOpen(true);
+    const openEdit = (item: CatalogItem) => {
+        setEditing(item);
+        form.setFieldsValue({ subject: item.subject, body: item.body });
     };
 
-    const openEditModal = (item: CatalogItem) => {
-        setEditingItem(item);
-        form.setFieldsValue(item);
-        setModalOpen(true);
-    };
-
-    const handleSubmit = async () => {
+    const save = async () => {
+        if (!editing) return;
         try {
             const values = await form.validateFields();
-            if (editingItem) {
-                await updateCatalogItem(config.endpoint, editingItem.id, values);
-                message.success("Cập nhật thành công");
-            } else {
-                await createCatalogItem(config.endpoint, values);
-                message.success("Thêm mới thành công");
-            }
-            setModalOpen(false);
+            await updateCatalogItem(config.endpoint, editing.id, { code: editing.code, ...values });
+            message.success("Đã lưu mẫu email");
+            setEditing(null);
             loadItems();
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
-            if (axiosErr.response?.data?.message) {
-                message.error(axiosErr.response.data.message);
-            }
+            if (axiosErr.response?.data?.message) message.error(axiosErr.response.data.message);
         }
     };
 
-    const handleDelete = async (id: number) => {
+    const toggle = async (item: CatalogItem) => {
         try {
-            await deleteCatalogItem(config.endpoint, id);
-            message.success("Xóa thành công");
+            if (item.active) await deleteCatalogItem(config.endpoint, item.id);
+            else await activateCatalogItem(config.endpoint, item.id);
+            message.success(item.active ? "Đã tắt mẫu" : "Đã bật lại mẫu");
             loadItems();
         } catch (err) {
             const axiosErr = err as AxiosError<ApiMessageResponse>;
-            message.error(axiosErr.response?.data?.message ?? "Xóa thất bại");
+            message.error(axiosErr.response?.data?.message ?? "Không cập nhật được mẫu");
         }
     };
-
-    const openPreview = (item: CatalogItem) => {
-        setPreviewItem(item);
-        setPreviewResult(null);
-        previewForm.setFieldsValue({
-            title: "Hồ sơ ứng tuyển mới",
-            message: "Nguyễn Văn A vừa nộp hồ sơ ứng tuyển vị trí Backend Developer.",
-            recipientName: "Trần Thị B",
-            resourceType: "APPLICATION",
-            resourceId: "123",
-        });
-        setPreviewOpen(true);
-    };
-
-    const handleRunPreview = async () => {
-        if (!previewItem) return;
-        setPreviewLoading(true);
-        try {
-            const sampleData = await previewForm.validateFields();
-            const res = await previewEmailTemplate(previewItem.id, sampleData);
-            setPreviewResult(res.data);
-        } catch (err) {
-            const axiosErr = err as AxiosError<ApiMessageResponse>;
-            if (axiosErr.response?.data?.message) {
-                message.error(axiosErr.response.data.message);
-            }
-        } finally {
-            setPreviewLoading(false);
-        }
-    };
-
-    const dataColumns = config.fields
-        .filter((f) => !f.hideInTable)
-        .map((f) => f.name === "code"
-            ? {
-                title: f.label, dataIndex: f.name, key: f.name,
-                render: (code: unknown) => (
-                    <Space direction="vertical" size={0}>
-                        <span>{typeLabel(code)}</span>
-                        <Text type="secondary" style={{ fontSize: 11 }}>{String(code ?? "")}</Text>
-                    </Space>
-                ),
-            }
-            : { title: f.label, dataIndex: f.name, key: f.name });
 
     const columns = [
-        ...dataColumns,
         {
-            title: "Trạng thái",
-            dataIndex: "active",
-            key: "active",
-            render: (active: boolean) =>
-                active ? <Tag color="green">Đang dùng</Tag> : <Tag color="default">Đã ẩn</Tag>,
+            title: "Email", key: "name",
+            render: (_: unknown, r: CatalogItem) => {
+                const m = metaOf(r.code);
+                return (
+                    <Space direction="vertical" size={0}>
+                        <span style={{ fontWeight: 600 }}>{m?.name ?? String(r.code ?? "")}</span>
+                        <Text type="secondary" style={{ fontSize: 12 }}>{m ? `Gửi khi: ${m.when}` : "Loại thông báo không còn dùng"}</Text>
+                    </Space>
+                );
+            },
         },
         {
-            title: "Thao tác",
-            key: "actions",
-            width: 120,
-            render: (_: unknown, record: CatalogItem) => (
+            title: "Người nhận", key: "to", width: 220,
+            render: (_: unknown, r: CatalogItem) => {
+                const m = metaOf(r.code);
+                return m ? <Tag color={m.to === "Ứng viên" ? "blue" : "default"}>{m.to}</Tag> : "—";
+            },
+        },
+        { title: "Tiêu đề email", dataIndex: "subject", key: "subject", ellipsis: true },
+        {
+            title: "Trạng thái", dataIndex: "active", key: "active", width: 110,
+            render: (active: boolean) => (active ? <Tag color="green">Đang dùng</Tag> : <Tag>Đã tắt</Tag>),
+        },
+        {
+            title: "", key: "actions", width: 120,
+            render: (_: unknown, r: CatalogItem) => (
                 <Space size={4}>
-                    <IconAction title="Xem trước" icon={<EyeOutlined />} onClick={() => openPreview(record)} />
-                    <IconAction title="Sửa" icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-                    <IconAction
-                        title="Ẩn khỏi danh sách"
-                        icon={<DeleteOutlined />}
-                        danger
-                        onClick={() => handleDelete(record.id)}
-                        confirm={{
-                            title: "Ẩn mẫu email này?",
-                            description: "Mục này sẽ được ẩn khỏi danh sách sử dụng, không xóa vĩnh viễn.",
-                            okText: "Ẩn",
-                        }}
-                    />
+                    <IconAction title="Xem trước" icon={<EyeOutlined />} onClick={() => setPreviewing(r)} />
+                    <IconAction title="Sửa nội dung" icon={<EditOutlined />} onClick={() => openEdit(r)} />
+                    {r.active ? (
+                        <IconAction title="Tắt mẫu" icon={<StopOutlined />} danger onClick={() => toggle(r)}
+                            confirm={{
+                                title: "Tắt mẫu email này?",
+                                description: "Email vẫn được gửi, nhưng dùng nội dung mặc định của thông báo thay cho mẫu.",
+                                okText: "Tắt",
+                            }} />
+                    ) : (
+                        <IconAction title="Bật lại" icon={<CheckCircleOutlined />} onClick={() => toggle(r)} />
+                    )}
                 </Space>
             ),
         },
     ];
 
+    const preview = useMemo(() => {
+        if (!previewing) return null;
+        const code = String(previewing.code ?? "");
+        const m = metaOf(code);
+        const companyName = company.name || "Công ty";
+        const data: Record<string, string> = {
+            recipientName: m?.to === "Ứng viên" ? "Nguyễn Văn An" : "Trần Thị Bình",
+            title: m?.sampleTitle ?? "",
+            message: m?.sampleMessage ?? "",
+            companyName,
+            link: `${window.location.origin}/...`,
+            resourceType: "",
+            resourceId: "",
+        };
+        const blocks = render(String(previewing.body ?? ""), data).trim().split(/\n\s*\n/);
+        // Giống EmailLayout: đoạn cuối "Trân trọng…" là chữ ký, nút nằm trước chữ ký.
+        const hasSignature = blocks.length > 1 && blocks[blocks.length - 1].trim().toLowerCase().startsWith("trân trọng");
+        return {
+            subject: render(String(previewing.subject ?? ""), data),
+            paragraphs: hasSignature ? blocks.slice(0, -1) : blocks,
+            signature: hasSignature ? blocks[blocks.length - 1] : null,
+            companyName,
+            button: buttonLabel(code),
+        };
+    }, [previewing, company.name]);
+
+    const brandColor = palette.color;
+
     return (
         <div>
             <PageToolbar
-                left={
-                    <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.textPrimary }}>
-                        {config.title}
-                    </span>
-                }
-                right={
-                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-                        Thêm mới
-                    </Button>
-                }
+                left={<span style={{ fontSize: 16, fontWeight: 700, color: COLORS.textPrimary }}>{config.title}</span>}
             />
 
             <Alert
                 type="info"
                 showIcon
                 style={{ marginBottom: 12, borderRadius: RADIUS.md }}
-                title="Biến khả dụng trong Tiêu đề/Nội dung"
+                title="Email gửi tự động khi có sự kiện tuyển dụng"
                 description={
                     <span>
-                        Dùng cú pháp <Text code>{"{{tên_biến}}"}</Text> — ví dụ <Text code>{"{{recipientName}}"}</Text>.
-                        Các biến hỗ trợ: {SAMPLE_KEYS.map((k) => <Text code key={k} style={{ marginRight: 4 }}>{`{{${k}}}`}</Text>)}
+                        Nội dung dưới đây được đặt vào khung email mang tên, logo và màu của công ty; cuối thư có sẵn nút
+                        dẫn tới trang liên quan. Tắt một mẫu thì email vẫn gửi với nội dung mặc định của thông báo.
+                        Biến dùng được:{" "}
+                        {EMAIL_VARIABLES.map((v) => (
+                            <span key={v.key} style={{ marginRight: 8 }}><Text code>{`{{${v.key}}}`}</Text> {v.label};</span>
+                        ))}
                     </span>
                 }
             />
@@ -251,13 +205,10 @@ export default function EmailTemplatePanel({ config }: Props) {
                 loading={loading}
                 columns={columns}
                 dataSource={items}
-                pagination={{ pageSize: 10, ...listPagination("mẫu email") }}
+                pagination={{ pageSize: 12, ...listPagination("mẫu email") }}
                 locale={{
                     emptyText: loading ? <span /> : (
-                        <EmptyState
-                            title="Chưa có mẫu email nào"
-                            description="Thêm mẫu để hệ thống gửi email tự động cho ứng viên."
-                        />
+                        <EmptyState title="Chưa có mẫu email nào" description="Khởi động lại masterdata-service để nạp bộ mẫu mặc định." />
                     ),
                 }}
             />
@@ -265,69 +216,71 @@ export default function EmailTemplatePanel({ config }: Props) {
             <Modal
                 title={
                     <ModalTitle
-                        icon={editingItem ? <EditOutlined /> : <PlusOutlined />}
-                        title={editingItem ? `Sửa ${config.title.toLowerCase()}` : `Thêm ${config.title.toLowerCase()}`}
-                        subtitle="Mẫu email gửi tự động theo sự kiện tuyển dụng"
+                        icon={<EditOutlined />}
+                        title={metaOf(editing?.code)?.name ?? "Sửa mẫu email"}
+                        subtitle={metaOf(editing?.code) ? `Gửi khi: ${metaOf(editing?.code)?.when} · Người nhận: ${metaOf(editing?.code)?.to}` : undefined}
                     />
                 }
-                open={modalOpen}
-                onOk={handleSubmit}
-                onCancel={() => setModalOpen(false)}
-                okText={editingItem ? "Cập nhật" : "Thêm mới"}
-                cancelText="Hủy"
+                open={!!editing}
+                onOk={save}
+                onCancel={() => setEditing(null)}
+                okText="Lưu"
+                cancelText="Huỷ"
+                width={680}
                 destroyOnHidden
             >
                 <Form form={form} layout="vertical">
-                    {config.fields.map((field) => (
-                        <Form.Item
-                            key={field.name}
-                            name={field.name}
-                            label={field.label}
-                            rules={field.required ? [{ required: true, message: `${field.label} không được để trống` }] : []}
-                        >
-                            {field.name === "code" ? (
-                                <Select
-                                    placeholder="Chọn loại thông báo cần gửi email"
-                                    options={NOTIFICATION_TYPE_CODES.map((c) => ({ value: c, label: `${typeLabel(c)} (${c})` }))}
-                                />
-                            ) : field.type === "textarea" ? (
-                                <Input.TextArea rows={4} />
-                            ) : (
-                                <Input />
-                            )}
-                        </Form.Item>
-                    ))}
+                    <Form.Item name="subject" label="Tiêu đề email" rules={[{ required: true, message: "Tiêu đề không được để trống" }]}>
+                        <Input />
+                    </Form.Item>
+                    <Form.Item name="body" label="Nội dung" extra="Để một dòng trống giữa các đoạn. Nút xem chi tiết được thêm tự động cuối thư."
+                        rules={[{ required: true, message: "Nội dung không được để trống" }]}>
+                        <Input.TextArea rows={10} />
+                    </Form.Item>
                 </Form>
             </Modal>
 
             <Modal
-                title={`Xem trước — ${typeLabel(previewItem?.code)}`}
-                open={previewOpen}
-                onCancel={() => setPreviewOpen(false)}
-                footer={[
-                    <Button key="close" onClick={() => setPreviewOpen(false)}>Đóng</Button>,
-                    <Button key="run" type="primary" loading={previewLoading} onClick={handleRunPreview}>
-                        Render thử
-                    </Button>,
-                ]}
-                width={640}
+                title={`Xem trước — ${metaOf(previewing?.code)?.name ?? ""}`}
+                open={!!previewing}
+                onCancel={() => setPreviewing(null)}
+                footer={<Button onClick={() => setPreviewing(null)}>Đóng</Button>}
+                width={680}
                 destroyOnHidden
             >
-                <Paragraph type="secondary">Nhập dữ liệu mẫu rồi bấm "Render thử" — không gửi email thật.</Paragraph>
-                <Form form={previewForm} layout="vertical">
-                    {SAMPLE_KEYS.map((key) => (
-                        <Form.Item key={key} name={key} label={`{{${key}}}`}>
-                            <Input />
-                        </Form.Item>
-                    ))}
-                </Form>
-
-                {previewResult && (
-                    <div style={{ marginTop: 16, padding: 16, background: "#1824310C", borderRadius: 8, border: "1px solid #1824311A" }}>
-                        <Text strong>Tiêu đề: </Text>
-                        <div style={{ marginBottom: 12 }}>{previewResult.subject}</div>
-                        <Text strong>Nội dung:</Text>
-                        <Paragraph style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{previewResult.body}</Paragraph>
+                {preview && (
+                    <div style={{ background: "#F3F4F6", padding: 16, borderRadius: 8 }}>
+                        <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>
+                            Từ: {preview.companyName} · Tiêu đề: <b style={{ color: "#111827" }}>{preview.subject}</b>
+                        </div>
+                        <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid #E5E7EB" }}>
+                            <div style={{
+                                padding: "16px 24px", borderBottom: `3px solid ${brandColor}`,
+                                background: company.logoUrl ? "#fff" : brandColor,
+                            }}>
+                                {company.logoUrl
+                                    ? <img src={company.logoUrl} alt={preview.companyName} style={{ height: 32 }} />
+                                    : <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{preview.companyName}</span>}
+                            </div>
+                            <div style={{ padding: 24 }}>
+                                <div style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 16 }}>{preview.subject}</div>
+                                {preview.paragraphs.map((p, i) => (
+                                    <p key={i} style={{ margin: "0 0 14px", fontSize: 14, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-line" }}>{p}</p>
+                                ))}
+                                <span style={{
+                                    display: "inline-block", marginTop: 4, padding: "10px 20px", borderRadius: 8,
+                                    background: brandColor, color: "#fff", fontWeight: 600, fontSize: 14,
+                                }}>{preview.button}</span>
+                                {preview.signature && (
+                                    <p style={{ margin: "20px 0 0", fontSize: 14, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-line" }}>
+                                        {preview.signature}
+                                    </p>
+                                )}
+                            </div>
+                            <div style={{ padding: "12px 24px", background: "#F9FAFB", borderTop: "1px solid #E5E7EB", fontSize: 12, color: "#6B7280" }}>
+                                Email được gửi tự động từ hệ thống tuyển dụng của {preview.companyName}. Vui lòng không trả lời email này.
+                            </div>
+                        </div>
                     </div>
                 )}
             </Modal>

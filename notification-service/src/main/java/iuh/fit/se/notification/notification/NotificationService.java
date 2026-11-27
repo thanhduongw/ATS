@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +25,7 @@ public class NotificationService {
     private final EmailNotificationService emailNotificationService;
     private final AuthServiceClient authServiceClient;
     private final MasterDataServiceClient masterDataServiceClient;
+    private final EmailBrandingService emailBrandingService;
 
     public List<NotificationResponse> getAll(Long userId) {
         return repository
@@ -103,31 +105,48 @@ public class NotificationService {
             if (recipient == null || recipient.email() == null || recipient.email().isBlank()) {
                 return;
             }
+            boolean candidate = "CANDIDATE".equals(recipient.role());
+            EmailLayout.Brand brand = emailBrandingService.brand();
+            EmailLinks.Target target = EmailLinks.target(resourceType, resourceId, type, candidate);
+            String link = emailBrandingService.absolute(target.path());
 
-            String subject = title;
-            String body = message;
+            Map<String, String> data = new HashMap<>();
+            data.put("title", nullToEmpty(title));
+            data.put("message", nullToEmpty(message));
+            data.put("recipientName", nullToEmpty(recipient.fullName()));
+            data.put("companyName", brand.companyName());
+            data.put("link", link);
+            data.put("resourceType", nullToEmpty(resourceType));
+            data.put("resourceId", resourceId != null ? String.valueOf(resourceId) : "");
 
-            // Nếu công ty đã cấu hình mẫu email cho loại thông báo này (code = tên NotificationType)
-            // thì render theo mẫu; nếu không có / lỗi thì fallback về title/message mặc định.
-            try {
-                EmailTemplateResponse template = masterDataServiceClient.getByCode(type.name());
-                if (template != null && template.active()) {
-                    Map<String, String> data = Map.of(
-                            "title", nullToEmpty(title),
-                            "message", nullToEmpty(message),
-                            "recipientName", nullToEmpty(recipient.fullName()),
-                            "resourceType", nullToEmpty(resourceType),
-                            "resourceId", resourceId != null ? String.valueOf(resourceId) : "");
-                    subject = TemplateRenderer.render(template.subject(), data);
-                    body = TemplateRenderer.render(template.body(), data);
-                }
-            } catch (Exception e) {
-                log.debug("No custom email template for {}; using default content", type);
+            // Mặc định (không có mẫu / mẫu đã tắt): tiêu đề + nội dung của chính thông báo.
+            String subject = nullToEmpty(title);
+            String body = "Xin chào " + nullToEmpty(recipient.fullName()) + ",\n\n" + nullToEmpty(message)
+                    + "\n\nTrân trọng,\n" + (candidate ? "Bộ phận Tuyển dụng " : "Hệ thống tuyển dụng ") + brand.companyName();
+
+            // Mẫu riêng theo người nhận (vd INTERVIEW_REMINDER__CANDIDATE) được ưu tiên, rồi mới tới mẫu chung (mã = loại thông báo).
+            EmailTemplateResponse template = findTemplate(type.name() + (candidate ? "__CANDIDATE" : "__STAFF"));
+            if (template == null) template = findTemplate(type.name());
+            if (template != null) {
+                subject = TemplateRenderer.render(template.subject(), data);
+                body = TemplateRenderer.render(template.body(), data);
             }
 
-            emailNotificationService.sendSafe(recipient.email(), subject, body);
+            String text = body + "\n\n" + target.label() + ": " + link;
+            String html = EmailLayout.html(brand, subject, body, link, target.label());
+            emailNotificationService.sendSafe(recipient.email(), brand.companyName(), subject, text, html);
         } catch (Exception e) {
             log.warn("Skip email userId={}: {}", recipientUserId, e.getMessage());
+        }
+    }
+
+    private EmailTemplateResponse findTemplate(String code) {
+        try {
+            EmailTemplateResponse t = masterDataServiceClient.getByCode(code);
+            return t != null && t.active() ? t : null;
+        } catch (Exception e) {
+            log.debug("No email template {}", code);
+            return null;
         }
     }
 

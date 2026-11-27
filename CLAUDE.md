@@ -78,3 +78,8 @@ departmentId, fullName, avatarUrl}}`. Mobile web dùng sessionStorage — đăng
 - Tìm kiếm không phân biệt dấu: web dùng `matchesKeyword` (`frontend/src/app/text.ts`), backend dùng `TextSearch.fold`.
 - Giao diện theo `E:/ATS-archive/docs/UI`; không đổi phông chữ, không đổi bố cục khối chính của màn.
 - Tiến độ và kết quả đợt hoàn thiện tháng 11/2026: `E:/ATS-archive/docs/TIEN_DO_HOAN_THIEN.md`, `E:/ATS-archive/docs/KET_QUA_HOAN_THIEN.md`.
+- Email: mỗi thông báo trong ứng dụng đồng thời gửi email (notification-service). Nội dung lấy theo mẫu trong Danh mục
+  (mã = tên `NotificationType`; loại gửi cả ứng viên lẫn nhân viên có mẫu riêng `__CANDIDATE` / `__STAFF`), không có mẫu
+  thì dùng tiêu đề / nội dung thông báo. Khung HTML (`EmailLayout`; auth-service: `MailLayout`) lấy tên, logo, màu công ty
+  lúc gửi — không ghi cứng; nút cuối thư trỏ về `PUBLIC_URL` (`app.public-url`). Thêm loại thông báo mới thì thêm mẫu ở
+  `DefaultDataSeeder` và mô tả ở `frontend/src/features/masterdata/components/emailTemplateMeta.ts`.

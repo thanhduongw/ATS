@@ -48,9 +48,9 @@ CREATE TABLE IF NOT EXISTS app_user (
     CONSTRAINT ck_app_user_department_positive CHECK (department_id IS NULL OR department_id > 0)
 );
 
--- Dòng công ty duy nhất. Thông tin đầy đủ do Quản trị điền trên giao diện.
+-- Dòng công ty duy nhất, tên tạm trung tính: Quản trị đổi tên, logo, màu trong "Thông tin doanh nghiệp" sau lần đăng nhập đầu.
 INSERT INTO company (id, name)
-VALUES (1, 'Mộc Lam Software')
+VALUES (1, 'Tên công ty')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO role (id, name) VALUES

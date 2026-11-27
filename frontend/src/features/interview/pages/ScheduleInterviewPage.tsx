@@ -74,8 +74,10 @@ export default function ScheduleInterviewPage() {
             getInterviews().then((r) => r.data).catch(() => []),
         ]).then(([a, users, locs, ivs]) => {
             setApp(a);
-            // Chỉ người đang hoạt động: tài khoản mới mời chưa kích hoạt hoặc đã khoá không nhận lịch được.
-            const staff = users.filter((u) => (u.role === "HIRING_MANAGER" || u.role === "RECRUITER") && (u.status ?? "ACTIVE") === "ACTIVE");
+            // Chỉ người đang hoạt động (tài khoản mới mời chưa kích hoạt hoặc đã khoá không nhận lịch được):
+            // Chuyên viên tuyển dụng và Đại diện của CHÍNH phòng ban có hồ sơ — không hiện người phòng ban khác.
+            const staff = users.filter((u) => (u.status ?? "ACTIVE") === "ACTIVE"
+                && (u.role === "RECRUITER" || (u.role === "HIRING_MANAGER" && u.departmentId === a.departmentId)));
             setPeople(staff);
             setLocations(locs);
             setBusy(ivs.filter((iv) => BLOCKING.has(iv.status)));

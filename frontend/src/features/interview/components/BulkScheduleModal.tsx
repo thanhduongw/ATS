@@ -103,7 +103,10 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
         if (!open) return;
         reset();
         getPostings({ size: 100 }).then((r) => setPostings(r.data.content));
-        getUserDirectory("HIRING_MANAGER").then((r) => setInterviewers(r.data));
+        // Chuyên viên tuyển dụng + Đại diện phòng ban; lọc theo phòng ban của hồ sơ ở interviewerOptions.
+        Promise.all([getUserDirectory("HIRING_MANAGER"), getUserDirectory("RECRUITER")])
+            .then(([hm, rc]) => setInterviewers([...hm.data, ...rc.data].filter((u) => (u.status ?? "ACTIVE") === "ACTIVE")))
+            .catch(() => setInterviewers([]));
         getCatalogItems("/masterdata/work-locations").then((r) => setWorkLocations(r.data));
         getCatalogItems("/masterdata/departments").then((r) => setDepartments(r.data));
         getInterviews().then((r) => setExistingInterviews(r.data)).catch(() => setExistingInterviews([]));
@@ -142,11 +145,18 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
             .sort((a, b) => a.label.localeCompare(b.label, "vi"));
     }, [postings, departmentNameById]);
 
+    /** Phòng ban của hồ sơ đang xếp lịch: chỉ Đại diện phòng ban này và Chuyên viên tuyển dụng được chọn. */
+    const targetDepartmentId = departmentId;
+
     /** Label gop ten + phong ban: the da chon va o tim kiem deu thay duoc phong ban. */
     const interviewerOptions = useMemo(
         () =>
-            interviewers.map((u) => {
-                const departmentName = u.departmentId != null ? departmentNameById.get(u.departmentId) : undefined;
+            interviewers
+                .filter((u) => u.role === "RECRUITER"
+                    || (u.role === "HIRING_MANAGER" && targetDepartmentId != null && u.departmentId === targetDepartmentId))
+                .map((u) => {
+                const departmentName = u.role === "RECRUITER" ? "Tuyển dụng"
+                    : u.departmentId != null ? departmentNameById.get(u.departmentId) : undefined;
                 return {
                     value: u.id,
                     fullName: u.fullName,
@@ -154,8 +164,14 @@ export default function BulkScheduleModal({ open, onClose, onSuccess }: Props) {
                     label: departmentName ? `${u.fullName} — ${departmentName}` : u.fullName,
                 };
             }),
-        [interviewers, departmentNameById],
+        [interviewers, departmentNameById, targetDepartmentId],
     );
+
+    // Đổi phòng ban / hồ sơ thì bỏ những người phỏng vấn không còn hợp lệ.
+    useEffect(() => {
+        const allowed = new Set(interviewerOptions.map((o) => o.value));
+        setInterviewerIds((ids) => (ids.every((id) => allowed.has(id)) ? ids : ids.filter((id) => allowed.has(id))));
+    }, [interviewerOptions]);
 
     const postingsInDepartment = useMemo(
         () => (departmentId ? postings.filter((p) => p.departmentId === departmentId) : []),

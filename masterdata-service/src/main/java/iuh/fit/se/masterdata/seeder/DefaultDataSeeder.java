@@ -10,26 +10,14 @@ import iuh.fit.se.masterdata.employmenttype.EmploymentType;
 import iuh.fit.se.masterdata.employmenttype.EmploymentTypeRepository;
 import iuh.fit.se.masterdata.experiencelevel.ExperienceLevel;
 import iuh.fit.se.masterdata.experiencelevel.ExperienceLevelRepository;
-import iuh.fit.se.masterdata.interviewcriteria.InterviewCriteria;
-import iuh.fit.se.masterdata.interviewcriteria.InterviewCriteriaRepository;
-import iuh.fit.se.masterdata.joblevel.JobLevel;
-import iuh.fit.se.masterdata.joblevel.JobLevelRepository;
-import iuh.fit.se.masterdata.jobtitle.JobTitle;
-import iuh.fit.se.masterdata.jobtitle.JobTitleRepository;
 import iuh.fit.se.masterdata.pipeline.PipelineRepository;
 import iuh.fit.se.masterdata.pipeline.PipelineStage;
 import iuh.fit.se.masterdata.pipeline.RecruitmentPipeline;
 import iuh.fit.se.masterdata.pipeline.enums.StageType;
 import iuh.fit.se.masterdata.recruitmentsource.RecruitmentSource;
 import iuh.fit.se.masterdata.recruitmentsource.RecruitmentSourceRepository;
-import iuh.fit.se.masterdata.recruitmentstatus.RecruitmentStatus;
-import iuh.fit.se.masterdata.recruitmentstatus.RecruitmentStatusRepository;
 import iuh.fit.se.masterdata.rejectionreason.RejectionReason;
 import iuh.fit.se.masterdata.rejectionreason.RejectionReasonRepository;
-import iuh.fit.se.masterdata.skill.Skill;
-import iuh.fit.se.masterdata.skill.SkillRepository;
-import iuh.fit.se.masterdata.worklocation.WorkLocation;
-import iuh.fit.se.masterdata.worklocation.WorkLocationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,25 +25,25 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Nap danh muc mac dinh cho cong ty. Moi lan seed deu bo qua ban ghi da ton tai
- * (doi chieu theo name / code), nen chay lai nhieu lan khong sinh du lieu trung.
+ * Nạp danh mục mặc định mỗi lần masterdata-service khởi động; bản ghi đã tồn tại (theo name / code) thì bỏ qua.
+ *
+ * Chỉ nạp những gì hệ thống cần để chạy hoặc mọi công ty đều dùng như nhau:
+ * mẫu email (notification-service tìm theo mã), quy trình 6 giai đoạn, nguồn "Trang tuyển dụng của công ty",
+ * lý do từ chối chung, loại hình làm việc, loại hợp đồng, trình độ học vấn, mức kinh nghiệm.
+ * Phòng ban, chức danh, cấp bậc, kỹ năng, địa điểm làm việc, tiêu chí phỏng vấn do Quản trị tự cấu hình.
  */
 @Component
 @RequiredArgsConstructor
 public class DefaultDataSeeder {
+
+    public static final String CAREERS_SITE_SOURCE = "Trang tuyển dụng của công ty";
 
     private final EmploymentTypeRepository employmentTypeRepository;
     private final ContractTypeRepository contractTypeRepository;
     private final RecruitmentSourceRepository recruitmentSourceRepository;
     private final EducationLevelRepository educationLevelRepository;
     private final RejectionReasonRepository rejectionReasonRepository;
-    private final RecruitmentStatusRepository recruitmentStatusRepository;
     private final PipelineRepository pipelineRepository;
-    private final InterviewCriteriaRepository interviewCriteriaRepository;
-    private final JobTitleRepository jobTitleRepository;
-    private final JobLevelRepository jobLevelRepository;
-    private final SkillRepository skillRepository;
-    private final WorkLocationRepository workLocationRepository;
     private final ExperienceLevelRepository experienceLevelRepository;
     private final EmailTemplateRepository emailTemplateRepository;
 
@@ -66,13 +54,7 @@ public class DefaultDataSeeder {
         seedRecruitmentSources();
         seedEducationLevels();
         seedRejectionReasons();
-        seedRecruitmentStatuses();
-        seedInterviewCriteria();
-        seedJobLevels();
-        seedJobTitles();
         seedExperienceLevels();
-        seedWorkLocations();
-        seedSkills();
         seedEmailTemplates();
         seedDefaultPipeline();
     }
@@ -88,8 +70,8 @@ public class DefaultDataSeeder {
     }
 
     private void seedContractTypes() {
-        List.of("Không xác định thời hạn", "Xác định thời hạn 12 tháng", "Xác định thời hạn 24 tháng",
-                        "Thực tập", "Cộng tác viên")
+        // Bộ luật Lao động 2019, Điều 20: chỉ có hai loại hợp đồng lao động.
+        List.of("Không xác định thời hạn", "Xác định thời hạn")
                 .forEach(name -> {
                     if (!contractTypeRepository.existsByNameIgnoreCase(name)) {
                         contractTypeRepository.save(
@@ -99,8 +81,9 @@ public class DefaultDataSeeder {
     }
 
     private void seedRecruitmentSources() {
-        List.of("Trang tuyển dụng của công ty", "ITviec", "TopDev", "LinkedIn", "TopCV", "VietnamWorks",
-                        "Giới thiệu nội bộ", "Nhóm Facebook về IT", "Ngày hội việc làm IT", "Headhunter")
+        // Bắt buộc: ứng viên tự nộp đơn trên web/mobile được gán nguồn này (ApplyJobPage, jobs/apply.tsx).
+        // Các nguồn khác (LinkedIn, TopCV, giới thiệu nội bộ...) do Quản trị tự thêm.
+        List.of(CAREERS_SITE_SOURCE)
                 .forEach(name -> {
                     if (!recruitmentSourceRepository.existsByNameIgnoreCase(name)) {
                         recruitmentSourceRepository.save(
@@ -120,61 +103,14 @@ public class DefaultDataSeeder {
     }
 
     private void seedRejectionReasons() {
-        List.of("Chưa đủ số năm kinh nghiệm", "Kỹ năng kỹ thuật chưa đạt", "Chưa đạt bài phỏng vấn kỹ thuật",
-                        "Công nghệ chính không khớp vị trí", "Mức lương mong muốn vượt khung",
-                        "Vị trí đã tuyển đủ", "Tiếng Anh chưa đạt yêu cầu", "Không phản hồi liên hệ",
-                        "Chưa phù hợp cách làm việc của nhóm", "Đã nhận việc ở công ty khác",
-                        "Hồ sơ thiếu thông tin")
+        // Bộ lý do chung, không gắn ngành nghề (tham khảo bộ mặc định của Greenhouse). Quản trị sửa / thêm tuỳ công ty.
+        List.of("Thiếu kỹ năng hoặc trình độ theo yêu cầu", "Đã chọn ứng viên khác phù hợp hơn",
+                        "Chưa phù hợp văn hoá công ty", "Hồ sơ trùng", "Ứng viên từ chối đề nghị",
+                        "Ứng viên không còn quan tâm", "Khác")
                 .forEach(name -> {
                     if (!rejectionReasonRepository.existsByNameIgnoreCase(name)) {
                         rejectionReasonRepository.save(
                                 RejectionReason.builder().name(name).active(true).build());
-                    }
-                });
-    }
-
-    private void seedRecruitmentStatuses() {
-        String[] names = {"Bản nháp", "Chờ phê duyệt", "Đã phê duyệt", "Đang mở", "Tạm dừng", "Đã đóng", "Từ chối"};
-        for (int i = 0; i < names.length; i++) {
-            if (!recruitmentStatusRepository.existsByNameIgnoreCase(names[i])) {
-                recruitmentStatusRepository.save(RecruitmentStatus.builder()
-                        .name(names[i]).orderNo(i + 1).active(true).build());
-            }
-        }
-    }
-
-    private void seedInterviewCriteria() {
-        List.of("Kiến thức nền tảng (cấu trúc dữ liệu, thuật toán)", "Kỹ năng lập trình và chất lượng mã",
-                        "Thiết kế hệ thống", "Tư duy giải quyết vấn đề", "Kinh nghiệm dự án thực tế",
-                        "Giao tiếp và làm việc nhóm", "Tinh thần học hỏi", "Tiếng Anh đọc tài liệu kỹ thuật")
-                .forEach(name -> {
-                    if (!interviewCriteriaRepository.existsByNameIgnoreCase(name)) {
-                        interviewCriteriaRepository.save(
-                                InterviewCriteria.builder().name(name).active(true).build());
-                    }
-                });
-    }
-
-    private void seedJobLevels() {
-        String[] names = {"Intern", "Fresher", "Junior", "Middle", "Senior", "Tech Lead", "Engineering Manager"};
-        for (int i = 0; i < names.length; i++) {
-            if (!jobLevelRepository.existsByNameIgnoreCase(names[i])) {
-                jobLevelRepository.save(JobLevel.builder()
-                        .name(names[i]).orderNo(i + 1).active(true).build());
-            }
-        }
-    }
-
-    private void seedJobTitles() {
-        List.of("Lập trình viên Backend", "Lập trình viên Frontend", "Lập trình viên Full-stack",
-                        "Lập trình viên Mobile", "Kỹ sư kiểm thử phần mềm", "Kỹ sư kiểm thử tự động",
-                        "Kỹ sư DevOps", "Kỹ sư Cloud", "Kỹ sư dữ liệu", "Kỹ sư AI/ML",
-                        "Chuyên viên phân tích dữ liệu", "Chuyên viên phân tích nghiệp vụ",
-                        "Thiết kế UI/UX", "Quản lý dự án phần mềm", "Chuyên viên an toàn thông tin",
-                        "Chuyên viên tuyển dụng IT")
-                .forEach(name -> {
-                    if (!jobTitleRepository.existsByNameIgnoreCase(name)) {
-                        jobTitleRepository.save(JobTitle.builder().name(name).active(true).build());
                     }
                 });
     }
@@ -202,53 +138,6 @@ public class DefaultDataSeeder {
         }
     }
 
-    private void seedWorkLocations() {
-        String[][] locations = {
-                {"Văn phòng TP. Hồ Chí Minh", "Tầng 8, 12 Nguyễn Văn Bảo, Phường 4, Quận Gò Vấp, TP. Hồ Chí Minh"},
-                {"Văn phòng Hà Nội", "Tầng 15, 86 Duy Tân, Quận Cầu Giấy, Hà Nội"},
-                {"Văn phòng Đà Nẵng", "Tầng 4, 15 Quang Trung, Quận Hải Châu, Đà Nẵng"},
-        };
-        for (String[] l : locations) {
-            if (!workLocationRepository.existsByNameIgnoreCase(l[0])) {
-                workLocationRepository.save(WorkLocation.builder()
-                        .name(l[0]).address(l[1]).active(true).build());
-            }
-        }
-    }
-
-    private void seedSkills() {
-        String[][] skills = {
-                {"Java", "Chuyên môn"}, {"Spring Boot", "Chuyên môn"}, {"Node.js", "Chuyên môn"},
-                {"Python", "Chuyên môn"}, {"Go", "Chuyên môn"}, {"C#/.NET", "Chuyên môn"},
-                {"JavaScript", "Chuyên môn"}, {"TypeScript", "Chuyên môn"}, {"React", "Chuyên môn"},
-                {"Vue.js", "Chuyên môn"}, {"Next.js", "Chuyên môn"}, {"HTML/CSS", "Chuyên môn"},
-                {"React Native", "Chuyên môn"}, {"Flutter", "Chuyên môn"}, {"Kotlin", "Chuyên môn"},
-                {"Swift", "Chuyên môn"}, {"SQL", "Chuyên môn"}, {"PostgreSQL", "Chuyên môn"},
-                {"MySQL", "Chuyên môn"}, {"MongoDB", "Chuyên môn"}, {"Redis", "Chuyên môn"},
-                {"Kafka", "Chuyên môn"}, {"RabbitMQ", "Chuyên môn"}, {"REST API", "Chuyên môn"},
-                {"Microservices", "Chuyên môn"}, {"Docker", "Chuyên môn"}, {"Kubernetes", "Chuyên môn"},
-                {"CI/CD", "Chuyên môn"}, {"AWS", "Chuyên môn"}, {"Linux", "Chuyên môn"},
-                {"Terraform", "Chuyên môn"}, {"Kiểm thử thủ công", "Chuyên môn"},
-                {"Selenium", "Chuyên môn"}, {"Playwright", "Chuyên môn"}, {"Kiểm thử API", "Chuyên môn"},
-                {"Machine Learning", "Chuyên môn"}, {"PyTorch", "Chuyên môn"}, {"Pandas", "Chuyên môn"},
-                {"Airflow", "Chuyên môn"}, {"Spark", "Chuyên môn"},
-                {"Git", "Công cụ"}, {"Jira", "Công cụ"}, {"Figma", "Công cụ"}, {"Postman", "Công cụ"},
-                {"Giao tiếp", "Kỹ năng mềm"}, {"Làm việc nhóm", "Kỹ năng mềm"},
-                {"Giải quyết vấn đề", "Kỹ năng mềm"}, {"Tự học", "Kỹ năng mềm"},
-                {"Tiếng Anh", "Ngoại ngữ"}, {"Tiếng Nhật", "Ngoại ngữ"},
-        };
-        for (String[] s : skills) {
-            if (!skillRepository.existsByNameIgnoreCase(s[0])) {
-                skillRepository.save(Skill.builder()
-                        .name(s[0]).category(s[1]).active(true).build());
-            }
-        }
-    }
-
-    /**
-     * Mau email khop voi NotificationType cua notification-service (code = ten enum).
-     * Placeholder kha dung: title, message, recipientName, resourceType, resourceId.
-     */
     private void seedEmailTemplates() {
         String[][] templates = {
                 {"REQUISITION_PENDING_APPROVAL", "[ATS] Yêu cầu tuyển dụng chờ phê duyệt",

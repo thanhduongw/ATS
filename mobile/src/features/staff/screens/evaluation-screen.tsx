@@ -228,6 +228,9 @@ export function StaffEvaluationScreen() {
           <>
             <Card>
               <CardTitle right={<Text style={styles.avg}>{L.avg(avg ? one(avg) : L.none)}</Text>}>{L.criteria}</CardTitle>
+              {list.length === 0 && !criteria.isLoading ? (
+                <Text style={styles.sub}>Chưa có tiêu chí phỏng vấn. Nhờ Quản trị thêm trong mục Danh mục; vẫn gửi được kết luận và nhận xét.</Text>
+              ) : null}
               {list.map((c) => {
                 const k = String(c.id);
                 const score = values.scores?.[k] ?? 0;

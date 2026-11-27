@@ -41,7 +41,9 @@ VPS `~/ats` clone nhánh `main`: `git pull && bash deploy/build.sh [service...]`
 ## Dữ liệu ban đầu
 
 DB mới (volume trống) chỉ có công ty và quản trị viên do `docker/postgres-init` tạo: `le.quan@example.com` /
-`Password123!` — đổi mật khẩu sau lần đăng nhập đầu. Danh mục mặc định (chức danh, cấp bậc, kỹ năng, quy trình…) do masterdata-service tự nạp mỗi lần khởi động; **không nạp phòng ban** — Quản trị tự tạo.
+`Password123!` — đổi mật khẩu sau lần đăng nhập đầu. Danh mục nạp sẵn chỉ gồm những gì hệ thống cần hoặc mọi công ty dùng như nhau: mẫu email, quy trình 6 giai đoạn,
+nguồn "Trang tuyển dụng của công ty", lý do từ chối chung, loại hình làm việc, loại hợp đồng, trình độ học vấn, mức
+kinh nghiệm. Phòng ban, chức danh, cấp bậc, kỹ năng, địa điểm làm việc, tiêu chí phỏng vấn do Quản trị tự tạo. Seeder: `DefaultDataSeeder` (chạy mỗi lần masterdata-service khởi động, chỉ thêm mục còn thiếu).
 Repo không có script tạo dữ liệu demo: mọi dữ liệu nhập trên giao diện như người dùng thật.
 
 ## Kiểm tra trước khi coi là xong

@@ -220,6 +220,11 @@ export default function EvaluationFormPage() {
                     <Form layout="vertical" requiredMark>
                         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Chấm từng tiêu chí (1 – 5)</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            {fields.length === 0 && (
+                                <div style={{ fontSize: 13, color: COLORS.textSecondary }}>
+                                    Chưa có tiêu chí phỏng vấn. Nhờ Quản trị thêm trong mục Danh mục; vẫn gửi được kết luận và nhận xét bên dưới.
+                                </div>
+                            )}
                             {fields.map((f, i) => (
                                 <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

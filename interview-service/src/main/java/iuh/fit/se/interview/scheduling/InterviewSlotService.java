@@ -50,6 +50,18 @@ public class InterviewSlotService {
         if ("REJECTED".equals(application.currentStageType()) || "HIRED".equals(application.currentStageType())) {
             throw new BusinessException("Không thể tạo khung giờ cho hồ sơ đã kết thúc");
         }
+        if (req.interviewerIds() != null && !req.interviewerIds().isEmpty()) {
+            java.util.Map<Long, UserSummaryResponse> users = java.util.Optional.ofNullable(authServiceClient.getUsers(null))
+                    .orElse(List.of()).stream()
+                    .filter(u -> "ACTIVE".equals(u.status()))
+                    .collect(Collectors.toMap(UserSummaryResponse::id, u -> u, (x, y) -> x));
+            for (Long id : req.interviewerIds()) {
+                UserSummaryResponse u = users.get(id);
+                if (u == null || !iuh.fit.se.interview.interview.InterviewService.canInterview(u, application.departmentId())) {
+                    throw new BusinessException(iuh.fit.se.interview.interview.InterviewService.INTERVIEWER_RULE);
+                }
+            }
+        }
 
         List<InterviewSlot> slotsToSave = req.slots().stream()
                 .map(s -> InterviewSlot.builder()

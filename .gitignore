@@ -47,3 +47,14 @@ tmp/
 # Tài liệu bài báo NCKH (chưa công bố) — giữ ngoài repo công khai
 docs/research/
 docs/NCKH_Nhom109.pdf
+# File CV luu cuc bo cua service
+*/uploads/
+
+# Cách chạy dev chỉ dùng ở máy dev (service chạy bằng Maven trên máy) — không đưa lên GitHub
+docker-compose.dev.yml
+start-infrastructure.bat
+start-backend.bat
+run-service.bat
+run-ai-service.bat
+scripts/dev/
+CLAUDE.local.md

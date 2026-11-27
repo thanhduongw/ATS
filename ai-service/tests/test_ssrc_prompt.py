@@ -1,6 +1,7 @@
 """Prompt của sản phẩm phải TRÙNG KÝ TỰ với `research/` (bài báo SSRC 2026).
 
-Đây là test duy nhất import thư mục `research`; mã trong `app/` không được import từ đó. Nếu test này đỏ nghĩa là
+Đây là test duy nhất import thư mục `research` (đã gỡ khỏi repo; chép vào `ai-service/research/` để chạy,
+không có thì test tự bỏ qua); mã trong `app/` không được import từ đó. Nếu test này đỏ nghĩa là
 prompt của sản phẩm đã lệch khỏi prompt đã dùng để thực nghiệm: sửa `app/services/prompts/ssrc.py`, không sửa `research/`.
 """
 from pathlib import Path

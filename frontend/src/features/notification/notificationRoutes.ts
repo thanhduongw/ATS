@@ -101,26 +101,3 @@ export const NOTIFICATION_TYPE_LABEL: Record<string, string> = {
     APPLICATION_COMMENT_MENTION: "Nhắc đến bạn",
     APPLICATION_STALE_REMINDER: "Hồ sơ chưa xử lý",
 };
-
-/** Tên loại email trong màn Mẫu email — mô tả rõ ai nhận, khi nào. */
-export const EMAIL_TYPE_LABEL: Record<string, string> = {
-    REQUISITION_PENDING_APPROVAL: "Có yêu cầu tuyển dụng chờ duyệt (gửi HR)",
-    REQUISITION_REVIEWED: "Kết quả duyệt yêu cầu (gửi phòng ban)",
-    APPLICATION_CREATED: "Có hồ sơ ứng tuyển mới (gửi HR)",
-    APPLICATION_RECEIVED: "Đã nhận hồ sơ (gửi ứng viên)",
-    APPLICATION_STAGE_CHANGED: "Hồ sơ chuyển giai đoạn (gửi ứng viên)",
-    APPLICATION_REJECTED: "Kết quả hồ sơ — từ chối (gửi ứng viên)",
-    INTERVIEW_SCHEDULED: "Có lịch phỏng vấn mới",
-    INTERVIEW_HM_CONFIRMED: "Phòng ban đã chốt giờ phỏng vấn",
-    INTERVIEW_CONFIRMED: "Ứng viên xác nhận tham dự",
-    INTERVIEW_CANDIDATE_DECLINED: "Ứng viên xin dời lịch (gửi HR)",
-    INTERVIEW_CANCELLED: "Lịch phỏng vấn bị huỷ",
-    INTERVIEW_REMINDER: "Nhắc lịch phỏng vấn sắp diễn ra",
-    EVALUATION_INCOMPLETE_REMINDER: "Nhắc nộp đánh giá phỏng vấn",
-    OFFER_PENDING_CONFIRMATION: "Thư mời chờ xác nhận",
-    OFFER_READY_FOR_CANDIDATE: "Thư mời nhận việc (gửi ứng viên)",
-    OFFER_ACCEPTED: "Ứng viên nhận việc (gửi HR)",
-    OFFER_DECLINED: "Ứng viên từ chối thư mời (gửi HR)",
-    APPLICATION_COMMENT_MENTION: "Được nhắc trong bình luận",
-    APPLICATION_STALE_REMINDER: "Nhắc hồ sơ tồn đọng",
-};

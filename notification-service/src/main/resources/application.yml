@@ -46,6 +46,8 @@ services:
     url: ${SERVICES_APPLICATION_SERVICE_URL:http://localhost:8089}
 
 app:
+  # Địa chỉ web công khai, dùng làm link trong email (Docker: PUBLIC_URL).
+  public-url: ${APP_PUBLIC_URL:http://localhost:3000}
   jwt:
     secret: ${JWT_SECRET:thay-bang-chuoi-bi-mat-it-nhat-256-bit-truoc-khi-deploy-thuc-te}
   notification:

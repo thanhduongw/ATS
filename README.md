@@ -111,55 +111,38 @@ Mô tả đầy đủ hơn: [ATS_CURRENT_ARCHITECTURE.md](ATS_CURRENT_ARCHITECTU
 
 ## 7. Khởi Chạy
 
-Yêu cầu: JDK 21, Node.js 18+, npm, Maven wrapper và Docker Desktop.
-
-### Cách 1: Docker Compose
-
-> `docker compose config` đã được kiểm tra, nhưng fresh-stack E2E chưa có. Hiện
-> migration V2 của application/interview/offer vẫn giả định bảng nghiệp vụ đã tồn
-> tại; database hoàn toàn mới có thể dừng trước bước Hibernate tạo schema. Đây là
-> runtime gap cần xử lý trước khi dùng Docker Compose làm kịch bản chấm chính thức.
+Cả hệ thống chạy bằng Docker, **giống nhau ở máy local và trên VPS**. Yêu cầu: Docker (Docker Desktop trên
+Windows/macOS) và Git Bash hoặc shell bash; máy nên có từ 8 GB RAM.
 
 ```bash
-docker compose up -d --build
+git clone https://github.com/thanhduongw/ATS.git && cd ATS
+cp .env.example .env              # điền mật khẩu Postgres/RabbitMQ, JWT_SECRET, PUBLIC_URL (xem chú thích trong file)
+# tạo 4 file bí mật của service: auth-service/.env, candidate-service/.env,
+# notification-service/.env, ai-service/.env (mail, S3, khóa AI) — xem deploy/README.md
+bash deploy/build.sh              # build lần lượt từng image rồi khởi động; lần đầu 20–30 phút
 ```
 
-- Frontend: `http://localhost:5173`
-- API Gateway: `http://localhost:8080`
-- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
-- RabbitMQ Management: `http://localhost:15672`
+- Mở `PUBLIC_URL` (local: http://localhost). Chỉ Caddy mở cổng 80/443; các service, DB, RabbitMQ không mở cổng ra ngoài.
+- Sửa code một service rồi chạy lại: `bash deploy/build.sh <service>` (ví dụ `bash deploy/build.sh frontend`).
+- Xem trạng thái / log: `docker compose ps`, `docker compose logs -f auth-service`.
+- Tắt / bật: `docker compose stop` / `bash deploy/start.sh`.
+- Mobile (Expo) chạy ngoài Docker: `cd mobile && npx expo start`, đặt `EXPO_PUBLIC_API_BASE_URL=<PUBLIC_URL>/api`
+  trong `mobile/.env`.
 
-Các domain service chỉ `expose` trong Docker network; client phải đi qua gateway.
-Database init chỉ chạy khi volume PostgreSQL được tạo lần đầu.
+Chi tiết cài VPS, sao lưu và xử lý lỗi: [deploy/README.md](deploy/README.md).
 
-### Cách 2: Chạy service trên máy
+## 8. Dữ Liệu Ban Đầu
 
-Khởi động hạ tầng:
+DB mới chỉ có công ty và một quản trị viên do `docker/postgres-init` tạo khi volume Postgres còn trống:
+`le.quan@example.com` / `Password123!` — **đổi mật khẩu ngay sau lần đăng nhập đầu** (mật khẩu này công khai
+trong repo). Danh mục nạp sẵn chỉ gồm những gì hệ thống cần hoặc mọi công ty dùng như nhau: mẫu email, quy trình 6 giai đoạn,
+nguồn "Trang tuyển dụng của công ty", lý do từ chối chung, loại hình làm việc, loại hợp đồng, trình độ học vấn, mức
+kinh nghiệm. Phòng ban, chức danh, cấp bậc, kỹ năng, địa điểm làm việc, tiêu chí phỏng vấn do Quản trị tự tạo.
+Mọi dữ liệu khác nhập trên giao diện như người dùng thật.
 
-```powershell
-.\start-infrastructure.bat
-```
+Luồng sử dụng đề xuất:
 
-Sau đó chạy backend và frontend:
-
-```powershell
-.\start-backend.bat
-cd frontend
-npm install
-npm run dev
-```
-
-Hoặc dùng `.\start-all.ps1` để mở các process phát triển cùng lúc.
-
-## 8. Tài Khoản Và Kịch Bản Demo
-
-Tài khoản nội bộ cho database mới được mô tả tại
-[TEST_ACCOUNTS.md](TEST_ACCOUNTS.md). Candidate không dùng tài khoản seed trong
-kịch bản chính thức; hãy demo đúng nghiệp vụ qua `/register` và `/verify-email`.
-
-Luồng demo đề xuất:
-
-1. `COMPANY_ADMIN` cấu hình phòng ban và tạo tài khoản nội bộ.
+1. `COMPANY_ADMIN` cấu hình phòng ban và mời tài khoản nội bộ.
 2. `HIRING_MANAGER` tạo và submit requisition trong phòng ban.
 3. `RECRUITER` duyệt requisition và publish job posting.
 4. Candidate xem `/careers`, tự đăng ký, xác thực email và cập nhật CV.
@@ -168,13 +151,8 @@ Luồng demo đề xuất:
 
 ## 9. API Documentation
 
-- Swagger aggregator: `http://localhost:8080/swagger-ui/index.html`.
-- OpenAPI JSON: `/api/<service>/v3/api-docs` qua gateway.
-- API surface và quy tắc gọi: [ATS_API_REFERENCE.md](ATS_API_REFERENCE.md).
-- Repo không có Postman collection; OpenAPI là nguồn API documentation hiện tại.
-
-Frontend và API client chỉ gửi `Authorization: Bearer <accessToken>`. Không gửi
-trực tiếp các header `X-User-*` hoặc `X-Department-Id`.
+- Mọi API đi qua gateway tại `<PUBLIC_URL>/api/...`.
+- Repo không có Postman collection.
 
 ## 10. Kiểm Thử
 
@@ -185,15 +163,12 @@ cd auth-service
 .\mvnw.cmd clean test
 ```
 
-Frontend:
+Frontend và mobile:
 
-```powershell
-cd frontend
-npm run build
-npm run lint
+```bash
+cd frontend && npx tsc -b --noEmit && npm run lint
+cd mobile && npm run typecheck && npm run lint
 ```
-
-Chiến lược và ma trận hiện tại: [ATS_PHASE_11_TEST_STRATEGY.md](ATS_PHASE_11_TEST_STRATEGY.md).
 
 ## 11. Giới Hạn Đã Biết
 
@@ -221,9 +196,5 @@ Chiến lược và ma trận hiện tại: [ATS_PHASE_11_TEST_STRATEGY.md](ATS_
 
 ## 12. Tài Liệu
 
-- [Kế hoạch refactor single-company](ATS_SINGLE_COMPANY_REFACTOR_PLAN.md)
-- [Kiến trúc hiện tại](ATS_CURRENT_ARCHITECTURE.md)
-- [API reference](ATS_API_REFERENCE.md)
-- [Báo cáo Phase 12](ATS_PHASE_12_CLEANUP_DOCUMENTATION.md)
-- `ATS_AUTHORIZATION_CURRENT_STATE.md` là snapshot lịch sử trước refactor, không
-  phải mô tả runtime hiện tại.
+Tài liệu dự án (kiến trúc, API reference, tài khoản demo, thiết kế giao diện, báo cáo) lưu ngoài repo.
+API xem trực tiếp qua Swagger/OpenAPI của từng service (mục trên).

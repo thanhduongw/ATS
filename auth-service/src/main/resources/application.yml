@@ -5,7 +5,7 @@ server:
   forward-headers-strategy: framework
 
 spring:
-  # Biến AWS_* nằm trong .env (run-service.bat cũng nạp sẵn); import để chạy thẳng từ IDE vẫn đọc được.
+  # Biến AWS_* nằm trong .env (Docker nạp qua env_file); import để chạy thẳng từ IDE vẫn đọc được.
   config:
     import: optional:file:./.env[.properties]
   servlet:

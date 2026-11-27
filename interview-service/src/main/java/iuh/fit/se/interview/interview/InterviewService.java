@@ -186,10 +186,7 @@ public class InterviewService {
                 : interviewerPool.stream()
                 .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
 
-        boolean allValid = req.interviewerIds().stream().allMatch(interviewerNameMap::containsKey);
-        if (!allValid) {
-            throw new BusinessException("Người phỏng vấn phải là Đại diện phòng ban hoặc Chuyên viên tuyển dụng đang hoạt động");
-        }
+        requireInterviewers(req.interviewerIds(), application.departmentId(), interviewerPool);
 
         Interview interview = Interview.builder()
                 .applicationId(req.applicationId())
@@ -292,7 +289,7 @@ public class InterviewService {
 
         boolean allValid = req.interviewerIds().stream().allMatch(interviewerNameMap::containsKey);
         if (!allValid) {
-            throw new BusinessException("Người phỏng vấn phải là Đại diện phòng ban hoặc Chuyên viên tuyển dụng đang hoạt động");
+            throw new BusinessException(INTERVIEWER_RULE);
         }
 
         List<Interview> existing = interviewRepository.findByInterviewers_InterviewerIdInAndStatusIn(
@@ -309,6 +306,7 @@ public class InterviewService {
 
         for (Long applicationId : req.applicationIds()) {
             ApplicationSummaryResponse application = fetchApplication(applicationId);
+            requireInterviewers(req.interviewerIds(), application.departmentId(), interviewerPool);
 
             if (STAGE_REJECTED.equals(application.currentStageType())
                     || STAGE_HIRED.equals(application.currentStageType())) {
@@ -522,11 +520,10 @@ public class InterviewService {
                 .map(InterviewInterviewer::getInterviewerId).collect(Collectors.toSet());
         java.util.List<Long> added = wanted.stream().filter(x -> !existing.contains(x)).toList();
         if (!added.isEmpty()) {
-            Map<Long, String> names = allowedInterviewers().stream()
+            List<UserSummaryResponse> pool = allowedInterviewers();
+            requireInterviewers(added, interview.getDepartmentId(), pool);
+            Map<Long, String> names = pool.stream()
                     .collect(Collectors.toMap(UserSummaryResponse::id, UserSummaryResponse::fullName, (a, b) -> a));
-            if (!added.stream().allMatch(names::containsKey)) {
-                throw new BusinessException("Người phỏng vấn phải là Đại diện phòng ban hoặc Chuyên viên tuyển dụng đang hoạt động");
-            }
             added.forEach(uid -> interview.getInterviewers().add(InterviewInterviewer.builder()
                     .interview(interview).interviewerId(uid).interviewerNameSnapshot(names.get(uid)).build()));
         }
@@ -915,6 +912,24 @@ public class InterviewService {
                 interview.getCandidateDeclineReason(),
                 interview.getCandidateDeclinedAt()
         );
+    }
+
+    public static final String INTERVIEWER_RULE =
+            "Người phỏng vấn phải là Chuyên viên tuyển dụng hoặc Đại diện của phòng ban có hồ sơ, đang hoạt động";
+
+    /** Chuyên viên tuyển dụng phỏng vấn được mọi hồ sơ; Đại diện phòng ban chỉ phỏng vấn hồ sơ của phòng mình. */
+    public static boolean canInterview(UserSummaryResponse u, Long departmentId) {
+        return "RECRUITER".equals(u.role())
+                || ("HIRING_MANAGER".equals(u.role()) && departmentId != null && departmentId.equals(u.departmentId()));
+    }
+
+    private void requireInterviewers(List<Long> ids, Long departmentId, List<UserSummaryResponse> pool) {
+        Map<Long, UserSummaryResponse> byId = (pool == null ? List.<UserSummaryResponse>of() : pool).stream()
+                .collect(Collectors.toMap(UserSummaryResponse::id, u -> u, (a, b) -> a));
+        for (Long id : ids) {
+            UserSummaryResponse u = byId.get(id);
+            if (u == null || !canInterview(u, departmentId)) throw new BusinessException(INTERVIEWER_RULE);
+        }
     }
 
     private List<UserSummaryResponse> allowedInterviewers() {

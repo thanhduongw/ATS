@@ -5,69 +5,46 @@ web (React + Vite + Ant Design) và app di động (Expo / React Native). Quy ư
 
 ## Chạy hệ thống
 
-1. Hạ tầng (Docker Desktop phải đang chạy): `start-infrastructure.bat` → `ats-postgres`, `ats-rabbitmq`, `ats-redis`.
-2. Backend: `start-backend.bat` (mở cửa sổ cho từng service), hoặc chạy nền từ Git Bash:
+Cả hệ thống chạy bằng Docker, **giống nhau ở local và VPS** (một `docker-compose.yml`, hướng dẫn: `deploy/README.md`):
 
-   ```bash
-   scripts/dev/svc.sh restart auth-service masterdata-service api-gateway   # khởi động / khởi động lại
-   scripts/dev/svc.sh status                                                # service nào đang lên
-   scripts/dev/svc.sh stop interview-service
-   ```
+```bash
+cp .env.example .env            # lần đầu: điền mật khẩu, JWT_SECRET, PUBLIC_URL (local: http://localhost)
+bash deploy/build.sh            # build lần lượt từng image rồi khởi động theo đợt (lần đầu 20–30 phút)
+bash deploy/build.sh frontend   # sửa code service nào thì build lại service đó
+docker compose ps               # trạng thái;  docker compose logs -f <service>  để xem log
+```
 
-   Log ở `logs/<service>.log`. Máy 16 GB RAM: khởi động mỗi đợt 3–4 service, đừng chạy thêm build nặng song song.
-3. Web: `cd frontend && npm run dev` → http://localhost:3000
-4. Mobile trên trình duyệt: `cd mobile && npx expo start --web --port 19006` (cổng 8081 là của auth-service).
-
-| Thành phần | Cổng | | Thành phần | Cổng |
-|---|---|---|---|---|
-| api-gateway | 8080 | | notification-service | 8086 |
-| auth-service | 8081 | | dashboard-service | 8087 |
-| masterdata-service | 8082 | | ai-service (chỉ 127.0.0.1) | 8088 |
-| recruitment-service | 8083 | | application-service | 8089 |
-| candidate-service | 8084 | | offer-service | 8090 |
-| interview-service | 8085 | | web / Expo web | 3000 / 19006 |
+- Mở `PUBLIC_URL`. Chỉ Caddy mở cổng 80/443; các service không mở cổng ra máy.
+- Cần thêm 4 file bí mật không có trên GitHub: `auth-service/.env`, `candidate-service/.env`,
+  `notification-service/.env`, `ai-service/.env` (mail, S3, khóa AI).
+- Mobile chạy ngoài Docker: `cd mobile && npx expo start`, `EXPO_PUBLIC_API_BASE_URL=<PUBLIC_URL>/api` trong `mobile/.env`.
+- Thêm service hoặc biến môi trường mới: sửa `docker-compose.yml`, `.env.example` và danh sách trong `deploy/build.sh`,
+  `deploy/start.sh`.
+- Máy dev có thể có thêm cách chạy dev riêng (không commit); nếu có thì xem `CLAUDE.local.md`.
 
 ## Deploy (VPS)
 
-Đang deploy bằng cách build trên VPS: `git clone` vào `~/ats` rồi `bash deploy/build.sh` (`docker-compose.prod.yml` +
-`docker-compose.build.yml`). `.github/workflows/deploy.yml` (build lên ghcr.io + SSH deploy) chỉ chạy khi bấm tay.
-Hướng dẫn và xử lý lỗi: `deploy/README.md`. Thêm service hoặc biến môi trường mới thì sửa cả `docker-compose.yml` (dev),
-`docker-compose.prod.yml`, `docker-compose.build.yml` và matrix trong workflow.
+VPS `~/ats` clone nhánh `main`: `git pull && bash deploy/build.sh [service...]`. Dữ liệu nằm ở volume `ats_pgdata`.
 
 ## Bẫy môi trường
 
-- **Spring Boot không tự đọc `.env`.** Luôn khởi động qua `run-service.bat` / `start-backend.bat` / `scripts/dev/svc.sh`
-  (chúng nạp `.env` của service). Chạy `mvnw spring-boot:run` tay thì gửi mail và tải file lên S3 hỏng âm thầm.
+- Spring Boot không tự đọc `.env` của service: trong Docker chúng được nạp qua `env_file` của `docker-compose.yml`.
 - `application-service` và `offer-service` chỉ có `mvnw.cmd` (không có `mvnw`).
-- `JAVA_HOME` trống, java lấy từ PATH. Phải đặt `JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Ho_Chi_Minh` (các script đã đặt).
-- Service chạy bằng spring-boot-devtools: **biên dịch lại (kể cả `mvnw test`) làm service đang chạy tự khởi động lại.**
-  Riêng `application-service` và `offer-service` **không có devtools**: sửa mã xong phải
-  `scripts/dev/svc.sh restart <service>` thì mã mới mới chạy.
-  Đừng chạy test của một service khi đang có việc dài phụ thuộc vào nó (ví dụ script tạo dữ liệu demo).
 - Gateway chỉ mở sẵn một số đường dẫn công khai (`JwtAuthGlobalFilter`). Thêm API công khai mới ở service thì phải thêm ở đó.
-- Trong Python trên Windows, `bash` thường là bash của WSL; script dùng Git Bash (`reset_db.git_bash()`).
+- `PUBLIC_URL` phải khớp đúng địa chỉ trên trình duyệt, nếu không gateway chặn CORS (403).
 - OTP đăng ký / đặt lại mật khẩu lưu dạng băm bcrypt, token lời mời lưu SHA-256 — không tra được mã thật từ DB.
 - Email tới miền thử nghiệm (`example.com`, `.test`, `.invalid`…) bị bỏ qua có chủ ý ở auth-service và notification-service.
-- Truy vấn DB: `docker exec ats-postgres psql -U ats_user -d <db> -tAc "..."` (DB: `ats_auth`, `ats_masterdata`,
+- Truy vấn DB: `docker compose exec postgres psql -U ats_user -d <db> -tAc "..."` (DB: `ats_auth`, `ats_masterdata`,
   `ats_recruitment`, `ats_candidate`, `ats_application`, `ats_interview`, `ats_offer`, `ats_notification`, `ats_ai`).
 - Khi kiểm tra giao diện, **không bấm "Xuất Excel"** (tải file thật về máy) — chặn `saveAs` / `URL.createObjectURL` trước.
 
-## Dữ liệu demo
+## Dữ liệu ban đầu
 
-Bộ script ở `scripts/demo-data/`, chạy bằng Python của ai-service (đã có requests, PyMuPDF, Pillow):
-
-```bash
-ai-service/.venv/Scripts/python.exe scripts/demo-data/seed.py                   # reset + tạo lại (30–45 phút, AI chấm thật)
-ai-service/.venv/Scripts/python.exe scripts/demo-data/seed.py --rescore-failed  # chấm lại các đơn AI chấm lỗi
-ai-service/.venv/Scripts/python.exe scripts/demo-data/reset_db.py --yes         # chỉ xoá sạch, còn lại 1 quản trị viên
-```
-
-- Cần đủ 11 service + gateway + Docker đang chạy. Reset xoá mọi bảng của mọi DB `ats_*` (giữ lịch sử migration và bảng
-  `role`), **không xoá file trên S3**, rồi khởi động lại masterdata-service để nạp danh mục IT mặc định.
-- Dữ liệu tạo qua API thật. Những chỗ phải chỉnh DB có kiểm soát (bỏ qua OTP, dời lịch phỏng vấn về quá khứ, dời mốc thời
-  gian ra 3 tháng) ghi ở đầu `seed.py`.
-- Công ty hư cấu **Mộc Lam Software**; mọi tài khoản dùng mật khẩu `Password123!`, email miền `example.com`.
-  Danh sách tài khoản và kịch bản demo: `frontend/docs/TEST_ACCOUNTS.md`.
+DB mới (volume trống) chỉ có công ty và quản trị viên do `docker/postgres-init` tạo: `le.quan@example.com` /
+`Password123!` — đổi mật khẩu sau lần đăng nhập đầu. Danh mục nạp sẵn chỉ gồm những gì hệ thống cần hoặc mọi công ty dùng như nhau: mẫu email, quy trình 6 giai đoạn,
+nguồn "Trang tuyển dụng của công ty", lý do từ chối chung, loại hình làm việc, loại hợp đồng, trình độ học vấn, mức
+kinh nghiệm. Phòng ban, chức danh, cấp bậc, kỹ năng, địa điểm làm việc, tiêu chí phỏng vấn do Quản trị tự tạo. Seeder: `DefaultDataSeeder` (chạy mỗi lần masterdata-service khởi động, chỉ thêm mục còn thiếu).
+Repo không có script tạo dữ liệu demo: mọi dữ liệu nhập trên giao diện như người dùng thật.
 
 ## Kiểm tra trước khi coi là xong
 
@@ -99,5 +76,10 @@ departmentId, fullName, avatarUrl}}`. Mobile web dùng sessionStorage — đăng
   web đọc qua biến CSS `--ats-brand*` (`frontend/src/app/brand.ts`, `COLORS.primary` trỏ tới biến đó — không nối đuôi alpha
   vào `COLORS.primary`, dùng `brandAlpha()`); mobile đọc lúc khởi động (`mobile/src/theme/brand.ts`).
 - Tìm kiếm không phân biệt dấu: web dùng `matchesKeyword` (`frontend/src/app/text.ts`), backend dùng `TextSearch.fold`.
-- Giao diện theo `docs/UI`; không đổi phông chữ, không đổi bố cục khối chính của màn.
-- Tiến độ và kết quả đợt hoàn thiện tháng 11/2026: `docs/TIEN_DO_HOAN_THIEN.md`, `docs/KET_QUA_HOAN_THIEN.md`.
+- Giao diện theo `E:/ATS-archive/docs/UI`; không đổi phông chữ, không đổi bố cục khối chính của màn.
+- Tiến độ và kết quả đợt hoàn thiện tháng 11/2026: `E:/ATS-archive/docs/TIEN_DO_HOAN_THIEN.md`, `E:/ATS-archive/docs/KET_QUA_HOAN_THIEN.md`.
+- Email: mỗi thông báo trong ứng dụng đồng thời gửi email (notification-service). Nội dung lấy theo mẫu trong Danh mục
+  (mã = tên `NotificationType`; loại gửi cả ứng viên lẫn nhân viên có mẫu riêng `__CANDIDATE` / `__STAFF`), không có mẫu
+  thì dùng tiêu đề / nội dung thông báo. Khung HTML (`EmailLayout`; auth-service: `MailLayout`) lấy tên, logo, màu công ty
+  lúc gửi — không ghi cứng; nút cuối thư trỏ về `PUBLIC_URL` (`app.public-url`). Thêm loại thông báo mới thì thêm mẫu ở
+  `DefaultDataSeeder` và mô tả ở `frontend/src/features/masterdata/components/emailTemplateMeta.ts`.

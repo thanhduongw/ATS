@@ -48,9 +48,9 @@ CREATE TABLE IF NOT EXISTS app_user (
     CONSTRAINT ck_app_user_department_positive CHECK (department_id IS NULL OR department_id > 0)
 );
 
--- Dòng công ty duy nhất. Thông tin đầy đủ do scripts/demo-data/seed.py (hoặc Quản trị trên giao diện) điền sau.
+-- Dòng công ty duy nhất, tên tạm trung tính: Quản trị đổi tên, logo, màu trong "Thông tin doanh nghiệp" sau lần đăng nhập đầu.
 INSERT INTO company (id, name)
-VALUES (1, 'Mộc Lam Software')
+VALUES (1, 'Tên công ty')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO role (id, name) VALUES
@@ -61,7 +61,7 @@ INSERT INTO role (id, name) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Chỉ tạo quản trị viên đầu tiên (mật khẩu Password123!, băm BCrypt). Mọi tài khoản khác tạo qua giao diện / API:
--- nhân viên do Quản trị mời, ứng viên tự đăng ký. Bộ dữ liệu demo: scripts/demo-data/seed.py (xem CLAUDE.md ở gốc).
+-- nhân viên do Quản trị mời, ứng viên tự đăng ký. Mọi dữ liệu khác nhập trên giao diện.
 INSERT INTO app_user
     (id, email, password_hash, full_name, role_id, department_id, status, email_verified)
 VALUES

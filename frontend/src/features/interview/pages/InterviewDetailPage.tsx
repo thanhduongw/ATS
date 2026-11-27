@@ -284,8 +284,10 @@ export default function InterviewDetailPage() {
             <SmallDialog open={dialog === "interviewers"} title="Người phỏng vấn" okText="Lưu" okLoading={busy} okDisabled={pickedPeople.length === 0}
                 onCancel={() => setDialog(null)} onOk={() => run(() => updateInterviewers(iv.id, pickedPeople), "Đã cập nhật người phỏng vấn")}>
                 <Select mode="multiple" value={pickedPeople} onChange={setPickedPeople} style={{ width: "100%" }} optionFilterProp="label" filterOption={filterOptionByLabel}
-                    options={people.filter((p) => (p.role === "HIRING_MANAGER" || p.role === "RECRUITER")
-                        && ((p.status ?? "ACTIVE") === "ACTIVE" || iv.interviewers.some((q) => q.interviewerId === p.id)))
+                    options={people.filter((p) => iv.interviewers.some((q) => q.interviewerId === p.id)
+                        // Người mới: Chuyên viên tuyển dụng hoặc Đại diện của chính phòng ban có buổi phỏng vấn, đang hoạt động.
+                        || ((p.status ?? "ACTIVE") === "ACTIVE"
+                            && (p.role === "RECRUITER" || (p.role === "HIRING_MANAGER" && p.departmentId === iv.departmentId))))
                         .map((p) => ({ value: p.id, label: `${p.fullName}${p.role === "RECRUITER" ? " (Tuyển dụng)" : ""}`, disabled: iv.interviewers.some((q) => q.interviewerId === p.id && q.evaluationSubmitted) }))} />
                 <span style={{ fontSize: 12, color: COLORS.textSecondary }}>Người mới sẽ có phiếu đánh giá riêng. Người đã nộp đánh giá không bỏ được.</span>
             </SmallDialog>

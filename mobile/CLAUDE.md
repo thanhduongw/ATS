@@ -2,7 +2,7 @@
 
 > Quy ước chung về Expo/React Native (bản Expo sinh sẵn): xem [`AGENTS.md`](./AGENTS.md).
 > Tài liệu này ưu tiên cao hơn AGENTS.md khi hai bên khác nhau.
-> Một khác biệt đã biết: AGENTS.md nói route nằm ở `src/app/`; **dự án này để route ở `app/` (gốc), logic ở `src/`** theo mục 5 của `docs/mobile/MOBILE_V1_PLAN.md`.
+> Một khác biệt đã biết: AGENTS.md nói route nằm ở `src/app/`; **dự án này để route ở `app/` (gốc), logic ở `src/`** theo mục 5 của `E:/ATS-archive/docs/mobile/MOBILE_V1_PLAN.md`.
 
 ## Bối cảnh
 App Expo (React Native) cho hệ thống ATS. Backend là 9 Spring Boot service sau API Gateway tại
@@ -16,7 +16,7 @@ App Expo (React Native) cho hệ thống ATS. Backend là 9 Spring Boot service 
    · error (ErrorState kèm nút thử lại) · có dữ liệu. Không màn nào để trắng.
 4. Mọi màn danh sách có pull-to-refresh.
 5. Form dùng react-hook-form + zod. Không dùng `useState` cho giá trị form.
-6. Không thêm thư viện mới ngoài mục 4 của `docs/mobile/MOBILE_V1_PLAN.md`.
+6. Không thêm thư viện mới ngoài mục 4 của `E:/ATS-archive/docs/mobile/MOBILE_V1_PLAN.md`.
 7. Toàn bộ chuỗi hiển thị bằng tiếng Việt, đặt tập trung ở `src/lib/strings.ts`.
 8. Enum trạng thái luôn render qua `<StatusChip>`.
 9. Lỗi API hiển thị bằng Snackbar, không dùng `Alert.alert`.
@@ -92,9 +92,8 @@ Chạy bằng `mvnw spring-boot:run` thì `MAIL_USERNAME` / `MAIL_PASSWORD` (aut
 và `AWS_*` (candidate) **không bao giờ đến được ứng dụng** → gửi mail và upload CV hỏng
 **âm thầm**, vì `MailService.send()` bắt hết exception và chỉ ghi `log.warn`.
 
-Đã xử lý bằng `run-service.bat` ở thư mục gốc: nạp `.env` của service rồi mới chạy
-`mvnw`. `start-backend.bat` gọi qua file này. **Phải dùng `start-backend.bat` để khởi động**,
-đừng chạy `mvnw spring-boot:run` tay.
+Đã xử lý: chạy hệ thống bằng Docker (`bash deploy/build.sh`), `docker-compose.yml` nạp `.env` của service
+qua `env_file`. Đừng chạy `mvnw spring-boot:run` tay. (Máy dev có cách chạy riêng thì xem `CLAUDE.local.md`.)
 
 Khi gỡ lỗi mail: đặt `MAIL_LOG_OTP_ON_FAILURE=true` trong `auth-service/.env` thì OTP hiện
 ngay ở console lúc gửi mail thất bại. Chỉ dùng ở máy dev.
@@ -126,9 +125,9 @@ Thanh tab đặt `tabBarHideOnKeyboard: true` (trong `useTabScreenOptions`).
 (người dùng đã phản ánh: đang gõ, cuộn xem ô khác thì bàn phím tự mất). Muốn đóng thì chạm
 vào chỗ trống — `keyboardShouldPersistTaps="handled"` đã lo việc đó.
 
-## Giao diện — theo `docs/UI`, web và mobile dùng CHUNG bảng màu
+## Giao diện — theo `E:/ATS-archive/docs/UI`, web và mobile dùng CHUNG bảng màu
 
-**Chốt 19/11/2026 — làm lại theo `docs/UI/ATS-Candidate-Mobile-Redesign-Final.html`** (lớp CSS cuối
+**Chốt 19/11/2026 — làm lại theo `E:/ATS-archive/docs/UI/ATS-Candidate-Mobile-Redesign-Final.html`** (lớp CSS cuối
 `natural-redesign-overrides` là bản chốt). Áp dụng:
 - **Kiểu dáng cho CẢ app** (ứng viên, HR, HM dùng chung component): thẻ phẳng viền 1px bo 15, nút và ô nhập bo 10 cao 44,
   nút nhỏ cao 36, nhãn trạng thái bo 6 không chấm, chip lọc viên nhộng trắng viền mảnh (đang chọn: nền nhạt màu thương
@@ -149,14 +148,14 @@ vào chỗ trống — `keyboardShouldPersistTaps="handled"` đã lo việc đó
 
 Phần dưới là quy ước 03/11 vẫn còn hiệu lực (trừ chỗ bảng số đã cập nhật theo bản 19/11):
 
-**Chốt 03/11/2026 (thay quy ước 29/09 và 02/10):** nguồn thiết kế là thư mục **`docs/UI/`** của
+**Chốt 03/11/2026 (thay quy ước 29/09 và 02/10):** nguồn thiết kế là thư mục **`E:/ATS-archive/docs/UI/`** của
 repo — `Mobile.html` (M01–M10, UC01–UC18 ứng viên, UR01–UR19 chuyên viên tuyển dụng,
 UH01–UH14 đại diện phòng ban) và `Interactive UI Prototype.html` (DS01–DS06: màu, chữ,
 component, quy tắc). Web và mobile **cùng một bảng màu DS01** (web: `frontend/src/app/theme.ts`).
-Quyết định chi tiết: `docs/learning/02-doi-chieu-thiet-ke-ui.md` (mục E, G) và
-`docs/learning/03-ke-hoach-trien-khai-ui.md` (mục 1 X1–X6, mục 5 ma trận màn).
+Quyết định chi tiết: `E:/ATS-archive/docs/learning/02-doi-chieu-thiet-ke-ui.md` (mục E, G) và
+`E:/ATS-archive/docs/learning/03-ke-hoach-trien-khai-ui.md` (mục 1 X1–X6, mục 5 ma trận màn).
 
-**Phạm vi màn** (thay `docs/mobile/MOBILE_V1_PLAN.md` ở phần này): làm cả khu ỨNG VIÊN (UC),
+**Phạm vi màn** (thay `E:/ATS-archive/docs/mobile/MOBILE_V1_PLAN.md` ở phần này): làm cả khu ỨNG VIÊN (UC),
 CHUYÊN VIÊN TUYỂN DỤNG (UR, 4 tab: Việc của tôi · Ứng viên · Lịch · Thêm) và ĐẠI DIỆN PHÒNG BAN
 (UH, 4 tab như trên). Hoãn: M04 thông báo đẩy, nút Google và sinh trắc học ở M02/M10.
 Quy tắc giữ nguyên:
@@ -169,8 +168,8 @@ Quy tắc giữ nguyên:
 - Chỉ import token qua `@/theme`, đừng import thẳng file con.
 - `src/theme/paper.ts` là chỗ DUY NHẤT nối token vào Paper. Màn hình không tự đặt màu.
 - Chỉ có giao diện SÁNG (`app.json` đặt `userInterfaceStyle: "light"`). Đừng thêm dark mode.
-- Làm một màn: khu ứng viên mở `views.<màn>` trong `docs/UI/ATS-Candidate-Mobile-Redesign-Final.html`, khu nhân viên mở
-  đúng khung trong `docs/UI/Mobile.html`; chép đúng chữ rồi ghép từ component chung.
+- Làm một màn: khu ứng viên mở `views.<màn>` trong `E:/ATS-archive/docs/UI/ATS-Candidate-Mobile-Redesign-Final.html`, khu nhân viên mở
+  đúng khung trong `E:/ATS-archive/docs/UI/Mobile.html`; chép đúng chữ rồi ghép từ component chung.
 
 **Màu thương hiệu động (17/11/2026).** `COLORS.primary`, `primaryDark`, `primarySoft`, `primaryFaint`, `navy`, `navy2`
 không còn là hằng số: `src/theme/brand.ts` tính chúng từ màu Quản trị doanh nghiệp chọn trên web
@@ -199,7 +198,7 @@ Các con số đã chốt:
 | Nút (mọi kiểu) / nút nhỏ / ô nhập | cao 44 / 36 / 44 | `SIZES.primaryAction` / `buttonSm` / `control` |
 | Lề màn | 16 (danh sách) · 24 (auth) | `SPACING.page` / `pageAuth` |
 
-Những chỗ mobile CỐ Ý khác `docs/UI`, đừng "sửa lại cho giống":
+Những chỗ mobile CỐ Ý khác `E:/ATS-archive/docs/UI`, đừng "sửa lại cho giống":
 
 1. **Font Be Vietnam Pro**, không phải HarmonyOS Sans — chắc chắn đủ dấu tiếng Việt.
 2. **Mọi nút `md` và ô nhập cao 44** (Redesign-Final, thay quyết định X6 nút chính 48). Nút `sm` 36, chip 32
@@ -225,7 +224,7 @@ tiêu đề 18) cho màn chi tiết. Màn tab khu ứng viên thì vẽ `<Candid
 
 Component dùng chung (`src/components/ui/`):
 
-| Component | Dùng cho | Màn (canvas cũ / docs/UI) |
+| Component | Dùng cho | Màn (canvas cũ / E:/ATS-archive/docs/UI) |
 |---|---|---|
 | `Icon` | mọi icon | tất cả |
 | `PillButton` (`primary`/`tonal`/`outline`/`danger`/`text`, `md`/`sm`, `icon`/`iconRight`), `IconButton` (vuông bo 10, viền) | nút | Main, M09, M10, M12 |
@@ -265,7 +264,7 @@ Màn hình không tự chọn màu cho trạng thái.
 Một view lặp ở **2 màn trở lên** mới tách thành component; chưa tới thì để tại chỗ.
 
 ## Cấu trúc
-Xem mục 5 của `docs/mobile/MOBILE_V1_PLAN.md`. Route ở `app/`, logic ở `src/`.
+Xem mục 5 của `E:/ATS-archive/docs/mobile/MOBILE_V1_PLAN.md`. Route ở `app/`, logic ở `src/`.
 
 **Khu nhân viên là `app/hr` và `app/hm` (thư mục thường), KHÔNG phải nhóm `(hr)`/`(hm)`.** Nhóm trong
 ngoặc không tạo đoạn URL, nên `(candidate)/applications`, `(hr)/applications`, `(hm)/applications`
@@ -283,5 +282,5 @@ npx expo install <pkg>        # LUÔN dùng cái này thay cho npm install cho p
 ```
 
 ## Định nghĩa "màn đã xong"
-7 điều kiện ở mục 11 của `docs/mobile/MOBILE_V1_PLAN.md`. Điều kiện 6 (chạy trên máy thật) không
+7 điều kiện ở mục 11 của `E:/ATS-archive/docs/mobile/MOBILE_V1_PLAN.md`. Điều kiện 6 (chạy trên máy thật) không
 được bỏ qua.

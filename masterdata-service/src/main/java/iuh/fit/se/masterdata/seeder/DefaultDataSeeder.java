@@ -2,8 +2,6 @@ package iuh.fit.se.masterdata.seeder;
 
 import iuh.fit.se.masterdata.contracttype.ContractType;
 import iuh.fit.se.masterdata.contracttype.ContractTypeRepository;
-import iuh.fit.se.masterdata.department.Department;
-import iuh.fit.se.masterdata.department.DepartmentRepository;
 import iuh.fit.se.masterdata.educationlevel.EducationLevel;
 import iuh.fit.se.masterdata.educationlevel.EducationLevelRepository;
 import iuh.fit.se.masterdata.emailtemplate.EmailTemplate;
@@ -12,26 +10,14 @@ import iuh.fit.se.masterdata.employmenttype.EmploymentType;
 import iuh.fit.se.masterdata.employmenttype.EmploymentTypeRepository;
 import iuh.fit.se.masterdata.experiencelevel.ExperienceLevel;
 import iuh.fit.se.masterdata.experiencelevel.ExperienceLevelRepository;
-import iuh.fit.se.masterdata.interviewcriteria.InterviewCriteria;
-import iuh.fit.se.masterdata.interviewcriteria.InterviewCriteriaRepository;
-import iuh.fit.se.masterdata.joblevel.JobLevel;
-import iuh.fit.se.masterdata.joblevel.JobLevelRepository;
-import iuh.fit.se.masterdata.jobtitle.JobTitle;
-import iuh.fit.se.masterdata.jobtitle.JobTitleRepository;
 import iuh.fit.se.masterdata.pipeline.PipelineRepository;
 import iuh.fit.se.masterdata.pipeline.PipelineStage;
 import iuh.fit.se.masterdata.pipeline.RecruitmentPipeline;
 import iuh.fit.se.masterdata.pipeline.enums.StageType;
 import iuh.fit.se.masterdata.recruitmentsource.RecruitmentSource;
 import iuh.fit.se.masterdata.recruitmentsource.RecruitmentSourceRepository;
-import iuh.fit.se.masterdata.recruitmentstatus.RecruitmentStatus;
-import iuh.fit.se.masterdata.recruitmentstatus.RecruitmentStatusRepository;
 import iuh.fit.se.masterdata.rejectionreason.RejectionReason;
 import iuh.fit.se.masterdata.rejectionreason.RejectionReasonRepository;
-import iuh.fit.se.masterdata.skill.Skill;
-import iuh.fit.se.masterdata.skill.SkillRepository;
-import iuh.fit.se.masterdata.worklocation.WorkLocation;
-import iuh.fit.se.masterdata.worklocation.WorkLocationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,26 +25,25 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Nap danh muc mac dinh cho cong ty. Moi lan seed deu bo qua ban ghi da ton tai
- * (doi chieu theo name / code), nen chay lai nhieu lan khong sinh du lieu trung.
+ * Nạp danh mục mặc định mỗi lần masterdata-service khởi động; bản ghi đã tồn tại (theo name / code) thì bỏ qua.
+ *
+ * Chỉ nạp những gì hệ thống cần để chạy hoặc mọi công ty đều dùng như nhau:
+ * mẫu email (notification-service tìm theo mã), quy trình 6 giai đoạn, nguồn "Trang tuyển dụng của công ty",
+ * lý do từ chối chung, loại hình làm việc, loại hợp đồng, trình độ học vấn, mức kinh nghiệm.
+ * Phòng ban, chức danh, cấp bậc, kỹ năng, địa điểm làm việc, tiêu chí phỏng vấn do Quản trị tự cấu hình.
  */
 @Component
 @RequiredArgsConstructor
 public class DefaultDataSeeder {
+
+    public static final String CAREERS_SITE_SOURCE = "Trang tuyển dụng của công ty";
 
     private final EmploymentTypeRepository employmentTypeRepository;
     private final ContractTypeRepository contractTypeRepository;
     private final RecruitmentSourceRepository recruitmentSourceRepository;
     private final EducationLevelRepository educationLevelRepository;
     private final RejectionReasonRepository rejectionReasonRepository;
-    private final RecruitmentStatusRepository recruitmentStatusRepository;
     private final PipelineRepository pipelineRepository;
-    private final InterviewCriteriaRepository interviewCriteriaRepository;
-    private final DepartmentRepository departmentRepository;
-    private final JobTitleRepository jobTitleRepository;
-    private final JobLevelRepository jobLevelRepository;
-    private final SkillRepository skillRepository;
-    private final WorkLocationRepository workLocationRepository;
     private final ExperienceLevelRepository experienceLevelRepository;
     private final EmailTemplateRepository emailTemplateRepository;
 
@@ -69,14 +54,7 @@ public class DefaultDataSeeder {
         seedRecruitmentSources();
         seedEducationLevels();
         seedRejectionReasons();
-        seedRecruitmentStatuses();
-        seedInterviewCriteria();
-        seedDepartments();
-        seedJobLevels();
-        seedJobTitles();
         seedExperienceLevels();
-        seedWorkLocations();
-        seedSkills();
         seedEmailTemplates();
         seedDefaultPipeline();
     }
@@ -92,8 +70,8 @@ public class DefaultDataSeeder {
     }
 
     private void seedContractTypes() {
-        List.of("Không xác định thời hạn", "Xác định thời hạn 12 tháng", "Xác định thời hạn 24 tháng",
-                        "Thực tập", "Cộng tác viên")
+        // Bộ luật Lao động 2019, Điều 20: chỉ có hai loại hợp đồng lao động.
+        List.of("Không xác định thời hạn", "Xác định thời hạn")
                 .forEach(name -> {
                     if (!contractTypeRepository.existsByNameIgnoreCase(name)) {
                         contractTypeRepository.save(
@@ -103,8 +81,9 @@ public class DefaultDataSeeder {
     }
 
     private void seedRecruitmentSources() {
-        List.of("Trang tuyển dụng của công ty", "ITviec", "TopDev", "LinkedIn", "TopCV", "VietnamWorks",
-                        "Giới thiệu nội bộ", "Nhóm Facebook về IT", "Ngày hội việc làm IT", "Headhunter")
+        // Bắt buộc: ứng viên tự nộp đơn trên web/mobile được gán nguồn này (ApplyJobPage, jobs/apply.tsx).
+        // Các nguồn khác (LinkedIn, TopCV, giới thiệu nội bộ...) do Quản trị tự thêm.
+        List.of(CAREERS_SITE_SOURCE)
                 .forEach(name -> {
                     if (!recruitmentSourceRepository.existsByNameIgnoreCase(name)) {
                         recruitmentSourceRepository.save(
@@ -124,79 +103,14 @@ public class DefaultDataSeeder {
     }
 
     private void seedRejectionReasons() {
-        List.of("Chưa đủ số năm kinh nghiệm", "Kỹ năng kỹ thuật chưa đạt", "Chưa đạt bài phỏng vấn kỹ thuật",
-                        "Công nghệ chính không khớp vị trí", "Mức lương mong muốn vượt khung",
-                        "Vị trí đã tuyển đủ", "Tiếng Anh chưa đạt yêu cầu", "Không phản hồi liên hệ",
-                        "Chưa phù hợp cách làm việc của nhóm", "Đã nhận việc ở công ty khác",
-                        "Hồ sơ thiếu thông tin")
+        // Bộ lý do chung, không gắn ngành nghề (tham khảo bộ mặc định của Greenhouse). Quản trị sửa / thêm tuỳ công ty.
+        List.of("Thiếu kỹ năng hoặc trình độ theo yêu cầu", "Đã chọn ứng viên khác phù hợp hơn",
+                        "Chưa phù hợp văn hoá công ty", "Hồ sơ trùng", "Ứng viên từ chối đề nghị",
+                        "Ứng viên không còn quan tâm", "Khác")
                 .forEach(name -> {
                     if (!rejectionReasonRepository.existsByNameIgnoreCase(name)) {
                         rejectionReasonRepository.save(
                                 RejectionReason.builder().name(name).active(true).build());
-                    }
-                });
-    }
-
-    private void seedRecruitmentStatuses() {
-        String[] names = {"Bản nháp", "Chờ phê duyệt", "Đã phê duyệt", "Đang mở", "Tạm dừng", "Đã đóng", "Từ chối"};
-        for (int i = 0; i < names.length; i++) {
-            if (!recruitmentStatusRepository.existsByNameIgnoreCase(names[i])) {
-                recruitmentStatusRepository.save(RecruitmentStatus.builder()
-                        .name(names[i]).orderNo(i + 1).active(true).build());
-            }
-        }
-    }
-
-    private void seedInterviewCriteria() {
-        List.of("Kiến thức nền tảng (cấu trúc dữ liệu, thuật toán)", "Kỹ năng lập trình và chất lượng mã",
-                        "Thiết kế hệ thống", "Tư duy giải quyết vấn đề", "Kinh nghiệm dự án thực tế",
-                        "Giao tiếp và làm việc nhóm", "Tinh thần học hỏi", "Tiếng Anh đọc tài liệu kỹ thuật")
-                .forEach(name -> {
-                    if (!interviewCriteriaRepository.existsByNameIgnoreCase(name)) {
-                        interviewCriteriaRepository.save(
-                                InterviewCriteria.builder().name(name).active(true).build());
-                    }
-                });
-    }
-
-    private void seedDepartments() {
-        String[][] departments = {
-                {"Phòng Backend", "Xây dựng dịch vụ, API và cơ sở dữ liệu của sản phẩm"},
-                {"Phòng Frontend", "Phát triển giao diện web của sản phẩm"},
-                {"Phòng Mobile", "Phát triển ứng dụng iOS và Android"},
-                {"Phòng Kiểm thử (QA)", "Kiểm thử thủ công, kiểm thử tự động và đảm bảo chất lượng"},
-                {"Phòng DevOps & Cloud", "Hạ tầng, triển khai liên tục và vận hành hệ thống"},
-                {"Phòng Dữ liệu & AI", "Kỹ thuật dữ liệu, phân tích và mô hình học máy"},
-                {"Phòng Nhân sự", "Tuyển dụng, đào tạo và chăm sóc nhân viên"},
-        };
-        for (String[] d : departments) {
-            if (!departmentRepository.existsByNameIgnoreCase(d[0])) {
-                departmentRepository.save(Department.builder()
-                        .name(d[0]).description(d[1]).active(true).build());
-            }
-        }
-    }
-
-    private void seedJobLevels() {
-        String[] names = {"Intern", "Fresher", "Junior", "Middle", "Senior", "Tech Lead", "Engineering Manager"};
-        for (int i = 0; i < names.length; i++) {
-            if (!jobLevelRepository.existsByNameIgnoreCase(names[i])) {
-                jobLevelRepository.save(JobLevel.builder()
-                        .name(names[i]).orderNo(i + 1).active(true).build());
-            }
-        }
-    }
-
-    private void seedJobTitles() {
-        List.of("Lập trình viên Backend", "Lập trình viên Frontend", "Lập trình viên Full-stack",
-                        "Lập trình viên Mobile", "Kỹ sư kiểm thử phần mềm", "Kỹ sư kiểm thử tự động",
-                        "Kỹ sư DevOps", "Kỹ sư Cloud", "Kỹ sư dữ liệu", "Kỹ sư AI/ML",
-                        "Chuyên viên phân tích dữ liệu", "Chuyên viên phân tích nghiệp vụ",
-                        "Thiết kế UI/UX", "Quản lý dự án phần mềm", "Chuyên viên an toàn thông tin",
-                        "Chuyên viên tuyển dụng IT")
-                .forEach(name -> {
-                    if (!jobTitleRepository.existsByNameIgnoreCase(name)) {
-                        jobTitleRepository.save(JobTitle.builder().name(name).active(true).build());
                     }
                 });
     }
@@ -224,84 +138,75 @@ public class DefaultDataSeeder {
         }
     }
 
-    private void seedWorkLocations() {
-        String[][] locations = {
-                {"Văn phòng TP. Hồ Chí Minh", "Tầng 8, 12 Nguyễn Văn Bảo, Phường 4, Quận Gò Vấp, TP. Hồ Chí Minh"},
-                {"Văn phòng Hà Nội", "Tầng 15, 86 Duy Tân, Quận Cầu Giấy, Hà Nội"},
-                {"Văn phòng Đà Nẵng", "Tầng 4, 15 Quang Trung, Quận Hải Châu, Đà Nẵng"},
-        };
-        for (String[] l : locations) {
-            if (!workLocationRepository.existsByNameIgnoreCase(l[0])) {
-                workLocationRepository.save(WorkLocation.builder()
-                        .name(l[0]).address(l[1]).active(true).build());
-            }
-        }
-    }
-
-    private void seedSkills() {
-        String[][] skills = {
-                {"Java", "Chuyên môn"}, {"Spring Boot", "Chuyên môn"}, {"Node.js", "Chuyên môn"},
-                {"Python", "Chuyên môn"}, {"Go", "Chuyên môn"}, {"C#/.NET", "Chuyên môn"},
-                {"JavaScript", "Chuyên môn"}, {"TypeScript", "Chuyên môn"}, {"React", "Chuyên môn"},
-                {"Vue.js", "Chuyên môn"}, {"Next.js", "Chuyên môn"}, {"HTML/CSS", "Chuyên môn"},
-                {"React Native", "Chuyên môn"}, {"Flutter", "Chuyên môn"}, {"Kotlin", "Chuyên môn"},
-                {"Swift", "Chuyên môn"}, {"SQL", "Chuyên môn"}, {"PostgreSQL", "Chuyên môn"},
-                {"MySQL", "Chuyên môn"}, {"MongoDB", "Chuyên môn"}, {"Redis", "Chuyên môn"},
-                {"Kafka", "Chuyên môn"}, {"RabbitMQ", "Chuyên môn"}, {"REST API", "Chuyên môn"},
-                {"Microservices", "Chuyên môn"}, {"Docker", "Chuyên môn"}, {"Kubernetes", "Chuyên môn"},
-                {"CI/CD", "Chuyên môn"}, {"AWS", "Chuyên môn"}, {"Linux", "Chuyên môn"},
-                {"Terraform", "Chuyên môn"}, {"Kiểm thử thủ công", "Chuyên môn"},
-                {"Selenium", "Chuyên môn"}, {"Playwright", "Chuyên môn"}, {"Kiểm thử API", "Chuyên môn"},
-                {"Machine Learning", "Chuyên môn"}, {"PyTorch", "Chuyên môn"}, {"Pandas", "Chuyên môn"},
-                {"Airflow", "Chuyên môn"}, {"Spark", "Chuyên môn"},
-                {"Git", "Công cụ"}, {"Jira", "Công cụ"}, {"Figma", "Công cụ"}, {"Postman", "Công cụ"},
-                {"Giao tiếp", "Kỹ năng mềm"}, {"Làm việc nhóm", "Kỹ năng mềm"},
-                {"Giải quyết vấn đề", "Kỹ năng mềm"}, {"Tự học", "Kỹ năng mềm"},
-                {"Tiếng Anh", "Ngoại ngữ"}, {"Tiếng Nhật", "Ngoại ngữ"},
-        };
-        for (String[] s : skills) {
-            if (!skillRepository.existsByNameIgnoreCase(s[0])) {
-                skillRepository.save(Skill.builder()
-                        .name(s[0]).category(s[1]).active(true).build());
-            }
-        }
-    }
-
     /**
-     * Mau email khop voi NotificationType cua notification-service (code = ten enum).
-     * Placeholder kha dung: title, message, recipientName, resourceType, resourceId.
+     * Mẫu email theo loại thông báo. Mã = tên NotificationType; loại gửi cho cả ứng viên lẫn nhân viên có hai mẫu
+     * riêng (hậu tố __CANDIDATE / __STAFF). notification-service bọc nội dung vào khung HTML (tên, logo, màu công ty)
+     * và tự thêm nút dẫn tới trang liên quan. Biến: {{recipientName}}, {{message}}, {{title}}, {{companyName}}, {{link}}.
      */
     private void seedEmailTemplates() {
         String[][] templates = {
-                {"REQUISITION_PENDING_APPROVAL", "[ATS] Yêu cầu tuyển dụng chờ phê duyệt",
-                        "Xin chào {{recipientName}},\n\nCó một yêu cầu tuyển dụng đang chờ bạn phê duyệt.\n\n{{message}}\n\nMã yêu cầu: {{resourceId}}\nVui lòng đăng nhập hệ thống ATS để xem chi tiết và xử lý.\n\nTrân trọng,\nHệ thống ATS"},
-                {"APPLICATION_CREATED", "[ATS] Hồ sơ ứng tuyển mới",
-                        "Xin chào {{recipientName}},\n\nMột hồ sơ ứng tuyển mới vừa được ghi nhận.\n\n{{message}}\n\nMã hồ sơ: {{resourceId}}\nVui lòng đăng nhập hệ thống ATS để sàng lọc hồ sơ.\n\nTrân trọng,\nHệ thống ATS"},
-                {"APPLICATION_STAGE_CHANGED", "[ATS] Hồ sơ chuyển giai đoạn tuyển dụng",
-                        "Xin chào {{recipientName}},\n\n{{message}}\n\nMã hồ sơ: {{resourceId}}\nVui lòng đăng nhập hệ thống ATS để theo dõi tiến độ.\n\nTrân trọng,\nHệ thống ATS"},
-                {"APPLICATION_REJECTED", "[ATS] Kết quả hồ sơ ứng tuyển",
-                        "Xin chào {{recipientName}},\n\n{{message}}\n\nMã hồ sơ: {{resourceId}}\nCảm ơn bạn đã quan tâm và dành thời gian cho vị trí này.\n\nTrân trọng,\nHệ thống ATS"},
-                {"INTERVIEW_SCHEDULED", "[ATS] Lịch phỏng vấn đã được sắp xếp",
-                        "Xin chào {{recipientName}},\n\nMột buổi phỏng vấn vừa được sắp xếp.\n\n{{message}}\n\nMã lịch phỏng vấn: {{resourceId}}\nVui lòng đăng nhập hệ thống ATS để xem chi tiết và xác nhận tham dự.\n\nTrân trọng,\nHệ thống ATS"},
-                {"INTERVIEW_CONFIRMED", "[ATS] Xác nhận tham dự phỏng vấn",
-                        "Xin chào {{recipientName}},\n\n{{message}}\n\nMã lịch phỏng vấn: {{resourceId}}\n\nTrân trọng,\nHệ thống ATS"},
-                {"INTERVIEW_REMINDER", "[ATS] Nhắc lịch phỏng vấn sắp diễn ra",
-                        "Xin chào {{recipientName}},\n\nĐây là email nhắc bạn về buổi phỏng vấn sắp diễn ra.\n\n{{message}}\n\nMã lịch phỏng vấn: {{resourceId}}\nVui lòng chuẩn bị và tham dự đúng giờ.\n\nTrân trọng,\nHệ thống ATS"},
-                {"EVALUATION_INCOMPLETE_REMINDER", "[ATS] Nhắc hoàn tất đánh giá phỏng vấn",
-                        "Xin chào {{recipientName}},\n\nBạn còn phiếu đánh giá phỏng vấn chưa hoàn tất.\n\n{{message}}\n\nMã lịch phỏng vấn: {{resourceId}}\nVui lòng đăng nhập hệ thống ATS để hoàn tất đánh giá.\n\nTrân trọng,\nHệ thống ATS"},
-                {"OFFER_PENDING_CONFIRMATION", "[ATS] Đề nghị tuyển dụng chờ phê duyệt",
-                        "Xin chào {{recipientName}},\n\nCó một đề nghị tuyển dụng đang chờ bạn phê duyệt.\n\n{{message}}\n\nMã đề nghị: {{resourceId}}\nVui lòng đăng nhập hệ thống ATS để xem chi tiết và xử lý.\n\nTrân trọng,\nHệ thống ATS"},
-                {"OFFER_READY_FOR_CANDIDATE", "[ATS] Thư mời nhận việc",
-                        "Xin chào {{recipientName}},\n\nChúng tôi rất vui được gửi đến bạn đề nghị nhận việc.\n\n{{message}}\n\nMã đề nghị: {{resourceId}}\nVui lòng phản hồi để chúng tôi hoàn tất các thủ tục tiếp theo.\n\nTrân trọng,\nHệ thống ATS"},
-                {"OFFER_ACCEPTED", "[ATS] Ứng viên đã chấp nhận đề nghị",
-                        "Xin chào {{recipientName}},\n\n{{message}}\n\nMã đề nghị: {{resourceId}}\nVui lòng đăng nhập hệ thống ATS để chuẩn bị thủ tục tiếp nhận.\n\nTrân trọng,\nHệ thống ATS"},
-                {"OFFER_DECLINED", "[ATS] Ứng viên đã từ chối đề nghị",
-                        "Xin chào {{recipientName}},\n\n{{message}}\n\nMã đề nghị: {{resourceId}}\nVui lòng đăng nhập hệ thống ATS để xem chi tiết.\n\nTrân trọng,\nHệ thống ATS"},
-                {"APPLICATION_COMMENT_MENTION", "[ATS] Bạn được nhắc đến trong một bình luận",
-                        "Xin chào {{recipientName}},\n\nBạn vừa được nhắc đến trong một bình luận về hồ sơ ứng tuyển.\n\n{{message}}\n\nMã hồ sơ: {{resourceId}}\nVui lòng đăng nhập hệ thống ATS để phản hồi.\n\nTrân trọng,\nHệ thống ATS"},
-                {"APPLICATION_STALE_REMINDER", "[ATS] Hồ sơ tồn đọng cần xử lý",
-                        "Xin chào {{recipientName}},\n\nCó hồ sơ ứng tuyển đã lâu chưa được cập nhật trạng thái.\n\n{{message}}\n\nMã hồ sơ: {{resourceId}}\nVui lòng đăng nhập hệ thống ATS để xử lý.\n\nTrân trọng,\nHệ thống ATS"},
+                {"REQUISITION_PENDING_APPROVAL", "Yêu cầu tuyển dụng mới cần bạn phê duyệt",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nVui lòng xem nội dung yêu cầu và phê duyệt hoặc phản hồi cho phòng ban trong thời gian sớm nhất.\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"REQUISITION_REVIEWED", "{{title}}",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nBạn có thể xem chi tiết kết quả và nội dung cần bổ sung (nếu có) trong hệ thống.\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"APPLICATION_CREATED", "Có hồ sơ ứng tuyển mới",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nVui lòng xem hồ sơ và tiến hành sàng lọc.\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"APPLICATION_STAGE_CHANGED__STAFF", "{{title}}",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"APPLICATION_STALE_REMINDER", "Nhắc nhở: có hồ sơ ứng tuyển chưa được xử lý",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nVui lòng cập nhật trạng thái hồ sơ để ứng viên không phải chờ đợi lâu.\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"APPLICATION_COMMENT_MENTION", "{{title}}",
+                        "Xin chào {{recipientName}},\n\nBạn được nhắc đến trong một bình luận về hồ sơ ứng tuyển:\n\n“{{message}}”\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"INTERVIEW_SCHEDULED", "Bạn được phân công phỏng vấn",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nVui lòng kiểm tra lịch và xác nhận để lời mời phỏng vấn được gửi tới ứng viên.\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"INTERVIEW_CONFIRMED", "Ứng viên đã xác nhận lịch phỏng vấn",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"INTERVIEW_CANDIDATE_DECLINED", "Ứng viên đề nghị dời lịch phỏng vấn",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nVui lòng sắp xếp lại thời gian phù hợp cho buổi phỏng vấn.\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"INTERVIEW_CANCELLED__STAFF", "Buổi phỏng vấn đã bị huỷ",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"INTERVIEW_REMINDER__STAFF", "Nhắc lịch phỏng vấn sắp diễn ra",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nVui lòng nộp phiếu đánh giá trong hệ thống sau khi kết thúc buổi phỏng vấn.\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"EVALUATION_INCOMPLETE_REMINDER", "Nhắc nhở: phiếu đánh giá phỏng vấn chưa hoàn tất",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"OFFER_PENDING_CONFIRMATION", "Thư mời nhận việc đã được gửi tới ứng viên",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"OFFER_ACCEPTED", "Ứng viên đã chấp nhận thư mời nhận việc",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nVui lòng chuẩn bị các thủ tục tiếp nhận nhân sự mới.\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"OFFER_DECLINED", "Ứng viên đã từ chối thư mời nhận việc",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nTrân trọng,\nHệ thống tuyển dụng {{companyName}}"},
+                {"APPLICATION_RECEIVED", "{{companyName}} đã nhận hồ sơ ứng tuyển của bạn",
+                        "Xin chào {{recipientName}},\n\nCảm ơn bạn đã quan tâm đến cơ hội nghề nghiệp tại {{companyName}}. {{message}}\n\nBộ phận Tuyển dụng sẽ xem xét hồ sơ và liên hệ với bạn trong thời gian sớm nhất. Bạn có thể theo dõi tiến độ hồ sơ bất cứ lúc nào.\n\nTrân trọng,\nBộ phận Tuyển dụng {{companyName}}"},
+                {"APPLICATION_STAGE_CHANGED__CANDIDATE", "{{title}}",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nBạn có thể xem chi tiết tiến độ hồ sơ trong trang cá nhân.\n\nTrân trọng,\nBộ phận Tuyển dụng {{companyName}}"},
+                {"APPLICATION_REJECTED", "Kết quả hồ sơ ứng tuyển tại {{companyName}}",
+                        "Xin chào {{recipientName}},\n\nCảm ơn bạn đã dành thời gian ứng tuyển và tìm hiểu về {{companyName}}. {{message}}\n\nChúng tôi trân trọng sự quan tâm của bạn và hy vọng có dịp hợp tác trong những cơ hội phù hợp hơn. Chúc bạn nhiều thành công.\n\nTrân trọng,\nBộ phận Tuyển dụng {{companyName}}"},
+                {"INTERVIEW_HM_CONFIRMED", "Thư mời phỏng vấn tại {{companyName}}",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nVui lòng xác nhận tham dự trong hệ thống. Nếu không thể tham gia vào thời gian này, bạn có thể đề nghị dời lịch.\n\nTrân trọng,\nBộ phận Tuyển dụng {{companyName}}"},
+                {"INTERVIEW_CANCELLED__CANDIDATE", "Thông báo huỷ lịch phỏng vấn",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nChúng tôi thành thật xin lỗi vì sự bất tiện này.\n\nTrân trọng,\nBộ phận Tuyển dụng {{companyName}}"},
+                {"INTERVIEW_REMINDER__CANDIDATE", "Nhắc lịch phỏng vấn tại {{companyName}}",
+                        "Xin chào {{recipientName}},\n\n{{message}}\n\nVui lòng có mặt (hoặc vào phòng họp trực tuyến) trước giờ hẹn vài phút. Chúc bạn có buổi phỏng vấn thành công.\n\nTrân trọng,\nBộ phận Tuyển dụng {{companyName}}"},
+                {"OFFER_READY_FOR_CANDIDATE", "Thư mời nhận việc từ {{companyName}}",
+                        "Xin chào {{recipientName}},\n\nChúc mừng bạn! {{message}}\n\nChúng tôi rất mong được chào đón bạn gia nhập đội ngũ {{companyName}}.\n\nTrân trọng,\nBộ phận Tuyển dụng {{companyName}}"}
         };
+        java.util.Map<String, String[]> byCode = new java.util.HashMap<>();
+        for (String[] t : templates) byCode.put(t[0].toUpperCase(), t);
+        // Mẫu mặc định đời cũ (tiêu đề "[ATS] ...", ký "Hệ thống ATS") mà Quản trị chưa sửa: thay bằng bản mới;
+        // mẫu chung cũ của loại đã tách theo người nhận thì xoá. Mẫu Quản trị đã sửa thì giữ nguyên.
+        for (EmailTemplate old : emailTemplateRepository.findAll()) {
+            boolean untouchedLegacy = old.getSubject() != null && old.getSubject().startsWith("[ATS] ")
+                    && old.getBody() != null && old.getBody().contains("Hệ thống ATS");
+            if (!untouchedLegacy) continue;
+            String[] t = byCode.get(old.getCode().toUpperCase());
+            if (t != null) {
+                old.setSubject(t[1]);
+                old.setBody(t[2]);
+                emailTemplateRepository.save(old);
+            } else if (LEGACY_SPLIT_CODES.contains(old.getCode().toUpperCase())) {
+                emailTemplateRepository.delete(old);
+            }
+        }
         for (String[] t : templates) {
             if (!emailTemplateRepository.existsByCodeIgnoreCase(t[0])) {
                 emailTemplateRepository.save(EmailTemplate.builder()
@@ -309,6 +214,10 @@ public class DefaultDataSeeder {
             }
         }
     }
+
+    /** Loại thông báo trước dùng một mẫu chung, nay tách mẫu theo người nhận. */
+    private static final java.util.Set<String> LEGACY_SPLIT_CODES =
+            java.util.Set.of("APPLICATION_STAGE_CHANGED", "INTERVIEW_REMINDER", "INTERVIEW_CANCELLED");
 
     /** Tên quy trình 6 bước — một bước cho mỗi giai đoạn cố định của giao diện (docs/UI DS06). */
     public static final String SIX_STAGE_PIPELINE_NAME = "Quy trình 6 giai đoạn";

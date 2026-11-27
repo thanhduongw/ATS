@@ -1,313 +1,186 @@
+# ============================================================
+# Toàn bộ hệ thống ATS — dùng NHƯ NHAU ở máy local và trên VPS.
+#
+#   cp .env.example .env        # điền mật khẩu, PUBLIC_URL... (xem chú thích trong file)
+#   bash deploy/build.sh        # build lần lượt từng image rồi khởi động theo đợt
+#
+# Sửa code một service rồi chạy lại:  bash deploy/build.sh <service>
+# Chỉ Caddy mở cổng 80/443 ra ngoài; DB, RabbitMQ, Redis, gateway không publish cổng
+# (Docker ghi iptables bỏ qua UFW, publish là lộ ra Internet).
+# ============================================================
+
+x-java-service: &java-service
+  restart: unless-stopped
+  networks: [ats-network]
+  depends_on:
+    postgres: { condition: service_healthy }
+    rabbitmq: { condition: service_healthy }
+    redis: { condition: service_started }
+  logging: &logging
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+x-java-env: &java-env
+  TZ: Asia/Ho_Chi_Minh
+  # Giới hạn heap để 10 JVM vừa máy 8 GB. Tăng JAVA_MAX_HEAP trong .env nếu VPS rộng hơn.
+  JAVA_TOOL_OPTIONS: "-Xms64m -Xmx${JAVA_MAX_HEAP:-384m} -XX:MaxMetaspaceSize=192m -Xss512k -XX:+UseSerialGC -Duser.timezone=Asia/Ho_Chi_Minh"
+  SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?POSTGRES_USER chưa đặt trong .env}
+  SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD chưa đặt trong .env}
+  SPRING_RABBITMQ_HOST: rabbitmq
+  SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:?RABBITMQ_USER chưa đặt trong .env}
+  SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env}
+  SPRING_DATA_REDIS_HOST: redis
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET chưa đặt trong .env}
+  SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
+  SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
+  SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
+  SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
+  SERVICES_INTERVIEW_SERVICE_URL: http://interview-service:8085
+  SERVICES_NOTIFICATION_SERVICE_URL: http://notification-service:8086
+  SERVICES_DASHBOARD_SERVICE_URL: http://dashboard-service:8087
+  SERVICES_AI_SERVICE_URL: http://ai-service:8088
+  SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
+  SERVICES_OFFER_SERVICE_URL: http://offer-service:8090
+
 services:
-  # ==========================================
-  # 1. MIDDLEWARE & DATABASES
-  # ==========================================
+  # ---------------- Hạ tầng ----------------
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: ats-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ats_user
-      POSTGRES_PASSWORD: ats_password
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Ho_Chi_Minh
+      PGTZ: Asia/Ho_Chi_Minh
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./docker/postgres-init:/docker-entrypoint-initdb.d
-    networks:
-      - ats-network
+      # Chỉ chạy lần đầu, khi volume pgdata còn trống.
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ats_user"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 20
+    networks: [ats-network]
+    logging: *logging
 
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: ats-rabbitmq
     restart: unless-stopped
-    ports:
-      - "5672:5672"    # AMQP
-      - "15672:15672"  # Management UI
+    hostname: ats-rabbitmq   # cố định để dữ liệu trong volume không đổi node name
     environment:
-      RABBITMQ_DEFAULT_USER: ats_user
-      RABBITMQ_DEFAULT_PASS: ats_password
-    networks:
-      - ats-network
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    # Trang quản trị chỉ mở trên localhost của VPS: ssh -L 15672:localhost:15672 deploy@<IP>
+    ports:
+      - "127.0.0.1:15672:15672"
     healthcheck:
       test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 10
-      start_period: 20s
+      start_period: 30s
+    networks: [ats-network]
+    logging: *logging
 
   redis:
     image: redis:7-alpine
-    container_name: ats-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
-    networks:
-      - ats-network
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks: [ats-network]
+    logging: *logging
 
-  # ==========================================
-  # 2. JAVA BACKEND MICROSERVICES
-  # ==========================================
+  # ---------------- Java services ----------------
   auth-service:
-    build:
-      context: ./auth-service
-      dockerfile: Dockerfile
-    container_name: ats-auth-service
-    expose:
-      - "8081"
+    <<: *java-service
+    image: ats/auth-service:latest
+    build: ./auth-service
+    env_file: [./auth-service/.env]          # MAIL_*, AWS_*
     environment:
+      <<: *java-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_auth
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_DATA_REDIS_HOST: redis
-      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
-      MAIL_LOG_OTP_ON_FAILURE: "true"
-      # Google SSO: doc tu shell/.env cua nguoi chay compose, KHONG commit secret.
-      # De trong => auth-service tu tat oauth2Login va van boot binh thuong.
+      FRONTEND_URL: ${PUBLIC_URL:?PUBLIC_URL chưa đặt trong .env}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:5173/api/auth/login/oauth2/code/google}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - ats-network
+      GOOGLE_REDIRECT_URI: ${PUBLIC_URL}/api/auth/login/oauth2/code/google
+      MAIL_LOG_OTP_ON_FAILURE: "false"
 
   masterdata-service:
-    build:
-      context: ./masterdata-service
-      dockerfile: Dockerfile
-    container_name: ats-masterdata-service
-    expose:
-      - "8082"
+    <<: *java-service
+    image: ats/masterdata-service:latest
+    build: ./masterdata-service
     environment:
+      <<: *java-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_masterdata
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_DATA_REDIS_HOST: redis
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - ats-network
 
   recruitment-service:
-    build:
-      context: ./recruitment-service
-      dockerfile: Dockerfile
-    container_name: ats-recruitment-service
-    expose:
-      - "8083"
+    <<: *java-service
+    image: ats/recruitment-service:latest
+    build: ./recruitment-service
     environment:
+      <<: *java-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_recruitment
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_DATA_REDIS_HOST: redis
-      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
-      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - ats-network
 
   candidate-service:
-    build:
-      context: ./candidate-service
-      dockerfile: Dockerfile
-    container_name: ats-candidate-service
-    # Khoa AWS doc tu ./candidate-service/.env, khong commit vao repo.
-    env_file:
-      - ./candidate-service/.env
-    expose:
-      - "8084"
+    <<: *java-service
+    image: ats/candidate-service:latest
+    build: ./candidate-service
+    env_file: [./candidate-service/.env]     # AWS_*
     environment:
+      <<: *java-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_candidate
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_DATA_REDIS_HOST: redis
-      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
-      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
-      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
-      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - ats-network
-
 
   interview-service:
-    build:
-      context: ./interview-service
-      dockerfile: Dockerfile
-    container_name: ats-interview-service
-    expose:
-      - "8085"
+    <<: *java-service
+    image: ats/interview-service:latest
+    build: ./interview-service
     environment:
+      <<: *java-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_interview
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_DATA_REDIS_HOST: redis
-      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
-      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
-      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
-      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
-      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - ats-network
 
   notification-service:
-    build:
-      context: ./notification-service
-      dockerfile: Dockerfile
-    container_name: ats-notification-service
-    expose:
-      - "8086"
-    env_file:
-      - ./notification-service/.env
+    <<: *java-service
+    image: ats/notification-service:latest
+    build: ./notification-service
+    env_file: [./notification-service/.env]  # MAIL_*
     environment:
+      <<: *java-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_notification
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_DATA_REDIS_HOST: redis
       APP_NOTIFICATION_EMAIL_ENABLED: "true"
-      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
-      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
-      SERVICES_INTERVIEW_SERVICE_URL: http://interview-service:8085
-      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
-      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - ats-network
+      APP_PUBLIC_URL: ${PUBLIC_URL}
 
   dashboard-service:
-    build:
-      context: ./dashboard-service
-      dockerfile: Dockerfile
-    container_name: ats-dashboard-service
-    expose:
-      - "8087"
+    <<: *java-service
+    image: ats/dashboard-service:latest
+    build: ./dashboard-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_dashboard
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_DATA_REDIS_HOST: redis
-      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
-      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
-      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
-      SERVICES_INTERVIEW_SERVICE_URL: http://interview-service:8085
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - ats-network
+      <<: *java-env
 
   application-service:
-    build:
-      context: ./application-service
-      dockerfile: Dockerfile
-    container_name: ats-application-service
-    expose:
-      - "8089"
+    <<: *java-service
+    image: ats/application-service:latest
+    build: ./application-service
     environment:
+      <<: *java-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_application
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_DATA_REDIS_HOST: redis
-      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
-      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
-      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
-      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - ats-network
 
   offer-service:
-    build:
-      context: ./offer-service
-      dockerfile: Dockerfile
-    container_name: ats-offer-service
-    expose:
-      - "8090"
+    <<: *java-service
+    image: ats/offer-service:latest
+    build: ./offer-service
     environment:
+      <<: *java-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ats_offer
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_DATA_REDIS_HOST: redis
-      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
-      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
-      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
-      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
-      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - ats-network
 
-  # ==========================================
-  # 2b. AI SERVICE (Python FastAPI)
-  # ==========================================
-  ai-service:
-    build:
-      context: ./ai-service
-      dockerfile: Dockerfile
-    container_name: ats-ai-service
-    # Không publish cổng ra host: mọi request phải qua api-gateway (xác thực JWT + gắn X-User-*).
-    expose:
-      - "8088"
-    env_file:
-      - ./ai-service/.env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://ats_user:ats_password@postgres:5432/ats_ai
-      RABBITMQ_URL: amqp://ats_user:ats_password@rabbitmq:5672/
-      RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
-      APPLICATION_SERVICE_URL: http://application-service:8089
-      CANDIDATE_SERVICE_URL: http://candidate-service:8084
-      MASTERDATA_SERVICE_URL: http://masterdata-service:8082
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - ats-network
-
-  # ==========================================
-  # 3. API GATEWAY
-  # ==========================================
   api-gateway:
-    build:
-      context: ./api-gateway
-      dockerfile: Dockerfile
-    container_name: ats-api-gateway
-    ports:
-      - "8080:8080"
+    <<: *java-service
+    image: ats/api-gateway:latest
+    build: ./api-gateway
     environment:
-      # Route (path + id) khai bao mot noi duy nhat trong api-gateway/application.yml.
-      # O day chi tro 10 downstream service sang DNS tren ats-network.
-      # Route /ws/** dung lai SERVICES_NOTIFICATION_SERVICE_URL,
-      # cac buoc OAuth2 (/api/auth/oauth2/**, /api/auth/login/oauth2/code/**)
-      # dung lai route /api/auth/** => SERVICES_AUTH_SERVICE_URL.
-      SERVICES_AUTH_SERVICE_URL: http://auth-service:8081
-      SERVICES_MASTERDATA_SERVICE_URL: http://masterdata-service:8082
-      SERVICES_RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
-      SERVICES_CANDIDATE_SERVICE_URL: http://candidate-service:8084
-      SERVICES_INTERVIEW_SERVICE_URL: http://interview-service:8085
-      SERVICES_NOTIFICATION_SERVICE_URL: http://notification-service:8086
-      SERVICES_DASHBOARD_SERVICE_URL: http://dashboard-service:8087
-      SERVICES_APPLICATION_SERVICE_URL: http://application-service:8089
-      SERVICES_OFFER_SERVICE_URL: http://offer-service:8090
-      SERVICES_AI_SERVICE_URL: http://ai-service:8088
+      <<: *java-env
+      APP_PUBLIC_ORIGIN: ${PUBLIC_URL}
     depends_on:
       - auth-service
       - masterdata-service
@@ -319,26 +192,58 @@ services:
       - application-service
       - offer-service
       - ai-service
-    networks:
-      - ats-network
 
-  # ==========================================
-  # 4. FRONTEND SPA (REACT + NGINX)
-  # ==========================================
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: ats-frontend
-    ports:
-      - "5173:80"
+  # ---------------- AI service (Python) ----------------
+  ai-service:
+    image: ats/ai-service:latest
+    build: ./ai-service
+    restart: unless-stopped
+    env_file: [./ai-service/.env]            # OPENAI/GOOGLE key, AWS_*, model
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/ats_ai
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+      RECRUITMENT_SERVICE_URL: http://recruitment-service:8083
+      APPLICATION_SERVICE_URL: http://application-service:8089
+      CANDIDATE_SERVICE_URL: http://candidate-service:8084
+      MASTERDATA_SERVICE_URL: http://masterdata-service:8082
     depends_on:
-      - api-gateway
-    networks:
-      - ats-network
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [ats-network]
+    logging: *logging
+
+  # ---------------- Web ----------------
+  frontend:
+    image: ats/frontend:latest
+    build: ./frontend
+    restart: unless-stopped
+    depends_on: [api-gateway]
+    networks: [ats-network]
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN chưa đặt trong .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [frontend]
+    networks: [ats-network]
+    logging: *logging
 
 volumes:
   pgdata:
+  rabbitmqdata:
+  caddy_data:
+  caddy_config:
 
 networks:
   ats-network:

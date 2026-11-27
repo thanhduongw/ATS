@@ -34,14 +34,7 @@ class SixStagePipelineSeedTest {
     @Mock private iuh.fit.se.masterdata.recruitmentsource.RecruitmentSourceRepository recruitmentSourceRepository;
     @Mock private iuh.fit.se.masterdata.educationlevel.EducationLevelRepository educationLevelRepository;
     @Mock private iuh.fit.se.masterdata.rejectionreason.RejectionReasonRepository rejectionReasonRepository;
-    @Mock private iuh.fit.se.masterdata.recruitmentstatus.RecruitmentStatusRepository recruitmentStatusRepository;
     @Mock private PipelineRepository pipelineRepository;
-    @Mock private iuh.fit.se.masterdata.interviewcriteria.InterviewCriteriaRepository interviewCriteriaRepository;
-    @Mock private iuh.fit.se.masterdata.department.DepartmentRepository departmentRepository;
-    @Mock private iuh.fit.se.masterdata.jobtitle.JobTitleRepository jobTitleRepository;
-    @Mock private iuh.fit.se.masterdata.joblevel.JobLevelRepository jobLevelRepository;
-    @Mock private iuh.fit.se.masterdata.skill.SkillRepository skillRepository;
-    @Mock private iuh.fit.se.masterdata.worklocation.WorkLocationRepository workLocationRepository;
     @Mock private iuh.fit.se.masterdata.experiencelevel.ExperienceLevelRepository experienceLevelRepository;
     @Mock private iuh.fit.se.masterdata.emailtemplate.EmailTemplateRepository emailTemplateRepository;
 

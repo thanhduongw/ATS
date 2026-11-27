@@ -1,7 +1,7 @@
 # ai-service
 
 AI Service của hệ thống ATS — FastAPI (Python). Chấm mức độ phù hợp giữa CV và tin tuyển dụng (JD) theo quy trình của
-nghiên cứu SSRC 2026 (thư mục [`research/`](research/README.md)); kết quả là điểm 0–100 và xếp loại **Phù hợp /
+nghiên cứu SSRC 2026 (mã nghiên cứu để ngoài repo); kết quả là điểm 0–100 và xếp loại **Phù hợp /
 Chưa phân loại / Không phù hợp** để HR tham khảo. AI chỉ gợi ý; HR là người quyết định.
 
 ## Quy trình chấm
@@ -23,9 +23,9 @@ hồ sơ (resumeUrl) + tin tuyển dụng
 (60) đến dưới 70 · Không phù hợp dưới 60. Đủ 70 nhưng có tiêu chí = 1 điểm thì hạ về Chưa phân loại (chỉ hạ, không nâng);
 CV nghi chèn lệnh vào AI thì không tự xếp Phù hợp. Chứng chỉ không áp dụng (JD không nêu) thì điểm chia cho 3 tiêu chí.
 
-**Prompt B giữ nguyên văn** từ `research/data/prompts/prompt_B.txt` và `research/prompts.py` (chép sang
-`app/services/prompts/`); `tests/test_ssrc_prompt.py` so sánh từng ký tự với `research.prompts.score_prompt("B", …)`.
-Mã trong `app/` không import từ `research/`.
+**Prompt B giữ nguyên văn** từ mã nghiên cứu (`research/data/prompts/prompt_B.txt`, `research/prompts.py`), chép sang
+`app/services/prompts/`. Mã trong `app/` không import từ `research/`. Thư mục `research/` đã gỡ khỏi repo;
+`tests/test_ssrc_prompt.py` chỉ chạy khi chép `research/` vào `ai-service/`, không có thì tự bỏ qua.
 
 ## Tech stack
 - **Framework:** FastAPI, SQLAlchemy (async), PostgreSQL
@@ -62,7 +62,7 @@ Khi khởi động, `app/core/schema_migrate.py` tạo bảng còn thiếu và c
 .venv/Scripts/python.exe -m pytest tests/test_ssrc_prompt.py -q     # từng file
 ```
 `test_ssrc_flow.py` và `test_scores_api.py` cần Postgres (`TEST_DATABASE_URL`, mặc định `ats_ai_test`); không có thì tự bỏ qua.
-Test thực nghiệm của bài báo nằm ở `research/tests/`.
+Test thực nghiệm của bài báo nằm ở `research/tests/` (ngoài repo).
 
 ## Sau khi triển khai
 Khởi động lại ai-service rồi gọi `POST /api/v1/ai/scores/rescore-all` bằng tài khoản Admin để chấm lại mọi hồ sơ

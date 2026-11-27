@@ -65,6 +65,7 @@ export default function RequisitionFormPage() {
     const [jobLevels, setJobLevels] = useState<CatalogItem[]>([]);
     const [employmentTypes, setEmploymentTypes] = useState<CatalogItem[]>([]);
     const [workLocations, setWorkLocations] = useState<CatalogItem[]>([]);
+    const [jobTitleCount, setJobTitleCount] = useState<number | null>(null);
     const [original, setOriginal] = useState<JobRequisitionResponse | null>(null);
     const [loading, setLoading] = useState(!!editingId);
     const [saving, setSaving] = useState<"draft" | "submit" | null>(null);
@@ -81,7 +82,9 @@ export default function RequisitionFormPage() {
             getCatalogItems("/masterdata/job-levels"),
             getCatalogItems("/masterdata/employment-types"),
             getCatalogItems("/masterdata/work-locations"),
-        ]).then(([d, l, e, w]) => {
+            getCatalogItems("/masterdata/job-titles"),
+        ]).then(([d, l, e, w, t]) => {
+            setJobTitleCount(active(t).length);
             setDepartments(active(d));
             setJobLevels(active(l));
             setEmploymentTypes(active(e));
@@ -138,6 +141,14 @@ export default function RequisitionFormPage() {
     }
 
     const needsFix = original?.status === "CHANGES_REQUESTED";
+    // DB mới không có sẵn chức danh, cấp bậc, địa điểm... (Quản trị tự cấu hình): báo rõ thay vì để ô chọn trống.
+    const missingCatalogs = jobTitleCount == null ? [] : [
+        jobTitleCount === 0 && "chức danh",
+        myDept == null && departments.length === 0 && "phòng ban",
+        jobLevels.length === 0 && "cấp bậc",
+        employmentTypes.length === 0 && "loại hình làm việc",
+        workLocations.length === 0 && "địa điểm làm việc",
+    ].filter(Boolean);
     const crumb = editingId ? `Sửa ${requisitionCode(editingId)}` : "Tạo mới";
     const money = (name: "expectedSalaryMin" | "expectedSalaryMax" | "budget", placeholder: string) => (
         <Controller
@@ -177,6 +188,12 @@ export default function RequisitionFormPage() {
                     }
                 />
             </div>
+
+            {missingCatalogs.length > 0 && (
+                <InlineNotice tone="warning">
+                    Chưa có {missingCatalogs.join(", ")} để chọn. Nhờ Quản trị thêm trong mục Danh mục rồi tải lại trang.
+                </InlineNotice>
+            )}
 
             {needsFix && original?.hrNote && (
                 <InlineNotice tone="warning">
